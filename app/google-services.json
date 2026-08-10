@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "180144218738",
+    "firebase_url": "https://ontrack-fccb8-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "ontrack-fccb8",
+    "storage_bucket": "ontrack-fccb8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:180144218738:android:b0b991a7575ae7693ed8eb",
+        "android_client_info": {
+          "package_name": "com.KurirKita"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBDoviDNLl_aSjM1NMN-g_gHpeIPPzC6Rk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
