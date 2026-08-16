@@ -47,33 +47,42 @@ fun ActiveTripScreen(trip: Trip, onBack: () -> Unit, onChatClick: () -> Unit) {
             TopAppBar(
                 title = { Text("Detail Perjalanan", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null) }
+                    IconButton(onClick = onBack) { 
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack, 
+                            contentDescription = "Kembali",
+                            tint = MaterialTheme.colorScheme.primary
+                        ) 
+                    }
                 },
                 actions = {
                     IconButton(onClick = onChatClick) {
-                        Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = "Chat", tint = Color(0xFFD32F2F))
+                        Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = "Chat", tint = Color(0xFFF1C40F))
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
+                )
             )
         }
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFFF1F2F6))
+                .background(MaterialTheme.colorScheme.background)
                 .padding(innerPadding)
                 .padding(horizontal = 16.dp)
         ) {
             Card(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
             ) {
                 Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("STATUS SAAT INI", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
-                        Text(currentTrip.status.replace("_", " ").uppercase(), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = Color(0xFF2C3E50))
+                        Text("STATUS SAAT INI", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
+                        Text(currentTrip.status.replace("_", " ").uppercase(), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     if (currentTrip.status == "assigned") {
                         Button(
@@ -87,7 +96,7 @@ fun ActiveTripScreen(trip: Trip, onBack: () -> Unit, onChatClick: () -> Unit) {
                 }
             }
 
-            Text("Rute Tujuan", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+            Text("Rute Tujuan", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground, modifier = Modifier.padding(bottom = 8.dp))
             
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 items(currentTrip.destinations.sortedBy { it.stopIndex }) { dest ->
@@ -119,7 +128,9 @@ fun DestinationItem(dest: Destination, onStatusUpdate: (String, Bitmap?) -> Unit
 
     Card(
         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-        colors = CardDefaults.cardColors(containerColor = if (dest.status == "done") Color(0xFFE8F5E9) else Color.White),
+        colors = CardDefaults.cardColors(
+            containerColor = if (dest.status == "done") MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f) else MaterialTheme.colorScheme.surface
+        ),
         shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
@@ -127,7 +138,7 @@ fun DestinationItem(dest: Destination, onStatusUpdate: (String, Bitmap?) -> Unit
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Surface(
                     shape = androidx.compose.foundation.shape.CircleShape,
-                    color = if (dest.status == "done") Color(0xFF43A047) else Color(0xFFD32F2F),
+                    color = if (dest.status == "done") Color(0xFF43A047) else MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(24.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
@@ -135,12 +146,21 @@ fun DestinationItem(dest: Destination, onStatusUpdate: (String, Bitmap?) -> Unit
                     }
                 }
                 Spacer(modifier = Modifier.width(12.dp))
-                Text(text = dest.locationName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, color = Color(0xFF2C3E50))
+                Text(
+                    text = dest.locationName, 
+                    style = MaterialTheme.typography.titleLarge, 
+                    fontWeight = FontWeight.ExtraBold, 
+                    color = MaterialTheme.colorScheme.onSurface
+                )
             }
             
             if (dest.address.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(4.dp))
-                Text(text = dest.address, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                Text(
+                    text = dest.address, 
+                    style = MaterialTheme.typography.bodySmall, 
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                )
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -154,7 +174,10 @@ fun DestinationItem(dest: Destination, onStatusUpdate: (String, Bitmap?) -> Unit
             } else {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     if (dest.status == "pending") {
-                        Button(onClick = { onStatusUpdate("arrived", null) }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2C3E50))) {
+                        Button(
+                            onClick = { onStatusUpdate("arrived", null) }, 
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer)
+                        ) {
                             Text("SAYA TIBA")
                         }
                     } else if (dest.status == "arrived") {
@@ -163,7 +186,7 @@ fun DestinationItem(dest: Destination, onStatusUpdate: (String, Bitmap?) -> Unit
                             enabled = !isUploading,
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF1C40F), contentColor = Color.Black)
                         ) {
-                            if (isUploading) CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.Black)
+                            if (isUploading) CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.Black, strokeWidth = 2.dp)
                             else {
                                 Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
@@ -178,13 +201,35 @@ fun DestinationItem(dest: Destination, onStatusUpdate: (String, Bitmap?) -> Unit
 }
 
 private fun uploadPhotoAndUpdate(storage: FirebaseStorage, db: FirebaseFirestore, trip: Trip, dest: Destination, bitmap: Bitmap, newStatus: String) {
+    // 1. Resize Bitmap for FASTER upload
+    val scaledBitmap = scaleBitmap(bitmap, 800) // Scale to max 800px
+    
     val fileName = "proof_${trip.tripId}_${dest.stopIndex}_${UUID.randomUUID()}.jpg"
     val ref = storage.reference.child("proofs/$fileName")
     val baos = ByteArrayOutputStream()
-    bitmap.compress(Bitmap.CompressFormat.JPEG, 70, baos)
+    scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 60, baos) // 60% quality is enough for proof
+    
     ref.putBytes(baos.toByteArray()).addOnSuccessListener {
-        ref.downloadUrl.addOnSuccessListener { uri -> updateDestinationStatus(db, trip, dest, newStatus, uri.toString()) }
+        ref.downloadUrl.addOnSuccessListener { uri -> 
+            updateDestinationStatus(db, trip, dest, newStatus, uri.toString()) 
+        }
+    }.addOnFailureListener {
+        // Fallback or retry logic can be added here
     }
+}
+
+private fun scaleBitmap(source: Bitmap, maxSize: Int): Bitmap {
+    var width = source.width
+    var height = source.height
+    val bitmapRatio = width.toFloat() / height.toFloat()
+    if (bitmapRatio > 1) {
+        width = maxSize
+        height = (width / bitmapRatio).toInt()
+    } else {
+        height = maxSize
+        width = (height * bitmapRatio).toInt()
+    }
+    return Bitmap.createScaledBitmap(source, width, height, true)
 }
 
 private fun updateDestinationStatus(db: FirebaseFirestore, trip: Trip, dest: Destination, newStatus: String, photoUrl: String?) {

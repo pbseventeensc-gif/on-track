@@ -11,12 +11,14 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -155,8 +157,8 @@ fun HistoryScreen(viewModel: TripViewModel, onTripClick: (Trip) -> Unit) {
             .addOnFailureListener { isLoading = false }
     }
 
-    Column(modifier = Modifier.fillMaxSize().background(Color(0xFF2C3E50)).padding(16.dp)) {
-        Text("Riwayat Selesai", color = Color.White, style = MaterialTheme.typography.headlineMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(16.dp)) {
+        Text("Riwayat Selesai", color = MaterialTheme.colorScheme.onBackground, style = MaterialTheme.typography.headlineMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
         Spacer(modifier = Modifier.height(16.dp))
 
         if (isLoading) {
@@ -165,7 +167,7 @@ fun HistoryScreen(viewModel: TripViewModel, onTripClick: (Trip) -> Unit) {
             }
         } else if (historyTrips.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Belum ada riwayat tugas.", color = Color.LightGray)
+                Text("Belum ada riwayat tugas.", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f))
             }
         } else {
             LazyColumn(modifier = Modifier.fillMaxSize()) {
@@ -203,8 +205,10 @@ fun ServiceControlBar(
     }
 
     Surface(
-        color = MaterialTheme.colorScheme.primaryContainer,
-        modifier = Modifier.fillMaxWidth()
+        color = MaterialTheme.colorScheme.primary,
+        contentColor = MaterialTheme.colorScheme.onPrimary,
+        modifier = Modifier.fillMaxWidth(),
+        shadowElevation = 4.dp
     ) {
         Row(
             modifier = Modifier.padding(16.dp).statusBarsPadding(),
@@ -215,21 +219,34 @@ fun ServiceControlBar(
                 Image(
                     painter = painterResource(id = R.drawable.wellen_logo),
                     contentDescription = null,
-                    modifier = Modifier.size(40.dp).padding(end = 8.dp)
+                    modifier = Modifier.size(44.dp).padding(end = 12.dp)
                 )
             Column {
                 val uid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
                 Text(
                     text = if (isTracking) "Tracking Aktif" else "Tracking Berhenti",
-                    style = MaterialTheme.typography.titleMedium
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
                 )
-                Text(
-                    text = "ID: ${uid.take(8)}...",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                )
-                TextButton(onClick = onLogout, contentPadding = PaddingValues(0.dp)) {
-                    Text("Logout", style = MaterialTheme.typography.bodySmall)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "ID: ${uid.take(8)}...",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "•",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.5f)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Logout",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clickable { onLogout() }
+                    )
                 }
             }
             }
@@ -243,7 +260,11 @@ fun ServiceControlBar(
                         isTracking = false
                         onStop()
                     }
-                }
+                },
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color(0xFFF1C40F),
+                    checkedTrackColor = Color(0xFFF1C40F).copy(alpha = 0.5f)
+                )
             )
         }
     }
