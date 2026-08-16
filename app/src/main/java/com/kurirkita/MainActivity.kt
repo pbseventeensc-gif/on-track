@@ -155,17 +155,17 @@ fun HistoryScreen(viewModel: TripViewModel, onTripClick: (Trip) -> Unit) {
             .addOnFailureListener { isLoading = false }
     }
 
-    Column(modifier = Modifier.fillMaxSize().background(Color(0xFFF8F9FA)).padding(16.dp)) {
-        Text("Riwayat Selesai", style = MaterialTheme.typography.headlineMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+    Column(modifier = Modifier.fillMaxSize().background(Color(0xFF2C3E50)).padding(16.dp)) {
+        Text("Riwayat Selesai", color = Color.White, style = MaterialTheme.typography.headlineMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
         Spacer(modifier = Modifier.height(16.dp))
 
         if (isLoading) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
+                CircularProgressIndicator(color = Color(0xFFF1C40F))
             }
         } else if (historyTrips.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Belum ada riwayat tugas.", color = Color.Gray)
+                Text("Belum ada riwayat tugas.", color = Color.LightGray)
             }
         } else {
             LazyColumn(modifier = Modifier.fillMaxSize()) {

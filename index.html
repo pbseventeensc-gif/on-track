@@ -357,22 +357,58 @@
         async function loadHistory() {
             const date = document.getElementById('rep-date').value;
             const container = document.getElementById('history-list');
-            container.innerHTML = 'Memuat...';
+            container.innerHTML = '<div class="text-center small py-3">Memuat...</div>';
             const start = new Date(date); start.setHours(0,0,0,0);
-            const snap = await db.collection('trips').where('date','>=',firebase.firestore.Timestamp.fromDate(start)).get();
+            const snap = await db.collection('trips').where('date', '>=', firebase.firestore.Timestamp.fromDate(start)).get();
+
             container.innerHTML = '';
-            snap.forEach(doc => {
+            if(snap.empty) {
+                container.innerHTML = '<div class="small text-muted text-center py-3">Tidak ada data history.</div>';
+                return;
+            }
+
+            for (const doc of snap.docs) {
                 const t = doc.data();
+                const courierName = registeredUsers[t.courierId] || t.courierId.substring(0,8);
+
+                // Fetch Chat History
+                const chatSnap = await db.collection('trips').doc(doc.id).collection('messages').orderBy('timestamp','asc').get();
+                let chatHistoryHtml = chatSnap.empty ? '<small class="text-muted">Tidak ada chat</small>' : chatSnap.docs.map(mDoc => {
+                    const m = mDoc.data();
+                    const isAdm = m.senderId === 'admin';
+                    return `<div class="p-1 border-bottom" style="font-size:0.75rem"><b>${isAdm?'Admin':'Kurir'}:</b> ${m.text}</div>`;
+                }).join('');
+
                 const div = document.createElement('div');
                 div.className = 'trip-card';
-                div.innerHTML = `<b>Trip: ${registeredUsers[t.courierId] || t.courierId}</b><br>Jarak: ${t.totalDistanceKm || 0} km<br>
-                    <button class="btn btn-sm btn-link p-0" onclick="this.nextElementSibling.classList.toggle('d-none')">Detail Foto & Lokasi</button>
-                    <div class="d-none mt-2">${t.destinations.map(d => `
-                        <div class="dest-pill ${d.status}">${d.locationName}<br>
-                        ${d.proofPhotoUrl ? `<img src="${d.proofPhotoUrl}" class="proof-img">` : '<small>Tanpa foto</small>'}</div>
-                    `).join('')}</div>`;
+                div.innerHTML = `
+                    <div class="d-flex justify-content-between">
+                        <b>Kurir: ${courierName}</b>
+                        <span class="small text-muted">${new Date(t.date.seconds*1000).toLocaleTimeString()}</span>
+                    </div>
+                    <div class="small text-muted mb-2">Jarak: ${t.totalDistanceKm || 0} km</div>
+
+                    <button class="btn btn-sm btn-link p-0 text-primary fw-bold" onclick="this.nextElementSibling.classList.toggle('d-none')">
+                        Buka Detail Foto & Chat History
+                    </button>
+
+                    <div class="d-none mt-2">
+                        <div class="bg-light p-2 rounded mb-2" style="max-height:100px; overflow-y:auto">
+                            <label class="fw-bold extra-small text-uppercase text-secondary" style="font-size:0.6rem">Riwayat Chat</label>
+                            ${chatHistoryHtml}
+                        </div>
+                        ${t.destinations.map(d => `
+                            <div class="dest-pill ${d.status}">
+                                <b>${d.locationName}</b><br>
+                                ${d.proofPhotoUrl ? `
+                                    <div class="mt-2 text-success small fw-bold">✓ Foto Bukti:</div>
+                                    <img src="${d.proofPhotoUrl}" class="proof-img" onclick="window.open('${d.proofPhotoUrl}')">
+                                ` : '<small class="text-muted">Tanpa foto bukti</small>'}
+                            </div>
+                        `).join('')}
+                    </div>`;
                 container.appendChild(div);
-            });
+            }
         }
     </script>
 </body>
