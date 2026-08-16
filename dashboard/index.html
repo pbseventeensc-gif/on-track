@@ -115,13 +115,29 @@
                 <div class="tab-pane fade" id="tab-settings">
                     <h6 class="fw-bold mb-3 text-uppercase small">Konfigurasi Lapangan</h6>
                     <div class="card p-3 mb-3 border-0 bg-light shadow-sm">
-                        <label class="small fw-bold mb-2">Interval Waktu (Detik)</label>
-                        <input type="number" id="cfg-interval" class="form-control mb-3" value="10">
+                        <label class="small fw-bold mb-2">Interval Waktu</label>
+                        <div class="input-group mb-3">
+                            <input type="number" id="cfg-interval" class="form-control" value="10">
+                            <select id="cfg-time-unit" class="form-select" style="max-width: 100px;">
+                                <option value="1000">Detik</option>
+                                <option value="60000">Menit</option>
+                                <option value="3600000">Jam</option>
+                            </select>
+                        </div>
 
-                        <label class="small fw-bold mb-2">Interval Radius (Meter)</label>
-                        <input type="number" id="cfg-distance" class="form-control mb-3" value="10" placeholder="Kirim data tiap X meter">
+                        <label class="small fw-bold mb-2">Interval Radius</label>
+                        <div class="input-group mb-3">
+                            <input type="number" id="cfg-distance" class="form-control" value="10">
+                            <select id="cfg-dist-unit" class="form-select" style="max-width: 100px;">
+                                <option value="1">Meter</option>
+                                <option value="1000">KM</option>
+                            </select>
+                        </div>
 
                         <button class="btn btn-dark w-100 fw-bold" onclick="updateConfig()">Terapkan ke Semua HP</button>
+                    </div>
+                    <div id="settings-alert" class="alert alert-success py-2 small d-none">
+                        <i class="bi bi-check-circle-fill me-1"></i> Konfigurasi berhasil diterapkan!
                     </div>
                     <div class="alert alert-info py-2 small" style="font-size: 0.75rem;">
                         <i class="bi bi-info-circle me-1"></i> Perubahan ini akan langsung merubah perilaku pengiriman data GPS di semua HP kurir secara otomatis.
@@ -345,13 +361,23 @@
 
         // --- CONFIG & HISTORY ---
         async function updateConfig() {
-            const interval = document.getElementById('cfg-interval').value;
-            const distance = document.getElementById('cfg-distance').value;
+            const valTime = document.getElementById('cfg-interval').value;
+            const unitTime = document.getElementById('cfg-time-unit').value;
+            const valDist = document.getElementById('cfg-distance').value;
+            const unitDist = document.getElementById('cfg-dist-unit').value;
+
+            const intervalMs = valTime * unitTime;
+            const minDistance = valDist * unitDist;
+
             await db.collection('config').document('tracking').set({
-                intervalMs: interval * 1000,
-                minDistance: parseFloat(distance)
+                intervalMs: intervalMs,
+                minDistance: parseFloat(minDistance),
+                updatedAt: firebase.firestore.Timestamp.now()
             });
-            alert("Konfigurasi disimpan dan diterapkan ke semua kurir!");
+
+            const alertEl = document.getElementById('settings-alert');
+            alertEl.classList.remove('d-none');
+            setTimeout(() => alertEl.classList.add('d-none'), 3000);
         }
 
         async function loadHistory() {

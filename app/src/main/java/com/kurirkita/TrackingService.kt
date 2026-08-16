@@ -52,6 +52,7 @@ class TrackingService : Service() {
                 if (changed && FirebaseAuth.getInstance().currentUser != null) {
                     Log.d("TrackingService", "Config changed: $trackingIntervalMs ms, $trackingMinDistance m")
                     startLocationUpdates()
+                    showConfigUpdateNotification()
                 }
             }
 
@@ -123,6 +124,21 @@ class TrackingService : Service() {
             .build()
 
         fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, null)
+    }
+
+    private fun showConfigUpdateNotification() {
+        val intervalText = if (trackingIntervalMs >= 60000) "${trackingIntervalMs / 60000} Menit" else "${trackingIntervalMs / 1000} Detik"
+        val distanceText = if (trackingMinDistance >= 1000) "${trackingMinDistance / 1000} KM" else "${trackingMinDistance.toInt()} Meter"
+        
+        val notification = NotificationCompat.Builder(this, "tracking_channel")
+            .setContentTitle("Kebijakan Tracking Diperbarui")
+            .setContentText("Kirim tiap $intervalText / $distanceText")
+            .setSmallIcon(android.R.drawable.ic_menu_info_details)
+            .setAutoCancel(true)
+            .build()
+
+        val manager = getSystemService(NotificationManager::class.java)
+        manager.notify(2, notification)
     }
 
     private fun createNotificationChannel() {
