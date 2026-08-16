@@ -113,12 +113,27 @@
         let tripQueue = [];
 
         // --- CORE LOGIC ---
+        // 1. Listen to All Registered Couriers (Firestore)
+        db.collection('users').where('role', '==', 'courier').onSnapshot(snap => {
+            const sel = document.getElementById('sel-courier');
+            const currentSelected = sel.value;
+            sel.innerHTML = '<option value="">-- Pilih Kurir --</option>';
+
+            snap.forEach(doc => {
+                const u = doc.data();
+                const opt = document.createElement('option');
+                opt.value = doc.id;
+                opt.innerText = u.name || doc.id.substring(0,8);
+                if (doc.id === currentSelected) opt.selected = true;
+                sel.appendChild(opt);
+            });
+        });
+
+        // 2. Listen to Live Locations (RTDB)
         rtdb.ref('courier_live_location').on('value', snap => {
             const data = snap.val() || {};
             const list = document.getElementById('courier-list');
-            const sel = document.getElementById('sel-courier');
             list.innerHTML = '<div class="p-2 border-bottom fw-bold bg-light">KURIR ONLINE</div>';
-            sel.innerHTML = '<option value="">-- Pilih Kurir --</option>';
 
             for (const id in data) {
                 const c = data[id];
@@ -129,7 +144,6 @@
                     <span class="status-dot bg-online"></span><b>${id.substring(0,8)}</b><br>
                     <small>${c.batteryLevel}% Bat | ${c.totalDistanceKm.toFixed(2)} km</small>
                 </div>`;
-                sel.innerHTML += `<option value="${id}">${id.substring(0,8)}</option>`;
             }
         });
 

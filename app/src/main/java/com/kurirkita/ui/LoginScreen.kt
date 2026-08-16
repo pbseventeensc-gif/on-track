@@ -10,7 +10,9 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.KurirKita.R
+import com.KurirKita.model.User
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 
 @Composable
 fun LoginScreen(onLoginSuccess: () -> Unit) {
@@ -64,9 +66,15 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
             onClick = {
                 isLoading = true
                 auth.signInWithEmailAndPassword(email, password)
-                    .addOnSuccessListener {
-                        isLoading = false
-                        onLoginSuccess()
+                    .addOnSuccessListener { result ->
+                        val userId = result.user?.uid ?: ""
+                        // Save/Update user data in Firestore so they appear in dashboard
+                        val user = User(userId = userId, name = email.split("@")[0], role = "courier")
+                        FirebaseFirestore.getInstance().collection("users").document(userId).set(user)
+                            .addOnCompleteListener {
+                                isLoading = false
+                                onLoginSuccess()
+                            }
                     }
                     .addOnFailureListener {
                         isLoading = false
