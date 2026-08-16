@@ -9,6 +9,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -118,7 +119,10 @@ fun MainNavigation(
                     onTripClick = { selectedTrip = it }
                 )
             } else {
-                HistoryScreen(tripViewModel)
+                HistoryScreen(
+                    viewModel = tripViewModel,
+                    onTripClick = { selectedTrip = it }
+                )
             }
         }
     } else {
@@ -131,12 +135,12 @@ fun MainNavigation(
 }
 
 @Composable
-fun HistoryScreen(viewModel: TripViewModel) {
+fun HistoryScreen(viewModel: TripViewModel, onTripClick: (Trip) -> Unit) {
     // In a real app, we might fetch a separate collection, but for now we filter locally
-    val trips by viewModel.trips.collectAsState()
     val db = FirebaseFirestore.getInstance()
     val auth = FirebaseAuth.getInstance()
     var historyTrips by remember { mutableStateOf<List<Trip>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
 
     LaunchedEffect(Unit) {
         val uid = auth.currentUser?.uid ?: return@LaunchedEffect
@@ -144,15 +148,31 @@ fun HistoryScreen(viewModel: TripViewModel) {
             .whereEqualTo("courierId", uid)
             .whereEqualTo("status", "completed")
             .get()
-            .addOnSuccessListener { historyTrips = it.toObjects(Trip::class.java) }
+            .addOnSuccessListener { 
+                historyTrips = it.toObjects(Trip::class.java)
+                isLoading = false
+            }
+            .addOnFailureListener { isLoading = false }
     }
 
-    LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        if (historyTrips.isEmpty()) {
-            item { Text("Belum ada riwayat tugas.", color = Color.Gray) }
-        }
-        items(historyTrips) { trip ->
-            TripCard(trip, onClick = {}) // Read-only card
+    Column(modifier = Modifier.fillMaxSize().background(Color(0xFFF8F9FA)).padding(16.dp)) {
+        Text("Riwayat Selesai", style = MaterialTheme.typography.headlineMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+        Spacer(modifier = Modifier.height(16.dp))
+
+        if (isLoading) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        } else if (historyTrips.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("Belum ada riwayat tugas.", color = Color.Gray)
+            }
+        } else {
+            LazyColumn(modifier = Modifier.fillMaxSize()) {
+                items(historyTrips) { trip ->
+                    TripCard(trip, onClick = onTripClick)
+                }
+            }
         }
     }
 }
