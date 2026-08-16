@@ -173,7 +173,7 @@
         </div>
         <div id="chat-msgs" class="chat-messages"></div>
         <div class="p-2 border-top d-flex">
-            <input type="text" id="chat-input" class="form-control form-control-sm me-2" placeholder="Tulis pesan...">
+            <input type="text" id="chat-input" class="form-control form-control-sm me-2" placeholder="Tulis pesan..." onkeypress="if(event.key==='Enter') sendChat()">
             <button class="btn btn-sm btn-primary" onclick="sendChat()"><i class="bi bi-send"></i></button>
         </div>
     </div>
