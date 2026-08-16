@@ -74,6 +74,26 @@
         .msg.admin { align-self: flex-end; background: var(--architect-blue); color: #fff; border-bottom-right-radius: 4px; }
         .msg.courier { align-self: flex-start; background: #eef2f7; color: #333; border-bottom-left-radius: 4px; }
 
+        /* NUMBERED MARKER STYLES */
+        .custom-div-icon { background: none; border: none; }
+        .marker-pin {
+            width: 30px; height: 30px; border-radius: 50% 50% 50% 0;
+            background: #3f6ad8; position: absolute; transform: rotate(-45deg);
+            left: 50%; top: 50%; margin: -15px 0 0 -15px;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+        .marker-pin::after {
+            content: ''; width: 22px; height: 22px; margin: 0;
+            background: #fff; position: absolute; border-radius: 50%;
+        }
+        .marker-num {
+            position: absolute; width: 30px; height: 30px;
+            line-height: 30px; text-align: center;
+            font-weight: 800; font-size: 13px; color: #333; z-index: 10;
+        }
+        .marker-done .marker-pin { background: #3ac47d !important; } /* Green for Success */
+
         /* HISTORY & ACCORDION */
         .courier-group-header {
             background: #2d2f39;
@@ -339,6 +359,7 @@
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
         const markers = {}, registeredUsers = {};
+        const tripMarkersLayer = L.layerGroup().addTo(map);
         let tripQueue = [], currentChatId = null, chatUnsub = null;
         let globalChatId = null, globalChatUnsub = null;
 
@@ -449,6 +470,8 @@
         db.collection('trips').onSnapshot(snap => {
             let active = 0, done = 0, mList = document.getElementById('monitor-list');
             mList.innerHTML = '';
+            tripMarkersLayer.clearLayers();
+
             snap.forEach(doc => {
                 const t = doc.data();
                 if(t.status === 'completed') done++; else {
@@ -458,6 +481,18 @@
                         ${t.destinations.map(d => `<div class="small dest-pill ${d.status}"><b>${d.locationName}</b></div>`).join('')}
                         <button class="btn btn-sm btn-architect w-100 mt-2 btn-dark" onclick="openChat('${doc.id}', 'Tugas ${registeredUsers[t.courierId]}')">Chat Tugas</button>
                     </div></div>`;
+
+                    // Render markers for active trips
+                    t.destinations.forEach(d => {
+                        const iconClass = d.status === 'done' ? 'marker-done' : '';
+                        const icon = L.divIcon({
+                            className: 'custom-div-icon ' + iconClass,
+                            html: `<div class='marker-pin'></div><div class='marker-num'>${d.stopIndex}</div>`,
+                            iconSize: [30, 42],
+                            iconAnchor: [15, 42]
+                        });
+                        L.marker([d.latitude, d.longitude], {icon}).addTo(tripMarkersLayer).bindPopup(`<b>${d.stopIndex}. ${d.locationName}</b><br>Status: ${d.status}`);
+                    });
                 }
             });
             document.getElementById('stat-active').innerText = active;
