@@ -179,11 +179,11 @@
     </div>
 
     <!-- TOAST NOTIFICATION -->
-    <div class="toast-container position-fixed bottom-0 start-0 p-3" style="z-index: 3000;">
-        <div id="liveToast" class="toast align-items-center text-white bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
-            <div class="d-flex">
-                <div class="toast-body">
-                    <i class="bi bi-check-circle-fill me-2"></i> Perintah terkirim ke semua HP kurir!
+    <div class="toast-container position-fixed top-0 start-50 translate-middle-x p-3" style="z-index: 3000;">
+        <div id="liveToast" class="toast align-items-center text-white bg-success border-0 shadow-lg" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex p-2">
+                <div class="toast-body fs-6">
+                    <i class="bi bi-check-circle-fill me-2"></i> <b>BERHASIL!</b> Perintah sinkronisasi terkirim.
                 </div>
                 <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
             </div>
@@ -491,11 +491,14 @@
                 }
 
                 groupDiv.innerHTML = `
-                    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3" style="cursor:pointer; border:none;" onclick="this.nextElementSibling.classList.toggle('d-none')">
+                    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3" style="cursor:pointer; border:none; border-radius: 12px 12px 0 0;" onclick="this.nextElementSibling.classList.toggle('d-none')">
                         <span class="fw-bold fs-6"><i class="bi bi-person-badge-fill me-2 text-warning"></i>${name}</span>
-                        <span class="badge bg-danger rounded-pill">${trips.length} Tugas Selesai</span>
+                        <div class="d-flex align-items-center">
+                            <span class="badge bg-danger rounded-pill me-2">${trips.length} Tugas Selesai</span>
+                            <i class="bi bi-chevron-down"></i>
+                        </div>
                     </div>
-                    <div class="d-none bg-light p-2">
+                    <div class="d-none bg-light p-2 shadow-inner">
                         ${tripsHtml}
                     </div>
                 `;

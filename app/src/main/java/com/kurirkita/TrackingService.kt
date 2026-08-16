@@ -130,30 +130,33 @@ class TrackingService : Service() {
         val intervalText = if (trackingIntervalMs >= 60000) "${trackingIntervalMs / 60000} Menit" else "${trackingIntervalMs / 1000} Detik"
         val distanceText = if (trackingMinDistance >= 1000) "${trackingMinDistance / 1000} KM" else "${trackingMinDistance.toInt()} Meter"
         
-        val channelId = "config_update_channel"
+        val channelId = "config_update_channel_v2" // Change ID to force refresh importance
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val name = "Update Konfigurasi"
+            val name = "Update Kebijakan Tracking"
             val importance = NotificationManager.IMPORTANCE_HIGH
             val channel = NotificationChannel(channelId, name, importance).apply {
-                description = "Notifikasi saat admin merubah aturan tracking"
+                description = "Notifikasi perubahan interval tracking dari admin"
                 enableVibration(true)
                 vibrationPattern = longArrayOf(0, 500, 200, 500)
+                setSound(android.provider.Settings.System.DEFAULT_NOTIFICATION_URI, null)
             }
             val manager = getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(channel)
         }
 
         val notification = NotificationCompat.Builder(this, channelId)
-            .setContentTitle("Kebijakan Tracking Diperbarui")
-            .setContentText("Kirim tiap $intervalText / $distanceText")
-            .setSmallIcon(android.R.drawable.ic_popup_reminder)
+            .setContentTitle("Aturan Tracking Berubah")
+            .setContentText("Kirim tiap $intervalText atau per $distanceText")
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setDefaults(NotificationCompat.DEFAULT_ALL)
+            .setVibrate(longArrayOf(0, 500, 200, 500))
             .setAutoCancel(true)
             .build()
 
         val manager = getSystemService(NotificationManager::class.java)
-        manager.notify(2, notification)
+        manager.notify(System.currentTimeMillis().toInt(), notification) // Use unique ID to ensure it shows
     }
 
     private fun createNotificationChannel() {
