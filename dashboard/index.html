@@ -113,6 +113,16 @@
         </div>
 
         <div class="content">
+            <!-- GLOBAL MAP (Always Visible for Pro Monitoring) -->
+            <div class="card-pro mb-4">
+                <div class="card-header-pro">
+                    <span><i class="bi bi-geo-fill text-danger me-2"></i>Live Monitoring Map</span>
+                    <span class="badge bg-success">Real-time GPS</span>
+                </div>
+                <div class="p-2">
+                    <div id="map" style="height: 380px;"></div>
+                </div>
+            </div>
 
             <!-- SECTION 1: DASHBOARD -->
             <div id="view-dashboard" class="view-section active">
@@ -141,10 +151,6 @@
                             <div><div class="val" id="stat-done">0</div><div class="lab">Tugas Selesai</div></div>
                         </div>
                     </div>
-                </div>
-                <div class="card-pro">
-                    <div class="card-header-pro">Live Tracking Map <span class="badge bg-success">Real-time</span></div>
-                    <div class="p-3"><div id="map"></div></div>
                 </div>
             </div>
 
