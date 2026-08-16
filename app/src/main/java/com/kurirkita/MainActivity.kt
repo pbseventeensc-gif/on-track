@@ -20,14 +20,23 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.KurirKita.R
 import com.KurirKita.model.Trip
+import com.KurirKita.model.User
 import com.KurirKita.ui.*
 import com.KurirKita.ui.theme.KurirKitaTheme
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Ensure user is registered in Firestore if already logged in
+        val currentUser = FirebaseAuth.getInstance().currentUser
+        if (currentUser != null) {
+            registerUserInFirestore(currentUser.uid, currentUser.email ?: "")
+        }
+
         enableEdgeToEdge()
         setContent {
             KurirKitaTheme {
@@ -62,6 +71,11 @@ class MainActivity : ComponentActivity() {
     private fun stopTrackingService() {
         val intent = Intent(this, TrackingService::class.java)
         stopService(intent)
+    }
+
+    private fun registerUserInFirestore(uid: String, email: String) {
+        val user = User(userId = uid, name = email.split("@")[0], role = "courier")
+        FirebaseFirestore.getInstance().collection("users").document(uid).set(user)
     }
 }
 

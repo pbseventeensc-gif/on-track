@@ -113,21 +113,15 @@
         let tripQueue = [];
 
         // --- CORE LOGIC ---
+        const registeredCouriers = {};
+
         // 1. Listen to All Registered Couriers (Firestore)
         db.collection('users').where('role', '==', 'courier').onSnapshot(snap => {
-            const sel = document.getElementById('sel-courier');
-            const currentSelected = sel.value;
-            sel.innerHTML = '<option value="">-- Pilih Kurir --</option>';
-
             snap.forEach(doc => {
-                const u = doc.data();
-                const opt = document.createElement('option');
-                opt.value = doc.id;
-                opt.innerText = u.name || doc.id.substring(0,8);
-                if (doc.id === currentSelected) opt.selected = true;
-                sel.appendChild(opt);
+                registeredCouriers[doc.id] = doc.data().name || doc.id.substring(0,8);
             });
-        });
+            updateCourierDropdown();
+        }, err => console.error("Firestore Error:", err));
 
         // 2. Listen to Live Locations (RTDB)
         rtdb.ref('courier_live_location').on('value', snap => {
@@ -137,15 +131,33 @@
 
             for (const id in data) {
                 const c = data[id];
+                // Add to temporary list if not in Firestore yet
+                if (!registeredCouriers[id]) registeredCouriers[id] = id.substring(0,8);
+
                 if (markers[id]) markers[id].setLatLng([c.lat, c.lng]);
-                else markers[id] = L.marker([c.lat, c.lng]).addTo(map).bindPopup(`Kurir: ${id.substring(0,5)}`);
+                else markers[id] = L.marker([c.lat, c.lng]).addTo(map).bindPopup(`Kurir: ${registeredCouriers[id]}`);
 
                 list.innerHTML += `<div class="courier-card" onclick="map.flyTo([${c.lat}, ${c.lng}], 16)">
-                    <span class="status-dot bg-online"></span><b>${id.substring(0,8)}</b><br>
+                    <span class="status-dot bg-online"></span><b>${registeredCouriers[id]}</b><br>
                     <small>${c.batteryLevel}% Bat | ${c.totalDistanceKm.toFixed(2)} km</small>
                 </div>`;
             }
+            updateCourierDropdown();
         });
+
+        function updateCourierDropdown() {
+            const sel = document.getElementById('sel-courier');
+            const currentSelected = sel.value;
+            sel.innerHTML = '<option value="">-- Pilih Kurir --</option>';
+
+            for (const id in registeredCouriers) {
+                const opt = document.createElement('option');
+                opt.value = id;
+                opt.innerText = registeredCouriers[id];
+                if (id === currentSelected) opt.selected = true;
+                sel.appendChild(opt);
+            }
+        }
 
         db.collection('trips').where('status', '!=', 'completed').onSnapshot(snap => {
             const container = document.getElementById('monitor-list');
