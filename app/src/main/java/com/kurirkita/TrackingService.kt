@@ -130,10 +130,25 @@ class TrackingService : Service() {
         val intervalText = if (trackingIntervalMs >= 60000) "${trackingIntervalMs / 60000} Menit" else "${trackingIntervalMs / 1000} Detik"
         val distanceText = if (trackingMinDistance >= 1000) "${trackingMinDistance / 1000} KM" else "${trackingMinDistance.toInt()} Meter"
         
-        val notification = NotificationCompat.Builder(this, "tracking_channel")
+        val channelId = "config_update_channel"
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val name = "Update Konfigurasi"
+            val importance = NotificationManager.IMPORTANCE_HIGH
+            val channel = NotificationChannel(channelId, name, importance).apply {
+                description = "Notifikasi saat admin merubah aturan tracking"
+                enableVibration(true)
+                vibrationPattern = longArrayOf(0, 500, 200, 500)
+            }
+            val manager = getSystemService(NotificationManager::class.java)
+            manager.createNotificationChannel(channel)
+        }
+
+        val notification = NotificationCompat.Builder(this, channelId)
             .setContentTitle("Kebijakan Tracking Diperbarui")
             .setContentText("Kirim tiap $intervalText / $distanceText")
-            .setSmallIcon(android.R.drawable.ic_menu_info_details)
+            .setSmallIcon(android.R.drawable.ic_popup_reminder)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setDefaults(NotificationCompat.DEFAULT_ALL)
             .setAutoCancel(true)
             .build()
 

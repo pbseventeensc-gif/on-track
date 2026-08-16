@@ -138,14 +138,20 @@
                     </div>
 
                     <h6 class="fw-bold mb-3 text-uppercase small">Cloudinary Storage (Opsional)</h6>
-                    <div class="card p-3 mb-3 border-0 bg-light shadow-sm">
-                        <label class="small fw-bold mb-1">Cloud Name</label>
-                        <input type="text" id="cld-name" class="form-control mb-2" placeholder="Contoh: dxxxxxxx">
+                    <div id="cld-config-body" class="card p-3 mb-3 border-0 bg-light shadow-sm">
+                        <div id="cld-inputs">
+                            <label class="small fw-bold mb-1">Cloud Name</label>
+                            <input type="text" id="cld-name" class="form-control mb-2" placeholder="Contoh: dxxxxxxx">
 
-                        <label class="small fw-bold mb-1">Upload Preset (Unsigned)</label>
-                        <input type="text" id="cld-preset" class="form-control mb-2" placeholder="Contoh: ontrack_preset">
+                            <label class="small fw-bold mb-1">Upload Preset (Unsigned)</label>
+                            <input type="text" id="cld-preset" class="form-control mb-2" placeholder="Contoh: ontrack_preset">
 
-                        <button class="btn btn-primary btn-sm w-100" onclick="saveCloudinary()">Simpan Cloudinary</button>
+                            <button class="btn btn-primary btn-sm w-100 fw-bold" onclick="saveCloudinary()">Simpan & Kunci</button>
+                        </div>
+                        <div id="cld-locked" class="text-center d-none">
+                            <div class="text-success small mb-2"><i class="bi bi-lock-fill"></i> Cloudinary Terhubung</div>
+                            <button class="btn btn-outline-secondary btn-xs w-100" style="font-size: 0.7rem;" onclick="unlockCloudinary()">Edit Pengaturan</button>
+                        </div>
                     </div>
 
                     <div id="settings-alert" class="alert alert-success py-2 small d-none">
@@ -443,49 +449,53 @@
                 const trips = courierGroups[cid];
 
                 const groupDiv = document.createElement('div');
-                groupDiv.className = 'card mb-3 shadow-sm border-0';
+                groupDiv.className = 'card mb-3 shadow-sm border-0 overflow-hidden';
 
                 let tripsHtml = "";
                 for (const t of trips) {
                     // Fetch Chat
                     const chatSnap = await db.collection('trips').doc(t.id).collection('messages').orderBy('timestamp','asc').get();
-                    let chatHtml = chatSnap.empty ? '<small class="text-muted">Tidak ada chat</small>' : chatSnap.docs.map(mDoc => {
+                    let chatHtml = chatSnap.empty ? '<small class="text-muted italic">Tidak ada percakapan chat.</small>' : chatSnap.docs.map(mDoc => {
                         const m = mDoc.data();
                         return `<div class="p-1 border-bottom" style="font-size:0.7rem"><b>${m.senderId==='admin'?'Admin':'Kurir'}:</b> ${m.text}</div>`;
                     }).join('');
 
                     tripsHtml += `
-                        <div class="p-3 border-top">
-                            <div class="d-flex justify-content-between small fw-bold text-secondary mb-2">
-                                <span>TRIP ID: ${t.id.substring(0,8)}</span>
-                                <span>${new Date(t.date.seconds*1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
+                        <div class="p-3 border-top bg-white">
+                            <div class="d-flex justify-content-between small fw-bold text-primary mb-2">
+                                <span><i class="bi bi-tag-fill me-1"></i>TRIP: ${t.id.substring(0,8)}</span>
+                                <span class="text-muted">${new Date(t.date.seconds*1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
                             </div>
-                            <div class="mb-2">Jarak: <b>${t.totalDistanceKm ? t.totalDistanceKm.toFixed(2) : 0} KM</b></div>
+                            <div class="mb-3 small"><i class="bi bi-geo-alt-fill text-danger"></i> Jarak Tempuh: <b>${t.totalDistanceKm ? t.totalDistanceKm.toFixed(2) : 0} KM</b></div>
 
-                            <div class="bg-light p-2 rounded mb-2" style="max-height:80px; overflow-y:auto">
-                                <label class="fw-bold extra-small text-uppercase text-secondary" style="font-size:0.6rem">Riwayat Chat</label>
+                            <div class="bg-light p-2 rounded mb-3" style="max-height:100px; overflow-y:auto; border: 1px solid #eee;">
+                                <label class="fw-bold extra-small text-uppercase text-secondary d-block mb-1" style="font-size:0.6rem">Riwayat Chat</label>
                                 ${chatHtml}
                             </div>
 
+                            <div class="row g-2">
                             ${t.destinations.map(d => `
-                                <div class="dest-pill ${d.status}">
-                                    <div class="d-flex justify-content-between">
-                                        <b>${d.locationName}</b>
-                                        <span class="small text-muted">${d.status}</span>
+                                <div class="col-12">
+                                    <div class="dest-pill ${d.status} p-2 border rounded">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <b>${d.locationName}</b>
+                                            <span class="badge ${d.status==='done'?'bg-success':'bg-secondary'} px-2" style="font-size:0.6rem">${d.status.toUpperCase()}</span>
+                                        </div>
+                                        ${d.proofPhotoUrl ? `<img src="${d.proofPhotoUrl}" class="proof-img mt-2 rounded shadow-sm" style="max-height:150px; object-fit:cover;" onclick="window.open('${d.proofPhotoUrl}')">` : '<div class="mt-1 small text-muted italic">Tanpa foto bukti</div>'}
                                     </div>
-                                    ${d.proofPhotoUrl ? `<img src="${d.proofPhotoUrl}" class="proof-img mt-2" onclick="window.open('${d.proofPhotoUrl}')">` : '<br><small class="text-muted">Tanpa foto</small>'}
                                 </div>
                             `).join('')}
+                            </div>
                         </div>
                     `;
                 }
 
                 groupDiv.innerHTML = `
-                    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center" style="cursor:pointer" onclick="this.nextElementSibling.classList.toggle('d-none')">
-                        <span class="fw-bold"><i class="bi bi-person-circle me-2"></i>${name}</span>
-                        <span class="badge bg-primary">${trips.length} Perjalanan</span>
+                    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3" style="cursor:pointer; border:none;" onclick="this.nextElementSibling.classList.toggle('d-none')">
+                        <span class="fw-bold fs-6"><i class="bi bi-person-badge-fill me-2 text-warning"></i>${name}</span>
+                        <span class="badge bg-danger rounded-pill">${trips.length} Tugas Selesai</span>
                     </div>
-                    <div class="d-none">
+                    <div class="d-none bg-light p-2">
                         ${tripsHtml}
                     </div>
                 `;
@@ -495,19 +505,34 @@
         async function saveCloudinary() {
             const name = document.getElementById('cld-name').value;
             const preset = document.getElementById('cld-preset').value;
+            if(!name || !preset) return alert("Isi nama & preset!");
+
             await db.collection('config').document('cloudinary').set({
                 cloudName: name,
                 uploadPreset: preset,
                 updatedAt: firebase.firestore.Timestamp.now()
             });
-            alert("Cloudinary Config Tersimpan!");
+
+            lockCloudinaryUI();
+            alert("Konfigurasi Cloudinary Berhasil!");
+        }
+
+        function lockCloudinaryUI() {
+            document.getElementById('cld-inputs').classList.add('d-none');
+            document.getElementById('cld-locked').classList.remove('d-none');
+        }
+
+        function unlockCloudinary() {
+            document.getElementById('cld-inputs').classList.remove('d-none');
+            document.getElementById('cld-locked').classList.add('d-none');
         }
 
         // Load Initial Configs
         db.collection('config').document('cloudinary').get().then(doc => {
-            if(doc.exists) {
+            if(doc.exists && doc.data().cloudName) {
                 document.getElementById('cld-name').value = doc.data().cloudName || "";
                 document.getElementById('cld-preset').value = doc.data().uploadPreset || "";
+                lockCloudinaryUI();
             }
         });
         db.collection('config').document('tracking').get().then(doc => {
