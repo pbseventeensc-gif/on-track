@@ -1,8 +1,9 @@
-package com.KurirKita.ui
-
+import android.util.Log
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material3.*
@@ -10,6 +11,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.KurirKita.model.ChatMessage
 import com.google.firebase.Timestamp
@@ -27,52 +29,84 @@ fun ChatScreen(tripId: String, onBack: () -> Unit) {
     
     var messages by remember { mutableStateOf<List<ChatMessage>>(emptyList()) }
     var inputText by remember { mutableStateOf("") }
+    val listState = rememberLazyListState()
+
+    // Listen to messages
+    DisposableEffect(tripId) {
+        Log.d("ChatScreen", "Starting listener for trip: $tripId")
+        val registration = db.collection("trips").document(tripId).collection("messages")
+            .orderBy("timestamp", Query.Direction.ASCENDING)
+            .addSnapshotListener { snapshot, e ->
+                if (e != null) {
+                    Log.e("ChatScreen", "Error: ${e.message}")
+                    return@addSnapshotListener
+                }
+                messages = snapshot?.toObjects(ChatMessage::class.java) ?: emptyList()
+                Log.d("ChatScreen", "Messages received: ${messages.size}")
+            }
+        onDispose { registration.remove() }
+    }
+
+    // Scroll to bottom when new messages arrive
+    LaunchedEffect(messages.size) {
+        if (messages.isNotEmpty()) {
+            listState.animateScrollToItem(messages.size - 1)
+        }
+    }
 
     Scaffold(
         topBar = {
             @OptIn(ExperimentalMaterial3Api::class)
             TopAppBar(
-                title = { Text("Chat Admin", style = MaterialTheme.typography.titleMedium) },
+                title = { Text("Chat Admin", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
-                    TextButton(onClick = onBack) { Text("Kembali") }
+                    TextButton(onClick = onBack) { Text("Kembali", color = Color(0xFFD32F2F)) }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
             )
-        }
+        },
+        containerColor = Color(0xFFF1F2F6) // Paksa background abu-abu terang
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .imePadding() // Memastikan keyboard tidak menutupi input
-                .navigationBarsPadding() // Menghindari area tombol home/gesture
-                .padding(horizontal = 16.dp)
+                .imePadding()
+                .navigationBarsPadding()
         ) {
             LazyColumn(
-                modifier = Modifier.weight(1f),
-                reverseLayout = false,
-                contentPadding = PaddingValues(vertical = 8.dp)
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                state = listState,
+                contentPadding = PaddingValues(16.dp)
             ) {
                 items(messages) { msg ->
                     val isMine = msg.senderId == currentUserId
-                    Box(
+                    Column(
                         modifier = Modifier.fillMaxWidth(),
-                        contentAlignment = if (isMine) Alignment.CenterEnd else Alignment.CenterStart
+                        horizontalAlignment = if (isMine) Alignment.End else Alignment.Start
                     ) {
                         Card(
                             colors = CardDefaults.cardColors(
-                                containerColor = if (isMine) MaterialTheme.colorScheme.primaryContainer else Color.LightGray
+                                containerColor = if (isMine) Color(0xFFD32F2F) else Color.White,
+                                contentColor = if (isMine) Color.White else Color.Black
                             ),
-                            modifier = Modifier.padding(vertical = 2.dp).fillMaxWidth(0.75f)
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(
+                                topStart = 16.dp,
+                                topEnd = 16.dp,
+                                bottomStart = if (isMine) 16.dp else 2.dp,
+                                bottomEnd = if (isMine) 2.dp else 16.dp
+                            ),
+                            modifier = Modifier.padding(vertical = 4.dp).fillMaxWidth(0.8f),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                         ) {
-                            Column(modifier = Modifier.padding(10.dp)) {
-                                Text(msg.text, style = MaterialTheme.typography.bodyMedium)
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text(msg.text, style = MaterialTheme.typography.bodyLarge)
                                 val sdf = SimpleDateFormat("HH:mm", Locale.getDefault())
                                 Text(
                                     text = sdf.format(msg.timestamp.toDate()),
                                     style = MaterialTheme.typography.labelSmall,
                                     modifier = Modifier.align(Alignment.End),
-                                    color = Color.Gray
+                                    color = if (isMine) Color.White.copy(alpha = 0.7f) else Color.Gray
                                 )
                             }
                         }
@@ -82,9 +116,8 @@ fun ChatScreen(tripId: String, onBack: () -> Unit) {
 
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                tonalElevation = 8.dp,
                 color = Color.White,
-                shadowElevation = 8.dp
+                shadowElevation = 10.dp
             ) {
                 Row(
                     modifier = Modifier.padding(12.dp),
@@ -99,7 +132,9 @@ fun ChatScreen(tripId: String, onBack: () -> Unit) {
                             focusedTextColor = Color.Black,
                             unfocusedTextColor = Color.Black,
                             focusedContainerColor = Color(0xFFF5F5F5),
-                            unfocusedContainerColor = Color(0xFFF5F5F5)
+                            unfocusedContainerColor = Color(0xFFF5F5F5),
+                            focusedBorderColor = Color.Transparent,
+                            unfocusedBorderColor = Color.Transparent
                         ),
                         shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
                         maxLines = 3
@@ -120,8 +155,9 @@ fun ChatScreen(tripId: String, onBack: () -> Unit) {
                             }
                         },
                         modifier = Modifier.size(52.dp),
-                        containerColor = Color(0xFFD32F2F), // Wellen Red
-                        shape = androidx.compose.foundation.shape.CircleShape
+                        containerColor = Color(0xFFD32F2F),
+                        shape = androidx.compose.foundation.shape.CircleShape,
+                        elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 4.dp)
                     ) {
                         Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send", tint = Color.White)
                     }
