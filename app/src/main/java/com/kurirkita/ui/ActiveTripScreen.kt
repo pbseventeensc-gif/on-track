@@ -255,31 +255,38 @@ fun DestinationItem(dest: Destination, onStatusUpdate: (String, Bitmap?) -> Unit
 
 private fun uploadPhotoAndUpdate(storage: FirebaseStorage, db: FirebaseFirestore, trip: Trip, dest: Destination, bitmap: Bitmap, newStatus: String) {
     val scaledBitmap = scaleBitmap(bitmap, 640)
-    db.collection("config").document("cloudinary").get().addOnSuccessListener { doc ->
-        val cloudName = doc.getString("cloudName")
-        val preset = doc.getString("uploadPreset")
-        if (!cloudName.isNullOrEmpty() && !preset.isNullOrEmpty()) {
-            val baos = ByteArrayOutputStream()
-            scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 50, baos)
-            MediaManager.get().upload(baos.toByteArray())
-                .unsigned(preset)
-                .option("folder", "wellen_proofs")
-                .callback(object : UploadCallback {
-                    override fun onStart(requestId: String?) {}
-                    override fun onProgress(requestId: String?, bytes: Long, totalBytes: Long) {}
-                    override fun onSuccess(requestId: String?, resultData: Map<*, *>?) {
-                        val url = resultData?.get("secure_url") as? String
-                        if (url != null) updateDestinationStatus(db, trip, dest, newStatus, url)
-                    }
-                    override fun onError(requestId: String?, error: ErrorInfo?) {
-                        uploadToFirebase(storage, db, trip, dest, scaledBitmap, newStatus)
-                    }
-                    override fun onReschedule(requestId: String?, error: ErrorInfo?) {}
-                }).dispatch()
-        } else {
-            uploadToFirebase(storage, db, trip, dest, scaledBitmap, newStatus)
-        }
-    }.addOnFailureListener {
+    Log.d("Upload", "Starting upload for ${dest.locationName} with Direct Cloudinary")
+    
+    // DATA DITANAM LANGSUNG KE APLIKASI
+    val cloudName = "dgf3shxpf"
+    val preset = "KurirTrack"
+
+    val baos = ByteArrayOutputStream()
+    scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 50, baos)
+    val bytes = baos.toByteArray()
+    
+    try {
+        MediaManager.get().upload(bytes)
+            .unsigned(preset)
+            .option("folder", "wellen_proofs")
+            .callback(object : UploadCallback {
+                override fun onStart(requestId: String?) {
+                    Log.d("Upload", "Cloudinary Start")
+                }
+                override fun onProgress(requestId: String?, bytes: Long, totalBytes: Long) {}
+                override fun onSuccess(requestId: String?, resultData: Map<*, *>?) {
+                    val url = resultData?.get("secure_url") as? String
+                    Log.d("Upload", "Cloudinary Success: $url")
+                    if (url != null) updateDestinationStatus(db, trip, dest, newStatus, url)
+                }
+                override fun onError(requestId: String?, error: ErrorInfo?) {
+                    Log.e("Upload", "Cloudinary Error: ${error?.description}")
+                    uploadToFirebase(storage, db, trip, dest, scaledBitmap, newStatus)
+                }
+                override fun onReschedule(requestId: String?, error: ErrorInfo?) {}
+            }).dispatch()
+    } catch (e: Exception) {
+        Log.e("Upload", "MediaManager Fatal Error: ${e.message}")
         uploadToFirebase(storage, db, trip, dest, scaledBitmap, newStatus)
     }
 }

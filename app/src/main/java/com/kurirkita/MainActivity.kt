@@ -41,15 +41,16 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        FirebaseFirestore.getInstance().collection("config").document("cloudinary").get()
-            .addOnSuccessListener { doc ->
-                val cloudName = doc.getString("cloudName")
-                if (!cloudName.isNullOrEmpty()) {
-                    try {
-                        MediaManager.init(this, mapOf("cloud_name" to cloudName, "secure" to true))
-                    } catch (e: Exception) {}
-                }
-            }
+        // TANAM LANGSUNG CLOUDINARY KE APLIKASI
+        try {
+            val config = mapOf(
+                "cloud_name" to "dgf3shxpf",
+                "secure" to true
+            )
+            MediaManager.init(this, config)
+        } catch (e: Exception) {
+            // Sudah terinisialisasi
+        }
         
         val currentUser = FirebaseAuth.getInstance().currentUser
         if (currentUser != null) {
