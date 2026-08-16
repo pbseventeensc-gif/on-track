@@ -87,8 +87,8 @@ fun ChatScreen(tripId: String, onBack: () -> Unit) {
                     ) {
                         Card(
                             colors = CardDefaults.cardColors(
-                                containerColor = if (isMine) Color(0xFFD32F2F) else Color.White,
-                                contentColor = if (isMine) Color.White else Color.Black
+                                containerColor = if (isMine) Color(0xFFF1C40F) else Color.White,
+                                contentColor = Color.Black
                             ),
                             shape = androidx.compose.foundation.shape.RoundedCornerShape(
                                 topStart = 16.dp, topEnd = 16.dp,
@@ -105,7 +105,7 @@ fun ChatScreen(tripId: String, onBack: () -> Unit) {
                                     text = sdf.format(msg.timestamp.toDate()),
                                     style = MaterialTheme.typography.labelSmall,
                                     modifier = Modifier.align(Alignment.End),
-                                    color = if (isMine) Color.White.copy(alpha = 0.7f) else Color.Gray
+                                    color = if (isMine) Color.Black.copy(alpha = 0.6f) else Color.Gray
                                 )
                             }
                         }
