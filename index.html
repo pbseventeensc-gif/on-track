@@ -235,20 +235,41 @@
         // --- SEARCH & DISPATCH ---
         async function searchLocation() {
             const q = document.getElementById('loc-search').value;
-            const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${q}&countrycodes=id&limit=5`);
-            const data = await res.json();
+            if (!q || q.length < 3) return alert("Masukkan minimal 3 huruf!");
+
             const el = document.getElementById('search-res');
-            el.innerHTML = '';
-            data.forEach(i => {
-                const btn = document.createElement('button');
-                btn.className = 'list-group-item list-group-item-action small';
-                btn.innerText = i.display_name;
-                btn.onclick = () => {
-                    tripQueue.push({ name: i.display_name.split(',')[0], lat: parseFloat(i.lat), lng: parseFloat(i.lon) });
-                    renderQueue(); el.innerHTML = ''; document.getElementById('loc-search').value = '';
-                };
-                el.appendChild(btn);
-            });
+            el.innerHTML = '<div class="list-group-item small">Mencari...</div>';
+
+            try {
+                const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&countrycodes=id&limit=5`);
+                const data = await res.json();
+
+                el.innerHTML = '';
+                if (data.length === 0) {
+                    el.innerHTML = '<div class="list-group-item small text-danger">Lokasi tidak ditemukan.</div>';
+                    return;
+                }
+
+                data.forEach(i => {
+                    const btn = document.createElement('button');
+                    btn.className = 'list-group-item list-group-item-action small';
+                    btn.innerText = i.display_name;
+                    btn.onclick = () => {
+                        tripQueue.push({
+                            name: i.display_name.split(',')[0],
+                            lat: parseFloat(i.lat),
+                            lng: parseFloat(i.lon)
+                        });
+                        renderQueue();
+                        el.innerHTML = '';
+                        document.getElementById('loc-search').value = '';
+                    };
+                    el.appendChild(btn);
+                });
+            } catch (err) {
+                el.innerHTML = '<div class="list-group-item small text-danger">Gagal menghubungi server peta.</div>';
+                console.error(err);
+            }
         }
 
         function renderQueue() {
