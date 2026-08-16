@@ -7,7 +7,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,6 +25,7 @@ import com.google.firebase.firestore.Query
 import java.text.SimpleDateFormat
 import java.util.Locale
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(tripId: String, onBack: () -> Unit) {
     val db = FirebaseFirestore.getInstance()
@@ -44,30 +47,25 @@ fun ChatScreen(tripId: String, onBack: () -> Unit) {
                     return@addSnapshotListener
                 }
                 messages = snapshot?.toObjects(ChatMessage::class.java) ?: emptyList()
-                Log.d("ChatScreen", "Messages received: ${messages.size}")
             }
         onDispose { registration.remove() }
     }
 
-    // Scroll to bottom when new messages arrive
     LaunchedEffect(messages.size) {
-        if (messages.isNotEmpty()) {
-            listState.animateScrollToItem(messages.size - 1)
-        }
+        if (messages.isNotEmpty()) listState.animateScrollToItem(messages.size - 1)
     }
 
     Scaffold(
         topBar = {
-            @OptIn(ExperimentalMaterial3Api::class)
             TopAppBar(
-                title = { Text("Chat Admin", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) },
+                title = { Text("Pusat Chat Admin", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
-                    TextButton(onClick = onBack) { Text("Kembali", color = Color(0xFFD32F2F)) }
+                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null) }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
             )
         },
-        containerColor = Color(0xFFF1F2F6) // Paksa background abu-abu terang
+        containerColor = Color(0xFFF1F2F6)
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -93,12 +91,11 @@ fun ChatScreen(tripId: String, onBack: () -> Unit) {
                                 contentColor = if (isMine) Color.White else Color.Black
                             ),
                             shape = androidx.compose.foundation.shape.RoundedCornerShape(
-                                topStart = 16.dp,
-                                topEnd = 16.dp,
+                                topStart = 16.dp, topEnd = 16.dp,
                                 bottomStart = if (isMine) 16.dp else 2.dp,
                                 bottomEnd = if (isMine) 2.dp else 16.dp
                             ),
-                            modifier = Modifier.padding(vertical = 4.dp).fillMaxWidth(0.8f),
+                            modifier = Modifier.padding(vertical = 4.dp).fillMaxWidth(0.85f),
                             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                         ) {
                             Column(modifier = Modifier.padding(12.dp)) {
@@ -116,50 +113,43 @@ fun ChatScreen(tripId: String, onBack: () -> Unit) {
                 }
             }
 
+            // INPUT AREA - Clean & Professional
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 color = Color.White,
-                shadowElevation = 10.dp
+                shadowElevation = 12.dp
             ) {
                 Row(
                     modifier = Modifier.padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    OutlinedTextField(
+                    TextField(
                         value = inputText,
                         onValueChange = { inputText = it },
                         modifier = Modifier.weight(1f),
-                        placeholder = { Text("Ketik pesan...", color = Color.Gray) },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.Black,
-                            unfocusedTextColor = Color.Black,
+                        placeholder = { Text("Ketik pesan untuk admin...", color = Color.Gray) },
+                        colors = TextFieldDefaults.colors(
                             focusedContainerColor = Color(0xFFF5F5F5),
                             unfocusedContainerColor = Color(0xFFF5F5F5),
-                            focusedBorderColor = Color.Transparent,
-                            unfocusedBorderColor = Color.Transparent
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent,
+                            focusedTextColor = Color.Black,
+                            unfocusedTextColor = Color.Black
                         ),
                         shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
-                        maxLines = 3
+                        maxLines = 4
                     )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    FloatingActionButton(
+                    Spacer(modifier = Modifier.width(8.dp))
+                    IconButton(
                         onClick = {
                             if (inputText.isNotBlank()) {
                                 val msgId = db.collection("trips").document(tripId).collection("messages").document().id
-                                val newMsg = ChatMessage(
-                                    messageId = msgId,
-                                    senderId = currentUserId,
-                                    text = inputText,
-                                    timestamp = Timestamp.now()
-                                )
+                                val newMsg = ChatMessage(msgId, currentUserId, inputText, null, Timestamp.now())
                                 db.collection("trips").document(tripId).collection("messages").document(msgId).set(newMsg)
                                 inputText = ""
                             }
                         },
-                        modifier = Modifier.size(52.dp),
-                        containerColor = Color(0xFFD32F2F),
-                        shape = androidx.compose.foundation.shape.CircleShape,
-                        elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 4.dp)
+                        modifier = Modifier.background(Color(0xFFD32F2F), androidx.compose.foundation.shape.CircleShape).size(48.dp)
                     ) {
                         Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send", tint = Color.White)
                     }

@@ -16,6 +16,7 @@ import com.google.android.gms.location.*
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.firestore.FirebaseFirestore
 
 class TrackingService : Service() {
 
@@ -25,11 +26,25 @@ class TrackingService : Service() {
     
     private var lastLocation: Location? = null
     private var totalDistanceKm: Double = 0.0
+    private var trackingIntervalMs: Long = 10000L // Default 10 seconds
 
     override fun onCreate() {
         super.onCreate()
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         
+        // Listen for remote settings
+        FirebaseFirestore.getInstance().collection("config").document("tracking")
+            .addSnapshotListener { snapshot, _ ->
+                val newInterval = snapshot?.getLong("intervalMs")
+                if (newInterval != null && newInterval != trackingIntervalMs) {
+                    trackingIntervalMs = newInterval
+                    Log.d("TrackingService", "New interval: $trackingIntervalMs")
+                    if (FirebaseAuth.getInstance().currentUser != null) {
+                        startLocationUpdates() // Restart with new interval if already tracking
+                    }
+                }
+            }
+
         locationCallback = object : LocationCallback() {
             override fun onLocationResult(locationResult: LocationResult) {
                 locationResult.lastLocation?.let { location ->
@@ -90,8 +105,10 @@ class TrackingService : Service() {
 
     @SuppressLint("MissingPermission")
     private fun startLocationUpdates() {
-        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 10000) // 10 seconds
-            .setMinUpdateIntervalMillis(5000)
+        fusedLocationClient.removeLocationUpdates(locationCallback)
+        
+        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, trackingIntervalMs)
+            .setMinUpdateIntervalMillis(trackingIntervalMs / 2)
             .build()
 
         fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, null)

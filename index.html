@@ -8,84 +8,137 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <style>
-        :root { --primary-color: #d32f2f; --secondary-color: #2c3e50; --wellen-yellow: #f1c40f; }
-        body { background-color: #f8f9fa; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+        :root { --primary-red: #d32f2f; --wellen-yellow: #f1c40f; --dark-blue: #2c3e50; }
+        body { background-color: #f1f2f6; height: 100vh; overflow: hidden; display: flex; flex-direction: column; font-family: 'Inter', sans-serif; }
+        .navbar { background: white; border-bottom: 2px solid var(--primary-red); z-index: 1050; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
         .main-container { flex: 1; display: flex; overflow: hidden; }
-        .sidebar-left { width: 300px; background: white; border-right: 1px solid #dee2e6; overflow-y: auto; }
-        #map { flex: 1; }
-        .sidebar-right { width: 400px; background: white; border-left: 1px solid #dee2e6; display: flex; flex-direction: column; }
-        .tab-content { flex: 1; overflow-y: auto; padding: 15px; }
-        .courier-card { border-bottom: 1px solid #f1f1f1; cursor: pointer; padding: 12px; }
-        .bg-online { background-color: #2ecc71; width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
-        .trip-progress-card { border: 1px solid #eee; border-radius: 10px; margin-bottom: 15px; padding: 12px; font-size: 0.9rem; }
-        .destination-pill { background: #f1f3f5; padding: 8px; border-radius: 8px; margin-top: 5px; font-size: 0.85rem; border-left: 4px solid #ccc; }
-        .destination-pill.done { border-left-color: #27ae60; background: #e8f5e9; }
-        .proof-img { width: 100%; border-radius: 5px; margin-top: 8px; cursor: pointer; border: 1px solid #ddd; }
-        #chat-overlay { position: fixed; bottom: 20px; right: 420px; width: 320px; height: 450px; background: white; z-index: 3000; display: none; flex-direction: column; box-shadow: 0 5px 25px rgba(0,0,0,0.2); border-radius: 12px; overflow: hidden; border: 1px solid #ddd; }
-        .chat-msg { padding: 8px 12px; border-radius: 12px; margin: 4px; max-width: 85%; font-size: 0.85rem; line-height: 1.4; }
-        .msg-admin { align-self: flex-end; background: var(--primary-color); color: white; }
-        .msg-courier { align-self: flex-start; background: #f1f3f5; color: #333; }
-        #search-res-dropdown { position: absolute; width: 100%; z-index: 2000; max-height: 250px; overflow-y: auto; background: white; box-shadow: 0 4px 12px rgba(0,0,0,0.1); display: none; }
-        .search-item { padding: 10px; border-bottom: 1px solid #eee; cursor: pointer; font-size: 0.8rem; text-align: left; width: 100%; border: none; background: white; }
-        .search-item:hover { background: #f8f9fa; }
+
+        /* Sidebar Left */
+        .sidebar-left { width: 280px; background: white; border-right: 1px solid #ddd; overflow-y: auto; }
+        .courier-card { padding: 15px; border-bottom: 1px solid #eee; cursor: pointer; transition: 0.2s; position: relative; }
+        .courier-card:hover { background: #f8f9fa; }
+        .courier-card.active { border-left: 5px solid var(--primary-red); background: #fff5f5; }
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 8px; }
+        .online { background: #2ecc71; box-shadow: 0 0 5px #2ecc71; }
+
+        /* Map Area */
+        #map { flex: 1; background: #e5e3df; position: relative; }
+
+        /* Sidebar Right */
+        .sidebar-right { width: 420px; background: white; border-left: 1px solid #ddd; display: flex; flex-direction: column; }
+        .nav-tabs { background: #f8f9fa; border-bottom: 1px solid #ddd; }
+        .nav-link { color: #666; font-weight: 600; border: none !important; padding: 12px; }
+        .nav-link.active { color: var(--primary-red) !important; background: white !important; border-bottom: 3px solid var(--primary-red) !important; }
+        .tab-content { flex: 1; overflow-y: auto; padding: 20px; }
+
+        /* Components */
+        .trip-card { border: 1px solid #eee; border-radius: 12px; padding: 15px; margin-bottom: 15px; background: white; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .dest-pill { background: #f8f9fa; padding: 10px; border-radius: 8px; margin-top: 8px; font-size: 0.85rem; border-left: 4px solid #ddd; }
+        .dest-pill.done { border-left-color: #27ae60; background: #eefdf3; }
+        .proof-img { width: 100%; border-radius: 8px; margin-top: 10px; border: 1px solid #ddd; transition: 0.3s; }
+        .proof-img:hover { transform: scale(1.02); cursor: pointer; }
+
+        /* Global Chat Component */
+        #chat-window { position: fixed; bottom: 20px; right: 440px; width: 350px; height: 500px; background: white; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); display: none; flex-direction: column; z-index: 2000; border: 1px solid #ddd; }
+        .chat-header { background: var(--dark-blue); color: white; padding: 12px 15px; border-radius: 15px 15px 0 0; display: flex; justify-content: space-between; align-items: center; }
+        .chat-messages { flex: 1; overflow-y: auto; padding: 15px; background: #f9f9f9; display: flex; flex-direction: column; }
+        .msg { max-width: 80%; padding: 8px 12px; border-radius: 15px; margin-bottom: 5px; font-size: 0.9rem; }
+        .msg.admin { align-self: flex-end; background: var(--primary-red); color: white; border-bottom-right-radius: 2px; }
+        .msg.courier { align-self: flex-start; background: white; border: 1px solid #ddd; border-bottom-left-radius: 2px; }
+
+        /* Auto-suggest */
+        .search-results { position: absolute; width: 100%; background: white; z-index: 1000; border-radius: 0 0 10px 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); max-height: 200px; overflow-y: auto; display: none; }
+        .search-item { padding: 10px 15px; border-bottom: 1px solid #eee; cursor: pointer; }
+        .search-item:hover { background: #f1f2f6; }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg bg-white border-bottom shadow-sm">
+
+    <nav class="navbar navbar-expand-lg">
         <div class="container-fluid">
-            <img src="wellen_logo.jpg" style="height:40px" class="me-2">
-            <span class="fw-bold text-dark">WELLEN PRINT - COMMAND CENTER</span>
+            <img src="wellen_logo.jpg" style="height:45px;" class="me-3">
+            <span class="fw-bold fs-5">LOGISTICS COMMAND CENTER</span>
+            <div class="ms-auto text-muted small"><i class="bi bi-shield-check text-success"></i> Sistem Terenkripsi Wellen</div>
         </div>
     </nav>
 
     <div class="main-container">
-        <div class="sidebar-left" id="courier-list"></div>
+        <!-- LEFT: COURIERS -->
+        <div class="sidebar-left">
+            <div class="p-3 bg-light border-bottom fw-bold">ONLINE COURIERS</div>
+            <div id="courier-list"></div>
+        </div>
+
+        <!-- CENTER: MAP -->
         <div id="map"></div>
+
+        <!-- RIGHT: PANELS -->
         <div class="sidebar-right">
             <ul class="nav nav-tabs nav-fill" id="adminTabs">
                 <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-dispatch">DISPATCH</button></li>
-                <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-active">MONITOR</button></li>
+                <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-monitor">MONITOR</button></li>
                 <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-history">HISTORY</button></li>
+                <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-settings"><i class="bi bi-gear"></i></button></li>
             </ul>
+
             <div class="tab-content">
-                <!-- DISPATCH -->
+                <!-- TAB DISPATCH -->
                 <div class="tab-pane fade show active" id="tab-dispatch">
-                    <label class="fw-bold small mb-1">Pilih Kurir</label>
-                    <select id="sel-courier" class="form-select mb-3"></select>
-                    <label class="fw-bold small mb-1">Tambah Tujuan</label>
-                    <div class="position-relative">
-                        <input type="text" id="loc-search" class="form-control" placeholder="Ketik nama tempat..." oninput="searchLocationAuto()">
-                        <div id="search-res-dropdown" class="list-group"></div>
+                    <h6 class="fw-bold mb-3">BUAT TUGAS BARU</h6>
+                    <div class="mb-3">
+                        <label class="small fw-bold">1. Pilih Kurir</label>
+                        <select id="sel-courier" class="form-select"></select>
                     </div>
-                    <div id="queue" class="mt-3"></div>
-                    <button class="btn btn-danger w-100 mt-3 fw-bold" onclick="submitTrip()">KIRIM TUGAS</button>
+                    <div class="mb-3 position-relative">
+                        <label class="small fw-bold">2. Tambah Tujuan (Klik di Peta atau Cari)</label>
+                        <input type="text" id="loc-search" class="form-control" placeholder="Ketik nama tempat..." oninput="autoSuggest(this.value)">
+                        <div id="search-results" class="search-results"></div>
+                    </div>
+                    <div id="dispatch-queue"></div>
+                    <button class="btn btn-danger w-100 mt-3 py-2 fw-bold" onclick="submitTrip()">KIRIM TUGAS SEKARANG</button>
                 </div>
-                <!-- MONITOR -->
-                <div class="tab-pane fade" id="tab-active">
+
+                <!-- TAB MONITOR -->
+                <div class="tab-pane fade" id="tab-monitor">
+                    <h6 class="fw-bold mb-3">MONITORING PERJALANAN</h6>
                     <div id="monitor-list"></div>
                 </div>
-                <!-- HISTORY -->
+
+                <!-- TAB HISTORY -->
                 <div class="tab-pane fade" id="tab-history">
-                    <label class="fw-bold small mb-1">Pilih Tanggal</label>
-                    <input type="date" id="rep-date" class="form-control mb-3" onchange="loadReport()">
-                    <div id="report-list"></div>
+                    <h6 class="fw-bold mb-3">RIWAYAT LAPORAN</h6>
+                    <input type="date" id="rep-date" class="form-control mb-3" onchange="loadHistory()">
+                    <div id="history-list"></div>
+                </div>
+
+                <!-- TAB SETTINGS -->
+                <div class="tab-pane fade" id="tab-settings">
+                    <h6 class="fw-bold mb-3">KONFIGURASI SISTEM</h6>
+                    <div class="card p-3 mb-3 border-0 bg-light">
+                        <label class="small fw-bold">Interval Tracking (Detik)</label>
+                        <input type="number" id="cfg-interval" class="form-control mb-2" value="10">
+                        <button class="btn btn-sm btn-dark w-100" onclick="updateConfig()">Simpan & Terapkan</button>
+                    </div>
+                    <div class="small text-muted">Interval ini akan langsung merubah perilaku aplikasi kurir di lapangan secara real-time.</div>
                 </div>
             </div>
         </div>
     </div>
 
-    <div id="chat-overlay">
-        <div class="p-2 bg-dark text-white d-flex justify-content-between align-items-center">
-            <span id="chat-title" class="small fw-bold">Chat</span>
+    <!-- GLOBAL CHAT WINDOW -->
+    <div id="chat-window">
+        <div class="chat-header">
+            <span id="chat-user-name">Chat</span>
             <button class="btn-close btn-close-white" onclick="closeChat()"></button>
         </div>
-        <div id="chat-msgs" class="p-3 flex-grow-1 overflow-y-auto d-flex flex-column" style="background:#fff"></div>
-        <div class="p-2 border-top bg-light d-flex">
+        <div id="chat-msgs" class="chat-messages"></div>
+        <div class="p-2 border-top d-flex">
             <input type="text" id="chat-input" class="form-control form-control-sm me-2" placeholder="Tulis pesan...">
             <button class="btn btn-sm btn-primary" onclick="sendChat()"><i class="bi bi-send"></i></button>
         </div>
     </div>
 
+    <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -109,237 +162,181 @@
         const map = L.map('map').setView([-6.2, 106.81], 12);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-        let activeTripId = null;
-        let chatUnsubscribe = null;
         const markers = {};
+        const trails = {}; // For blue lines
+        const registeredUsers = {};
         let tripQueue = [];
-        const registeredCouriers = {};
+        let currentChatId = null;
+        let chatUnsub = null;
 
-        // 1. Listeners
-        db.collection('users').where('role', '==', 'courier').onSnapshot(snap => {
-            snap.forEach(doc => { registeredCouriers[doc.id] = doc.data().name || doc.id.substring(0,8); });
-            updateCourierDropdown();
-        });
-
-        rtdb.ref('courier_live_location').on('value', snap => {
-            const data = snap.val() || {};
-            const list = document.getElementById('courier-list');
-            list.innerHTML = '<div class="p-3 border-bottom fw-bold bg-light small">KURIR ONLINE</div>';
-            for (const id in data) {
-                const c = data[id];
-                const name = registeredCouriers[id] || id.substring(0,8);
-                if (markers[id]) markers[id].setLatLng([c.lat, c.lng]);
-                else markers[id] = L.marker([c.lat, c.lng]).addTo(map).bindPopup(`<b>${name}</b>`);
-                list.innerHTML += `<div class="courier-card" onclick="map.flyTo([${c.lat}, ${c.lng}], 16)">
-                    <span class="bg-online me-2"></span><b>${name}</b><br>
-                    <small class="text-muted">${c.batteryLevel}% Baterai | ${c.totalDistanceKm.toFixed(2)} KM</small>
-                </div>`;
-            }
-        });
-
-        db.collection('trips').where('status', '!=', 'completed').onSnapshot(snap => {
-            const container = document.getElementById('monitor-list');
-            container.innerHTML = '';
+        // 1. Sync Registered Users
+        db.collection('users').onSnapshot(snap => {
+            const sel = document.getElementById('sel-courier');
+            sel.innerHTML = '<option value="">-- Pilih Kurir --</option>';
             snap.forEach(doc => {
-                const t = doc.data();
-                const courierName = registeredCouriers[t.courierId] || t.courierId.substring(0,8);
-                const card = document.createElement('div');
-                card.className = 'trip-progress-card bg-white shadow-sm';
-                card.innerHTML = `
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <span class="fw-bold">Trip: ${courierName}</span>
-                        <span class="badge bg-warning text-dark text-uppercase" style="font-size:0.7rem">${t.status}</span>
-                    </div>
-                    <div class="mb-2 text-muted small"><i class="bi bi-person"></i> ${courierName}</div>
-                    <div class="dest-list">${t.destinations.map(d => `
-                        <div class="destination-pill ${d.status}">
-                            <div class="d-flex justify-content-between">
-                                <b>${d.locationName}</b>
-                                <span class="small text-muted">${d.status}</span>
-                            </div>
-                            ${d.proofPhotoUrl ? `
-                                <div class="mt-2">
-                                    <small class="d-block text-success fw-bold mb-1">✓ Bukti Foto:</small>
-                                    <a href="${d.proofPhotoUrl}" target="_blank">
-                                        <img src="${d.proofPhotoUrl}" class="proof-img">
-                                    </a>
-                                </div>
-                            ` : ''}
-                        </div>
-                    `).join('')}</div>
-                    <button class="btn btn-sm btn-outline-primary mt-3 w-100" onclick="openChat('${doc.id}', '${courierName}')">
-                        <i class="bi bi-chat-dots me-1"></i> Chat dengan ${courierName}
-                    </button>
-                `;
-                container.appendChild(card);
+                const u = doc.data();
+                registeredUsers[doc.id] = u.name || doc.id.substring(0,8);
+                if (u.role === 'courier') {
+                    sel.innerHTML += `<option value="${doc.id}">${registeredUsers[doc.id]}</option>`;
+                }
             });
         });
 
-        // 2. Functions
-        function updateCourierDropdown() {
-            const sel = document.getElementById('sel-courier');
-            const current = sel.value;
-            sel.innerHTML = '<option value="">-- Pilih Kurir --</option>';
-            for (const id in registeredCouriers) {
-                const opt = document.createElement('option');
-                opt.value = id; opt.innerText = registeredCouriers[id];
-                if (id === current) opt.selected = true;
-                sel.appendChild(opt);
-            }
-        }
+        // 2. Real-time Locations & Trails
+        rtdb.ref('courier_live_location').on('value', snap => {
+            const data = snap.val() || {};
+            const list = document.getElementById('courier-list');
+            list.innerHTML = '';
 
-        let searchTimeout;
-        function searchLocationAuto() {
-            clearTimeout(searchTimeout);
-            const q = document.getElementById('loc-search').value;
-            if (q.length < 3) { document.getElementById('search-res-dropdown').style.display = 'none'; return; }
-            searchTimeout = setTimeout(async () => {
-                const el = document.getElementById('search-res-dropdown');
-                const cleanQ = q.replace(/PT\.?\s+/gi, '').trim();
-                const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cleanQ)}&countrycodes=id&limit=6&addressdetails=1`);
-                const data = await resp.json();
-                el.innerHTML = '';
-                if (data.length === 0) { el.style.display = 'none'; return; }
-                el.style.display = 'block';
-                data.forEach(item => {
-                    const placeName = item.name || item.display_name.split(',')[0];
-                    const div = document.createElement('button');
-                    div.className = 'search-item';
-                    div.innerHTML = `<b>${placeName}</b><br><small class="text-muted">${item.display_name}</small>`;
-                    div.onclick = () => {
-                        tripQueue.push({ name: placeName, address: item.display_name, lat: parseFloat(item.lat), lng: parseFloat(item.lon) });
-                        renderQueue(); el.style.display = 'none'; document.getElementById('loc-search').value = '';
-                        map.flyTo([item.lat, item.lon], 16);
-                    };
-                    el.appendChild(div);
-                });
-            }, 500);
+            for (const id in data) {
+                const c = data[id];
+                const pos = [c.lat, c.lng];
+                const name = registeredUsers[id] || id.substring(0,8);
+
+                // Marker
+                if (markers[id]) markers[id].setLatLng(pos);
+                else markers[id] = L.marker(pos).addTo(map).bindPopup(`<b>${name}</b>`);
+
+                // Trail (Blue line)
+                if (!trails[id]) trails[id] = L.polyline([], {color: 'blue', weight: 3}).addTo(map);
+                trails[id].addLatLng(pos);
+
+                list.innerHTML += `
+                    <div class="courier-card" onclick="map.flyTo([${c.lat}, ${c.lng}], 16)">
+                        <div class="d-flex justify-content-between">
+                            <span><span class="status-dot online"></span><b>${name}</b></span>
+                            <button class="btn btn-sm btn-outline-primary py-0" onclick="openChat('${id}', '${name}')"><i class="bi bi-chat-text"></i></button>
+                        </div>
+                        <div class="mt-1 small text-muted">
+                            <i class="bi bi-battery-half"></i> ${c.batteryLevel}% | <i class="bi bi-speedometer2"></i> ${c.totalDistanceKm.toFixed(2)} km
+                        </div>
+                    </div>`;
+            }
+        });
+
+        // 3. Monitor Active Trips
+        db.collection('trips').where('status', '!=', 'completed').onSnapshot(snap => {
+            const el = document.getElementById('monitor-list');
+            el.innerHTML = '';
+            snap.forEach(doc => {
+                const t = doc.data();
+                const cName = registeredUsers[t.courierId] || "Unknown";
+                const div = document.createElement('div');
+                div.className = 'trip-card';
+                div.innerHTML = `
+                    <div class="d-flex justify-content-between mb-2">
+                        <b>Trip: ${cName}</b>
+                        <span class="badge bg-warning text-dark">${t.status.toUpperCase()}</span>
+                    </div>
+                    ${t.destinations.map(d => `
+                        <div class="dest-pill ${d.status}">
+                            <b>${d.locationName}</b> <span class="float-end small text-muted">${d.status}</span>
+                            ${d.proofPhotoUrl ? `<img src="${d.proofPhotoUrl}" class="proof-img" onclick="window.open('${d.proofPhotoUrl}')">` : ''}
+                        </div>
+                    `).join('')}
+                    <button class="btn btn-sm btn-outline-danger w-100 mt-2" onclick="openChat('${t.tripId}', 'Tugas ${cName}')">Chat Tugas</button>
+                `;
+                el.appendChild(div);
+            });
+        });
+
+        // --- SEARCH & NITIKIN ---
+        map.on('click', async e => {
+            const name = prompt("Nama Tempat:");
+            if (!name) return;
+            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${e.latlng.lat}&lon=${e.latlng.lng}`);
+            const data = await res.json();
+            tripQueue.push({ name, address: data.display_name, lat: e.latlng.lat, lng: e.latlng.lng });
+            renderQueue();
+        });
+
+        async function autoSuggest(val) {
+            const el = document.getElementById('search-results');
+            if (val.length < 3) { el.style.display = 'none'; return; }
+            const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${val}&countrycodes=id&limit=5`);
+            const data = await resp.json();
+            el.innerHTML = '';
+            el.style.display = 'block';
+            data.forEach(i => {
+                const d = document.createElement('div');
+                d.className = 'search-item';
+                d.innerHTML = `<b>${i.name || i.display_name.split(',')[0]}</b><br><small>${i.display_name}</small>`;
+                d.onclick = () => {
+                    tripQueue.push({ name: i.name || "Tujuan", address: i.display_name, lat: parseFloat(i.lat), lng: parseFloat(i.lon) });
+                    renderQueue(); el.style.display = 'none'; document.getElementById('loc-search').value = '';
+                };
+                el.appendChild(d);
+            });
         }
 
         function renderQueue() {
-            document.getElementById('queue').innerHTML = tripQueue.map((d, i) => `
-                <div class="alert alert-light border p-2 mb-1 d-flex justify-content-between align-items-center" style="font-size:0.8rem">
-                    <span>${i+1}. ${d.name}</span>
-                    <i class="bi bi-x-circle text-danger ms-2" style="cursor:pointer" onclick="tripQueue.splice(${i},1);renderQueue()"></i>
-                </div>`).join('');
+            document.getElementById('dispatch-queue').innerHTML = tripQueue.map((d,i) => `<div class="dest-pill"><b>${i+1}. ${d.name}</b><i class="bi bi-x float-end text-danger cursor-pointer" onclick="tripQueue.splice(${i},1);renderQueue()"></i></div>`).join('');
         }
 
         async function submitTrip() {
             const cid = document.getElementById('sel-courier').value;
-            if (!cid || tripQueue.length === 0) return alert("Pilih kurir & rute!");
+            if(!cid || tripQueue.length === 0) return alert("Lengkapi data!");
             const tripId = "TRIP_" + Date.now();
             await db.collection('trips').doc(tripId).set({
                 tripId, courierId: cid, status: "assigned", date: firebase.firestore.Timestamp.now(),
-                destinations: tripQueue.map((d, i) => ({ stopIndex: i+1, locationName: d.name, address: d.address, latitude: d.lat, longitude: d.lng, status: "pending", proofPhotoUrl: "" }))
+                destinations: tripQueue.map((d,i) => ({ stopIndex: i+1, locationName: d.name, address: d.address, latitude: d.lat, longitude: d.lng, status: "pending", proofPhotoUrl: "" }))
             });
-            alert("Tugas Terkirim!"); tripQueue = []; renderQueue();
+            alert("Tugas Dikirim!"); tripQueue = []; renderQueue();
         }
 
-        function openChat(tripId, name) {
-            activeTripId = tripId;
-            document.getElementById('chat-overlay').style.display = 'flex';
-            document.getElementById('chat-title').innerText = "Chat: " + name;
-            if (chatUnsubscribe) chatUnsubscribe();
-            chatUnsubscribe = db.collection('trips').document(tripId).collection('messages').orderBy('timestamp', 'asc').onSnapshot(snap => {
-                const container = document.getElementById('chat-msgs');
-                container.innerHTML = '';
-                snap.forEach(mDoc => {
-                    const m = mDoc.data();
-                    const isAdm = m.senderId === 'admin';
-                    container.innerHTML += `<div class="chat-msg ${isAdm ? 'msg-admin' : 'msg-courier'}">${m.text}</div>`;
+        // --- GLOBAL CHAT ---
+        function openChat(id, name) {
+            currentChatId = id;
+            document.getElementById('chat-user-name').innerText = name;
+            document.getElementById('chat-window').style.display = 'flex';
+            if(chatUnsub) chatUnsub();
+            // We'll use a specific collection for global courier chats or trip chats
+            const colRef = id.startsWith('TRIP_') ? db.collection('trips').doc(id).collection('messages') : db.collection('chats').doc(id).collection('messages');
+            chatUnsub = colRef.orderBy('timestamp','asc').onSnapshot(snap => {
+                const el = document.getElementById('chat-msgs');
+                el.innerHTML = '';
+                snap.forEach(d => {
+                    const m = d.data();
+                    el.innerHTML += `<div class="msg ${m.senderId==='admin'?'admin':'courier'}">${m.text}</div>`;
                 });
-                container.scrollTop = container.scrollHeight;
+                el.scrollTop = el.scrollHeight;
             });
         }
-
-        function closeChat() { document.getElementById('chat-overlay').style.display = 'none'; if(chatUnsubscribe) chatUnsubscribe(); }
-
+        function closeChat() { document.getElementById('chat-window').style.display = 'none'; }
         async function sendChat() {
             const txt = document.getElementById('chat-input').value;
-            if (!txt || !activeTripId) return;
-            await db.collection('trips').document(activeTripId).collection('messages').add({
-                senderId: 'admin', text: txt, timestamp: firebase.firestore.Timestamp.now()
-            });
+            if(!txt || !currentChatId) return;
+            const colRef = currentChatId.startsWith('TRIP_') ? db.collection('trips').doc(currentChatId).collection('messages') : db.collection('chats').doc(currentChatId).collection('messages');
+            await colRef.add({ senderId: 'admin', text: txt, timestamp: firebase.firestore.Timestamp.now() });
             document.getElementById('chat-input').value = '';
         }
 
-        async function loadReport() {
-            const date = document.getElementById('rep-date').value;
-            const container = document.getElementById('report-list');
-            container.innerHTML = '<div class="text-center small py-3">Memuat...</div>';
-            const start = new Date(date); start.setHours(0,0,0,0);
-            const end = new Date(date); end.setHours(23,59,59,999);
-            const snap = await db.collection('trips').where('date', '>=', firebase.firestore.Timestamp.fromDate(start)).where('date', '<=', firebase.firestore.Timestamp.fromDate(end)).get();
-
-            container.innerHTML = '';
-            if(snap.empty) {
-                container.innerHTML = '<div class="small text-muted text-center py-3">Tidak ada data history.</div>';
-                return;
-            }
-
-            for (const doc of snap.docs) {
-                const t = doc.data();
-                const courierName = registeredCouriers[t.courierId] || t.courierId.substring(0,8);
-
-                // Fetch chat messages for this trip
-                const msgSnap = await db.collection('trips').doc(doc.id).collection('messages').orderBy('timestamp', 'asc').get();
-                let chatHtml = msgSnap.empty ? '<i class="text-muted">Tidak ada chat.</i>' : msgSnap.docs.map(mDoc => {
-                    const m = mDoc.data();
-                    const sender = m.senderId === 'admin' ? 'Admin' : 'Kurir';
-                    return `<div class="small mb-1"><b>${sender}:</b> ${m.text}</div>`;
-                }).join('');
-
-                const div = document.createElement('div');
-                div.className = 'card p-3 mb-2 border-0 shadow-sm';
-                div.style.fontSize = '0.85rem';
-
-                let destsHtml = t.destinations.map(d => `
-                    <div class="border-top mt-2 pt-2">
-                        <div class="d-flex justify-content-between">
-                            <b>${d.locationName}</b>
-                            <span class="badge ${d.status === 'done' ? 'bg-success' : 'bg-secondary'}">${d.status}</span>
-                        </div>
-                        <div class="small text-muted">${d.address || '-'}</div>
-                        ${d.proofPhotoUrl ? `
-                            <div class="mt-2">
-                                <small class="text-success fw-bold">✓ Foto Bukti:</small><br>
-                                <a href="${d.proofPhotoUrl}" target="_blank">
-                                    <img src="${d.proofPhotoUrl}" class="proof-img" style="max-height:120px; width:auto; border: 2px solid #27ae60;">
-                                </a>
-                            </div>
-                        ` : ''}
-                    </div>
-                `).join('');
-
-                div.innerHTML = `
-                    <div class="d-flex justify-content-between align-items-center">
-                        <span class="fw-bold text-primary" style="font-size: 1rem;">${courierName}</span>
-                        <span class="badge bg-light text-dark border">${new Date(t.date.seconds*1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
-                    </div>
-                    <div class="mb-2"><i class="bi bi-speedometer2"></i> Jarak: <b>${t.totalDistanceKm ? t.totalDistanceKm.toFixed(2) : '0'} KM</b></div>
-
-                    <button class="btn btn-sm btn-outline-dark w-100 mb-2" onclick="toggleHistoryDetail('${doc.id}')">
-                        <i class="bi bi-info-circle"></i> Lihat Detail & Chat
-                    </button>
-
-                    <div id="hist-detail-${doc.id}" class="d-none">
-                        <div class="bg-light p-2 rounded mb-2">
-                            <b>Riwayat Chat:</b><br>
-                            <div style="max-height: 100px; overflow-y: auto; background: white; padding: 5px; border-radius: 4px; border: 1px solid #eee;">
-                                ${chatHtml}
-                            </div>
-                        </div>
-                        <b>Rute Lokasi:</b>
-                        ${destsHtml}
-                    </div>
-                `;
-                container.appendChild(div);
-            }
+        // --- CONFIG & HISTORY ---
+        async function updateConfig() {
+            const interval = document.getElementById('cfg-interval').value;
+            await db.collection('config').document('tracking').set({ intervalMs: interval * 1000 });
+            alert("Konfigurasi disimpan!");
         }
 
-        function toggleHistoryDetail(id) {
-            const el = document.getElementById(`hist-detail-${id}`);
-            el.classList.toggle('d-none');
+        async function loadHistory() {
+            const date = document.getElementById('rep-date').value;
+            const container = document.getElementById('history-list');
+            container.innerHTML = 'Memuat...';
+            const start = new Date(date); start.setHours(0,0,0,0);
+            const snap = await db.collection('trips').where('date','>=',firebase.firestore.Timestamp.fromDate(start)).get();
+            container.innerHTML = '';
+            snap.forEach(doc => {
+                const t = doc.data();
+                const div = document.createElement('div');
+                div.className = 'trip-card';
+                div.innerHTML = `<b>Trip: ${registeredUsers[t.courierId] || t.courierId}</b><br>Jarak: ${t.totalDistanceKm || 0} km<br>
+                    <button class="btn btn-sm btn-link p-0" onclick="this.nextElementSibling.classList.toggle('d-none')">Detail Foto & Lokasi</button>
+                    <div class="d-none mt-2">${t.destinations.map(d => `
+                        <div class="dest-pill ${d.status}">${d.locationName}<br>
+                        ${d.proofPhotoUrl ? `<img src="${d.proofPhotoUrl}" class="proof-img">` : '<small>Tanpa foto</small>'}</div>
+                    `).join('')}</div>`;
+                container.appendChild(div);
+            });
         }
     </script>
 </body>
