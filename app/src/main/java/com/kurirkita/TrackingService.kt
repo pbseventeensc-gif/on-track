@@ -130,17 +130,19 @@ class TrackingService : Service() {
         val intervalText = if (trackingIntervalMs >= 60000) "${trackingIntervalMs / 60000} Menit" else "${trackingIntervalMs / 1000} Detik"
         val distanceText = if (trackingMinDistance >= 1000) "${trackingMinDistance / 1000} KM" else "${trackingMinDistance.toInt()} Meter"
         
-        val channelId = "config_update_v4"
+        val channelId = "config_force_loud_v2" // BRAND NEW CHANNEL ID
         val manager = getSystemService(NotificationManager::class.java)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(channelId, "Update Konfigurasi", NotificationManager.IMPORTANCE_HIGH).apply {
+            val name = "SINKRONISASI ATURAN"
+            val importance = NotificationManager.IMPORTANCE_HIGH
+            val channel = NotificationChannel(channelId, name, importance).apply {
                 description = "Notifikasi perubahan aturan pelacakan"
                 enableVibration(true)
-                vibrationPattern = longArrayOf(0, 500, 200, 500)
+                vibrationPattern = longArrayOf(0, 1000, 500, 1000)
                 setSound(android.provider.Settings.System.DEFAULT_NOTIFICATION_URI, 
                     android.media.AudioAttributes.Builder()
-                        .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION)
+                        .setUsage(android.media.AudioAttributes.USAGE_ALARM)
                         .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
                         .build())
             }
@@ -148,18 +150,17 @@ class TrackingService : Service() {
         }
 
         val notification = NotificationCompat.Builder(this, channelId)
-            .setContentTitle("Aturan Tracking Baru")
+            .setContentTitle("KEBIJAKAN BARU DITERAPKAN")
             .setContentText("Kirim tiap $intervalText / $distanceText")
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setSmallIcon(android.R.drawable.ic_dialog_alert)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
-            .setVibrate(longArrayOf(0, 500, 200, 500))
+            .setVibrate(longArrayOf(0, 1000, 500, 1000))
             .setSound(android.provider.Settings.System.DEFAULT_NOTIFICATION_URI)
+            .setFullScreenIntent(null, true) // Force Heads-up
             .setAutoCancel(true)
-            .setDefaults(NotificationCompat.DEFAULT_ALL)
             .build()
 
-        manager.notify(System.currentTimeMillis().toInt(), notification)
+        manager.notify(101, notification)
     }
 
     private fun createNotificationChannel() {

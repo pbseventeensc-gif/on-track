@@ -229,9 +229,15 @@
                     <div class="col-md-6">
                         <div class="card-pro p-4">
                             <h6 class="fw-bold mb-4">Cloudinary API</h6>
-                            <input type="text" id="cld-name" class="form-control mb-2" placeholder="Cloud Name">
-                            <input type="text" id="cld-preset" class="form-control mb-4" placeholder="Upload Preset">
-                            <button class="btn btn-primary w-100 btn-sm" onclick="saveCloudinary()">Simpan</button>
+                            <div id="cld-inputs">
+                                <input type="text" id="cld-name" class="form-control mb-2" placeholder="Cloud Name">
+                                <input type="text" id="cld-preset" class="form-control mb-4" placeholder="Upload Preset">
+                                <button class="btn btn-primary w-100 btn-sm" onclick="saveCloudinary()">Simpan & Kunci</button>
+                            </div>
+                            <div id="cld-locked" class="text-center d-none">
+                                <div class="alert alert-success p-2 small"><i class="bi bi-cloud-check-fill me-1"></i> Cloudinary Terhubung</div>
+                                <button class="btn btn-link btn-sm" onclick="unlockCloudinary()">Ganti Akun</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -444,11 +450,61 @@
                 </div>`;
             });
         }
-        function openImg(u) { document.getElementById('modalImg').src = u; new bootstrap.Modal(document.getElementById('imageModal')).show(); }
-        function autoSuggest(v) { /* Use Nominatim logic from previous version */ }
-        function saveCloudinary() { /* Use logic from previous version */ }
-        function lockCloudinaryUI() { /* Use logic from previous version */ }
-        function unlockCloudinary() { /* Use logic from previous version */ }
+        async function autoSuggest(val) {
+            const el = document.getElementById('search-results');
+            if (val.length < 3) { el.style.display = 'none'; return; }
+            try {
+                const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(val)}&countrycodes=id&limit=6`);
+                const data = await resp.json();
+                el.innerHTML = '';
+                if (data.length === 0) { el.style.display = 'none'; return; }
+                el.style.display = 'block';
+                data.forEach(item => {
+                    const placeName = item.name || item.display_name.split(',')[0];
+                    const div = document.createElement('div');
+                    div.className = 'search-item';
+                    div.innerHTML = `<b>${placeName}</b><br><small class="text-muted" style="font-size:0.7rem">${item.display_name}</small>`;
+                    div.onclick = () => {
+                        tripQueue.push({
+                            name: placeName,
+                            address: item.display_name,
+                            lat: parseFloat(item.lat),
+                            lng: parseFloat(item.lon)
+                        });
+                        renderQueue();
+                        el.style.display = 'none';
+                        document.querySelector('#view-dispatch input[type="text"]').value = '';
+                        map.flyTo([item.lat, item.lon], 16);
+                        L.marker([item.lat, item.lon]).addTo(map).bindPopup(placeName).openPopup();
+                    };
+                    el.appendChild(div);
+                });
+            } catch (e) { console.error(e); }
+        }
+
+        async function saveCloudinary() {
+            const name = document.getElementById('cld-name').value;
+            const preset = document.getElementById('cld-preset').value;
+            if(!name || !preset) return alert("Harap isi Cloud Name & Preset!");
+
+            await db.collection('config').doc('cloudinary').set({
+                cloudName: name,
+                uploadPreset: preset,
+                updatedAt: firebase.firestore.Timestamp.now()
+            });
+            lockCloudinaryUI();
+            alert("Konfigurasi Cloudinary Berhasil Terhubung!");
+        }
+
+        function lockCloudinaryUI() {
+            document.getElementById('cld-inputs').classList.add('d-none');
+            document.getElementById('cld-locked').classList.remove('d-none');
+        }
+
+        function unlockCloudinary() {
+            document.getElementById('cld-inputs').classList.remove('d-none');
+            document.getElementById('cld-locked').classList.add('d-none');
+        }
     </script>
 </body>
 </html>

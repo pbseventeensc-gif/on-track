@@ -1,5 +1,9 @@
 package com.KurirKita.ui
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.content.Context
+import android.media.RingtoneManager
 import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -28,6 +32,7 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(tripId: String, onBack: () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val db = FirebaseFirestore.getInstance()
     val auth = FirebaseAuth.getInstance()
     val currentUserId = auth.currentUser?.uid ?: ""
@@ -38,15 +43,18 @@ fun ChatScreen(tripId: String, onBack: () -> Unit) {
 
     // Listen to messages
     DisposableEffect(tripId) {
-        Log.d("ChatScreen", "Starting listener for trip: $tripId")
         val registration = db.collection("trips").document(tripId).collection("messages")
             .orderBy("timestamp", Query.Direction.ASCENDING)
             .addSnapshotListener { snapshot, e ->
-                if (e != null) {
-                    Log.e("ChatScreen", "Error: ${e.message}")
-                    return@addSnapshotListener
+                if (e != null) return@addSnapshotListener
+                val newMsgs = snapshot?.toObjects(ChatMessage::class.java) ?: emptyList()
+                
+                // Play sound if new message from Admin
+                if (newMsgs.size > messages.size && newMsgs.isNotEmpty() && newMsgs.last().senderId == "admin") {
+                    playChatSound(context)
                 }
-                messages = snapshot?.toObjects(ChatMessage::class.java) ?: emptyList()
+                
+                messages = newMsgs
             }
         onDispose { registration.remove() }
     }
@@ -60,12 +68,14 @@ fun ChatScreen(tripId: String, onBack: () -> Unit) {
             TopAppBar(
                 title = { Text("Pusat Chat Admin", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null) }
+                    IconButton(onClick = onBack) { 
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali", tint = MaterialTheme.colorScheme.primary) 
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
             )
         },
-        containerColor = Color(0xFFF1F2F6)
+        containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -113,7 +123,6 @@ fun ChatScreen(tripId: String, onBack: () -> Unit) {
                 }
             }
 
-            // INPUT AREA - Clean & Professional
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 color = Color.White,
@@ -127,7 +136,7 @@ fun ChatScreen(tripId: String, onBack: () -> Unit) {
                         value = inputText,
                         onValueChange = { inputText = it },
                         modifier = Modifier.weight(1f),
-                        placeholder = { Text("Ketik pesan untuk admin...", color = Color.Gray) },
+                        placeholder = { Text("Ketik pesan...", color = Color.Gray) },
                         colors = TextFieldDefaults.colors(
                             focusedContainerColor = Color(0xFFF5F5F5),
                             unfocusedContainerColor = Color(0xFFF5F5F5),
@@ -156,5 +165,22 @@ fun ChatScreen(tripId: String, onBack: () -> Unit) {
                 }
             }
         }
+    }
+}
+
+private fun playChatSound(context: Context) {
+    try {
+        val notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+        val r = RingtoneManager.getRingtone(context, notification)
+        r.play()
+        
+        val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as android.os.Vibrator
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            vibrator.vibrate(android.os.VibrationEffect.createOneShot(300, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+        } else {
+            vibrator.vibrate(300)
+        }
+    } catch (e: Exception) {
+        e.printStackTrace()
     }
 }
