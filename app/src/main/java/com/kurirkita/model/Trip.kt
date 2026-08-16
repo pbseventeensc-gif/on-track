@@ -14,6 +14,7 @@ data class Trip(
 data class Destination(
     val stopIndex: Int = 0,
     val locationName: String = "",
+    val address: String = "",
     val latitude: Double = 0.0,
     val longitude: Double = 0.0,
     val status: String = "pending", // "pending" | "arrived" | "done"

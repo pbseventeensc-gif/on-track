@@ -9,6 +9,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -111,32 +113,73 @@ fun DestinationItem(dest: Destination, onStatusUpdate: (String, Bitmap?) -> Unit
         }
     }
 
-    Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (dest.status == "done") Color(0xFFE8F5E9) else Color.White
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(dest.locationName, style = MaterialTheme.typography.titleMedium)
-            Text("Urutan: ${dest.stopIndex}")
-            Text("Status: ${dest.status}")
+            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Surface(
+                    shape = androidx.compose.foundation.shape.CircleShape,
+                    color = if (dest.status == "done") Color(0xFF2E7D32) else Color(0xFFD32F2F),
+                    modifier = Modifier.size(24.dp)
+                ) {
+                    Box(contentAlignment = androidx.compose.ui.Alignment.Center) {
+                        Text(dest.stopIndex.toString(), color = Color.White, style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = dest.locationName,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                    color = if (dest.status == "done") Color(0xFF2E7D32) else Color.Black
+                )
+            }
             
-            if (dest.proofPhotoUrl.isNotEmpty()) {
-                Text("✅ Foto bukti sudah diunggah", color = Color(0xFF2E7D32), style = MaterialTheme.typography.labelSmall)
+            if (dest.address.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = dest.address,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.Gray
+                )
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
-            Row {
-                if (dest.status == "pending") {
-                    Button(onClick = { onStatusUpdate("arrived", null) }) {
-                        Text("Tiba di Lokasi")
-                    }
-                } else if (dest.status == "arrived") {
-                    Button(
-                        onClick = { cameraLauncher.launch(null) },
-                        enabled = !isUploading,
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                    ) {
-                        if (isUploading) {
-                            CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
-                        } else {
-                            Text("Ambil Foto & Selesai")
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            if (dest.status == "done") {
+                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF2E7D32), modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Selesai dikirim", color = Color(0xFF2E7D32), style = MaterialTheme.typography.labelMedium)
+                }
+            } else {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    if (dest.status == "pending") {
+                        Button(
+                            onClick = { onStatusUpdate("arrived", null) },
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+                        ) {
+                            Text("Tiba di Lokasi")
+                        }
+                    } else if (dest.status == "arrived") {
+                        Button(
+                            onClick = { cameraLauncher.launch(null) },
+                            enabled = !isUploading,
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF1C40F), contentColor = Color.Black),
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+                        ) {
+                            if (isUploading) {
+                                CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.Black, strokeWidth = 2.dp)
+                            } else {
+                                Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Foto & Selesai")
+                            }
                         }
                     }
                 }

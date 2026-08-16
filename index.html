@@ -180,7 +180,12 @@
                     div.className = 'search-item d-flex align-items-start';
                     div.innerHTML = `<i class="bi bi-geo-alt-fill text-danger me-2 mt-1"></i><div><b>${placeName}</b><br><small class="text-muted" style="font-size:0.7rem">${item.display_name}</small></div>`;
                     div.onclick = () => {
-                        tripQueue.push({ name: placeName, lat: parseFloat(item.lat), lng: parseFloat(item.lon) });
+                        tripQueue.push({
+                            name: placeName,
+                            address: item.display_name,
+                            lat: parseFloat(item.lat),
+                            lng: parseFloat(item.lon)
+                        });
                         renderQueue(); el.style.display = 'none'; document.getElementById('loc-search').value = '';
                         map.flyTo([item.lat, item.lon], 16);
                         L.marker([item.lat, item.lon]).addTo(map).bindPopup(`<b>${placeName}</b>`).openPopup();
@@ -201,7 +206,15 @@
             const tripId = "TRIP_" + Date.now();
             await db.collection('trips').doc(tripId).set({
                 tripId, courierId: cid, status: "assigned", date: firebase.firestore.Timestamp.now(),
-                destinations: tripQueue.map((d, i) => ({ stopIndex: i+1, locationName: d.name, latitude: d.lat, longitude: d.lng, status: "pending", proofPhotoUrl: "" }))
+                destinations: tripQueue.map((d, i) => ({
+                    stopIndex: i+1,
+                    locationName: d.name,
+                    address: d.address || "",
+                    latitude: d.lat,
+                    longitude: d.lng,
+                    status: "pending",
+                    proofPhotoUrl: ""
+                }))
             });
             alert("Tugas Berhasil Terkirim!"); tripQueue = []; renderQueue();
         }

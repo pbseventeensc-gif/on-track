@@ -9,6 +9,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.KurirKita.model.Trip
 
@@ -49,12 +50,31 @@ fun TripListScreen(viewModel: TripViewModel, onTripClick: (Trip) -> Unit) {
                 items(trips) { trip ->
                     Card(
                         onClick = { onTripClick(trip) },
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
-                            Text("Trip ID: ${trip.tripId.takeLast(8)}", style = MaterialTheme.typography.titleMedium)
-                            Text("Status: ${trip.status.uppercase()}")
-                            Text("Titik Antar: ${trip.destinations.size}")
+                            val firstDest = trip.destinations.firstOrNull()?.locationName ?: "Tanpa Tujuan"
+                            Text(
+                                text = "Tujuan Utama: $firstDest",
+                                style = MaterialTheme.typography.titleLarge,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Trip ID: ${trip.tripId.takeLast(8)}",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                            Divider(modifier = Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("Total: ${trip.destinations.size} Titik", style = MaterialTheme.typography.bodyMedium)
+                                Badge(containerColor = if(trip.status == "assigned") Color.Gray else Color(0xFFF1C40F)) {
+                                    Text(trip.status.uppercase(), modifier = Modifier.padding(horizontal = 4.dp))
+                                }
+                            }
                         }
                     }
                 }
