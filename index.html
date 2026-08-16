@@ -250,42 +250,53 @@
             if (!q || q.length < 2) return alert("Masukkan minimal 2 huruf!");
 
             const el = document.getElementById('search-res');
-            el.innerHTML = '<div class="list-group-item small">Mencari di database global...</div>';
+            el.innerHTML = '<div class="list-group-item small text-primary"><div class="spinner-border spinner-border-sm me-2"></div> Mencari di Indonesia...</div>';
 
             try {
-                // Menggunakan Photon API (lebih bagus untuk mencari nama PT/Gedung daripada Nominatim)
-                const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=5&lat=-6.2&lon=106.8`;
-                const resp = await fetch(url);
+                // Menggunakan Nominatim dengan parameter countrycodes=id untuk mengunci hasil hanya di Indonesia
+                const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&countrycodes=id&limit=10&addressdetails=1`;
+                const resp = await fetch(url, {
+                    headers: { 'Accept-Language': 'id' } // Paksa hasil dalam bahasa Indonesia
+                });
                 const data = await resp.json();
 
                 el.innerHTML = '';
-                if (!data.features || data.features.length === 0) {
-                    el.innerHTML = '<div class="list-group-item small text-danger">Lokasi tidak ditemukan. Coba ketik nama intinya saja (misal: "Pixart" saja).</div>';
+                if (data.length === 0) {
+                    el.innerHTML = `
+                        <div class="list-group-item small text-danger">
+                            Lokasi "${q}" tidak ditemukan di Indonesia.<br>
+                            <small class="text-muted">Saran: Gunakan nama jalan atau daerah (misal: "Pixart Daan Mogot").</small>
+                        </div>`;
                     return;
                 }
 
-                data.features.forEach(feature => {
-                    const props = feature.properties;
-                    const name = props.name || "";
-                    const city = props.city || "";
-                    const street = props.street || "";
-                    const displayName = `${name} ${street} ${city}`.trim();
-                    const [lng, lat] = feature.geometry.coordinates;
+                data.forEach(item => {
+                    const lat = parseFloat(item.lat);
+                    const lon = parseFloat(item.lon);
+                    // Ambil nama tempat atau bagian pertama dari alamat
+                    const placeName = item.name || item.display_name.split(',')[0];
+                    const fullAddress = item.display_name;
 
                     const btn = document.createElement('button');
-                    btn.className = 'list-group-item list-group-item-action small py-2';
-                    btn.innerHTML = `<i class="bi bi-geo-alt-fill text-primary"></i> ${displayName}`;
+                    btn.className = 'list-group-item list-group-item-action small py-2 d-flex align-items-start';
+                    btn.innerHTML = `
+                        <i class="bi bi-geo-alt-fill text-danger mt-1 me-2"></i>
+                        <div>
+                            <div class="fw-bold">${placeName}</div>
+                            <div class="text-muted" style="font-size: 0.75rem;">${fullAddress}</div>
+                        </div>
+                    `;
                     btn.onclick = () => {
                         tripQueue.push({
-                            name: name || props.osm_value || "Lokasi",
+                            name: placeName,
                             lat: lat,
-                            lng: lng
+                            lng: lon
                         });
                         renderQueue();
                         el.innerHTML = '';
                         document.getElementById('loc-search').value = '';
-                        map.flyTo([lat, lng], 15);
-                        L.marker([lat, lng]).addTo(map).bindPopup("Ditambahkan ke rute").openPopup();
+                        map.flyTo([lat, lon], 17);
+                        L.marker([lat, lon]).addTo(map).bindPopup(`<b>${placeName}</b><br>Ditambahkan ke rute`).openPopup();
                     };
                     el.appendChild(btn);
                 });
