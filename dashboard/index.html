@@ -195,6 +195,32 @@
             } catch (e) { console.error(e); }
         }
 
+        // Fitur Nitikin: Klik Langsung di Peta
+        map.on('click', async function(e) {
+            const lat = e.latlng.lat;
+            const lng = e.latlng.lng;
+
+            // Coba ambil alamat otomatis dari koordinat (Reverse Geocoding)
+            let autoAddress = "Lokasi Pilihan";
+            try {
+                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+                const data = await res.json();
+                autoAddress = data.display_name;
+            } catch(err) {}
+
+            const name = prompt("Beri nama lokasi ini (Manual):", "Titik Antar");
+            if (name) {
+                tripQueue.push({
+                    name: name,
+                    address: autoAddress,
+                    lat: lat,
+                    lng: lng
+                });
+                renderQueue();
+                L.marker([lat, lng]).addTo(map).bindPopup(`<b>${name}</b><br>Ditambahkan ke rute`).openPopup();
+            }
+        });
+
         function renderQueue() {
             const q = document.getElementById('queue');
             q.innerHTML = tripQueue.map((d, i) => `<div class="destination-pill d-flex justify-content-between align-items-center"><span>${i+1}. ${d.name}</span> <i class="bi bi-x-circle text-danger" onclick="tripQueue.splice(${i},1);renderQueue()"></i></div>`).join('');
