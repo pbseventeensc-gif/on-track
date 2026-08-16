@@ -26,12 +26,34 @@ import com.google.firebase.storage.FirebaseStorage
 import java.io.ByteArrayOutputStream
 import java.util.UUID
 
+import com.cloudinary.android.MediaManager
+import com.cloudinary.android.callback.ErrorInfo
+import com.cloudinary.android.callback.UploadCallback
+import java.io.File
+import java.io.FileOutputStream
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ActiveTripScreen(trip: Trip, onBack: () -> Unit, onChatClick: () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val db = FirebaseFirestore.getInstance()
     var currentTrip by remember { mutableStateOf(trip) }
     val storage = FirebaseStorage.getInstance()
+    
+    // Initialize Cloudinary if needed
+    LaunchedEffect(Unit) {
+        db.collection("config").document("cloudinary").get().addOnSuccessListener { doc ->
+            val cloudName = doc.getString("cloudName")
+            if (!cloudName.isNullOrEmpty()) {
+                try {
+                    val config = mapOf("cloud_name" to cloudName, "secure" to true)
+                    MediaManager.init(context, config)
+                } catch (e: Exception) {
+                    // Already initialized
+                }
+            }
+        }
+    }
 
     DisposableEffect(trip.tripId) {
         val registration = db.collection("trips").document(trip.tripId)
@@ -213,20 +235,53 @@ fun DestinationItem(dest: Destination, onStatusUpdate: (String, Bitmap?) -> Unit
 }
 
 private fun uploadPhotoAndUpdate(storage: FirebaseStorage, db: FirebaseFirestore, trip: Trip, dest: Destination, bitmap: Bitmap, newStatus: String) {
-    // 1. Resize Bitmap for SUPER FAST upload (640px is plenty for proof)
-    val scaledBitmap = scaleBitmap(bitmap, 640) 
+    val scaledBitmap = scaleBitmap(bitmap, 640)
     
+    // Check if Cloudinary is configured
+    db.collection("config").document("cloudinary").get().addOnSuccessListener { doc ->
+        val cloudName = doc.getString("cloudName")
+        val preset = doc.getString("uploadPreset")
+
+        if (!cloudName.isNullOrEmpty() && !preset.isNullOrEmpty()) {
+            // UPLOAD TO CLOUDINARY
+            val baos = ByteArrayOutputStream()
+            scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 50, baos)
+            val bytes = baos.toByteArray()
+            
+            MediaManager.get().upload(bytes)
+                .unsigned(preset)
+                .option("folder", "wellen_proofs")
+                .callback(object : UploadCallback {
+                    override fun onStart(requestId: String?) {}
+                    override fun onProgress(requestId: String?, bytes: Long, totalBytes: Long) {}
+                    override fun onSuccess(requestId: String?, resultData: Map<*, *>?) {
+                        val url = resultData?.get("secure_url") as? String
+                        if (url != null) updateDestinationStatus(db, trip, dest, newStatus, url)
+                    }
+                    override fun onError(requestId: String?, error: ErrorInfo?) {
+                        // Fallback to Firebase on Cloudinary error
+                        uploadToFirebase(storage, db, trip, dest, scaledBitmap, newStatus)
+                    }
+                    override fun onReschedule(requestId: String?, error: ErrorInfo?) {}
+                }).dispatch()
+        } else {
+            // DEFAULT TO FIREBASE
+            uploadToFirebase(storage, db, trip, dest, scaledBitmap, newStatus)
+        }
+    }.addOnFailureListener {
+        uploadToFirebase(storage, db, trip, dest, scaledBitmap, newStatus)
+    }
+}
+
+private fun uploadToFirebase(storage: FirebaseStorage, db: FirebaseFirestore, trip: Trip, dest: Destination, bitmap: Bitmap, newStatus: String) {
     val fileName = "proof_${trip.tripId}_${dest.stopIndex}_${UUID.randomUUID()}.jpg"
     val ref = storage.reference.child("proofs/$fileName")
     val baos = ByteArrayOutputStream()
-    scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 50, baos) // 50% quality for maximum speed
-    
+    bitmap.compress(Bitmap.CompressFormat.JPEG, 50, baos)
     ref.putBytes(baos.toByteArray()).addOnSuccessListener {
         ref.downloadUrl.addOnSuccessListener { uri -> 
             updateDestinationStatus(db, trip, dest, newStatus, uri.toString()) 
         }
-    }.addOnFailureListener {
-        // Fallback or retry logic can be added here
     }
 }
 

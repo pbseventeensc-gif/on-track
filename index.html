@@ -136,8 +136,20 @@
 
                         <button class="btn btn-dark w-100 fw-bold" onclick="updateConfig()">Terapkan ke Semua HP</button>
                     </div>
+
+                    <h6 class="fw-bold mb-3 text-uppercase small">Cloudinary Storage (Opsional)</h6>
+                    <div class="card p-3 mb-3 border-0 bg-light shadow-sm">
+                        <label class="small fw-bold mb-1">Cloud Name</label>
+                        <input type="text" id="cld-name" class="form-control mb-2" placeholder="Contoh: dxxxxxxx">
+
+                        <label class="small fw-bold mb-1">Upload Preset (Unsigned)</label>
+                        <input type="text" id="cld-preset" class="form-control mb-2" placeholder="Contoh: ontrack_preset">
+
+                        <button class="btn btn-primary btn-sm w-100" onclick="saveCloudinary()">Simpan Cloudinary</button>
+                    </div>
+
                     <div id="settings-alert" class="alert alert-success py-2 small d-none">
-                        <i class="bi bi-check-circle-fill me-1"></i> Konfigurasi berhasil diterapkan!
+                        <i class="bi bi-check-circle-fill me-1"></i> Berhasil disimpan!
                     </div>
                     <div class="alert alert-info py-2 small" style="font-size: 0.75rem;">
                         <i class="bi bi-info-circle me-1"></i> Perubahan ini akan langsung merubah perilaku pengiriman data GPS di semua HP kurir secara otomatis.
@@ -157,6 +169,18 @@
         <div class="p-2 border-top d-flex">
             <input type="text" id="chat-input" class="form-control form-control-sm me-2" placeholder="Tulis pesan...">
             <button class="btn btn-sm btn-primary" onclick="sendChat()"><i class="bi bi-send"></i></button>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION -->
+    <div class="toast-container position-fixed bottom-0 start-0 p-3" style="z-index: 3000;">
+        <div id="liveToast" class="toast align-items-center text-white bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body">
+                    <i class="bi bi-check-circle-fill me-2"></i> Perintah terkirim ke semua HP kurir!
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
         </div>
     </div>
 
@@ -375,9 +399,16 @@
                 updatedAt: firebase.firestore.Timestamp.now()
             });
 
+            // Show Toast
+            const toastEl = document.getElementById('liveToast');
+            const toast = new bootstrap.Toast(toastEl);
+            toast.show();
+
             const alertEl = document.getElementById('settings-alert');
-            alertEl.classList.remove('d-none');
-            setTimeout(() => alertEl.classList.add('d-none'), 3000);
+            if(alertEl) {
+                alertEl.classList.remove('d-none');
+                setTimeout(() => alertEl.classList.add('d-none'), 3000);
+            }
         }
 
         async function loadHistory() {
@@ -461,6 +492,30 @@
                 container.appendChild(groupDiv);
             }
         }
+        async function saveCloudinary() {
+            const name = document.getElementById('cld-name').value;
+            const preset = document.getElementById('cld-preset').value;
+            await db.collection('config').document('cloudinary').set({
+                cloudName: name,
+                uploadPreset: preset,
+                updatedAt: firebase.firestore.Timestamp.now()
+            });
+            alert("Cloudinary Config Tersimpan!");
+        }
+
+        // Load Initial Configs
+        db.collection('config').document('cloudinary').get().then(doc => {
+            if(doc.exists) {
+                document.getElementById('cld-name').value = doc.data().cloudName || "";
+                document.getElementById('cld-preset').value = doc.data().uploadPreset || "";
+            }
+        });
+        db.collection('config').document('tracking').get().then(doc => {
+            if(doc.exists) {
+                document.getElementById('cfg-interval').value = (doc.data().intervalMs / 1000) || 10;
+                document.getElementById('cfg-distance').value = doc.data().minDistance || 10;
+            }
+        });
     </script>
 </body>
 </html>

@@ -32,10 +32,23 @@ import com.KurirKita.ui.theme.KurirKitaTheme
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 
+import com.cloudinary.android.MediaManager
+
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Initialize Cloudinary if Config is set
+        FirebaseFirestore.getInstance().collection("config").document("cloudinary").get()
+            .addOnSuccessListener { doc ->
+                val cloudName = doc.getString("cloudName")
+                if (!cloudName.isNullOrEmpty()) {
+                    try {
+                        MediaManager.init(this, mapOf("cloud_name" to cloudName, "secure" to true))
+                    } catch (e: Exception) {}
+                }
+            }
         
         // Ensure user is registered in Firestore if already logged in
         val currentUser = FirebaseAuth.getInstance().currentUser
