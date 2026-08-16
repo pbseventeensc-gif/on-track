@@ -246,26 +246,26 @@
 
         // --- SEARCH & DISPATCH ---
         async function searchLocation() {
-            const q = document.getElementById('loc-search').value;
+            let q = document.getElementById('loc-search').value;
             if (!q || q.length < 2) return alert("Masukkan minimal 2 huruf!");
 
+            // Bersihkan kata "PT." atau "PT" agar pencarian OSM lebih akurat
+            q = q.replace(/PT\.?\s+/gi, '').trim();
+
             const el = document.getElementById('search-res');
-            el.innerHTML = '<div class="list-group-item small text-primary"><div class="spinner-border spinner-border-sm me-2"></div> Mencari di Indonesia...</div>';
+            el.innerHTML = '<div class="list-group-item small text-primary"><div class="spinner-border spinner-border-sm me-2"></div> Mencari "' + q + '" di Indonesia...</div>';
 
             try {
-                // Menggunakan Nominatim dengan parameter countrycodes=id untuk mengunci hasil hanya di Indonesia
                 const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&countrycodes=id&limit=10&addressdetails=1`;
-                const resp = await fetch(url, {
-                    headers: { 'Accept-Language': 'id' } // Paksa hasil dalam bahasa Indonesia
-                });
+                const resp = await fetch(url, { headers: { 'Accept-Language': 'id' } });
                 const data = await resp.json();
 
                 el.innerHTML = '';
                 if (data.length === 0) {
                     el.innerHTML = `
                         <div class="list-group-item small text-danger">
-                            Lokasi "${q}" tidak ditemukan di Indonesia.<br>
-                            <small class="text-muted">Saran: Gunakan nama jalan atau daerah (misal: "Pixart Daan Mogot").</small>
+                            Lokasi tidak ditemukan.<br>
+                            <small class="text-muted">Coba ketik nama jalan atau daerahnya saja.</small>
                         </div>`;
                     return;
                 }

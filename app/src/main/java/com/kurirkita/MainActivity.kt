@@ -154,15 +154,21 @@ fun ServiceControlBar(
                     contentDescription = null,
                     modifier = Modifier.size(40.dp).padding(end = 8.dp)
                 )
-                Column {
-                    Text(
-                        text = if (isTracking) "Tracking Aktif" else "Tracking Berhenti",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    TextButton(onClick = onLogout) {
-                        Text("Logout", style = MaterialTheme.typography.bodySmall)
-                    }
+            Column {
+                val uid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+                Text(
+                    text = if (isTracking) "Tracking Aktif" else "Tracking Berhenti",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text(
+                    text = "ID: ${uid.take(8)}...",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                )
+                TextButton(onClick = onLogout, contentPadding = PaddingValues(0.dp)) {
+                    Text("Logout", style = MaterialTheme.typography.bodySmall)
                 }
+            }
             }
             
             Switch(
