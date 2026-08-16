@@ -181,16 +181,28 @@ fun DestinationItem(dest: Destination, onStatusUpdate: (String, Bitmap?) -> Unit
                             Text("SAYA TIBA")
                         }
                     } else if (dest.status == "arrived") {
-                        Button(
-                            onClick = { cameraLauncher.launch(null) },
-                            enabled = !isUploading,
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF1C40F), contentColor = Color.Black)
-                        ) {
-                            if (isUploading) CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.Black, strokeWidth = 2.dp)
-                            else {
-                                Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("FOTO & SELESAI", fontWeight = FontWeight.Black)
+                        Column(horizontalAlignment = Alignment.End) {
+                            Button(
+                                onClick = { cameraLauncher.launch(null) },
+                                enabled = !isUploading,
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF1C40F), contentColor = Color.Black),
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                            ) {
+                                if (isUploading) {
+                                    CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.Black, strokeWidth = 2.dp)
+                                } else {
+                                    Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(20.dp))
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Text("FOTO & SELESAI", fontWeight = FontWeight.Black)
+                                }
+                            }
+                            
+                            TextButton(
+                                onClick = { onStatusUpdate("done", null) },
+                                enabled = !isUploading,
+                                modifier = Modifier.padding(top = 4.dp)
+                            ) {
+                                Text("Konfirmasi Selesai (Tanpa Foto)", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelSmall)
                             }
                         }
                     }
@@ -201,13 +213,13 @@ fun DestinationItem(dest: Destination, onStatusUpdate: (String, Bitmap?) -> Unit
 }
 
 private fun uploadPhotoAndUpdate(storage: FirebaseStorage, db: FirebaseFirestore, trip: Trip, dest: Destination, bitmap: Bitmap, newStatus: String) {
-    // 1. Resize Bitmap for FASTER upload
-    val scaledBitmap = scaleBitmap(bitmap, 800) // Scale to max 800px
+    // 1. Resize Bitmap for SUPER FAST upload (640px is plenty for proof)
+    val scaledBitmap = scaleBitmap(bitmap, 640) 
     
     val fileName = "proof_${trip.tripId}_${dest.stopIndex}_${UUID.randomUUID()}.jpg"
     val ref = storage.reference.child("proofs/$fileName")
     val baos = ByteArrayOutputStream()
-    scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 60, baos) // 60% quality is enough for proof
+    scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 50, baos) // 50% quality for maximum speed
     
     ref.putBytes(baos.toByteArray()).addOnSuccessListener {
         ref.downloadUrl.addOnSuccessListener { uri -> 

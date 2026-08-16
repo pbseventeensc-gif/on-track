@@ -385,7 +385,12 @@
             const container = document.getElementById('history-list');
             container.innerHTML = '<div class="text-center small py-3">Memuat...</div>';
             const start = new Date(date); start.setHours(0,0,0,0);
-            const snap = await db.collection('trips').where('date', '>=', firebase.firestore.Timestamp.fromDate(start)).get();
+            const end = new Date(date); end.setHours(23,59,59,999);
+
+            const snap = await db.collection('trips')
+                .where('date', '>=', firebase.firestore.Timestamp.fromDate(start))
+                .where('date', '<=', firebase.firestore.Timestamp.fromDate(end))
+                .get();
 
             container.innerHTML = '';
             if(snap.empty) {
@@ -393,47 +398,67 @@
                 return;
             }
 
-            for (const doc of snap.docs) {
+            // GROUP BY COURIER
+            const courierGroups = {};
+            snap.forEach(doc => {
                 const t = doc.data();
-                const courierName = registeredUsers[t.courierId] || t.courierId.substring(0,8);
+                const cid = t.courierId;
+                if (!courierGroups[cid]) courierGroups[cid] = [];
+                courierGroups[cid].push({id: doc.id, ...t});
+            });
 
-                // Fetch Chat History
-                const chatSnap = await db.collection('trips').doc(doc.id).collection('messages').orderBy('timestamp','asc').get();
-                let chatHistoryHtml = chatSnap.empty ? '<small class="text-muted">Tidak ada chat</small>' : chatSnap.docs.map(mDoc => {
-                    const m = mDoc.data();
-                    const isAdm = m.senderId === 'admin';
-                    return `<div class="p-1 border-bottom" style="font-size:0.75rem"><b>${isAdm?'Admin':'Kurir'}:</b> ${m.text}</div>`;
-                }).join('');
+            for (const cid in courierGroups) {
+                const name = registeredUsers[cid] || cid.substring(0,8);
+                const trips = courierGroups[cid];
 
-                const div = document.createElement('div');
-                div.className = 'trip-card';
-                div.innerHTML = `
-                    <div class="d-flex justify-content-between">
-                        <b>Kurir: ${courierName}</b>
-                        <span class="small text-muted">${new Date(t.date.seconds*1000).toLocaleTimeString()}</span>
-                    </div>
-                    <div class="small text-muted mb-2">Jarak: ${t.totalDistanceKm || 0} km</div>
+                const groupDiv = document.createElement('div');
+                groupDiv.className = 'card mb-3 shadow-sm border-0';
 
-                    <button class="btn btn-sm btn-link p-0 text-primary fw-bold" onclick="this.nextElementSibling.classList.toggle('d-none')">
-                        Buka Detail Foto & Chat History
-                    </button>
+                let tripsHtml = "";
+                for (const t of trips) {
+                    // Fetch Chat
+                    const chatSnap = await db.collection('trips').doc(t.id).collection('messages').orderBy('timestamp','asc').get();
+                    let chatHtml = chatSnap.empty ? '<small class="text-muted">Tidak ada chat</small>' : chatSnap.docs.map(mDoc => {
+                        const m = mDoc.data();
+                        return `<div class="p-1 border-bottom" style="font-size:0.7rem"><b>${m.senderId==='admin'?'Admin':'Kurir'}:</b> ${m.text}</div>`;
+                    }).join('');
 
-                    <div class="d-none mt-2">
-                        <div class="bg-light p-2 rounded mb-2" style="max-height:100px; overflow-y:auto">
-                            <label class="fw-bold extra-small text-uppercase text-secondary" style="font-size:0.6rem">Riwayat Chat</label>
-                            ${chatHistoryHtml}
-                        </div>
-                        ${t.destinations.map(d => `
-                            <div class="dest-pill ${d.status}">
-                                <b>${d.locationName}</b><br>
-                                ${d.proofPhotoUrl ? `
-                                    <div class="mt-2 text-success small fw-bold">✓ Foto Bukti:</div>
-                                    <img src="${d.proofPhotoUrl}" class="proof-img" onclick="window.open('${d.proofPhotoUrl}')">
-                                ` : '<small class="text-muted">Tanpa foto bukti</small>'}
+                    tripsHtml += `
+                        <div class="p-3 border-top">
+                            <div class="d-flex justify-content-between small fw-bold text-secondary mb-2">
+                                <span>TRIP ID: ${t.id.substring(0,8)}</span>
+                                <span>${new Date(t.date.seconds*1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
                             </div>
-                        `).join('')}
-                    </div>`;
-                container.appendChild(div);
+                            <div class="mb-2">Jarak: <b>${t.totalDistanceKm ? t.totalDistanceKm.toFixed(2) : 0} KM</b></div>
+
+                            <div class="bg-light p-2 rounded mb-2" style="max-height:80px; overflow-y:auto">
+                                <label class="fw-bold extra-small text-uppercase text-secondary" style="font-size:0.6rem">Riwayat Chat</label>
+                                ${chatHtml}
+                            </div>
+
+                            ${t.destinations.map(d => `
+                                <div class="dest-pill ${d.status}">
+                                    <div class="d-flex justify-content-between">
+                                        <b>${d.locationName}</b>
+                                        <span class="small text-muted">${d.status}</span>
+                                    </div>
+                                    ${d.proofPhotoUrl ? `<img src="${d.proofPhotoUrl}" class="proof-img mt-2" onclick="window.open('${d.proofPhotoUrl}')">` : '<br><small class="text-muted">Tanpa foto</small>'}
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                }
+
+                groupDiv.innerHTML = `
+                    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center" style="cursor:pointer" onclick="this.nextElementSibling.classList.toggle('d-none')">
+                        <span class="fw-bold"><i class="bi bi-person-circle me-2"></i>${name}</span>
+                        <span class="badge bg-primary">${trips.length} Perjalanan</span>
+                    </div>
+                    <div class="d-none">
+                        ${tripsHtml}
+                    </div>
+                `;
+                container.appendChild(groupDiv);
             }
         }
     </script>
