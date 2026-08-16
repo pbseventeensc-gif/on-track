@@ -1,8 +1,12 @@
 package com.KurirKita.model
 
+import com.google.firebase.Timestamp
+
 data class CourierLocation(
-    val latitude: Double = 0.0,
-    val longitude: Double = 0.0,
-    val courierId: String = "Courier_01", // Default ID for simple app
-    val timestamp: Long = System.currentTimeMillis()
+    val courierId: String = "Courier_01",
+    val lat: Double = 0.0,
+    val lng: Double = 0.0,
+    val batteryLevel: Int = 0,
+    val lastUpdated: Timestamp = Timestamp.now(),
+    val totalDistanceKm: Double = 0.0
 )

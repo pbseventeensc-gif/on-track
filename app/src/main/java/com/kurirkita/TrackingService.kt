@@ -2,19 +2,29 @@ package com.KurirKita
 
 import android.annotation.SuppressLint
 import android.app.*
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import android.location.Location
+import android.os.BatteryManager
+import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.KurirKita.model.CourierLocation
 import com.google.android.gms.location.*
+import com.google.firebase.Timestamp
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.FirebaseDatabase
 
 class TrackingService : Service() {
 
-    private val database = FirebaseDatabase.getInstance("https://ontrack-fccb8-default-rtdb.asia-southeast1.firebasedatabase.app").getReference("courier_locations")
+    private val database = FirebaseDatabase.getInstance("https://ontrack-fccb8-default-rtdb.asia-southeast1.firebasedatabase.app").getReference("courier_live_location")
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var locationCallback: LocationCallback
+    
+    private var lastLocation: Location? = null
+    private var totalDistanceKm: Double = 0.0
 
     override fun onCreate() {
         super.onCreate()
@@ -23,12 +33,43 @@ class TrackingService : Service() {
         locationCallback = object : LocationCallback() {
             override fun onLocationResult(locationResult: LocationResult) {
                 locationResult.lastLocation?.let { location ->
-                    val courierLocation = CourierLocation(location.latitude, location.longitude)
-                    database.child(courierLocation.courierId).setValue(courierLocation)
-                    Log.d("TrackingService", "Location sent: ${location.latitude}, ${location.longitude}")
+                    updateTelemetry(location)
                 }
             }
         }
+    }
+
+    private fun updateTelemetry(location: Location) {
+        val courierId = FirebaseAuth.getInstance().currentUser?.uid ?: "anonymous"
+        
+        // Calculate Distance
+        lastLocation?.let {
+            val distance = it.distanceTo(location) // meters
+            totalDistanceKm += (distance / 1000.0)
+        }
+        lastLocation = location
+
+        // Get Battery Level
+        val batteryStatus: Intent? = IntentFilter(Intent.ACTION_BATTERY_CHANGED).let { ifilter ->
+            applicationContext.registerReceiver(null, ifilter)
+        }
+        val batteryLevel = batteryStatus?.let { intent ->
+            val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+            val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
+            (level * 100 / scale.toFloat()).toInt()
+        } ?: 0
+
+        val courierLocation = CourierLocation(
+            courierId = courierId,
+            lat = location.latitude,
+            lng = location.longitude,
+            batteryLevel = batteryLevel,
+            lastUpdated = Timestamp.now(),
+            totalDistanceKm = totalDistanceKm
+        )
+
+        database.child(courierId).setValue(courierLocation)
+        Log.d("TrackingService", "Telemetry sent: $courierLocation")
     }
 
     @SuppressLint("MissingPermission")
@@ -49,15 +90,15 @@ class TrackingService : Service() {
 
     @SuppressLint("MissingPermission")
     private fun startLocationUpdates() {
-        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 5000)
-            .setMinUpdateIntervalMillis(3000)
+        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 10000) // 10 seconds
+            .setMinUpdateIntervalMillis(5000)
             .build()
 
         fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, null)
     }
 
     private fun createNotificationChannel() {
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 "tracking_channel",
                 "Courier Tracking",

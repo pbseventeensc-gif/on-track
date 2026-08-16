@@ -1,32 +1,60 @@
 <!DOCTYPE html>
-<html>
+<html lang="id">
 <head>
-    <title>Dashboard KurirKita</title>
+    <title>Admin Dashboard - KurirKita</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
     <style>
-        #map { height: 100vh; width: 100%; }
-        body { margin: 0; padding: 0; }
-        .info-box {
-            position: absolute; top: 10px; right: 10px; z-index: 1000;
-            background: white; padding: 10px; border-radius: 5px; box-shadow: 0 0 10px rgba(0,0,0,0.2);
-            font-family: Arial, sans-serif;
-        }
+        body { margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; height: 100vh; }
+        #sidebar { width: 350px; background: #f8f9fa; border-right: 1px solid #ddd; display: flex; flex-direction: column; }
+        #map { flex: 1; }
+        .p-3 { padding: 15px; }
+        .card { background: white; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 10px; padding: 10px; font-size: 0.9em; }
+        .status-badge { padding: 2px 8px; border-radius: 10px; color: white; font-weight: bold; font-size: 0.8em; }
+        .status-in_progress { background: #ffc107; color: black; }
+        .status-completed { background: #28a745; }
+        .status-assigned { background: #6c757d; }
+        h3 { margin-top: 0; }
+        input, select, button { width: 100%; padding: 8px; margin-top: 5px; box-sizing: border-box; }
+        button { background: #007bff; color: white; border: none; cursor: pointer; border-radius: 4px; margin-top: 10px; }
+        .courier-info { border-bottom: 1px solid #eee; padding-bottom: 5px; margin-bottom: 5px; }
     </style>
 </head>
 <body>
-    <div class="info-box">
-        <b>Dashboard KurirKita</b><br>
-        <span id="status">Menghubungkan ke Firebase...</span>
+    <div id="sidebar" class="p-3">
+        <h3>KurirKita Admin</h3>
+
+        <div id="dispatch-form" class="card">
+            <b>Dispatch Trip Baru</b>
+            <input type="text" id="courier-id-input" placeholder="UID Kurir">
+            <input type="text" id="loc-name" placeholder="Nama Lokasi A">
+            <input type="number" step="any" id="lat" placeholder="Lat A">
+            <input type="number" step="any" id="lng" placeholder="Lng A">
+            <button onclick="dispatchTrip()">Kirim Tugas</button>
+        </div>
+
+        <div id="active-trips">
+            <b>Tugas Aktif</b>
+            <div id="trips-list"></div>
+        </div>
+
+        <hr>
+
+        <div id="live-couriers">
+            <b>Kurir Online</b>
+            <div id="couriers-list"></div>
+        </div>
     </div>
+
     <div id="map"></div>
 
     <script>
-        // Konfigurasi Firebase Anda (dari google-services.json)
         const firebaseConfig = {
             apiKey: "AIzaSyBDoviDNLl_aSjM1NMN-g_gHpeIPPzC6Rk",
             authDomain: "ontrack-fccb8.firebaseapp.com",
@@ -37,35 +65,94 @@
             appId: "1:180144218738:android:b0b991a7575ae7693ed8eb"
         };
 
-        // Inisialisasi Firebase
         firebase.initializeApp(firebaseConfig);
-        const database = firebase.database();
+        const rtdb = firebase.database();
+        const db = firebase.firestore();
 
-        // Inisialisasi Peta (OpenStreetMap)
-        const map = L.map('map').setView([-6.200000, 106.816666], 13);
+        const map = L.map('map').setView([-6.200000, 106.816666], 12);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap contributors'
         }).addTo(map);
 
         const markers = {};
 
-        // Listen data lokasi kurir
-        database.ref('courier_locations').on('value', (snapshot) => {
-            document.getElementById('status').innerText = "Update Real-time Aktif";
+        // 1. Listen Live Location (RTDB)
+        rtdb.ref('courier_live_location').on('value', (snapshot) => {
             const data = snapshot.val();
+            const listEl = document.getElementById('couriers-list');
+            listEl.innerHTML = '';
 
             for (const id in data) {
-                const courier = data[id];
-                const pos = [courier.latitude, courier.longitude];
+                const c = data[id];
+                const pos = [c.lat, c.lng];
 
+                // Update Map
                 if (markers[id]) {
                     markers[id].setLatLng(pos);
                 } else {
-                    markers[id] = L.marker(pos).addTo(map)
-                        .bindPopup("Kurir: " + courier.courierId);
+                    markers[id] = L.marker(pos).addTo(map).bindPopup(`Kurir: ${id}`);
                 }
+
+                // Update Sidebar
+                const div = document.createElement('div');
+                div.className = 'courier-info';
+                div.innerHTML = `
+                    <b>${id.substring(0,6)}...</b><br>
+                    Bat: ${c.batteryLevel}% | ${c.totalDistanceKm.toFixed(2)} km<br>
+                    <small>Update: ${new Date(c.lastUpdated.seconds * 1000).toLocaleTimeString()}</small>
+                `;
+                listEl.appendChild(div);
             }
         });
+
+        // 2. Listen Trips (Firestore)
+        db.collection('trips').where('status', '!=', 'completed').onSnapshot((snapshot) => {
+            const listEl = document.getElementById('trips-list');
+            listEl.innerHTML = '';
+            snapshot.forEach(doc => {
+                const trip = doc.data();
+                const div = document.createElement('div');
+                div.className = 'card';
+                div.innerHTML = `
+                    <b>Trip: ${doc.id.substring(0,8)}</b>
+                    <span class="status-badge status-${trip.status}">${trip.status}</span><br>
+                    Kurir: ${trip.courierId.substring(0,6)}...<br>
+                    Tujuan: ${trip.destinations.length} titik
+                `;
+                listEl.appendChild(div);
+            });
+        });
+
+        // 3. Dispatch Function
+        async function dispatchTrip() {
+            const courierId = document.getElementById('courier-id-input').value;
+            const locName = document.getElementById('loc-name').value;
+            const lat = parseFloat(document.getElementById('lat').value);
+            const lng = parseFloat(document.getElementById('lng').value);
+
+            if (!courierId || !locName || isNaN(lat)) {
+                alert("Lengkapi data!"); return;
+            }
+
+            const tripId = "TRIP_" + Date.now();
+            const newTrip = {
+                tripId: tripId,
+                courierId: courierId,
+                status: "assigned",
+                date: firebase.firestore.Timestamp.now(),
+                totalDistanceKm: 0,
+                destinations: [{
+                    stopIndex: 1,
+                    locationName: locName,
+                    latitude: lat,
+                    longitude: lng,
+                    status: "pending"
+                }]
+            };
+
+            await db.collection('trips').doc(tripId).set(newTrip);
+            alert("Tugas dikirim ke kurir!");
+        }
     </script>
 </body>
 </html>

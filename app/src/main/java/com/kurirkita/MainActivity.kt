@@ -15,7 +15,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.KurirKita.model.Trip
+import com.KurirKita.ui.ActiveTripScreen
+import com.KurirKita.ui.LoginScreen
+import com.KurirKita.ui.TripListScreen
+import com.KurirKita.ui.TripViewModel
 import com.KurirKita.ui.theme.KurirKitaTheme
+import com.google.firebase.auth.FirebaseAuth
 
 class MainActivity : ComponentActivity() {
 
@@ -24,11 +31,19 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             KurirKitaTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    CourierControlScreen(
-                        modifier = Modifier.padding(innerPadding),
-                        onStart = { startTrackingService() },
-                        onStop = { stopTrackingService() }
+                var isLoggedIn by remember { mutableStateOf(FirebaseAuth.getInstance().currentUser != null) }
+
+                if (!isLoggedIn) {
+                    LoginScreen(onLoginSuccess = { isLoggedIn = true })
+                } else {
+                    MainNavigation(
+                        onLogout = {
+                            FirebaseAuth.getInstance().signOut()
+                            isLoggedIn = false
+                            stopTrackingService()
+                        },
+                        onStartService = { startTrackingService() },
+                        onStopService = { stopTrackingService() }
                     )
                 }
             }
@@ -51,12 +66,40 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun CourierControlScreen(
-    modifier: Modifier = Modifier,
-    onStart: () -> Unit,
-    onStop: () -> Unit
+fun MainNavigation(
+    onLogout: () -> Unit,
+    onStartService: () -> Unit,
+    onStopService: () -> Unit
 ) {
-    var isRunning by remember { mutableStateOf(false) } // Ini hanya untuk UI sederhana
+    var selectedTrip by remember { mutableStateOf<Trip?>(null) }
+    val tripViewModel: TripViewModel = viewModel()
+
+    if (selectedTrip == null) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Header with Service Toggle and Logout
+            ServiceControlBar(onStartService, onStopService, onLogout)
+            
+            // Trip List
+            TripListScreen(
+                viewModel = tripViewModel,
+                onTripClick = { selectedTrip = it }
+            )
+        }
+    } else {
+        ActiveTripScreen(
+            trip = selectedTrip!!,
+            onBack = { selectedTrip = null }
+        )
+    }
+}
+
+@Composable
+fun ServiceControlBar(
+    onStart: () -> Unit,
+    onStop: () -> Unit,
+    onLogout: () -> Unit
+) {
+    var isTracking by remember { mutableStateOf(false) }
 
     val permissions = mutableListOf(
         Manifest.permission.ACCESS_FINE_LOCATION,
@@ -70,43 +113,41 @@ fun CourierControlScreen(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { results ->
         if (results.values.all { it }) {
-            isRunning = true
+            isTracking = true
             onStart()
         }
     }
 
-    Column(
-        modifier = modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
+    Surface(
+        color = MaterialTheme.colorScheme.primaryContainer,
+        modifier = Modifier.fillMaxWidth()
     ) {
-        Text("Aplikasi KurirKita", style = MaterialTheme.typography.headlineLarge)
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        if (!isRunning) {
-            Button(
-                onClick = { launcher.launch(permissions.toTypedArray()) },
-                modifier = Modifier.fillMaxWidth(0.7f)
-            ) {
-                Text("Mulai Tugas (Background)")
+        Row(
+            modifier = Modifier.padding(16.dp).statusBarsPadding(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                Text(
+                    text = if (isTracking) "Tracking Aktif" else "Tracking Berhenti",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                TextButton(onClick = onLogout) {
+                    Text("Logout", style = MaterialTheme.typography.bodySmall)
+                }
             }
-        } else {
-            Button(
-                onClick = { 
-                    isRunning = false
-                    onStop() 
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                modifier = Modifier.fillMaxWidth(0.7f)
-            ) {
-                Text("Hentikan Tugas")
-            }
+            
+            Switch(
+                checked = isTracking,
+                onCheckedChange = { checked ->
+                    if (checked) {
+                        launcher.launch(permissions.toTypedArray())
+                    } else {
+                        isTracking = false
+                        onStop()
+                    }
+                }
+            )
         }
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = if (isRunning) "Status: Berjalan di background" else "Status: Berhenti",
-            style = MaterialTheme.typography.bodyMedium
-        )
     }
 }
