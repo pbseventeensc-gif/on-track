@@ -21,34 +21,33 @@
         /* Layout Wrapper */
         .app-container { display: flex; height: 100vh; width: 100vw; }
 
-        /* Professional Sidebar */
+        /* Sidebar Professional Panel */
         .app-sidebar {
             width: var(--sidebar-width);
-            background: #fff;
-            box-shadow: 7px 0 60px rgba(0,0,0,0.05);
+            background: var(--sidebar-bg); /* Dark Sidebar */
+            box-shadow: 7px 0 60px rgba(0,0,0,0.2);
             z-index: 1000;
             display: flex;
             flex-direction: column;
             transition: all 0.3s;
         }
-        .sidebar-header { height: var(--top-nav-height); display: flex; align-items: center; padding: 0 20px; border-bottom: 1px solid #f0f0f0; }
-        .sidebar-content { flex: 1; overflow-y: auto; padding: 20px 10px; }
-        .menu-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: #ced4da; padding-left: 15px; margin-bottom: 10px; }
+        .sidebar-header { height: var(--top-nav-height); display: flex; align-items: center; padding: 0 20px; border-bottom: 1px solid #2d2f39; background: #fff; }
+        .sidebar-content { flex: 1; overflow-y: auto; padding: 20px 10px; color: #a0aec0; }
         .nav-link {
-            color: #555; font-size: 0.9rem; padding: 12px 15px; border-radius: 8px; margin-bottom: 5px;
+            color: #a0aec0; font-size: 0.9rem; padding: 12px 15px; border-radius: 8px; margin-bottom: 5px;
             display: flex; align-items: center; transition: 0.2s; cursor: pointer;
         }
-        .nav-link i { font-size: 1.1rem; margin-right: 15px; }
-        .nav-link:hover { background: #f8f9fa; color: #3ac47d; }
-        .nav-link.active { background: #e0f3f0; color: #3ac47d; font-weight: 600; }
+        .nav-link:hover { background: #2d2f39; color: #fff; }
+        .nav-link.active { background: var(--primary-red); color: white; font-weight: 600; box-shadow: 0 4px 15px rgba(211, 47, 47, 0.3); }
+        .menu-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: #4a5568; padding-left: 15px; margin-bottom: 10px; margin-top: 20px; }
 
         /* Main Area */
         .app-main { flex: 1; display: flex; flex-direction: column; position: relative; overflow: hidden; }
 
         /* Top Navbar */
         .app-header {
-            height: var(--top-nav-height); background: #fff; border-bottom: 1px solid #f0f0f0;
-            display: flex; align-items: center; padding: 0 30px; justify-content: space-between;
+            height: var(--top-nav-height); background: var(--sidebar-bg); border-bottom: 1px solid #2d2f39;
+            display: flex; align-items: center; padding: 0 30px; justify-content: space-between; color: #fff;
         }
         .header-left { display: flex; align-items: center; }
         .header-right { display: flex; align-items: center; gap: 20px; }
@@ -124,13 +123,14 @@
                 <img src="wellen_logo.jpg" style="height:35px;" class="me-2">
                 <span class="fw-bold text-dark small">WELLEN PRINT</span>
             </div>
-            <div class="sidebar-content">
-                <div class="menu-label">Main Menu</div>
-                <div class="nav-link active" onclick="showView('dashboard', this)"><i class="bi bi-speedometer2"></i> Dashboard</div>
-                <div class="nav-link" onclick="showView('dispatch', this)"><i class="bi bi-send-plus"></i> Buat Tugas</div>
-                <div class="nav-link" onclick="showView('monitor', this)"><i class="bi bi-broadcast"></i> Monitor Live</div>
-                <div class="nav-link" onclick="showView('history', this)"><i class="bi bi-journal-text"></i> Laporan</div>
-                <div class="nav-link" onclick="showView('settings', this)"><i class="bi bi-gear-wide-connected"></i> Pengaturan</div>
+                <div class="nav flex-column nav-pills nav-pills-custom" id="v-pills-tab" role="tablist">
+                    <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#tab-dashboard"><i class="bi bi-speedometer2"></i> Dashboard</button>
+                    <button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-dispatch"><i class="bi bi-send-plus"></i> Buat Tugas</button>
+                    <button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-monitor"><i class="bi bi-broadcast"></i> Monitor Live</button>
+                    <button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-history"><i class="bi bi-journal-text"></i> Laporan</button>
+                    <button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-chat-global"><i class="bi bi-chat-left-dots"></i> Chat Global</button>
+                    <button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-settings"><i class="bi bi-gear-wide-connected"></i> Pengaturan</button>
+                </div>
 
                 <hr class="my-4" style="opacity: 0.1;">
                 <div class="menu-label">Kurir Online</div>
@@ -264,8 +264,27 @@
                     </div>
                 </div>
 
-                <!-- VIEW 5: SETTINGS -->
-                <div id="view-settings" class="view-section">
+                <!-- VIEW 5: CHAT GLOBAL -->
+                <div id="tab-chat-global" class="tab-pane fade">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="card-pro p-3">
+                                <h6 class="fw-bold mb-3">Pilih Kurir/Trip</h6>
+                                <div id="global-chat-list" class="overflow-y-auto" style="max-height: 500px;"></div>
+                            </div>
+                        </div>
+                        <div class="col-md-8">
+                            <div class="card-pro overflow-hidden d-flex flex-column" style="height: 600px;">
+                                <div class="card-header bg-primary text-white" id="global-chat-header">Pilih percakapan...</div>
+                                <div id="global-chat-msgs" class="chat-messages flex-grow-1"></div>
+                                <div class="p-3 bg-light border-top d-flex">
+                                    <input type="text" id="global-chat-input" class="form-control me-2" placeholder="Tulis instruksi..." onkeypress="if(event.key==='Enter') sendGlobalChat()">
+                                    <button class="btn btn-primary px-4" onclick="sendGlobalChat()"><i class="bi bi-send-fill"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                     <div class="row g-4">
                         <div class="col-md-6">
                             <div class="card-pro p-4">
@@ -621,8 +640,48 @@
         }
         function openImagePopup(url) { document.getElementById('modalImg').src = url; new bootstrap.Modal(document.getElementById('imageModal')).show(); }
 
-        // Initial Load
-        db.collection('config').doc('cloudinary').get().then(d => { if(d.exists && d.data().cloudName) { document.getElementById('cld-name').value = d.data().cloudName; document.getElementById('cld-preset').value = d.data().uploadPreset; lockCloudinaryUI(); }});
+        let globalChatUnsub = null;
+        let globalChatId = null;
+
+        function loadGlobalChatList() {
+            const el = document.getElementById('global-chat-list');
+            el.innerHTML = '';
+            // Load by Courier
+            for (const id in registeredUsers) {
+                const name = registeredUsers[id];
+                el.innerHTML += `
+                    <div class="courier-pill mb-2" style="cursor:pointer" onclick="openGlobalChat('${id}', '${name}')">
+                        <span><i class="bi bi-person me-2"></i>${name}</span>
+                    </div>`;
+            }
+        }
+
+        function openGlobalChat(id, name) {
+            globalChatId = id;
+            document.getElementById('global-chat-header').innerText = "Chat dengan: " + name;
+            if(globalChatUnsub) globalChatUnsub();
+            const col = id.startsWith('TRIP_') ? db.collection('trips').doc(id).collection('messages') : db.collection('chats').doc(id).collection('messages');
+            globalChatUnsub = col.orderBy('timestamp','asc').onSnapshot(snap => {
+                const container = document.getElementById('global-chat-msgs');
+                container.innerHTML = '';
+                snap.forEach(d => {
+                    const m = d.data();
+                    container.innerHTML += `<div class="msg ${m.senderId==='admin'?'admin':'courier'}">${m.text}</div>`;
+                });
+                container.scrollTop = container.scrollHeight;
+            });
+        }
+
+        async function sendGlobalChat() {
+            const txt = document.getElementById('global-chat-input').value;
+            if(!txt || !globalChatId) return;
+            const col = globalChatId.startsWith('TRIP_') ? db.collection('trips').doc(globalChatId).collection('messages') : db.collection('chats').doc(globalChatId).collection('messages');
+            await col.add({ senderId: 'admin', text: txt, timestamp: firebase.firestore.Timestamp.now() });
+            document.getElementById('global-chat-input').value = '';
+        }
+
+        // Initialize Chat List
+        document.querySelector('[data-bs-target="#tab-chat-global"]').addEventListener('shown.bs.tab', loadGlobalChatList);
     </script>
 </body>
 </html>

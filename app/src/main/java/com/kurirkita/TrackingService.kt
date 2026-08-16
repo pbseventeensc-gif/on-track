@@ -130,33 +130,36 @@ class TrackingService : Service() {
         val intervalText = if (trackingIntervalMs >= 60000) "${trackingIntervalMs / 60000} Menit" else "${trackingIntervalMs / 1000} Detik"
         val distanceText = if (trackingMinDistance >= 1000) "${trackingMinDistance / 1000} KM" else "${trackingMinDistance.toInt()} Meter"
         
-        val channelId = "config_update_channel_v2" // Change ID to force refresh importance
+        val channelId = "config_update_v4"
+        val manager = getSystemService(NotificationManager::class.java)
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val name = "Update Kebijakan Tracking"
-            val importance = NotificationManager.IMPORTANCE_HIGH
-            val channel = NotificationChannel(channelId, name, importance).apply {
-                description = "Notifikasi perubahan interval tracking dari admin"
+            val channel = NotificationChannel(channelId, "Update Konfigurasi", NotificationManager.IMPORTANCE_HIGH).apply {
+                description = "Notifikasi perubahan aturan pelacakan"
                 enableVibration(true)
                 vibrationPattern = longArrayOf(0, 500, 200, 500)
-                setSound(android.provider.Settings.System.DEFAULT_NOTIFICATION_URI, null)
+                setSound(android.provider.Settings.System.DEFAULT_NOTIFICATION_URI, 
+                    android.media.AudioAttributes.Builder()
+                        .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION)
+                        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build())
             }
-            val manager = getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(channel)
         }
 
         val notification = NotificationCompat.Builder(this, channelId)
-            .setContentTitle("Aturan Tracking Berubah")
-            .setContentText("Kirim tiap $intervalText atau per $distanceText")
+            .setContentTitle("Aturan Tracking Baru")
+            .setContentText("Kirim tiap $intervalText / $distanceText")
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setCategory(NotificationCompat.CATEGORY_ALARM)
-            .setDefaults(NotificationCompat.DEFAULT_ALL)
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setVibrate(longArrayOf(0, 500, 200, 500))
+            .setSound(android.provider.Settings.System.DEFAULT_NOTIFICATION_URI)
             .setAutoCancel(true)
+            .setDefaults(NotificationCompat.DEFAULT_ALL)
             .build()
 
-        val manager = getSystemService(NotificationManager::class.java)
-        manager.notify(System.currentTimeMillis().toInt(), notification) // Use unique ID to ensure it shows
+        manager.notify(System.currentTimeMillis().toInt(), notification)
     }
 
     private fun createNotificationChannel() {
