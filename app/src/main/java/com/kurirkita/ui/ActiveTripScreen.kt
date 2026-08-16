@@ -19,6 +19,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import coil.compose.rememberAsyncImagePainter
 import com.KurirKita.model.Destination
 import com.KurirKita.model.Trip
 import com.google.firebase.Timestamp
@@ -46,9 +48,7 @@ fun ActiveTripScreen(trip: Trip, onBack: () -> Unit, onChatClick: () -> Unit) {
                 try {
                     val config = mapOf("cloud_name" to cloudName, "secure" to true)
                     MediaManager.init(context, config)
-                } catch (e: Exception) {
-                    // Already initialized
-                }
+                } catch (e: Exception) {}
             }
         }
     }
@@ -68,11 +68,7 @@ fun ActiveTripScreen(trip: Trip, onBack: () -> Unit, onChatClick: () -> Unit) {
                 title = { Text("Detail Perjalanan", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) { 
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack, 
-                            contentDescription = "Kembali",
-                            tint = MaterialTheme.colorScheme.primary
-                        ) 
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali", tint = MaterialTheme.colorScheme.primary) 
                     }
                 },
                 actions = {
@@ -80,10 +76,7 @@ fun ActiveTripScreen(trip: Trip, onBack: () -> Unit, onChatClick: () -> Unit) {
                         Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = "Chat", tint = Color(0xFFF1C40F))
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    titleContentColor = MaterialTheme.colorScheme.onSurface
-                )
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White, titleContentColor = Color.Black)
             )
         }
     ) { innerPadding ->
@@ -137,6 +130,8 @@ fun ActiveTripScreen(trip: Trip, onBack: () -> Unit, onChatClick: () -> Unit) {
 @Composable
 fun DestinationItem(dest: Destination, onStatusUpdate: (String, Bitmap?) -> Unit) {
     var isUploading by remember { mutableStateOf(false) }
+    var showPhotoDialog by remember { mutableStateOf(false) }
+
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicturePreview()
     ) { bitmap ->
@@ -148,6 +143,30 @@ fun DestinationItem(dest: Destination, onStatusUpdate: (String, Bitmap?) -> Unit
 
     LaunchedEffect(dest.status) {
         if (dest.status == "done") isUploading = false
+    }
+
+    if (showPhotoDialog && dest.proofPhotoUrl.isNotEmpty()) {
+        Dialog(onDismissRequest = { showPhotoDialog = false }) {
+            Card(
+                modifier = Modifier.fillMaxWidth().height(450.dp),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
+            ) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    androidx.compose.foundation.Image(
+                        painter = rememberAsyncImagePainter(dest.proofPhotoUrl),
+                        contentDescription = "Bukti Foto",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                    )
+                    IconButton(
+                        onClick = { showPhotoDialog = false },
+                        modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).background(Color.Black.copy(alpha = 0.5f), androidx.compose.foundation.shape.CircleShape)
+                    ) {
+                        Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
+                    }
+                }
+            }
+        }
     }
 
     Card(
@@ -170,21 +189,12 @@ fun DestinationItem(dest: Destination, onStatusUpdate: (String, Bitmap?) -> Unit
                     }
                 }
                 Spacer(modifier = Modifier.width(12.dp))
-                Text(
-                    text = dest.locationName, 
-                    style = MaterialTheme.typography.titleLarge, 
-                    fontWeight = FontWeight.ExtraBold, 
-                    color = MaterialTheme.colorScheme.onSurface
-                )
+                Text(text = dest.locationName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSurface)
             }
             
             if (dest.address.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = dest.address, 
-                    style = MaterialTheme.typography.bodySmall, 
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                )
+                Text(text = dest.address, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -194,6 +204,14 @@ fun DestinationItem(dest: Destination, onStatusUpdate: (String, Bitmap?) -> Unit
                     Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF43A047), modifier = Modifier.size(20.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text("Terkirim", color = Color(0xFF43A047), fontWeight = FontWeight.Bold)
+                    if (dest.proofPhotoUrl.isNotEmpty()) {
+                        Spacer(modifier = Modifier.width(12.dp))
+                        TextButton(onClick = { showPhotoDialog = true }) {
+                            Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Lihat Foto", style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
                 }
             } else {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
@@ -220,16 +238,12 @@ fun DestinationItem(dest: Destination, onStatusUpdate: (String, Bitmap?) -> Unit
                                     Text("FOTO & SELESAI", fontWeight = FontWeight.Black)
                                 }
                             }
-                            
                             TextButton(
-                                onClick = { 
-                                    isUploading = true
-                                    onStatusUpdate("done", null) 
-                                },
+                                onClick = { isUploading = true; onStatusUpdate("done", null) },
                                 enabled = !isUploading,
                                 modifier = Modifier.padding(top = 4.dp)
                             ) {
-                                Text("Selesai Tanpa Foto", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
+                                Text("Selesai Tanpa Foto", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelSmall)
                             }
                         }
                     }
@@ -241,46 +255,31 @@ fun DestinationItem(dest: Destination, onStatusUpdate: (String, Bitmap?) -> Unit
 
 private fun uploadPhotoAndUpdate(storage: FirebaseStorage, db: FirebaseFirestore, trip: Trip, dest: Destination, bitmap: Bitmap, newStatus: String) {
     val scaledBitmap = scaleBitmap(bitmap, 640)
-    Log.d("Upload", "Starting upload for ${dest.locationName}")
-    
     db.collection("config").document("cloudinary").get().addOnSuccessListener { doc ->
         val cloudName = doc.getString("cloudName")
         val preset = doc.getString("uploadPreset")
-
         if (!cloudName.isNullOrEmpty() && !preset.isNullOrEmpty()) {
-            Log.d("Upload", "Using Cloudinary: $cloudName")
             val baos = ByteArrayOutputStream()
             scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 50, baos)
-            val bytes = baos.toByteArray()
-            
-            try {
-                MediaManager.get().upload(bytes)
-                    .unsigned(preset)
-                    .option("folder", "wellen_proofs")
-                    .callback(object : UploadCallback {
-                        override fun onStart(requestId: String?) {}
-                        override fun onProgress(requestId: String?, bytes: Long, totalBytes: Long) {}
-                        override fun onSuccess(requestId: String?, resultData: Map<*, *>?) {
-                            val url = resultData?.get("secure_url") as? String
-                            Log.d("Upload", "Cloudinary Success: $url")
-                            if (url != null) updateDestinationStatus(db, trip, dest, newStatus, url)
-                        }
-                        override fun onError(requestId: String?, error: ErrorInfo?) {
-                            Log.e("Upload", "Cloudinary Error: ${error?.description}")
-                            uploadToFirebase(storage, db, trip, dest, scaledBitmap, newStatus)
-                        }
-                        override fun onReschedule(requestId: String?, error: ErrorInfo?) {}
-                    }).dispatch()
-            } catch (e: Exception) {
-                Log.e("Upload", "MediaManager error: ${e.message}")
-                uploadToFirebase(storage, db, trip, dest, scaledBitmap, newStatus)
-            }
+            MediaManager.get().upload(baos.toByteArray())
+                .unsigned(preset)
+                .option("folder", "wellen_proofs")
+                .callback(object : UploadCallback {
+                    override fun onStart(requestId: String?) {}
+                    override fun onProgress(requestId: String?, bytes: Long, totalBytes: Long) {}
+                    override fun onSuccess(requestId: String?, resultData: Map<*, *>?) {
+                        val url = resultData?.get("secure_url") as? String
+                        if (url != null) updateDestinationStatus(db, trip, dest, newStatus, url)
+                    }
+                    override fun onError(requestId: String?, error: ErrorInfo?) {
+                        uploadToFirebase(storage, db, trip, dest, scaledBitmap, newStatus)
+                    }
+                    override fun onReschedule(requestId: String?, error: ErrorInfo?) {}
+                }).dispatch()
         } else {
-            Log.d("Upload", "Cloudinary not set, using Firebase")
             uploadToFirebase(storage, db, trip, dest, scaledBitmap, newStatus)
         }
     }.addOnFailureListener {
-        Log.e("Upload", "Failed to fetch config")
         uploadToFirebase(storage, db, trip, dest, scaledBitmap, newStatus)
     }
 }
@@ -290,19 +289,9 @@ private fun uploadToFirebase(storage: FirebaseStorage, db: FirebaseFirestore, tr
     val ref = storage.reference.child("proofs/$fileName")
     val baos = ByteArrayOutputStream()
     bitmap.compress(Bitmap.CompressFormat.JPEG, 50, baos)
-    
-    Log.d("Upload", "Uploading to Firebase: $fileName")
-    ref.putBytes(baos.toByteArray())
-        .addOnSuccessListener {
-            ref.downloadUrl.addOnSuccessListener { uri -> 
-                Log.d("Upload", "Firebase Success: $uri")
-                updateDestinationStatus(db, trip, dest, newStatus, uri.toString()) 
-            }
-        }
-        .addOnFailureListener { e ->
-            Log.e("Upload", "Firebase Error: ${e.message}")
-            updateDestinationStatus(db, trip, dest, newStatus, null)
-        }
+    ref.putBytes(baos.toByteArray()).addOnSuccessListener {
+        ref.downloadUrl.addOnSuccessListener { uri -> updateDestinationStatus(db, trip, dest, newStatus, uri.toString()) }
+    }.addOnFailureListener { updateDestinationStatus(db, trip, dest, newStatus, null) }
 }
 
 private fun updateDestinationStatus(db: FirebaseFirestore, trip: Trip, dest: Destination, newStatus: String, photoUrl: String?) {

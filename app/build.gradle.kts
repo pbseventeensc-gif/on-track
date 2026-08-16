@@ -60,6 +60,7 @@ dependencies {
     // implementation(libs.maps.compose)
 
     implementation(libs.cloudinary.android)
+    implementation("io.coil-kt:coil-compose:2.4.0")
 
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))

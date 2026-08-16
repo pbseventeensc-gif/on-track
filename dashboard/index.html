@@ -190,6 +190,18 @@
         </div>
     </div>
 
+    <!-- IMAGE POPUP MODAL -->
+    <div class="modal fade" id="imageModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-body p-1 text-center bg-dark">
+                    <img id="modalImg" src="" style="max-width: 100%; max-height: 80vh; border-radius: 4px;">
+                    <button type="button" class="btn btn-sm btn-light position-absolute top-0 end-0 m-2" data-bs-dismiss="modal"><i class="bi bi-x"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
@@ -481,7 +493,7 @@
                                             <b>${d.locationName}</b>
                                             <span class="badge ${d.status==='done'?'bg-success':'bg-secondary'} px-2" style="font-size:0.6rem">${d.status.toUpperCase()}</span>
                                         </div>
-                                        ${d.proofPhotoUrl ? `<img src="${d.proofPhotoUrl}" class="proof-img mt-2 rounded shadow-sm" style="max-height:150px; object-fit:cover;" onclick="window.open('${d.proofPhotoUrl}')">` : '<div class="mt-1 small text-muted italic">Tanpa foto bukti</div>'}
+                                        ${d.proofPhotoUrl ? `<img src="${d.proofPhotoUrl}" class="proof-img mt-2 rounded shadow-sm" style="max-height:150px; object-fit:cover;" onclick="openImagePopup('${d.proofPhotoUrl}')">` : '<div class="mt-1 small text-muted italic">Tanpa foto bukti</div>'}
                                     </div>
                                 </div>
                             `).join('')}
@@ -528,6 +540,11 @@
         function unlockCloudinary() {
             document.getElementById('cld-inputs').classList.remove('d-none');
             document.getElementById('cld-locked').classList.add('d-none');
+        }
+
+        function openImagePopup(url) {
+            document.getElementById('modalImg').src = url;
+            new bootstrap.Modal(document.getElementById('imageModal')).show();
         }
 
         // Load Initial Configs
