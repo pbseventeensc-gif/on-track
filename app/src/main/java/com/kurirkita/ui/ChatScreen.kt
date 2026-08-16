@@ -82,21 +82,29 @@ fun ChatScreen(tripId: String, onBack: () -> Unit) {
 
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                tonalElevation = 2.dp
+                tonalElevation = 8.dp,
+                color = Color.White,
+                shadowElevation = 8.dp
             ) {
                 Row(
-                    modifier = Modifier.padding(vertical = 8.dp),
+                    modifier = Modifier.padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     OutlinedTextField(
                         value = inputText,
                         onValueChange = { inputText = it },
                         modifier = Modifier.weight(1f),
-                        placeholder = { Text("Ketik pesan...") },
+                        placeholder = { Text("Ketik pesan...", color = Color.Gray) },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.Black,
+                            unfocusedTextColor = Color.Black,
+                            focusedContainerColor = Color(0xFFF5F5F5),
+                            unfocusedContainerColor = Color(0xFFF5F5F5)
+                        ),
                         shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
                         maxLines = 3
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(12.dp))
                     FloatingActionButton(
                         onClick = {
                             if (inputText.isNotBlank()) {
@@ -111,8 +119,8 @@ fun ChatScreen(tripId: String, onBack: () -> Unit) {
                                 inputText = ""
                             }
                         },
-                        modifier = Modifier.size(48.dp),
-                        containerColor = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(52.dp),
+                        containerColor = Color(0xFFD32F2F), // Wellen Red
                         shape = androidx.compose.foundation.shape.CircleShape
                     ) {
                         Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send", tint = Color.White)

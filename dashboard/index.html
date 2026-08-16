@@ -277,9 +277,18 @@
                 return;
             }
 
-            snap.forEach(doc => {
+            for (const doc of snap.docs) {
                 const t = doc.data();
                 const courierName = registeredCouriers[t.courierId] || t.courierId.substring(0,8);
+
+                // Fetch chat messages for this trip
+                const msgSnap = await db.collection('trips').doc(doc.id).collection('messages').orderBy('timestamp', 'asc').get();
+                let chatHtml = msgSnap.empty ? '<i class="text-muted">Tidak ada chat.</i>' : msgSnap.docs.map(mDoc => {
+                    const m = mDoc.data();
+                    const sender = m.senderId === 'admin' ? 'Admin' : 'Kurir';
+                    return `<div class="small mb-1"><b>${sender}:</b> ${m.text}</div>`;
+                }).join('');
+
                 const div = document.createElement('div');
                 div.className = 'card p-3 mb-2 border-0 shadow-sm';
                 div.style.fontSize = '0.85rem';
@@ -295,7 +304,7 @@
                             <div class="mt-2">
                                 <small class="text-success fw-bold">✓ Foto Bukti:</small><br>
                                 <a href="${d.proofPhotoUrl}" target="_blank">
-                                    <img src="${d.proofPhotoUrl}" class="proof-img" style="max-height:100px; width:auto;">
+                                    <img src="${d.proofPhotoUrl}" class="proof-img" style="max-height:120px; width:auto; border: 2px solid #27ae60;">
                                 </a>
                             </div>
                         ` : ''}
@@ -304,19 +313,33 @@
 
                 div.innerHTML = `
                     <div class="d-flex justify-content-between align-items-center">
-                        <span class="fw-bold text-primary">Kurir: ${courierName}</span>
-                        <span class="small text-muted">${new Date(t.date.seconds*1000).toLocaleDateString()}</span>
+                        <span class="fw-bold text-primary" style="font-size: 1rem;">${courierName}</span>
+                        <span class="badge bg-light text-dark border">${new Date(t.date.seconds*1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
                     </div>
-                    <div>Jarak: ${t.totalDistanceKm ? t.totalDistanceKm.toFixed(2) : '0'} KM</div>
-                    <div class="mt-2">
-                        <button class="btn btn-sm btn-outline-secondary w-100" onclick="this.nextElementSibling.classList.toggle('d-none')">
-                            Detail Perjalanan (${t.destinations.length} Lokasi)
-                        </button>
-                        <div class="d-none mt-2">${destsHtml}</div>
+                    <div class="mb-2"><i class="bi bi-speedometer2"></i> Jarak: <b>${t.totalDistanceKm ? t.totalDistanceKm.toFixed(2) : '0'} KM</b></div>
+
+                    <button class="btn btn-sm btn-outline-dark w-100 mb-2" onclick="toggleHistoryDetail('${doc.id}')">
+                        <i class="bi bi-info-circle"></i> Lihat Detail & Chat
+                    </button>
+
+                    <div id="hist-detail-${doc.id}" class="d-none">
+                        <div class="bg-light p-2 rounded mb-2">
+                            <b>Riwayat Chat:</b><br>
+                            <div style="max-height: 100px; overflow-y: auto; background: white; padding: 5px; border-radius: 4px; border: 1px solid #eee;">
+                                ${chatHtml}
+                            </div>
+                        </div>
+                        <b>Rute Lokasi:</b>
+                        ${destsHtml}
                     </div>
                 `;
                 container.appendChild(div);
-            });
+            }
+        }
+
+        function toggleHistoryDetail(id) {
+            const el = document.getElementById(`hist-detail-${id}`);
+            el.classList.toggle('d-none');
         }
     </script>
 </body>

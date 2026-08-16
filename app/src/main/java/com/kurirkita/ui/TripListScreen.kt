@@ -5,6 +5,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
@@ -31,7 +32,7 @@ fun TripListScreen(viewModel: TripViewModel, onTripClick: (Trip) -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF8F9FA))
+            .background(Color(0xFFF1F2F6))
             .padding(16.dp)
     ) {
         Row(
@@ -41,38 +42,40 @@ fun TripListScreen(viewModel: TripViewModel, onTripClick: (Trip) -> Unit) {
         ) {
             Column {
                 Text(
-                    "Tugas Anda", 
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
+                    "Tugas Pengiriman", 
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.ExtraBold,
                     color = Color(0xFF2C3E50)
                 )
+                val sdf = java.text.SimpleDateFormat("EEEE, dd MMM yyyy", java.util.Locale("id"))
                 Text(
-                    "Daftar pengiriman hari ini",
-                    style = MaterialTheme.typography.bodySmall,
+                    text = sdf.format(java.util.Date()),
+                    style = MaterialTheme.typography.labelSmall,
                     color = Color.Gray
                 )
             }
             IconButton(
                 onClick = { viewModel.refresh() },
-                colors = IconButtonDefaults.iconButtonColors(containerColor = Color.White)
+                modifier = Modifier.background(Color.White, androidx.compose.foundation.shape.CircleShape)
             ) {
                 if (isRefreshing) {
-                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = Color(0xFFD32F2F))
                 } else {
                     Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = Color(0xFFD32F2F))
                 }
             }
         }
         
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(20.dp))
         
         if (trips.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Default.LocalShipping, contentDescription = null, modifier = Modifier.size(64.dp), tint = Color.LightGray)
-                    Text("Belum ada tugas masuk", color = Color.Gray)
+                    Icon(Icons.Default.LocalShipping, contentDescription = null, modifier = Modifier.size(80.dp), tint = Color.LightGray)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Belum ada rute aktif.", color = Color.Gray, style = MaterialTheme.typography.bodyLarge)
                     TextButton(onClick = { viewModel.refresh() }) {
-                        Text("Cek Ulang", color = Color(0xFFD32F2F))
+                        Text("Refresh Halaman", color = Color(0xFFD32F2F), fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -95,28 +98,37 @@ fun TripCard(trip: Trip, onClick: (Trip) -> Unit) {
             .padding(vertical = 8.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 val firstDest = trip.destinations.firstOrNull()?.locationName ?: "Tujuan Baru"
-                Icon(Icons.Default.LocalShipping, contentDescription = null, tint = Color(0xFFD32F2F), modifier = Modifier.size(20.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = firstDest,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
+                Surface(
+                    color = Color(0xFFD32F2F).copy(alpha = 0.1f),
+                    shape = androidx.compose.foundation.shape.CircleShape,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.LocalShipping, contentDescription = null, tint = Color(0xFFD32F2F), modifier = Modifier.size(20.dp))
+                    }
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        text = firstDest,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFF2C3E50)
+                    )
+                    Text(
+                        text = "ID: ${trip.tripId.takeLast(8)} • ${trip.destinations.size} Titik Antar",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.Gray
+                    )
+                }
             }
             
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "ID: ${trip.tripId.takeLast(8)} • ${trip.destinations.size} Lokasi",
-                style = MaterialTheme.typography.labelSmall,
-                color = Color.Gray
-            )
-
-            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), thickness = 0.5.dp)
+            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp), thickness = 0.5.dp, color = Color(0xFFEEEEEE))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -132,18 +144,21 @@ fun TripCard(trip: Trip, onClick: (Trip) -> Unit) {
                 
                 Surface(
                     color = statusColor.copy(alpha = 0.1f),
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp)
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(6.dp)
                 ) {
                     Text(
                         text = trip.status.uppercase(),
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
                         color = statusColor
                     )
                 }
                 
-                Text("Lihat Detail >", style = MaterialTheme.typography.labelLarge, color = Color(0xFFD32F2F))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Klik Detail", style = MaterialTheme.typography.labelLarge, color = Color(0xFFD32F2F), fontWeight = FontWeight.Bold)
+                    Icon(Icons.AutoMirrored.Filled.ArrowForwardIos, contentDescription = null, tint = Color(0xFFD32F2F), modifier = Modifier.size(12.dp).padding(start = 4.dp))
+                }
             }
         }
     }
