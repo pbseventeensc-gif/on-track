@@ -399,7 +399,7 @@
             const intervalMs = valTime * unitTime;
             const minDistance = valDist * unitDist;
 
-            await db.collection('config').document('tracking').set({
+            await db.collection('config').doc('tracking').set({
                 intervalMs: intervalMs,
                 minDistance: parseFloat(minDistance),
                 updatedAt: firebase.firestore.Timestamp.now()
@@ -510,7 +510,7 @@
             const preset = document.getElementById('cld-preset').value;
             if(!name || !preset) return alert("Isi nama & preset!");
 
-            await db.collection('config').document('cloudinary').set({
+            await db.collection('config').doc('cloudinary').set({
                 cloudName: name,
                 uploadPreset: preset,
                 updatedAt: firebase.firestore.Timestamp.now()
@@ -531,14 +531,14 @@
         }
 
         // Load Initial Configs
-        db.collection('config').document('cloudinary').get().then(doc => {
+        db.collection('config').doc('cloudinary').get().then(doc => {
             if(doc.exists && doc.data().cloudName) {
                 document.getElementById('cld-name').value = doc.data().cloudName || "";
                 document.getElementById('cld-preset').value = doc.data().uploadPreset || "";
                 lockCloudinaryUI();
             }
         });
-        db.collection('config').document('tracking').get().then(doc => {
+        db.collection('config').doc('tracking').get().then(doc => {
             if(doc.exists) {
                 document.getElementById('cfg-interval').value = (doc.data().intervalMs / 1000) || 10;
                 document.getElementById('cfg-distance').value = doc.data().minDistance || 10;
