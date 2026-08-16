@@ -23,12 +23,12 @@ import com.google.firebase.storage.FirebaseStorage
 import java.io.ByteArrayOutputStream
 import java.util.UUID
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ActiveTripScreen(trip: Trip, onBack: () -> Unit, onChatClick: () -> Unit) {
     val db = FirebaseFirestore.getInstance()
     var currentTrip by remember { mutableStateOf(trip) }
     val storage = FirebaseStorage.getInstance()
-    val context = LocalContext.current
 
     // Realtime listener for this specific trip
     DisposableEffect(trip.tripId) {
@@ -40,43 +40,60 @@ fun ActiveTripScreen(trip: Trip, onBack: () -> Unit, onChatClick: () -> Unit) {
         onDispose { registration.remove() }
     }
 
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                TextButton(onClick = onBack) { Text("Kembali") }
-                Text("Detail Tugas", style = MaterialTheme.typography.headlineMedium)
-            }
-            IconButton(onClick = onChatClick) {
-                Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = "Chat")
-            }
-        }
-        
-        Spacer(modifier = Modifier.height(8.dp))
-        Text("Status: ${currentTrip.status}", style = MaterialTheme.typography.titleMedium)
-        
-        if (currentTrip.status == "assigned") {
-            Button(
-                onClick = { 
-                    db.collection("trips").document(currentTrip.tripId).update("status", "accepted")
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Detail Tugas", style = MaterialTheme.typography.titleMedium) },
+                navigationIcon = {
+                    TextButton(onClick = onBack) { Text("Kembali") }
                 },
-                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
-            ) {
-                Text("Terima Tugas")
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-        Text("Daftar Tujuan:", style = MaterialTheme.typography.titleLarge)
-        
-        LazyColumn(modifier = Modifier.weight(1f)) {
-            items(currentTrip.destinations.sortedBy { it.stopIndex }) { dest ->
-                DestinationItem(dest, onStatusUpdate = { newStatus, photoUri ->
-                    if (photoUri != null) {
-                        uploadPhotoAndUpdate(storage, db, currentTrip, dest, photoUri, newStatus)
-                    } else {
-                        updateDestinationStatus(db, currentTrip, dest, newStatus, null)
+                actions = {
+                    IconButton(onClick = onChatClick) {
+                        Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = "Chat", tint = MaterialTheme.colorScheme.primary)
                     }
-                })
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
+            )
+        }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(horizontal = 16.dp)
+        ) {
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Status Perjalanan", style = MaterialTheme.typography.labelMedium, color = Color.Gray)
+                    Text(currentTrip.status.uppercase(), style = MaterialTheme.typography.headlineSmall, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                    
+                    if (currentTrip.status == "assigned") {
+                        Button(
+                            onClick = { db.collection("trips").document(currentTrip.tripId).update("status", "accepted") },
+                            modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF1C40F), contentColor = Color.Black)
+                        ) {
+                            Text("TERIMA TUGAS SEKARANG", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+
+            Text("Daftar Tujuan (${currentTrip.destinations.size})", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(vertical = 8.dp))
+            
+            LazyColumn(modifier = Modifier.fillMaxSize()) {
+                items(currentTrip.destinations.sortedBy { it.stopIndex }) { dest ->
+                    DestinationItem(dest, onStatusUpdate = { newStatus, photoUri ->
+                        if (photoUri != null) {
+                            uploadPhotoAndUpdate(storage, db, currentTrip, dest, photoUri, newStatus)
+                        } else {
+                            updateDestinationStatus(db, currentTrip, dest, newStatus, null)
+                        }
+                    })
+                }
             }
         }
     }
