@@ -20,10 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.KurirKita.R
 import com.KurirKita.model.Trip
-import com.KurirKita.ui.ActiveTripScreen
-import com.KurirKita.ui.LoginScreen
-import com.KurirKita.ui.TripListScreen
-import com.KurirKita.ui.TripViewModel
+import com.KurirKita.ui.*
 import com.KurirKita.ui.theme.KurirKitaTheme
 import com.google.firebase.auth.FirebaseAuth
 
@@ -75,9 +72,15 @@ fun MainNavigation(
     onStopService: () -> Unit
 ) {
     var selectedTrip by remember { mutableStateOf<Trip?>(null) }
+    var showChatTripId by remember { mutableStateOf<String?>(null) }
     val tripViewModel: TripViewModel = viewModel()
 
-    if (selectedTrip == null) {
+    if (showChatTripId != null) {
+        ChatScreen(
+            tripId = showChatTripId!!,
+            onBack = { showChatTripId = null }
+        )
+    } else if (selectedTrip == null) {
         Column(modifier = Modifier.fillMaxSize()) {
             // Header with Service Toggle and Logout
             ServiceControlBar(onStartService, onStopService, onLogout)
@@ -91,7 +94,8 @@ fun MainNavigation(
     } else {
         ActiveTripScreen(
             trip = selectedTrip!!,
-            onBack = { selectedTrip = null }
+            onBack = { selectedTrip = null },
+            onChatClick = { showChatTripId = selectedTrip!!.tripId }
         )
     }
 }
