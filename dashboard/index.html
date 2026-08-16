@@ -482,7 +482,9 @@
                     data.push({
                         'Tanggal': new Date(t.date.seconds*1000).toLocaleDateString(),
                         'Kurir': registeredUsers[t.courierId] || t.courierId,
+                        'Trip ID': t.tripId.substring(0,8),
                         'Lokasi': d.locationName,
+                        'Jarak (KM)': t.totalDistanceKm ? t.totalDistanceKm.toFixed(2) : '0',
                         'Status': d.status,
                         'Link Foto': d.proofPhotoUrl || 'Tidak ada'
                     });
@@ -490,8 +492,8 @@
             });
             const ws = XLSX.utils.json_to_sheet(data);
             const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Laporan_Wellen");
-            XLSX.writeFile(wb, "Laporan_Logistik_Wellen.xlsx");
+            XLSX.utils.book_append_sheet(wb, ws, "Laporan_Logistik");
+            XLSX.writeFile(wb, "Laporan_Wellen_Print.xlsx");
         }
 
         async function clearAllHistoryData() {
