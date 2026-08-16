@@ -9,13 +9,16 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.KurirKita.R
 import com.KurirKita.model.Trip
 import com.KurirKita.ui.ActiveTripScreen
 import com.KurirKita.ui.LoginScreen
@@ -127,13 +130,20 @@ fun ServiceControlBar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Column {
-                Text(
-                    text = if (isTracking) "Tracking Aktif" else "Tracking Berhenti",
-                    style = MaterialTheme.typography.titleMedium
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Image(
+                    painter = painterResource(id = R.drawable.wellen_logo),
+                    contentDescription = null,
+                    modifier = Modifier.size(40.dp).padding(end = 8.dp)
                 )
-                TextButton(onClick = onLogout) {
-                    Text("Logout", style = MaterialTheme.typography.bodySmall)
+                Column {
+                    Text(
+                        text = if (isTracking) "Tracking Aktif" else "Tracking Berhenti",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    TextButton(onClick = onLogout) {
+                        Text("Logout", style = MaterialTheme.typography.bodySmall)
+                    }
                 }
             }
             

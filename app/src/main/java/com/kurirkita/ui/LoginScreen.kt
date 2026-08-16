@@ -1,12 +1,15 @@
 package com.KurirKita.ui
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.KurirKita.R
 import com.google.firebase.auth.FirebaseAuth
 
 @Composable
@@ -25,7 +28,13 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("Login KurirKita", style = MaterialTheme.typography.headlineLarge)
+        Image(
+            painter = painterResource(id = R.drawable.wellen_logo),
+            contentDescription = "Wellen Logo",
+            modifier = Modifier.size(200.dp)
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Text("KurirKita", style = MaterialTheme.typography.headlineLarge)
         Spacer(modifier = Modifier.height(32.dp))
 
         OutlinedTextField(
