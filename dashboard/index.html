@@ -104,8 +104,8 @@
         </div>
 
         <div class="content">
-            <!-- GLOBAL MAP (Always Visible for Pro Monitoring) -->
-            <div class="card-pro mb-4">
+            <!-- GLOBAL MAP (Always Visible except in Reports) -->
+            <div id="global-map-container" class="card-pro mb-4">
                 <div class="card-header-pro">
                     <span><i class="bi bi-geo-fill text-danger me-2"></i>Live Monitoring Map</span>
                     <span class="badge bg-success">Real-time GPS</span>
@@ -290,7 +290,15 @@
             document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
             el.classList.add('active');
             document.getElementById('page-title').innerText = el.innerText;
-            if(viewId==='dashboard') setTimeout(() => map.invalidateSize(), 400);
+
+            // Hide map on Reports and Settings for cleaner view
+            const mapContainer = document.getElementById('global-map-container');
+            if(viewId === 'reports' || viewId === 'settings') {
+                mapContainer.classList.add('d-none');
+            } else {
+                mapContainer.classList.remove('d-none');
+                setTimeout(() => map.invalidateSize(), 400);
+            }
         }
 
         // --- REAL-TIME DATA ---
