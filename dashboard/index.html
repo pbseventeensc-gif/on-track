@@ -247,42 +247,65 @@
         // --- SEARCH & DISPATCH ---
         async function searchLocation() {
             const q = document.getElementById('loc-search').value;
-            if (!q || q.length < 3) return alert("Masukkan minimal 3 huruf!");
+            if (!q || q.length < 2) return alert("Masukkan minimal 2 huruf!");
 
             const el = document.getElementById('search-res');
-            el.innerHTML = '<div class="list-group-item small">Mencari...</div>';
+            el.innerHTML = '<div class="list-group-item small">Mencari di database global...</div>';
 
             try {
-                const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&countrycodes=id&limit=5`);
-                const data = await res.json();
+                // Menggunakan Photon API (lebih bagus untuk mencari nama PT/Gedung daripada Nominatim)
+                const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=5&lat=-6.2&lon=106.8`;
+                const resp = await fetch(url);
+                const data = await resp.json();
 
                 el.innerHTML = '';
-                if (data.length === 0) {
-                    el.innerHTML = '<div class="list-group-item small text-danger">Lokasi tidak ditemukan.</div>';
+                if (!data.features || data.features.length === 0) {
+                    el.innerHTML = '<div class="list-group-item small text-danger">Lokasi tidak ditemukan. Coba ketik nama intinya saja (misal: "Pixart" saja).</div>';
                     return;
                 }
 
-                data.forEach(i => {
+                data.features.forEach(feature => {
+                    const props = feature.properties;
+                    const name = props.name || "";
+                    const city = props.city || "";
+                    const street = props.street || "";
+                    const displayName = `${name} ${street} ${city}`.trim();
+                    const [lng, lat] = feature.geometry.coordinates;
+
                     const btn = document.createElement('button');
-                    btn.className = 'list-group-item list-group-item-action small';
-                    btn.innerText = i.display_name;
+                    btn.className = 'list-group-item list-group-item-action small py-2';
+                    btn.innerHTML = `<i class="bi bi-geo-alt-fill text-primary"></i> ${displayName}`;
                     btn.onclick = () => {
                         tripQueue.push({
-                            name: i.display_name.split(',')[0],
-                            lat: parseFloat(i.lat),
-                            lng: parseFloat(i.lon)
+                            name: name || props.osm_value || "Lokasi",
+                            lat: lat,
+                            lng: lng
                         });
                         renderQueue();
                         el.innerHTML = '';
                         document.getElementById('loc-search').value = '';
+                        map.flyTo([lat, lng], 15);
+                        L.marker([lat, lng]).addTo(map).bindPopup("Ditambahkan ke rute").openPopup();
                     };
                     el.appendChild(btn);
                 });
             } catch (err) {
-                el.innerHTML = '<div class="list-group-item small text-danger">Gagal menghubungi server peta.</div>';
+                el.innerHTML = '<div class="list-group-item small text-danger">Gagal menghubungi server pencarian.</div>';
                 console.error(err);
             }
         }
+
+        // Fitur Tambahan: Klik di Peta untuk Tambah Lokasi
+        map.on('click', function(e) {
+            const lat = e.latlng.lat;
+            const lng = e.latlng.lng;
+            const name = prompt("Beri nama lokasi ini (Manual):", "Titik Antar");
+            if (name) {
+                tripQueue.push({ name: name, lat: lat, lng: lng });
+                renderQueue();
+                L.marker([lat, lng]).addTo(map).bindPopup(name).openPopup();
+            }
+        });
 
         function renderQueue() {
             const q = document.getElementById('queue');
