@@ -106,20 +106,26 @@
 
                 <!-- TAB HISTORY -->
                 <div class="tab-pane fade" id="tab-history">
-                    <h6 class="fw-bold mb-3">RIWAYAT LAPORAN</h6>
-                    <input type="date" id="rep-date" class="form-control mb-3" onchange="loadHistory()">
+                    <h6 class="fw-bold mb-3 text-uppercase small">Riwayat Laporan</h6>
+                    <input type="date" id="rep-date" class="form-control mb-3 shadow-sm" onchange="loadHistory()">
                     <div id="history-list"></div>
                 </div>
 
                 <!-- TAB SETTINGS -->
                 <div class="tab-pane fade" id="tab-settings">
-                    <h6 class="fw-bold mb-3">KONFIGURASI SISTEM</h6>
-                    <div class="card p-3 mb-3 border-0 bg-light">
-                        <label class="small fw-bold">Interval Tracking (Detik)</label>
-                        <input type="number" id="cfg-interval" class="form-control mb-2" value="10">
-                        <button class="btn btn-sm btn-dark w-100" onclick="updateConfig()">Simpan & Terapkan</button>
+                    <h6 class="fw-bold mb-3 text-uppercase small">Konfigurasi Lapangan</h6>
+                    <div class="card p-3 mb-3 border-0 bg-light shadow-sm">
+                        <label class="small fw-bold mb-2">Interval Waktu (Detik)</label>
+                        <input type="number" id="cfg-interval" class="form-control mb-3" value="10">
+
+                        <label class="small fw-bold mb-2">Interval Radius (Meter)</label>
+                        <input type="number" id="cfg-distance" class="form-control mb-3" value="10" placeholder="Kirim data tiap X meter">
+
+                        <button class="btn btn-dark w-100 fw-bold" onclick="updateConfig()">Terapkan ke Semua HP</button>
                     </div>
-                    <div class="small text-muted">Interval ini akan langsung merubah perilaku aplikasi kurir di lapangan secara real-time.</div>
+                    <div class="alert alert-info py-2 small" style="font-size: 0.75rem;">
+                        <i class="bi bi-info-circle me-1"></i> Perubahan ini akan langsung merubah perilaku pengiriman data GPS di semua HP kurir secara otomatis.
+                    </div>
                 </div>
             </div>
         </div>
@@ -218,26 +224,52 @@
         db.collection('trips').where('status', '!=', 'completed').onSnapshot(snap => {
             const el = document.getElementById('monitor-list');
             el.innerHTML = '';
+
+            // Group by courierId
+            const grouped = {};
             snap.forEach(doc => {
                 const t = doc.data();
-                const cName = registeredUsers[t.courierId] || "Unknown";
-                const div = document.createElement('div');
-                div.className = 'trip-card';
-                div.innerHTML = `
-                    <div class="d-flex justify-content-between mb-2">
-                        <b>Trip: ${cName}</b>
-                        <span class="badge bg-warning text-dark">${t.status.toUpperCase()}</span>
-                    </div>
-                    ${t.destinations.map(d => `
-                        <div class="dest-pill ${d.status}">
-                            <b>${d.locationName}</b> <span class="float-end small text-muted">${d.status}</span>
-                            ${d.proofPhotoUrl ? `<img src="${d.proofPhotoUrl}" class="proof-img" onclick="window.open('${d.proofPhotoUrl}')">` : ''}
-                        </div>
-                    `).join('')}
-                    <button class="btn btn-sm btn-outline-danger w-100 mt-2" onclick="openChat('${t.tripId}', 'Tugas ${cName}')">Chat Tugas</button>
-                `;
-                el.appendChild(div);
+                if (!grouped[t.courierId]) grouped[t.courierId] = [];
+                grouped[t.courierId].push({id: doc.id, ...t});
             });
+
+            for (const courierId in grouped) {
+                const name = registeredUsers[courierId] || courierId.substring(0,8);
+                const courierTrips = grouped[courierId];
+
+                const groupDiv = document.createElement('div');
+                groupDiv.className = 'mb-4';
+                groupDiv.innerHTML = `
+                    <div class="d-flex align-items-center mb-2 bg-dark text-white p-2 rounded">
+                        <i class="bi bi-person-circle me-2"></i>
+                        <span class="fw-bold text-uppercase small">${name}</span>
+                        <span class="ms-auto badge bg-primary">${courierTrips.length} Trip Aktif</span>
+                    </div>
+                    <div class="ps-3 border-start">
+                        ${courierTrips.map(t => `
+                            <div class="trip-card mb-2">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="fw-bold small">ID: ${t.id.substring(0,8)}</span>
+                                    <span class="badge bg-warning text-dark" style="font-size:0.6rem">${t.status}</span>
+                                </div>
+                                ${t.destinations.map(d => `
+                                    <div class="dest-pill ${d.status}">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span><b>${d.locationName}</b></span>
+                                            <span class="small text-muted" style="font-size:0.7rem">${d.status}</span>
+                                        </div>
+                                        ${d.proofPhotoUrl ? `<img src="${d.proofPhotoUrl}" class="proof-img" onclick="window.open('${d.proofPhotoUrl}')">` : ''}
+                                    </div>
+                                `).join('')}
+                                <button class="btn btn-sm btn-outline-primary w-100 mt-2 py-1" style="font-size:0.75rem" onclick="openChat('${t.id}', 'Tugas ${name}')">
+                                    <i class="bi bi-chat-dots"></i> Kirim Pesan
+                                </button>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                el.appendChild(groupDiv);
+            }
         });
 
         // --- SEARCH & NITIKIN ---
@@ -314,8 +346,12 @@
         // --- CONFIG & HISTORY ---
         async function updateConfig() {
             const interval = document.getElementById('cfg-interval').value;
-            await db.collection('config').document('tracking').set({ intervalMs: interval * 1000 });
-            alert("Konfigurasi disimpan!");
+            const distance = document.getElementById('cfg-distance').value;
+            await db.collection('config').document('tracking').set({
+                intervalMs: interval * 1000,
+                minDistance: parseFloat(distance)
+            });
+            alert("Konfigurasi disimpan dan diterapkan ke semua kurir!");
         }
 
         async function loadHistory() {

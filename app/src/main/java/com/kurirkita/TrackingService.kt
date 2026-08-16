@@ -26,7 +26,8 @@ class TrackingService : Service() {
     
     private var lastLocation: Location? = null
     private var totalDistanceKm: Double = 0.0
-    private var trackingIntervalMs: Long = 10000L // Default 10 seconds
+    private var trackingIntervalMs: Long = 10000L
+    private var trackingMinDistance: Float = 10f // Default 10 meters
 
     override fun onCreate() {
         super.onCreate()
@@ -36,12 +37,21 @@ class TrackingService : Service() {
         FirebaseFirestore.getInstance().collection("config").document("tracking")
             .addSnapshotListener { snapshot, _ ->
                 val newInterval = snapshot?.getLong("intervalMs")
+                val newDistance = snapshot?.getDouble("minDistance")?.toFloat()
+                
+                var changed = false
                 if (newInterval != null && newInterval != trackingIntervalMs) {
                     trackingIntervalMs = newInterval
-                    Log.d("TrackingService", "New interval: $trackingIntervalMs")
-                    if (FirebaseAuth.getInstance().currentUser != null) {
-                        startLocationUpdates() // Restart with new interval if already tracking
-                    }
+                    changed = true
+                }
+                if (newDistance != null && newDistance != trackingMinDistance) {
+                    trackingMinDistance = newDistance
+                    changed = true
+                }
+
+                if (changed && FirebaseAuth.getInstance().currentUser != null) {
+                    Log.d("TrackingService", "Config changed: $trackingIntervalMs ms, $trackingMinDistance m")
+                    startLocationUpdates()
                 }
             }
 
@@ -109,6 +119,7 @@ class TrackingService : Service() {
         
         val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, trackingIntervalMs)
             .setMinUpdateIntervalMillis(trackingIntervalMs / 2)
+            .setMinUpdateDistanceMeters(trackingMinDistance) // Filter by radius/distance
             .build()
 
         fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, null)
