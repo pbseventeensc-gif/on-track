@@ -15,6 +15,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -137,20 +138,57 @@ fun MainNavigation(
 
 @Composable
 fun HistoryScreen(viewModel: TripViewModel, onTripClick: (Trip) -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val db = FirebaseFirestore.getInstance()
     val auth = FirebaseAuth.getInstance()
     var historyTrips by remember { mutableStateOf<List<Trip>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
+    var showConfirmDelete by remember { mutableStateOf(false) }
+    
+    val prefs = remember { context.getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE) }
+    var lastClearedTime by remember { mutableStateOf(prefs.getLong("last_cleared_history", 0L)) }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(lastClearedTime) {
+        isLoading = true
         val uid = auth.currentUser?.uid ?: return@LaunchedEffect
         db.collection("trips").whereEqualTo("courierId", uid).whereEqualTo("status", "completed").get()
-            .addOnSuccessListener { historyTrips = it.toObjects(Trip::class.java); isLoading = false }
+            .addOnSuccessListener { 
+                val allTrips = it.toObjects(Trip::class.java)
+                historyTrips = allTrips.filter { trip -> trip.date.seconds * 1000 > lastClearedTime }
+                isLoading = false 
+            }
             .addOnFailureListener { isLoading = false }
     }
 
+    if (showConfirmDelete) {
+        AlertDialog(
+            onDismissRequest = { showConfirmDelete = false },
+            title = { Text("Hapus Riwayat?") },
+            text = { Text("Tugas yang sudah selesai akan disembunyikan dari HP ini. Data di pusat (Admin) tetap aman.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    val now = System.currentTimeMillis()
+                    prefs.edit().putLong("last_cleared_history", now).apply()
+                    lastClearedTime = now
+                    showConfirmDelete = false
+                }) { Text("YA, HAPUS", color = Color.Red) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirmDelete = false }) { Text("BATAL") }
+            }
+        )
+    }
+
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(16.dp)) {
-        Text("Riwayat Selesai", color = MaterialTheme.colorScheme.onBackground, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text("Riwayat Selesai", color = MaterialTheme.colorScheme.onBackground, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            if (historyTrips.isNotEmpty()) {
+                IconButton(onClick = { showConfirmDelete = true }) {
+                    Icon(Icons.Default.DeleteSweep, contentDescription = "Hapus Semua", tint = MaterialTheme.colorScheme.error)
+                }
+            }
+        }
+        // ... rest same ...
         Spacer(modifier = Modifier.height(16.dp))
         if (isLoading) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Color(0xFFF1C40F)) }
