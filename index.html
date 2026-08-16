@@ -634,36 +634,56 @@
                 container.appendChild(groupEl);
             }
         }
+        let searchTimeout;
         async function autoSuggest(val) {
+            clearTimeout(searchTimeout);
             const el = document.getElementById('search-results');
             if (val.length < 3) { el.style.display = 'none'; return; }
-            try {
-                const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(val)}&countrycodes=id&limit=6`);
-                const data = await resp.json();
-                el.innerHTML = '';
-                if (data.length === 0) { el.style.display = 'none'; return; }
-                el.style.display = 'block';
-                data.forEach(item => {
-                    const placeName = item.name || item.display_name.split(',')[0];
-                    const div = document.createElement('div');
-                    div.className = 'search-item';
-                    div.innerHTML = `<b>${placeName}</b><br><small class="text-muted" style="font-size:0.7rem">${item.display_name}</small>`;
-                    div.onclick = () => {
-                        tripQueue.push({
-                            name: placeName,
-                            address: item.display_name,
-                            lat: parseFloat(item.lat),
-                            lng: parseFloat(item.lon)
-                        });
-                        renderQueue();
-                        el.style.display = 'none';
-                        document.querySelector('#view-dispatch input[type="text"]').value = '';
-                        map.flyTo([item.lat, item.lon], 16);
-                        L.marker([item.lat, item.lon]).addTo(map).bindPopup(placeName).openPopup();
-                    };
-                    el.appendChild(div);
-                });
-            } catch (e) { console.error(e); }
+
+            searchTimeout = setTimeout(async () => {
+                try {
+                    // Clean PT prefix for better Nominatim results
+                    const cleanVal = val.replace(/PT\.?\s+/gi, '').trim();
+                    const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cleanVal)}&countrycodes=id&limit=6&addressdetails=1`);
+                    const data = await resp.json();
+
+                    el.innerHTML = '';
+                    if (data.length === 0) { el.style.display = 'none'; return; }
+
+                    el.style.display = 'block';
+                    data.forEach(item => {
+                        const placeName = item.name || item.display_name.split(',')[0];
+                        const div = document.createElement('div');
+                        div.className = 'search-item';
+                        div.innerHTML = `
+                            <div class="d-flex align-items-start">
+                                <i class="bi bi-geo-alt-fill text-danger me-3 mt-1"></i>
+                                <div>
+                                    <div class="fw-bold text-dark">${placeName}</div>
+                                    <div class="text-muted extra-small" style="font-size: 0.75rem; line-height: 1.2;">${item.display_name}</div>
+                                </div>
+                            </div>
+                        `;
+                        div.onclick = () => {
+                            tripQueue.push({
+                                name: placeName,
+                                address: item.display_name,
+                                lat: parseFloat(item.lat),
+                                lng: parseFloat(item.lon)
+                            });
+                            renderQueue();
+                            el.style.display = 'none';
+                            // Clear input
+                            const input = document.querySelector('#view-dispatch input[oninput^="autoSuggest"]');
+                            if(input) input.value = '';
+
+                            map.flyTo([item.lat, item.lon], 16);
+                            L.marker([item.lat, item.lon]).addTo(map).bindPopup(`<b>${placeName}</b>`).openPopup();
+                        };
+                        el.appendChild(div);
+                    });
+                } catch (e) { console.error("Search error:", e); }
+            }, 500);
         }
 
         async function saveCloudinary() {
