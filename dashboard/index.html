@@ -4,43 +4,37 @@
     <title>Wellen Print - Logistics Command Center</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-
     <style>
         :root { --primary-color: #d32f2f; --secondary-color: #2c3e50; --wellen-yellow: #f1c40f; }
         body { background-color: #f8f9fa; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
         .main-container { flex: 1; display: flex; overflow: hidden; }
         .sidebar-left { width: 300px; background: white; border-right: 1px solid #dee2e6; overflow-y: auto; }
         #map { flex: 1; }
-        .sidebar-right { width: 380px; background: white; border-left: 1px solid #dee2e6; display: flex; flex-direction: column; }
+        .sidebar-right { width: 400px; background: white; border-left: 1px solid #dee2e6; display: flex; flex-direction: column; }
         .tab-content { flex: 1; overflow-y: auto; padding: 15px; }
         .courier-card { border-bottom: 1px solid #f1f1f1; cursor: pointer; padding: 12px; }
-        .courier-card:hover { background-color: #f8f9fa; }
-        .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 5px; }
-        .bg-online { background-color: #2ecc71; }
-        .trip-progress-card { border: 1px solid #eee; border-radius: 10px; margin-bottom: 15px; padding: 12px; }
-        .destination-pill { font-size: 0.8rem; background: #f1f3f5; padding: 6px; border-radius: 8px; margin-top: 5px; }
-        .destination-pill.done { background: #d4edda; }
-        .proof-img { width: 100%; border-radius: 5px; margin-top: 5px; cursor: pointer; }
-        #chat-overlay { position: fixed; bottom: 20px; right: 400px; width: 300px; height: 400px; background: white; border: 1px solid #ddd; z-index: 3000; display: none; flex-direction: column; box-shadow: 0 0 15px rgba(0,0,0,0.2); border-radius: 10px; }
-        .chat-msg { padding: 5px 10px; border-radius: 15px; margin: 2px; max-width: 80%; font-size: 0.85rem; }
+        .bg-online { background-color: #2ecc71; width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+        .trip-progress-card { border: 1px solid #eee; border-radius: 10px; margin-bottom: 15px; padding: 12px; font-size: 0.9rem; }
+        .destination-pill { background: #f1f3f5; padding: 8px; border-radius: 8px; margin-top: 5px; font-size: 0.85rem; border-left: 4px solid #ccc; }
+        .destination-pill.done { border-left-color: #27ae60; background: #e8f5e9; }
+        .proof-img { width: 100%; border-radius: 5px; margin-top: 8px; cursor: pointer; border: 1px solid #ddd; }
+        #chat-overlay { position: fixed; bottom: 20px; right: 420px; width: 320px; height: 450px; background: white; z-index: 3000; display: none; flex-direction: column; box-shadow: 0 5px 25px rgba(0,0,0,0.2); border-radius: 12px; overflow: hidden; border: 1px solid #ddd; }
+        .chat-msg { padding: 8px 12px; border-radius: 12px; margin: 4px; max-width: 85%; font-size: 0.85rem; line-height: 1.4; }
         .msg-admin { align-self: flex-end; background: var(--primary-color); color: white; }
-        .msg-courier { align-self: flex-start; background: #eee; }
-
-        /* Auto-suggest Search Styles */
-        #search-res-dropdown { position: absolute; width: 100%; z-index: 2000; max-height: 300px; overflow-y: auto; background: white; border: 1px solid #ddd; border-radius: 0 0 8px 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: none; }
-        .search-item { padding: 10px 15px; border-bottom: 1px solid #f1f1f1; cursor: pointer; font-size: 0.85rem; text-align: left; width: 100%; background: none; border-left: none; border-right: none; }
-        .search-item:hover { background-color: #f8f9fa; }
+        .msg-courier { align-self: flex-start; background: #f1f3f5; color: #333; }
+        #search-res-dropdown { position: absolute; width: 100%; z-index: 2000; max-height: 250px; overflow-y: auto; background: white; box-shadow: 0 4px 12px rgba(0,0,0,0.1); display: none; }
+        .search-item { padding: 10px; border-bottom: 1px solid #eee; cursor: pointer; font-size: 0.8rem; text-align: left; width: 100%; border: none; background: white; }
+        .search-item:hover { background: #f8f9fa; }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg bg-white border-bottom">
+    <nav class="navbar navbar-expand-lg bg-white border-bottom shadow-sm">
         <div class="container-fluid">
             <img src="wellen_logo.jpg" style="height:40px" class="me-2">
-            <span class="fw-bold">COMMAND CENTER</span>
+            <span class="fw-bold text-dark">WELLEN PRINT - COMMAND CENTER</span>
         </div>
     </nav>
 
@@ -51,43 +45,43 @@
             <ul class="nav nav-tabs nav-fill" id="adminTabs">
                 <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-dispatch">DISPATCH</button></li>
                 <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-active">MONITOR</button></li>
-                <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-history">LAPORAN</button></li>
+                <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-history">HISTORY</button></li>
             </ul>
             <div class="tab-content">
+                <!-- DISPATCH -->
                 <div class="tab-pane fade show active" id="tab-dispatch">
-                    <h6>1. Pilih Kurir</h6>
-                    <select id="sel-courier" class="form-select mb-3 shadow-sm"></select>
-                    <h6>2. Tambah Rute</h6>
+                    <label class="fw-bold small mb-1">Pilih Kurir</label>
+                    <select id="sel-courier" class="form-select mb-3"></select>
+                    <label class="fw-bold small mb-1">Tambah Tujuan</label>
                     <div class="position-relative">
-                        <div class="input-group mb-2">
-                            <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
-                            <input type="text" id="loc-search" class="form-control border-start-0 shadow-none" placeholder="Ketik Nama PT / Alamat..." oninput="searchLocationAuto()">
-                        </div>
-                        <div id="search-res-dropdown" class="list-group shadow-lg"></div>
+                        <input type="text" id="loc-search" class="form-control" placeholder="Ketik nama tempat..." oninput="searchLocationAuto()">
+                        <div id="search-res-dropdown" class="list-group"></div>
                     </div>
-                    <div id="queue" class="mb-3 mt-2"></div>
-                    <button class="btn btn-danger w-100 fw-bold py-2 shadow-sm" onclick="submitTrip()">KIRIM TUGAS KE KURIR</button>
+                    <div id="queue" class="mt-3"></div>
+                    <button class="btn btn-danger w-100 mt-3 fw-bold" onclick="submitTrip()">KIRIM TUGAS</button>
                 </div>
+                <!-- MONITOR -->
                 <div class="tab-pane fade" id="tab-active">
                     <div id="monitor-list"></div>
                 </div>
+                <!-- HISTORY -->
                 <div class="tab-pane fade" id="tab-history">
-                    <input type="date" id="rep-date" class="form-control mb-2" onchange="loadReport()">
+                    <label class="fw-bold small mb-1">Pilih Tanggal</label>
+                    <input type="date" id="rep-date" class="form-control mb-3" onchange="loadReport()">
                     <div id="report-list"></div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Chat Popup -->
     <div id="chat-overlay">
-        <div class="p-2 bg-dark text-white d-flex justify-content-between">
-            <span id="chat-title">Chat</span>
+        <div class="p-2 bg-dark text-white d-flex justify-content-between align-items-center">
+            <span id="chat-title" class="small fw-bold">Chat</span>
             <button class="btn-close btn-close-white" onclick="closeChat()"></button>
         </div>
-        <div id="chat-msgs" class="p-2 flex-grow-1 overflow-y-auto d-flex flex-column"></div>
-        <div class="p-2 border-top d-flex">
-            <input type="text" id="chat-input" class="form-control form-control-sm me-1" placeholder="Pesan...">
+        <div id="chat-msgs" class="p-3 flex-grow-1 overflow-y-auto d-flex flex-column" style="background:#fff"></div>
+        <div class="p-2 border-top bg-light d-flex">
+            <input type="text" id="chat-input" class="form-control form-control-sm me-2" placeholder="Tulis pesan...">
             <button class="btn btn-sm btn-primary" onclick="sendChat()"><i class="bi bi-send"></i></button>
         </div>
     </div>
@@ -121,7 +115,7 @@
         let tripQueue = [];
         const registeredCouriers = {};
 
-        // --- CORE LOGIC ---
+        // 1. Listeners
         db.collection('users').where('role', '==', 'courier').onSnapshot(snap => {
             snap.forEach(doc => { registeredCouriers[doc.id] = doc.data().name || doc.id.substring(0,8); });
             updateCourierDropdown();
@@ -130,120 +124,18 @@
         rtdb.ref('courier_live_location').on('value', snap => {
             const data = snap.val() || {};
             const list = document.getElementById('courier-list');
-            list.innerHTML = '<div class="p-2 border-bottom fw-bold bg-light">KURIR ONLINE</div>';
+            list.innerHTML = '<div class="p-3 border-bottom fw-bold bg-light small">KURIR ONLINE</div>';
             for (const id in data) {
                 const c = data[id];
                 const name = registeredCouriers[id] || id.substring(0,8);
                 if (markers[id]) markers[id].setLatLng([c.lat, c.lng]);
-                else markers[id] = L.marker([c.lat, c.lng]).addTo(map).bindPopup(`Kurir: ${name}`);
+                else markers[id] = L.marker([c.lat, c.lng]).addTo(map).bindPopup(`<b>${name}</b>`);
                 list.innerHTML += `<div class="courier-card" onclick="map.flyTo([${c.lat}, ${c.lng}], 16)">
-                    <span class="status-dot bg-online"></span><b>${name}</b><br>
-                    <small>${c.batteryLevel}% Bat | ${c.totalDistanceKm.toFixed(2)} km</small>
+                    <span class="bg-online me-2"></span><b>${name}</b><br>
+                    <small class="text-muted">${c.batteryLevel}% Baterai | ${c.totalDistanceKm.toFixed(2)} KM</small>
                 </div>`;
             }
-            updateCourierDropdown();
         });
-
-        function updateCourierDropdown() {
-            const sel = document.getElementById('sel-courier');
-            const currentSelected = sel.value;
-            sel.innerHTML = '<option value="">-- Pilih Kurir --</option>';
-            for (const id in registeredCouriers) {
-                const opt = document.createElement('option');
-                opt.value = id; opt.innerText = registeredCouriers[id];
-                if (id === currentSelected) opt.selected = true;
-                sel.appendChild(opt);
-            }
-        }
-
-        // --- AUTO SUGGEST SEARCH ---
-        let searchTimeout;
-        function searchLocationAuto() {
-            clearTimeout(searchTimeout);
-            const q = document.getElementById('loc-search').value;
-            if (q.length < 3) { document.getElementById('search-res-dropdown').style.display = 'none'; return; }
-            searchTimeout = setTimeout(() => performSearch(q), 500);
-        }
-
-        async function performSearch(q) {
-            const el = document.getElementById('search-res-dropdown');
-            const cleanQ = q.replace(/PT\.?\s+/gi, '').trim();
-            try {
-                const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cleanQ)}&countrycodes=id&limit=6&addressdetails=1`);
-                const data = await resp.json();
-                el.innerHTML = '';
-                if (data.length === 0) { el.style.display = 'none'; return; }
-                el.style.display = 'block';
-                data.forEach(item => {
-                    const placeName = item.name || item.display_name.split(',')[0];
-                    const div = document.createElement('button');
-                    div.className = 'search-item d-flex align-items-start';
-                    div.innerHTML = `<i class="bi bi-geo-alt-fill text-danger me-2 mt-1"></i><div><b>${placeName}</b><br><small class="text-muted" style="font-size:0.7rem">${item.display_name}</small></div>`;
-                    div.onclick = () => {
-                        tripQueue.push({
-                            name: placeName,
-                            address: item.display_name,
-                            lat: parseFloat(item.lat),
-                            lng: parseFloat(item.lon)
-                        });
-                        renderQueue(); el.style.display = 'none'; document.getElementById('loc-search').value = '';
-                        map.flyTo([item.lat, item.lon], 16);
-                        L.marker([item.lat, item.lon]).addTo(map).bindPopup(`<b>${placeName}</b>`).openPopup();
-                    };
-                    el.appendChild(div);
-                });
-            } catch (e) { console.error(e); }
-        }
-
-        // Fitur Nitikin: Klik Langsung di Peta
-        map.on('click', async function(e) {
-            const lat = e.latlng.lat;
-            const lng = e.latlng.lng;
-
-            // Coba ambil alamat otomatis dari koordinat (Reverse Geocoding)
-            let autoAddress = "Lokasi Pilihan";
-            try {
-                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
-                const data = await res.json();
-                autoAddress = data.display_name;
-            } catch(err) {}
-
-            const name = prompt("Beri nama lokasi ini (Manual):", "Titik Antar");
-            if (name) {
-                tripQueue.push({
-                    name: name,
-                    address: autoAddress,
-                    lat: lat,
-                    lng: lng
-                });
-                renderQueue();
-                L.marker([lat, lng]).addTo(map).bindPopup(`<b>${name}</b><br>Ditambahkan ke rute`).openPopup();
-            }
-        });
-
-        function renderQueue() {
-            const q = document.getElementById('queue');
-            q.innerHTML = tripQueue.map((d, i) => `<div class="destination-pill d-flex justify-content-between align-items-center"><span>${i+1}. ${d.name}</span> <i class="bi bi-x-circle text-danger" onclick="tripQueue.splice(${i},1);renderQueue()"></i></div>`).join('');
-        }
-
-        async function submitTrip() {
-            const cid = document.getElementById('sel-courier').value;
-            if (!cid || tripQueue.length === 0) return alert("Pilih kurir & rute!");
-            const tripId = "TRIP_" + Date.now();
-            await db.collection('trips').doc(tripId).set({
-                tripId, courierId: cid, status: "assigned", date: firebase.firestore.Timestamp.now(),
-                destinations: tripQueue.map((d, i) => ({
-                    stopIndex: i+1,
-                    locationName: d.name,
-                    address: d.address || "",
-                    latitude: d.lat,
-                    longitude: d.lng,
-                    status: "pending",
-                    proofPhotoUrl: ""
-                }))
-            });
-            alert("Tugas Berhasil Terkirim!"); tripQueue = []; renderQueue();
-        }
 
         db.collection('trips').where('status', '!=', 'completed').onSnapshot(snap => {
             const container = document.getElementById('monitor-list');
@@ -254,61 +146,140 @@
                 const card = document.createElement('div');
                 card.className = 'trip-progress-card bg-white shadow-sm';
                 card.innerHTML = `
-                    <div class="d-flex justify-content-between"><b>Trip: ${doc.id.substring(0,8)}</b> <span class="badge bg-warning text-dark text-uppercase" style="font-size:0.65rem">${t.status}</span></div>
-                    <small class="text-muted">Kurir: ${courierName}</small>
-                    <div class="mt-2">${t.destinations.map(d => `
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="fw-bold">Trip: ${courierName}</span>
+                        <span class="badge bg-warning text-dark text-uppercase" style="font-size:0.7rem">${t.status}</span>
+                    </div>
+                    <div class="mb-2 text-muted small"><i class="bi bi-person"></i> ${courierName}</div>
+                    <div class="dest-list">${t.destinations.map(d => `
                         <div class="destination-pill ${d.status}">
-                            <i class="bi bi-geo-alt"></i> ${d.locationName}
-                            ${d.proofPhotoUrl ? `<br><a href="${d.proofPhotoUrl}" target="_blank"><img src="${d.proofPhotoUrl}" class="proof-img"></a>` : ''}
+                            <div class="d-flex justify-content-between">
+                                <b>${d.locationName}</b>
+                                <span class="small text-muted">${d.status}</span>
+                            </div>
+                            ${d.proofPhotoUrl ? `
+                                <div class="mt-2">
+                                    <small class="d-block text-success fw-bold mb-1">✓ Bukti Foto:</small>
+                                    <a href="${d.proofPhotoUrl}" target="_blank">
+                                        <img src="${d.proofPhotoUrl}" class="proof-img">
+                                    </a>
+                                </div>
+                            ` : ''}
                         </div>
                     `).join('')}</div>
-                    <button class="btn btn-sm btn-outline-primary mt-2 w-100" onclick="openChat('${doc.id}')"><i class="bi bi-chat-dots"></i> Chat dengan ${courierName}</button>
+                    <button class="btn btn-sm btn-outline-primary mt-3 w-100" onclick="openChat('${doc.id}', '${courierName}')">
+                        <i class="bi bi-chat-dots me-1"></i> Chat dengan ${courierName}
+                    </button>
                 `;
                 container.appendChild(card);
             });
         });
 
-        // (Laporan & Chat logic tetap sama, hanya variabel courierName diperbarui agar muncul nama di UI)
-        function openChat(tripId) {
+        // 2. Functions
+        function updateCourierDropdown() {
+            const sel = document.getElementById('sel-courier');
+            const current = sel.value;
+            sel.innerHTML = '<option value="">-- Pilih Kurir --</option>';
+            for (const id in registeredCouriers) {
+                const opt = document.createElement('option');
+                opt.value = id; opt.innerText = registeredCouriers[id];
+                if (id === current) opt.selected = true;
+                sel.appendChild(opt);
+            }
+        }
+
+        let searchTimeout;
+        function searchLocationAuto() {
+            clearTimeout(searchTimeout);
+            const q = document.getElementById('loc-search').value;
+            if (q.length < 3) { document.getElementById('search-res-dropdown').style.display = 'none'; return; }
+            searchTimeout = setTimeout(async () => {
+                const el = document.getElementById('search-res-dropdown');
+                const cleanQ = q.replace(/PT\.?\s+/gi, '').trim();
+                const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cleanQ)}&countrycodes=id&limit=6&addressdetails=1`);
+                const data = await resp.json();
+                el.innerHTML = '';
+                if (data.length === 0) { el.style.display = 'none'; return; }
+                el.style.display = 'block';
+                data.forEach(item => {
+                    const placeName = item.name || item.display_name.split(',')[0];
+                    const div = document.createElement('button');
+                    div.className = 'search-item';
+                    div.innerHTML = `<b>${placeName}</b><br><small class="text-muted">${item.display_name}</small>`;
+                    div.onclick = () => {
+                        tripQueue.push({ name: placeName, address: item.display_name, lat: parseFloat(item.lat), lng: parseFloat(item.lon) });
+                        renderQueue(); el.style.display = 'none'; document.getElementById('loc-search').value = '';
+                        map.flyTo([item.lat, item.lon], 16);
+                    };
+                    el.appendChild(div);
+                });
+            }, 500);
+        }
+
+        function renderQueue() {
+            document.getElementById('queue').innerHTML = tripQueue.map((d, i) => `
+                <div class="alert alert-light border p-2 mb-1 d-flex justify-content-between align-items-center" style="font-size:0.8rem">
+                    <span>${i+1}. ${d.name}</span>
+                    <i class="bi bi-x-circle text-danger ms-2" style="cursor:pointer" onclick="tripQueue.splice(${i},1);renderQueue()"></i>
+                </div>`).join('');
+        }
+
+        async function submitTrip() {
+            const cid = document.getElementById('sel-courier').value;
+            if (!cid || tripQueue.length === 0) return alert("Pilih kurir & rute!");
+            const tripId = "TRIP_" + Date.now();
+            await db.collection('trips').doc(tripId).set({
+                tripId, courierId: cid, status: "assigned", date: firebase.firestore.Timestamp.now(),
+                destinations: tripQueue.map((d, i) => ({ stopIndex: i+1, locationName: d.name, address: d.address, latitude: d.lat, longitude: d.lng, status: "pending", proofPhotoUrl: "" }))
+            });
+            alert("Tugas Terkirim!"); tripQueue = []; renderQueue();
+        }
+
+        function openChat(tripId, name) {
             activeTripId = tripId;
             document.getElementById('chat-overlay').style.display = 'flex';
-            document.getElementById('chat-title').innerText = "Chat Trip: " + tripId.substring(0,8);
+            document.getElementById('chat-title').innerText = "Chat: " + name;
             if (chatUnsubscribe) chatUnsubscribe();
-            chatUnsubscribe = db.collection('trips').doc(tripId).collection('messages')
-                .orderBy('timestamp', 'asc').onSnapshot(snap => {
-                    const msgContainer = document.getElementById('chat-msgs');
-                    msgContainer.innerHTML = '';
-                    snap.forEach(mDoc => {
-                        const m = mDoc.data();
-                        const isAdm = m.senderId === 'admin';
-                        msgContainer.innerHTML += `<div class="chat-msg ${isAdm ? 'msg-admin' : 'msg-courier'}">${m.text}</div>`;
-                    });
-                    msgContainer.scrollTop = msgContainer.scrollHeight;
+            chatUnsubscribe = db.collection('trips').document(tripId).collection('messages').orderBy('timestamp', 'asc').onSnapshot(snap => {
+                const container = document.getElementById('chat-msgs');
+                container.innerHTML = '';
+                snap.forEach(mDoc => {
+                    const m = mDoc.data();
+                    const isAdm = m.senderId === 'admin';
+                    container.innerHTML += `<div class="chat-msg ${isAdm ? 'msg-admin' : 'msg-courier'}">${m.text}</div>`;
                 });
+                container.scrollTop = container.scrollHeight;
+            });
         }
+
         function closeChat() { document.getElementById('chat-overlay').style.display = 'none'; if(chatUnsubscribe) chatUnsubscribe(); }
+
         async function sendChat() {
             const txt = document.getElementById('chat-input').value;
             if (!txt || !activeTripId) return;
-            await db.collection('trips').doc(activeTripId).collection('messages').add({
+            await db.collection('trips').document(activeTripId).collection('messages').add({
                 senderId: 'admin', text: txt, timestamp: firebase.firestore.Timestamp.now()
             });
             document.getElementById('chat-input').value = '';
         }
+
         async function loadReport() {
             const date = document.getElementById('rep-date').value;
             const container = document.getElementById('report-list');
-            container.innerHTML = 'Memuat...';
+            container.innerHTML = '<div class="text-center small py-3">Memuat...</div>';
             const start = new Date(date); start.setHours(0,0,0,0);
             const end = new Date(date); end.setHours(23,59,59,999);
             const snap = await db.collection('trips').where('date', '>=', firebase.firestore.Timestamp.fromDate(start)).where('date', '<=', firebase.firestore.Timestamp.fromDate(end)).get();
             container.innerHTML = '';
+            if(snap.empty) container.innerHTML = '<div class="small text-muted text-center py-3">Tidak ada data history.</div>';
             snap.forEach(doc => {
                 const t = doc.data();
                 const courierName = registeredCouriers[t.courierId] || t.courierId.substring(0,8);
-                container.innerHTML += `<div class="card p-2 mb-2 border-0 shadow-sm">
-                    <b>Kurir: ${courierName}</b><br>
-                    Jarak: ${t.totalDistanceKm ? t.totalDistanceKm.toFixed(2) : '-'} km | ${t.destinations.length} titik
+                container.innerHTML += `<div class="card p-3 mb-2 border-0 shadow-sm" style="font-size:0.85rem">
+                    <div class="fw-bold text-primary mb-1">Kurir: ${courierName}</div>
+                    <div>Status: <b>${t.status.toUpperCase()}</b></div>
+                    <div>Jarak: ${t.totalDistanceKm ? t.totalDistanceKm.toFixed(2) : '0'} KM</div>
+                    <div class="mt-2 text-muted" style="font-size:0.75rem">Tujuan: ${t.destinations.map(d => d.locationName).join(', ')}</div>
                 </div>`;
             });
         }

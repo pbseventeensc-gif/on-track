@@ -17,6 +17,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.KurirKita.R
 import com.KurirKita.model.Trip
@@ -87,6 +90,7 @@ fun MainNavigation(
 ) {
     var selectedTrip by remember { mutableStateOf<Trip?>(null) }
     var showChatTripId by remember { mutableStateOf<String?>(null) }
+    var showHistory by remember { mutableStateOf(false) }
     val tripViewModel: TripViewModel = viewModel()
 
     if (showChatTripId != null) {
@@ -96,14 +100,26 @@ fun MainNavigation(
         )
     } else if (selectedTrip == null) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // Header with Service Toggle and Logout
             ServiceControlBar(onStartService, onStopService, onLogout)
             
-            // Trip List
-            TripListScreen(
-                viewModel = tripViewModel,
-                onTripClick = { selectedTrip = it }
-            )
+            // Tab Switcher for Active vs History
+            TabRow(selectedTabIndex = if (showHistory) 1 else 0) {
+                Tab(selected = !showHistory, onClick = { showHistory = false }) {
+                    Text("Tugas Aktif", modifier = Modifier.padding(12.dp))
+                }
+                Tab(selected = showHistory, onClick = { showHistory = true }) {
+                    Text("Riwayat", modifier = Modifier.padding(12.dp))
+                }
+            }
+
+            if (!showHistory) {
+                TripListScreen(
+                    viewModel = tripViewModel,
+                    onTripClick = { selectedTrip = it }
+                )
+            } else {
+                HistoryScreen(tripViewModel)
+            }
         }
     } else {
         ActiveTripScreen(
@@ -111,6 +127,33 @@ fun MainNavigation(
             onBack = { selectedTrip = null },
             onChatClick = { showChatTripId = selectedTrip!!.tripId }
         )
+    }
+}
+
+@Composable
+fun HistoryScreen(viewModel: TripViewModel) {
+    // In a real app, we might fetch a separate collection, but for now we filter locally
+    val trips by viewModel.trips.collectAsState()
+    val db = FirebaseFirestore.getInstance()
+    val auth = FirebaseAuth.getInstance()
+    var historyTrips by remember { mutableStateOf<List<Trip>>(emptyList()) }
+
+    LaunchedEffect(Unit) {
+        val uid = auth.currentUser?.uid ?: return@LaunchedEffect
+        db.collection("trips")
+            .whereEqualTo("courierId", uid)
+            .whereEqualTo("status", "completed")
+            .get()
+            .addOnSuccessListener { historyTrips = it.toObjects(Trip::class.java) }
+    }
+
+    LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        if (historyTrips.isEmpty()) {
+            item { Text("Belum ada riwayat tugas.", color = Color.Gray) }
+        }
+        items(historyTrips) { trip ->
+            TripCard(trip, onClick = {}) // Read-only card
+        }
     }
 }
 

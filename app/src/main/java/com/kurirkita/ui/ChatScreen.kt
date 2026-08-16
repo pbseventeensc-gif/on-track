@@ -28,76 +28,96 @@ fun ChatScreen(tripId: String, onBack: () -> Unit) {
     var messages by remember { mutableStateOf<List<ChatMessage>>(emptyList()) }
     var inputText by remember { mutableStateOf("") }
 
-    // Listen to messages
-    DisposableEffect(tripId) {
-        val registration = db.collection("trips").document(tripId).collection("messages")
-            .orderBy("timestamp", Query.Direction.ASCENDING)
-            .addSnapshotListener { snapshot, e ->
-                if (e != null) return@addSnapshotListener
-                messages = snapshot?.toObjects(ChatMessage::class.java) ?: emptyList()
-            }
-        onDispose { registration.remove() }
-    }
-
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = onBack) { Text("Kembali") }
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Chat Admin", style = MaterialTheme.typography.headlineSmall)
+    Scaffold(
+        topBar = {
+            @OptIn(ExperimentalMaterial3Api::class)
+            TopAppBar(
+                title = { Text("Chat Admin", style = MaterialTheme.typography.titleMedium) },
+                navigationIcon = {
+                    TextButton(onClick = onBack) { Text("Kembali") }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
+            )
         }
-
-        LazyColumn(
-            modifier = Modifier.weight(1f),
-            reverseLayout = false,
-            contentPadding = PaddingValues(vertical = 8.dp)
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .imePadding() // Memastikan keyboard tidak menutupi input
+                .navigationBarsPadding() // Menghindari area tombol home/gesture
+                .padding(horizontal = 16.dp)
         ) {
-            items(messages) { msg ->
-                val isMine = msg.senderId == currentUserId
-                Box(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentAlignment = if (isMine) Alignment.CenterEnd else Alignment.CenterStart
-                ) {
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (isMine) MaterialTheme.colorScheme.primaryContainer else Color.LightGray
-                        ),
-                        modifier = Modifier.padding(vertical = 2.dp).fillMaxWidth(0.7f)
+            LazyColumn(
+                modifier = Modifier.weight(1f),
+                reverseLayout = false,
+                contentPadding = PaddingValues(vertical = 8.dp)
+            ) {
+                items(messages) { msg ->
+                    val isMine = msg.senderId == currentUserId
+                    Box(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentAlignment = if (isMine) Alignment.CenterEnd else Alignment.CenterStart
                     ) {
-                        Column(modifier = Modifier.padding(8.dp)) {
-                            Text(msg.text, style = MaterialTheme.typography.bodyMedium)
-                            val sdf = SimpleDateFormat("HH:mm", Locale.getDefault())
-                            Text(
-                                text = sdf.format(msg.timestamp.toDate()),
-                                style = MaterialTheme.typography.labelSmall,
-                                modifier = Modifier.align(Alignment.End)
-                            )
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (isMine) MaterialTheme.colorScheme.primaryContainer else Color.LightGray
+                            ),
+                            modifier = Modifier.padding(vertical = 2.dp).fillMaxWidth(0.75f)
+                        ) {
+                            Column(modifier = Modifier.padding(10.dp)) {
+                                Text(msg.text, style = MaterialTheme.typography.bodyMedium)
+                                val sdf = SimpleDateFormat("HH:mm", Locale.getDefault())
+                                Text(
+                                    text = sdf.format(msg.timestamp.toDate()),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    modifier = Modifier.align(Alignment.End),
+                                    color = Color.Gray
+                                )
+                            }
                         }
                     }
                 }
             }
-        }
 
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            OutlinedTextField(
-                value = inputText,
-                onValueChange = { inputText = it },
-                modifier = Modifier.weight(1f),
-                placeholder = { Text("Ketik pesan...") }
-            )
-            IconButton(onClick = {
-                if (inputText.isNotBlank()) {
-                    val msgId = db.collection("trips").document(tripId).collection("messages").document().id
-                    val newMsg = ChatMessage(
-                        messageId = msgId,
-                        senderId = currentUserId,
-                        text = inputText,
-                        timestamp = Timestamp.now()
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                tonalElevation = 2.dp
+            ) {
+                Row(
+                    modifier = Modifier.padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = inputText,
+                        onValueChange = { inputText = it },
+                        modifier = Modifier.weight(1f),
+                        placeholder = { Text("Ketik pesan...") },
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
+                        maxLines = 3
                     )
-                    db.collection("trips").document(tripId).collection("messages").document(msgId).set(newMsg)
-                    inputText = ""
+                    Spacer(modifier = Modifier.width(8.dp))
+                    FloatingActionButton(
+                        onClick = {
+                            if (inputText.isNotBlank()) {
+                                val msgId = db.collection("trips").document(tripId).collection("messages").document().id
+                                val newMsg = ChatMessage(
+                                    messageId = msgId,
+                                    senderId = currentUserId,
+                                    text = inputText,
+                                    timestamp = Timestamp.now()
+                                )
+                                db.collection("trips").document(tripId).collection("messages").document(msgId).set(newMsg)
+                                inputText = ""
+                            }
+                        },
+                        modifier = Modifier.size(48.dp),
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        shape = androidx.compose.foundation.shape.CircleShape
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send", tint = Color.White)
+                    }
                 }
-            }) {
-                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send")
             }
         }
     }
