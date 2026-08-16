@@ -130,7 +130,7 @@ class TrackingService : Service() {
         val intervalText = if (trackingIntervalMs >= 60000) "${trackingIntervalMs / 60000} Menit" else "${trackingIntervalMs / 1000} Detik"
         val distanceText = if (trackingMinDistance >= 1000) "${trackingMinDistance / 1000} KM" else "${trackingMinDistance.toInt()} Meter"
         
-        val channelId = "config_force_loud_v2" // BRAND NEW CHANNEL ID
+        val channelId = "config_force_loud_v5" // New channel ID to bypass system cached settings
         val manager = getSystemService(NotificationManager::class.java)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -142,9 +142,11 @@ class TrackingService : Service() {
                 vibrationPattern = longArrayOf(0, 1000, 500, 1000)
                 setSound(android.provider.Settings.System.DEFAULT_NOTIFICATION_URI, 
                     android.media.AudioAttributes.Builder()
-                        .setUsage(android.media.AudioAttributes.USAGE_ALARM)
+                        .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION)
                         .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
                         .build())
+                setLockscreenVisibility(Notification.VISIBILITY_PUBLIC)
+                setShowBadge(true)
             }
             manager.createNotificationChannel(channel)
         }
@@ -156,11 +158,12 @@ class TrackingService : Service() {
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setVibrate(longArrayOf(0, 1000, 500, 1000))
             .setSound(android.provider.Settings.System.DEFAULT_NOTIFICATION_URI)
-            .setFullScreenIntent(null, true) // Force Heads-up
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setAutoCancel(true)
+            .setDefaults(NotificationCompat.DEFAULT_ALL)
             .build()
 
-        manager.notify(101, notification)
+        manager.notify(System.currentTimeMillis().toInt(), notification)
     }
 
     private fun createNotificationChannel() {
