@@ -13,6 +13,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -58,13 +61,18 @@ class MainActivity : ComponentActivity() {
 
         enableEdgeToEdge()
         setContent {
-            KurirKitaTheme {
+            var darkTheme by remember { mutableStateOf(false) }
+            
+            // Listen for theme preference (optional, for now local)
+            KurirKitaTheme(darkTheme = darkTheme) {
                 var isLoggedIn by remember { mutableStateOf(FirebaseAuth.getInstance().currentUser != null) }
 
                 if (!isLoggedIn) {
                     LoginScreen(onLoginSuccess = { isLoggedIn = true })
                 } else {
                     MainNavigation(
+                        darkTheme = darkTheme,
+                        onThemeToggle = { darkTheme = !darkTheme },
                         onLogout = {
                             FirebaseAuth.getInstance().signOut()
                             isLoggedIn = false
@@ -100,6 +108,8 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun MainNavigation(
+    darkTheme: Boolean,
+    onThemeToggle: () -> Unit,
     onLogout: () -> Unit,
     onStartService: () -> Unit,
     onStopService: () -> Unit
@@ -116,7 +126,7 @@ fun MainNavigation(
         )
     } else if (selectedTrip == null) {
         Column(modifier = Modifier.fillMaxSize()) {
-            ServiceControlBar(onStartService, onStopService, onLogout)
+            ServiceControlBar(onStartService, onStopService, onLogout, darkTheme, onThemeToggle)
             
             // Tab Switcher for Active vs History
             TabRow(selectedTabIndex = if (showHistory) 1 else 0) {
@@ -196,7 +206,9 @@ fun HistoryScreen(viewModel: TripViewModel, onTripClick: (Trip) -> Unit) {
 fun ServiceControlBar(
     onStart: () -> Unit,
     onStop: () -> Unit,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    darkTheme: Boolean,
+    onThemeToggle: () -> Unit
 ) {
     var isTracking by remember { mutableStateOf(false) }
 
@@ -221,64 +233,68 @@ fun ServiceControlBar(
         color = MaterialTheme.colorScheme.primary,
         contentColor = MaterialTheme.colorScheme.onPrimary,
         modifier = Modifier.fillMaxWidth(),
-        shadowElevation = 4.dp
+        shadowElevation = 8.dp
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp).statusBarsPadding(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Image(
-                    painter = painterResource(id = R.drawable.wellen_logo),
-                    contentDescription = null,
-                    modifier = Modifier.size(44.dp).padding(end = 12.dp)
-                )
-            Column {
-                val uid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
-                Text(
-                    text = if (isTracking) "Tracking Aktif" else "Tracking Berhenti",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
+        Column {
+            Row(
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp).statusBarsPadding(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    Image(
+                        painter = painterResource(id = R.drawable.wellen_logo),
+                        contentDescription = null,
+                        modifier = Modifier.size(44.dp).padding(end = 12.dp)
+                    )
+                Column {
+                    val uid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
                     Text(
-                        text = "ID: ${uid.take(8)}...",
+                        text = if (isTracking) "Live Tracking: ON" else "Tracking OFF",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "UID: ${uid.take(8)}",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "•",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.5f)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Logout",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.clickable { onLogout() }
+                }
+                }
+                
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = onThemeToggle) {
+                        Icon(
+                            imageVector = if (darkTheme) Icons.Default.LightMode else Icons.Default.DarkMode,
+                            contentDescription = "Theme",
+                            tint = Color.White
+                        )
+                    }
+                    Switch(
+                        checked = isTracking,
+                        onCheckedChange = { checked ->
+                            if (checked) launcher.launch(permissions.toTypedArray())
+                            else { isTracking = false; onStop() }
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color(0xFFF1C40F),
+                            checkedTrackColor = Color(0xFFF1C40F).copy(alpha = 0.5f)
+                        )
                     )
                 }
             }
-            }
             
-            Switch(
-                checked = isTracking,
-                onCheckedChange = { checked ->
-                    if (checked) {
-                        launcher.launch(permissions.toTypedArray())
-                    } else {
-                        isTracking = false
-                        onStop()
-                    }
-                },
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = Color(0xFFF1C40F),
-                    checkedTrackColor = Color(0xFFF1C40F).copy(alpha = 0.5f)
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.End
+            ) {
+                Text(
+                    text = "LOGOUT",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Black,
+                    modifier = Modifier.clickable { onLogout() }
                 )
-            )
+            }
         }
     }
 }
