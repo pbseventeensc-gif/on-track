@@ -8,9 +8,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,14 +23,12 @@ import com.KurirKita.model.Trip
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
-import java.io.ByteArrayOutputStream
-import java.util.UUID
-
 import com.cloudinary.android.MediaManager
 import com.cloudinary.android.callback.ErrorInfo
 import com.cloudinary.android.callback.UploadCallback
+import java.io.ByteArrayOutputStream
 import java.io.File
-import java.io.FileOutputStream
+import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -148,6 +146,11 @@ fun DestinationItem(dest: Destination, onStatusUpdate: (String, Bitmap?) -> Unit
         }
     }
 
+    // Reset isUploading if status changes to done
+    LaunchedEffect(dest.status) {
+        if (dest.status == "done") isUploading = false
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
         colors = CardDefaults.cardColors(
@@ -220,11 +223,14 @@ fun DestinationItem(dest: Destination, onStatusUpdate: (String, Bitmap?) -> Unit
                             }
                             
                             TextButton(
-                                onClick = { onStatusUpdate("done", null) },
+                                onClick = { 
+                                    isUploading = true
+                                    onStatusUpdate("done", null) 
+                                },
                                 enabled = !isUploading,
                                 modifier = Modifier.padding(top = 4.dp)
                             ) {
-                                Text("Konfirmasi Selesai (Tanpa Foto)", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelSmall)
+                                Text("Selesai Tanpa Foto", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelSmall)
                             }
                         }
                     }
@@ -237,13 +243,11 @@ fun DestinationItem(dest: Destination, onStatusUpdate: (String, Bitmap?) -> Unit
 private fun uploadPhotoAndUpdate(storage: FirebaseStorage, db: FirebaseFirestore, trip: Trip, dest: Destination, bitmap: Bitmap, newStatus: String) {
     val scaledBitmap = scaleBitmap(bitmap, 640)
     
-    // Check if Cloudinary is configured
     db.collection("config").document("cloudinary").get().addOnSuccessListener { doc ->
         val cloudName = doc.getString("cloudName")
         val preset = doc.getString("uploadPreset")
 
         if (!cloudName.isNullOrEmpty() && !preset.isNullOrEmpty()) {
-            // UPLOAD TO CLOUDINARY
             val baos = ByteArrayOutputStream()
             scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 50, baos)
             val bytes = baos.toByteArray()
@@ -259,13 +263,11 @@ private fun uploadPhotoAndUpdate(storage: FirebaseStorage, db: FirebaseFirestore
                         if (url != null) updateDestinationStatus(db, trip, dest, newStatus, url)
                     }
                     override fun onError(requestId: String?, error: ErrorInfo?) {
-                        // Fallback to Firebase on Cloudinary error
                         uploadToFirebase(storage, db, trip, dest, scaledBitmap, newStatus)
                     }
                     override fun onReschedule(requestId: String?, error: ErrorInfo?) {}
                 }).dispatch()
         } else {
-            // DEFAULT TO FIREBASE
             uploadToFirebase(storage, db, trip, dest, scaledBitmap, newStatus)
         }
     }.addOnFailureListener {
@@ -285,6 +287,19 @@ private fun uploadToFirebase(storage: FirebaseStorage, db: FirebaseFirestore, tr
     }
 }
 
+private fun updateDestinationStatus(db: FirebaseFirestore, trip: Trip, dest: Destination, newStatus: String, photoUrl: String?) {
+    val updatedDestinations = trip.destinations.map {
+        if (it.stopIndex == dest.stopIndex) {
+            val now = Timestamp.now()
+            it.copy(status = newStatus, arrivalTime = if (newStatus == "arrived") now else it.arrivalTime, completedTime = if (newStatus == "done") now else it.completedTime, proofPhotoUrl = photoUrl ?: it.proofPhotoUrl)
+        } else it
+    }
+    val updates = mutableMapOf<String, Any>("destinations" to updatedDestinations)
+    if (trip.status == "accepted" && newStatus == "arrived") updates["status"] = "in_progress"
+    if (updatedDestinations.all { it.status == "done" }) updates["status"] = "completed"
+    db.collection("trips").document(trip.tripId).update(updates)
+}
+
 private fun scaleBitmap(source: Bitmap, maxSize: Int): Bitmap {
     var width = source.width
     var height = source.height
@@ -297,17 +312,4 @@ private fun scaleBitmap(source: Bitmap, maxSize: Int): Bitmap {
         width = (height * bitmapRatio).toInt()
     }
     return Bitmap.createScaledBitmap(source, width, height, true)
-}
-
-private fun updateDestinationStatus(db: FirebaseFirestore, trip: Trip, dest: Destination, newStatus: String, photoUrl: String?) {
-    val updatedDestinations = trip.destinations.map {
-        if (it.stopIndex == dest.stopIndex) {
-            val now = Timestamp.now()
-            it.copy(status = newStatus, arrivalTime = if (newStatus == "arrived") now else it.arrivalTime, completedTime = if (newStatus == "done") now else it.completedTime, proofPhotoUrl = photoUrl ?: it.proofPhotoUrl)
-        } else it
-    }
-    val updates = mutableMapOf<String, Any>("destinations" to updatedDestinations)
-    if (trip.status == "accepted" && newStatus == "arrived") updates["status"] = "in_progress"
-    if (updatedDestinations.all { it.status == "done" }) updates["status"] = "completed"
-    db.collection("trips").document(trip.tripId).update(updates)
 }
