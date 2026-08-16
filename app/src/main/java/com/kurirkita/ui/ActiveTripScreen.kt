@@ -1,6 +1,7 @@
 package com.KurirKita.ui
 
 import android.graphics.Bitmap
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -27,7 +28,6 @@ import com.cloudinary.android.MediaManager
 import com.cloudinary.android.callback.ErrorInfo
 import com.cloudinary.android.callback.UploadCallback
 import java.io.ByteArrayOutputStream
-import java.io.File
 import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -146,7 +146,6 @@ fun DestinationItem(dest: Destination, onStatusUpdate: (String, Bitmap?) -> Unit
         }
     }
 
-    // Reset isUploading if status changes to done
     LaunchedEffect(dest.status) {
         if (dest.status == "done") isUploading = false
     }
@@ -230,7 +229,7 @@ fun DestinationItem(dest: Destination, onStatusUpdate: (String, Bitmap?) -> Unit
                                 enabled = !isUploading,
                                 modifier = Modifier.padding(top = 4.dp)
                             ) {
-                                Text("Selesai Tanpa Foto", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelSmall)
+                                Text("Selesai Tanpa Foto", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
                             }
                         }
                     }
@@ -242,35 +241,46 @@ fun DestinationItem(dest: Destination, onStatusUpdate: (String, Bitmap?) -> Unit
 
 private fun uploadPhotoAndUpdate(storage: FirebaseStorage, db: FirebaseFirestore, trip: Trip, dest: Destination, bitmap: Bitmap, newStatus: String) {
     val scaledBitmap = scaleBitmap(bitmap, 640)
+    Log.d("Upload", "Starting upload for ${dest.locationName}")
     
     db.collection("config").document("cloudinary").get().addOnSuccessListener { doc ->
         val cloudName = doc.getString("cloudName")
         val preset = doc.getString("uploadPreset")
 
         if (!cloudName.isNullOrEmpty() && !preset.isNullOrEmpty()) {
+            Log.d("Upload", "Using Cloudinary: $cloudName")
             val baos = ByteArrayOutputStream()
             scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 50, baos)
             val bytes = baos.toByteArray()
             
-            MediaManager.get().upload(bytes)
-                .unsigned(preset)
-                .option("folder", "wellen_proofs")
-                .callback(object : UploadCallback {
-                    override fun onStart(requestId: String?) {}
-                    override fun onProgress(requestId: String?, bytes: Long, totalBytes: Long) {}
-                    override fun onSuccess(requestId: String?, resultData: Map<*, *>?) {
-                        val url = resultData?.get("secure_url") as? String
-                        if (url != null) updateDestinationStatus(db, trip, dest, newStatus, url)
-                    }
-                    override fun onError(requestId: String?, error: ErrorInfo?) {
-                        uploadToFirebase(storage, db, trip, dest, scaledBitmap, newStatus)
-                    }
-                    override fun onReschedule(requestId: String?, error: ErrorInfo?) {}
-                }).dispatch()
+            try {
+                MediaManager.get().upload(bytes)
+                    .unsigned(preset)
+                    .option("folder", "wellen_proofs")
+                    .callback(object : UploadCallback {
+                        override fun onStart(requestId: String?) {}
+                        override fun onProgress(requestId: String?, bytes: Long, totalBytes: Long) {}
+                        override fun onSuccess(requestId: String?, resultData: Map<*, *>?) {
+                            val url = resultData?.get("secure_url") as? String
+                            Log.d("Upload", "Cloudinary Success: $url")
+                            if (url != null) updateDestinationStatus(db, trip, dest, newStatus, url)
+                        }
+                        override fun onError(requestId: String?, error: ErrorInfo?) {
+                            Log.e("Upload", "Cloudinary Error: ${error?.description}")
+                            uploadToFirebase(storage, db, trip, dest, scaledBitmap, newStatus)
+                        }
+                        override fun onReschedule(requestId: String?, error: ErrorInfo?) {}
+                    }).dispatch()
+            } catch (e: Exception) {
+                Log.e("Upload", "MediaManager error: ${e.message}")
+                uploadToFirebase(storage, db, trip, dest, scaledBitmap, newStatus)
+            }
         } else {
+            Log.d("Upload", "Cloudinary not set, using Firebase")
             uploadToFirebase(storage, db, trip, dest, scaledBitmap, newStatus)
         }
     }.addOnFailureListener {
+        Log.e("Upload", "Failed to fetch config")
         uploadToFirebase(storage, db, trip, dest, scaledBitmap, newStatus)
     }
 }
@@ -280,11 +290,19 @@ private fun uploadToFirebase(storage: FirebaseStorage, db: FirebaseFirestore, tr
     val ref = storage.reference.child("proofs/$fileName")
     val baos = ByteArrayOutputStream()
     bitmap.compress(Bitmap.CompressFormat.JPEG, 50, baos)
-    ref.putBytes(baos.toByteArray()).addOnSuccessListener {
-        ref.downloadUrl.addOnSuccessListener { uri -> 
-            updateDestinationStatus(db, trip, dest, newStatus, uri.toString()) 
+    
+    Log.d("Upload", "Uploading to Firebase: $fileName")
+    ref.putBytes(baos.toByteArray())
+        .addOnSuccessListener {
+            ref.downloadUrl.addOnSuccessListener { uri -> 
+                Log.d("Upload", "Firebase Success: $uri")
+                updateDestinationStatus(db, trip, dest, newStatus, uri.toString()) 
+            }
         }
-    }
+        .addOnFailureListener { e ->
+            Log.e("Upload", "Firebase Error: ${e.message}")
+            updateDestinationStatus(db, trip, dest, newStatus, null)
+        }
 }
 
 private fun updateDestinationStatus(db: FirebaseFirestore, trip: Trip, dest: Destination, newStatus: String, photoUrl: String?) {
