@@ -141,106 +141,98 @@
         </div>
 
         <div class="content">
-            <!-- GLOBAL MAP (Always Visible except in Reports) -->
+
+            <!-- SECTION 1: DASHBOARD STATS -->
+            <div id="view-dashboard" class="view-section active">
+                <div class="row g-4 mb-4">
+                    <div class="col-md-3">
+                        <div class="card-pro stat-card">
+                            <div class="stat-icon bg-blue"><i class="bi bi-activity"></i></div>
+                            <div><div class="val" id="stat-active">0</div><div class="lab">Tugas Aktif</div></div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card-pro stat-card">
+                            <div class="stat-icon bg-green"><i class="bi bi-people-fill"></i></div>
+                            <div><div class="val" id="stat-online">0</div><div class="lab">Kurir Online</div></div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card-pro stat-card">
+                            <div class="stat-icon bg-pink"><i class="bi bi-speedometer2"></i></div>
+                            <div><div class="val" id="stat-km">0.0</div><div class="lab">Total KM</div></div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card-pro stat-card">
+                            <div class="stat-icon bg-yellow"><i class="bi bi-patch-check"></i></div>
+                            <div><div class="val" id="stat-done">0</div><div class="lab">Selesai</div></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION 2: DISPATCH (New Compact Top Layout) -->
+            <div id="view-dispatch" class="view-section">
+                <div class="card-pro p-4 mb-4">
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-3">
+                            <label class="small fw-bold mb-1 text-muted">Pilih Kurir</label>
+                            <select id="sel-courier" class="form-select shadow-none"></select>
+                        </div>
+                        <div class="col-md-6 position-relative">
+                            <label class="small fw-bold mb-1 text-muted">Cari Lokasi (Google Maps Style)</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-primary"></i></span>
+                                <input type="text" class="form-control border-start-0 shadow-none" placeholder="Ketik nama PT / Alamat..." oninput="autoSuggest(this.value)">
+                            </div>
+                            <div id="search-results" class="shadow-lg border-0 bg-white" style="position:absolute; width:calc(100% - 24px); z-index:2000; border-radius:0 0 10px 10px; max-height:300px; overflow-y:auto; display:none;"></div>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-primary w-100 fw-bold py-2 shadow-sm" onclick="submitTrip()"><i class="bi bi-send-fill me-2"></i>Kirim Tugas</button>
+                        </div>
+                    </div>
+                    <div id="dispatch-queue" class="mt-3 d-flex flex-wrap gap-2"></div>
+                </div>
+            </div>
+
+            <!-- SECTION 3: LIVE MONITOR -->
+            <div id="view-monitor" class="view-section">
+                <div id="monitor-list" class="row g-4 mb-4"></div>
+            </div>
+
+            <!-- SECTION 4: REPORTS & RATING -->
+            <div id="view-reports" class="view-section">
+                <div class="row g-4 mb-3">
+                    <div class="col-md-12 text-end">
+                        <input type="date" id="rep-date" class="form-control d-inline-block shadow-none" style="max-width:200px;" onchange="loadFullHistory()">
+                    </div>
+                </div>
+                <div class="card-pro mb-4">
+                    <div class="card-header-pro">
+                        <span><i class="bi bi-star-fill text-warning me-2"></i>Kinerja Kurir</span>
+                        <button class="btn btn-sm btn-success fw-bold" onclick="exportToExcel()"><i class="bi bi-file-earmark-excel"></i> Export Excel</button>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-hover m-0">
+                            <thead class="bg-light"><tr><th class="ps-4">Nama Kurir</th><th>Trip</th><th>Jarak</th><th>Rating</th><th>Aksi</th></tr></thead>
+                            <tbody id="report-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div id="full-history-list"></div>
+            </div>
+
+            <!-- GLOBAL MAP (Always Visible below controls) -->
             <div id="global-map-container" class="card-pro mb-4">
                 <div class="card-header-pro">
                     <span><i class="bi bi-geo-fill text-danger me-2"></i>Live Monitoring Map</span>
                     <span class="badge bg-success">Real-time GPS</span>
                 </div>
                 <div class="p-2">
-                    <div id="map" style="height: 380px;"></div>
+                    <div id="map" style="height: 500px;"></div>
                 </div>
             </div>
-
-            <!-- SECTION 1: DASHBOARD -->
-            <div id="view-dashboard" class="view-section active">
-                <div class="row g-4 mb-4">
-                    <div class="col-md-3">
-                        <div class="card-pro p-4 d-flex align-items-center">
-                            <div class="stat-icon bg-blue"><i class="bi bi-activity"></i></div>
-                            <div><div class="val" id="stat-active">0</div><div class="lab">Tugas Aktif</div></div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="card-pro p-4 d-flex align-items-center">
-                            <div class="stat-icon bg-green"><i class="bi bi-people-fill"></i></div>
-                            <div><div class="val" id="stat-online">0</div><div class="lab">Kurir Online</div></div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="card-pro p-4 d-flex align-items-center">
-                            <div class="stat-icon bg-pink"><i class="bi bi-speedometer2"></i></div>
-                            <div><div class="val" id="stat-km">0.0</div><div class="lab">Total KM</div></div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="card-pro p-4 d-flex align-items-center">
-                            <div class="stat-icon bg-yellow"><i class="bi bi-patch-check"></i></div>
-                            <div><div class="val" id="stat-done">0</div><div class="lab">Tugas Selesai</div></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- SECTION 2: DISPATCH -->
-            <div id="view-dispatch" class="view-section">
-                <div class="row g-4">
-                    <div class="col-md-5">
-                        <div class="card-pro p-4">
-                            <h6 class="fw-bold mb-4">Buat Perjalanan Baru</h6>
-                            <label class="small fw-bold mb-1">Pilih Kurir</label>
-                            <select id="sel-courier" class="form-select mb-3 shadow-none"></select>
-                            <label class="small fw-bold mb-1">Cari Lokasi</label>
-                            <div class="position-relative mb-4">
-                                <input type="text" class="form-control shadow-none" placeholder="Ketik alamat..." oninput="autoSuggest(this.value)">
-                                <div id="search-results" class="position-absolute w-100 bg-white shadow-lg rounded" style="z-index:10; display:none;"></div>
-                            </div>
-                            <button class="btn btn-primary w-100 fw-bold py-2 shadow" onclick="submitTrip()">KIRIM KE HP KURIR</button>
-                        </div>
-                    </div>
-                    <div id="dispatch-queue" class="col-md-7"></div>
-                </div>
-            </div>
-
-            <!-- SECTION 3: LIVE MONITOR -->
-            <div id="view-monitor" class="view-section">
-                <div id="monitor-list" class="row g-4"></div>
-            </div>
-
-                <!-- VIEW 4: REPORTS & RATING -->
-                <div id="view-reports" class="view-section">
-                    <div class="row g-4 mb-4">
-                        <div class="col-md-12 text-end">
-                            <label class="fw-bold me-2">Pilih Periode:</label>
-                            <input type="date" id="rep-date" class="form-control d-inline-block shadow-none" style="max-width:200px;" onchange="loadFullHistory()">
-                        </div>
-                    </div>
-
-                    <div class="card-pro">
-                        <div class="card-header-pro">
-                            <span><i class="bi bi-star-fill text-warning me-2"></i>Kinerja & Rating Kurir</span>
-                            <button class="btn btn-sm btn-success fw-bold px-3" onclick="exportToExcel()"><i class="bi bi-file-earmark-excel"></i> Export Excel</button>
-                        </div>
-                        <div class="p-0">
-                            <div class="table-responsive">
-                                <table class="table table-hover m-0">
-                                    <thead class="bg-light">
-                                        <tr>
-                                            <th class="ps-4">Nama Kurir</th>
-                                            <th>Total Perjalanan</th>
-                                            <th>Total Jarak</th>
-                                            <th>Rating</th>
-                                            <th>Aksi</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="report-table-body"></tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div id="full-history-list"></div>
-                </div>
 
             <!-- SECTION 5: GLOBAL CHAT -->
             <div id="view-chat-global" class="view-section">
