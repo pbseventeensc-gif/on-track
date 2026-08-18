@@ -141,7 +141,8 @@
         .courier-group-header { background: #2d2f39; color: white; padding: 15px 20px; border-radius: 12px; margin-bottom: 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
         .dest-pill { background: #f8f9fa; padding: 10px; border-radius: 8px; margin-top: 8px; border-left: 4px solid #ddd; }
         .dest-pill.done { border-left-color: #3ac47d; background: #f4fff9; }
-        .proof-img { width: 100%; border-radius: 10px; margin-top: 10px; cursor: pointer; border: 1px solid #eee; }
+        .proof-img { width: 140px; height: 140px; object-fit: cover; border-radius: 10px; margin-top: 10px; cursor: pointer; border: 2px solid #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.1); transition: 0.3s; }
+        .proof-img:hover { transform: scale(1.05); box-shadow: 0 8px 20px rgba(0,0,0,0.15); }
     </style>
 </head>
 <body>
@@ -433,15 +434,72 @@
         }
 
         async function loadFullHistory() {
-            const date = document.getElementById('rep-date').value; const el = document.getElementById('history-list'); el.innerHTML = 'Memuat...';
+            const date = document.getElementById('rep-date').value;
+            const container = document.getElementById('history-list');
+            if(!date) return;
+
+            container.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary"></div><br><small class="text-muted mt-2 d-block">Menarik data dari server...</small></div>';
+
             const start = new Date(date); start.setHours(0,0,0,0);
-            const snap = await db.collection('trips').where('date','>=',firebase.firestore.Timestamp.fromDate(start)).get();
-            el.innerHTML = '';
+            const end = new Date(date); end.setHours(23,59,59,999);
+            const snap = await db.collection('trips')
+                .where('date', '>=', firebase.firestore.Timestamp.fromDate(start))
+                .where('date', '<=', firebase.firestore.Timestamp.fromDate(end))
+                .get();
+
+            container.innerHTML = '';
+            if(snap.empty) {
+                container.innerHTML = '<div class="card-pro p-5 text-center text-muted border-0 shadow-none">Tidak ada aktivitas pada tanggal ini.</div>';
+                return;
+            }
+
+            const groups = {};
             snap.forEach(doc => {
                 const t = doc.data();
-                el.innerHTML += `<div class="courier-group-header mb-2" onclick="this.nextElementSibling.classList.toggle('d-none')"><span>${registeredUsers[t.courierId]} - ID: ${doc.id.substring(0,8)}</span><i class="bi bi-chevron-down"></i></div>
-                    <div class="d-none mb-3 p-3 bg-white rounded border">${t.destinations.map(d => `<div class="dest-pill ${d.status}">${d.locationName}<br>${d.proofPhotoUrl ? `<img src="${d.proofPhotoUrl}" class="proof-img" onclick="window.open('${d.proofPhotoUrl}')">`:''}</div>`).join('')}</div>`;
+                if(!groups[t.courierId]) groups[t.courierId] = [];
+                groups[t.courierId].push({id: doc.id, ...t});
             });
+
+            for (const cid in groups) {
+                const name = registeredUsers[cid] || cid.substring(0,8);
+                const trips = groups[cid];
+
+                const groupEl = document.createElement('div');
+                groupEl.innerHTML = `
+                    <div class="courier-group-header shadow-sm" onclick="this.nextElementSibling.classList.toggle('d-none')">
+                        <span><i class="bi bi-person-badge-fill me-2 text-warning"></i> <b>${name}</b></span>
+                        <div class="d-flex align-items-center">
+                            <span class="badge bg-danger rounded-pill me-3">${trips.length} Trip</span>
+                            <i class="bi bi-chevron-down"></i>
+                        </div>
+                    </div>
+                    <div class="d-none pb-4">
+                        ${trips.map(t => `
+                            <div class="card-pro p-4 mb-3 border" style="margin-left: 20px;">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h6 class="m-0 fw-bold text-primary"><i class="bi bi-tag-fill me-1"></i> TRIP ID: ${t.id.substring(0,8)}</h6>
+                                    <span class="small text-muted fw-bold">${new Date(t.date.seconds*1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
+                                </div>
+                                <div class="mb-3 small"><i class="bi bi-speedometer2 me-1"></i> Jarak: <b>${t.totalDistanceKm ? t.totalDistanceKm.toFixed(2) : 0} KM</b></div>
+                                <div class="row g-2">
+                                    ${t.destinations.map(d => `
+                                        <div class="col-12">
+                                            <div class="dest-pill ${d.status} p-3 border rounded">
+                                                <div class="d-flex justify-content-between">
+                                                    <b>${d.locationName}</b>
+                                                    <span class="badge ${d.status==='done'?'bg-success':'bg-secondary'}">${d.status.toUpperCase()}</span>
+                                                </div>
+                                                ${d.proofPhotoUrl ? `<img src="${d.proofPhotoUrl}" class="proof-img" onclick="openImagePopup('${d.proofPhotoUrl}')">` : ''}
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                                <button class="btn btn-sm btn-outline-dark w-100 mt-3" onclick="openChat('${t.id}', 'Tugas ${name}')">Lihat Chat</button>
+                            </div>`).join('')}
+                    </div>
+                `;
+                container.appendChild(groupEl);
+            }
         }
 
         let searchTimeout;
