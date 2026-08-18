@@ -51,6 +51,22 @@
         .top-bar { background: #fff; height: var(--header-height); border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; padding: 0 30px; justify-content: space-between; position: sticky; top: 0; z-index: 900; }
         .content { flex: 1; overflow-y: auto; padding: 30px; }
 
+        /* Media Query for Responsiveness */
+        @media (max-width: 992px) {
+            .app-container { flex-direction: column; }
+            .sidebar { width: 100%; height: auto; position: relative; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
+            .sidebar.collapsed { width: 100%; }
+            .sidebar-menu { display: flex; overflow-x: auto; padding: 10px; white-space: nowrap; }
+            .nav-link { margin-bottom: 0; margin-right: 10px; padding: 10px 15px; }
+            .menu-label { display: none; }
+            .sidebar-header { height: 50px; padding: 10px; }
+            .main { height: auto; overflow: visible; }
+            .content { padding: 15px; }
+            #map { height: 300px; }
+            .top-bar { padding: 0 15px; }
+            #chat-window { width: 100%; right: 0; bottom: 0; height: 100vh; border-radius: 0; }
+        }
+
         .card-pro { background: #fff; border: none; border-radius: 15px; margin-bottom: 30px; box-shadow: 0 0.46875rem 2.1875rem rgba(4, 9, 20, 0.03), 0 0.9375rem 1.40625rem rgba(4, 9, 20, 0.03), 0 0.25rem 0.53125rem rgba(4, 9, 20, 0.05); }
         .card-header-pro { padding: 18px 25px; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; font-weight: 700; color: #495057; }
 
