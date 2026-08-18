@@ -1,371 +1,313 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <title>Wellen Print - Pro Logistics Admin</title>
+    <title>Wellen Print - Pro Admin Panel</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+
     <style>
         :root {
             --sidebar-gradient: linear-gradient(135deg, #3ac47d 0%, #2fac66 100%);
+            --sidebar-width: 260px;
+            --sidebar-collapsed-width: 80px;
+            --header-height: 65px;
+            --primary-red: #d32f2f;
+            --wellen-yellow: #f1c40f;
             --architect-blue: #3f6ad8;
-            --architect-pink: #d92550;
-            --architect-yellow: #f7b924;
-            --architect-green: #3ac47d;
-            --sidebar-width: 280px;
-            --header-height: 60px;
         }
-        body { background-color: #f1f4f6; font-family: 'Inter', sans-serif; margin: 0; display: flex; height: 100vh; overflow: hidden; }
 
-        /* Layout Wrapper */
-        .app-container { display: flex; height: 100vh; width: 100vw; position: relative; }
+        * { box-sizing: border-box; }
+        body { background-color: #f1f4f6; font-family: 'Inter', sans-serif; margin: 0; padding: 0; overflow: hidden; }
 
+        /* Layout Container */
+        .app-container { display: flex; height: 100vh; width: 100vw; overflow: hidden; }
+
+        /* Sidebar - Vertical by Default */
         .sidebar {
             width: var(--sidebar-width);
             background: #fff;
             box-shadow: 7px 0 60px rgba(0,0,0,0.05);
-            z-index: 1000;
+            z-index: 1050;
             display: flex;
             flex-direction: column;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
         }
-        .sidebar.collapsed { width: 80px; }
-        .sidebar.collapsed .nav-link span,
-        .sidebar.collapsed .menu-label,
-        .sidebar.collapsed .sidebar-header span { display: none; }
-        .sidebar.collapsed .nav-link { justify-content: center; padding: 12px; }
-        .sidebar.collapsed .nav-link i { margin-right: 0; font-size: 1.3rem; }
 
-        .sidebar-header { height: var(--header-height); display: flex; align-items: center; padding: 0 20px; border-bottom: 1px solid #f0f0f0; white-space: nowrap; overflow: hidden; background: #fff; }
-        .sidebar-menu { flex: 1; padding: 15px; overflow-y: auto; }
-        .nav-link {
-            color: #555; font-weight: 600; padding: 12px 18px; border-radius: 10px; margin-bottom: 5px;
-            display: flex; align-items: center; cursor: pointer; transition: 0.3s; font-size: 0.9rem;
-            text-decoration: none !important;
+        .sidebar.collapsed { width: var(--sidebar-collapsed-width); }
+
+        .sidebar-header {
+            height: var(--header-height);
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            border-bottom: 1px solid #f0f0f0;
+            overflow: hidden;
+            white-space: nowrap;
         }
-        .nav-link i { font-size: 1.2rem; margin-right: 15px; transition: 0.2s; }
-        .nav-link:hover { background: #f8f9fa; color: var(--architect-green); }
+
+        .sidebar-menu { flex: 1; padding: 20px 15px; overflow-y: auto; overflow-x: hidden; }
+
+        .nav-link {
+            color: #555; font-weight: 600; padding: 12px 18px; border-radius: 10px; margin-bottom: 8px;
+            display: flex; align-items: center; cursor: pointer; transition: 0.3s;
+            text-decoration: none !important;
+            white-space: nowrap;
+        }
+        .nav-link i { font-size: 1.25rem; min-width: 25px; margin-right: 15px; transition: margin 0.3s; }
+        .nav-link span { transition: opacity 0.3s; opacity: 1; }
+
+        /* Active State */
         .nav-link.active { background: var(--sidebar-gradient); color: #fff !important; box-shadow: 0 4px 15px rgba(58, 196, 125, 0.3); }
         .nav-link.active i { color: #fff !important; }
-        .menu-label { font-size: 0.75rem; font-weight: 800; color: #ced4da; text-transform: uppercase; padding: 15px 0 10px 15px; }
 
-        .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-        .top-bar { background: #fff; height: var(--header-height); border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; padding: 0 20px; justify-content: space-between; position: sticky; top: 0; z-index: 900; }
-        .content { flex: 1; overflow-y: auto; padding: 20px; }
+        /* Collapsed Sidebar Tweaks */
+        .sidebar.collapsed .nav-link span { opacity: 0; pointer-events: none; width: 0; }
+        .sidebar.collapsed .nav-link i { margin-right: 0; }
+        .sidebar.collapsed .nav-link { justify-content: center; padding: 12px 0; }
+        .sidebar.collapsed .sidebar-header span, .sidebar.collapsed .menu-label { display: none; }
 
-        /* Responsive Improvements */
-        @media (max-width: 992px) {
-            .app-container { flex-direction: column; }
-            .sidebar {
-                width: 100%; height: auto; border-right: none; border-bottom: 1px solid #eee;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-            }
-            .sidebar-header { height: 50px; padding: 10px; }
-            .sidebar-menu {
-                display: flex; flex-direction: row; overflow-x: auto; padding: 5px 10px;
-                white-space: nowrap; -webkit-overflow-scrolling: touch;
-            }
-            .nav-link { margin-bottom: 0; margin-right: 5px; padding: 8px 12px; }
-            .menu-label, .sidebar-header span { display: none; }
-            .main { height: auto; overflow: visible; }
-            .content { padding: 15px; }
-            #map { height: 350px; }
-            .top-bar { padding: 0 15px; border-top: 1px solid #f0f0f0; }
-            #chat-window { width: 100%; right: 0; bottom: 0; height: 100vh; border-radius: 0; }
+        .menu-label { font-size: 0.7rem; font-weight: 800; color: #ced4da; text-transform: uppercase; padding: 15px 0 10px 15px; }
+
+        /* Main Content Area */
+        .main-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+
+        /* Top Bar */
+        .top-bar {
+            height: var(--header-height);
+            background: #fff;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            align-items: center;
+            padding: 0 25px;
+            justify-content: space-between;
+            z-index: 1000;
         }
 
-        .card-pro { background: #fff; border: none; border-radius: 15px; margin-bottom: 30px; box-shadow: 0 0.46875rem 2.1875rem rgba(4, 9, 20, 0.03), 0 0.9375rem 1.40625rem rgba(4, 9, 20, 0.03), 0 0.25rem 0.53125rem rgba(4, 9, 20, 0.05); }
-        .card-header-pro { padding: 18px 25px; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; font-weight: 700; color: #495057; }
-
-        .stat-icon { width: 54px; height: 54px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; color: #fff; margin-right: 20px; }
-        .bg-blue { background: var(--architect-blue); }
-        .bg-pink { background: var(--architect-pink); }
-        .bg-yellow { background: var(--architect-yellow); }
-        .bg-green { background: var(--architect-green); }
-        .val { font-size: 1.8rem; font-weight: 800; color: #333; }
-        .lab { color: #888; font-size: 0.75rem; text-transform: uppercase; font-weight: 700; }
-
-        #map { height: 400px; border-radius: 15px; z-index: 1; }
+        /* Content Body */
+        .content-body { flex: 1; overflow-y: auto; padding: 25px; }
         .view-section { display: none; }
         .view-section.active { display: block; }
 
-        /* CHAT WINDOW FIX */
-        #chat-window { position: fixed; bottom: 30px; right: 30px; width: 360px; height: 550px; background: #fff; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.25); z-index: 3000; display: none; flex-direction: column; overflow: hidden; border: 1px solid #eee; }
-        .chat-header { background: var(--architect-blue); color: #fff; padding: 18px; display: flex; justify-content: space-between; align-items: center; font-weight: 700; }
-        .chat-messages { flex: 1; overflow-y: auto; padding: 20px; background: #fdfdfd; display: flex; flex-direction: column; }
-        .msg { max-width: 85%; padding: 12px 16px; border-radius: 18px; margin-bottom: 10px; font-size: 0.85rem; line-height: 1.4; }
-        .msg.admin { align-self: flex-end; background: var(--architect-blue); color: #fff; border-bottom-right-radius: 4px; }
-        .msg.courier { align-self: flex-start; background: #eef2f7; color: #333; border-bottom-left-radius: 4px; }
+        /* Components Styles */
+        .card-pro {
+            background: #fff; border: none; border-radius: 12px; margin-bottom: 25px;
+            box-shadow: 0 0.46875rem 2.1875rem rgba(4, 9, 20, 0.03), 0 0.9375rem 1.40625rem rgba(4, 9, 20, 0.03);
+        }
+        .card-header-pro { padding: 15px 25px; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; font-weight: 700; color: #495057; }
 
-        /* NUMBERED MARKER STYLES */
-        .custom-div-icon { background: none; border: none; }
-        .marker-pin {
-            width: 30px; height: 30px; border-radius: 50% 50% 50% 0;
-            background: #3f6ad8; position: absolute; transform: rotate(-45deg);
-            left: 50%; top: 50%; margin: -15px 0 0 -15px;
-            display: flex; align-items: center; justify-content: center;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-        }
-        .marker-pin::after {
-            content: ''; width: 22px; height: 22px; margin: 0;
-            background: #fff; position: absolute; border-radius: 50%;
-        }
-        .marker-num {
-            position: absolute; width: 30px; height: 30px;
-            line-height: 30px; text-align: center;
-            font-weight: 800; font-size: 13px; color: #333; z-index: 10;
-        }
-        .marker-done .marker-pin { background: #3ac47d !important; } /* Green for Success */
+        .stat-icon { width: 50px; height: 50px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; color: #fff; margin-right: 15px; }
+        .val { font-size: 1.6rem; font-weight: 800; color: #333; line-height: 1.2; }
+        .lab { color: #999; font-size: 0.75rem; text-transform: uppercase; font-weight: 700; }
 
-        /* HISTORY & ACCORDION */
-        .courier-group-header {
-            background: #2d2f39;
-            color: white;
-            padding: 15px 25px;
-            border-radius: 12px;
-            margin-bottom: 10px;
-            cursor: pointer;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            transition: 0.3s;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        #map { height: 400px; width: 100%; border-radius: 12px; border: 1px solid #eee; }
+
+        /* Responsive Fixes */
+        @media (max-width: 768px) {
+            .app-container { flex-direction: column; }
+            .sidebar {
+                width: 100%; height: auto; position: fixed; bottom: 0; left: 0; top: auto;
+                flex-direction: row; box-shadow: 0 -5px 20px rgba(0,0,0,0.1);
+                border-top: 1px solid #eee;
+            }
+            .sidebar-header, .menu-label, .sidebar-content hr { display: none; }
+            .sidebar-menu { display: flex; flex-direction: row; justify-content: space-around; padding: 10px; width: 100%; overflow: visible; }
+            .nav-link { flex-direction: column; padding: 8px; margin-bottom: 0; background: none !important; box-shadow: none !important; }
+            .nav-link i { margin-right: 0; margin-bottom: 4px; color: #aaa; }
+            .nav-link span { font-size: 0.65rem; }
+            .nav-link.active i, .nav-link.active span { color: var(--architect-green) !important; }
+
+            .main-content { margin-bottom: 70px; }
+            .top-bar { padding: 0 15px; height: 55px; }
+            .content-body { padding: 15px; }
+            #map { height: 300px; }
         }
-        .courier-group-header:hover { background: #3e414d; transform: translateY(-2px); }
-        .history-trip-card { background: white; border: 1px solid #eee; border-radius: 12px; padding: 20px; margin-bottom: 15px; margin-left: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.02); }
-        .dest-row { border-left: 3px solid #e2e8f0; padding-left: 20px; position: relative; margin-bottom: 20px; }
-        .dest-row::before { content: ''; position: absolute; left: -8px; top: 0; width: 13px; height: 13px; background: #fff; border: 3px solid var(--architect-blue); border-radius: 50%; }
-        .dest-row.done::before { border-color: var(--architect-green); }
-        .proof-img-thumb { width: 120px; height: 120px; object-fit: cover; border-radius: 12px; margin-top: 10px; border: 2px solid #fff; box-shadow: 0 5px 15px rgba(0,0,0,0.1); cursor: pointer; transition: 0.3s; }
-        .proof-img-thumb:hover { transform: scale(1.05); }
+
+        /* Auto-suggest */
+        #search-results { position: absolute; top: 100%; left: 0; right: 0; background: white; z-index: 2000; border-radius: 0 0 12px 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); display: none; max-height: 250px; overflow-y: auto; }
+        .search-item { padding: 12px 20px; border-bottom: 1px solid #f8f9fa; cursor: pointer; }
+        .search-item:hover { background: #f1f4f6; }
+
+        /* Chat Pop-up */
+        #chat-window { position: fixed; bottom: 85px; right: 20px; width: 340px; height: 480px; background: white; border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); display: none; flex-direction: column; z-index: 2000; border: 1px solid #eee; }
+        @media (max-width: 768px) { #chat-window { width: 92vw; height: 80vh; bottom: 80px; right: 4vw; } }
+
+        /* History Cards */
+        .courier-group-header { background: #2d2f39; color: white; padding: 15px 20px; border-radius: 12px; margin-bottom: 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+        .dest-pill { background: #f8f9fa; padding: 10px; border-radius: 8px; margin-top: 8px; border-left: 4px solid #ddd; }
+        .dest-pill.done { border-left-color: #3ac47d; background: #f4fff9; }
+        .proof-img { width: 100%; border-radius: 10px; margin-top: 10px; cursor: pointer; border: 1px solid #eee; }
     </style>
 </head>
 <body>
 
-    <!-- SIDEBAR -->
-    <div class="sidebar">
-        <div class="sidebar-header">
-            <img src="wellen_logo.jpg" style="height:45px;" class="me-2">
-            <span class="fw-bold text-dark small">LOGISTICS PRO</span>
-        </div>
-        <div class="sidebar-menu">
-            <div class="menu-label">Main Panel</div>
-            <div class="nav-link active" onclick="switchTab('dashboard', this)"><i class="bi bi-grid-1x2"></i> <span>Dashboard</span></div>
-            <div class="nav-link" onclick="switchTab('dispatch', this)"><i class="bi bi-send-fill"></i> <span>Dispatch</span></div>
-            <div class="nav-link" onclick="switchTab('monitor', this)"><i class="bi bi-broadcast"></i> <span>Live Monitor</span></div>
-            <div class="nav-link" onclick="switchTab('reports', this)"><i class="bi bi-bar-chart-line"></i> <span>Laporan & Rating</span></div>
-            <div class="nav-link" onclick="switchTab('chat-global', this)"><i class="bi bi-chat-left-dots"></i> <span>Pusat Chat</span></div>
-            <div class="nav-link" onclick="switchTab('settings', this)"><i class="bi bi-gear-fill"></i> <span>Pengaturan</span></div>
-
-            <hr class="my-4" style="opacity: 0.1;">
-            <div class="menu-label">Pesan & Chat</div>
-            <div id="sidebar-chat-list"></div>
-        </div>
-    </div>
-
-    <!-- MAIN -->
-    <div class="main">
-        <div class="top-bar">
-            <div class="header-left">
-                <i class="bi bi-list fs-3 me-3 cursor-pointer text-secondary" onclick="toggleSidebar()"></i>
-                <h5 class="m-0 fw-bold text-secondary" id="page-title">Analytics Dashboard</h5>
+    <div class="app-container">
+        <!-- SIDEBAR (Left on PC, Bottom on Mobile) -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <img src="wellen_logo.jpg" style="height:35px;" class="me-2">
+                <span class="fw-bold text-dark small">WELLEN LOGISTICS</span>
             </div>
-            <div class="d-flex gap-3 align-items-center">
-                <button class="btn btn-sm btn-outline-danger" onclick="clearAllHistoryData()"><i class="bi bi-trash3-fill"></i> Hapus Semua Data</button>
-                <div class="vr"></div>
-                <div class="d-flex align-items-center gap-2">
-                    <span class="small fw-bold">Admin Wellen</span>
-                    <img src="https://ui-avatars.com/api/?name=Admin+Wellen&background=3ac47d&color=fff" style="width:34px; border-radius:50%;">
+            <nav class="sidebar-menu">
+                <div class="menu-label">Navigasi</div>
+                <a class="nav-link active" onclick="switchTab('dashboard', this)"><i class="bi bi-speedometer2"></i> <span>Dashboard</span></a>
+                <a class="nav-link" onclick="switchTab('dispatch', this)"><i class="bi bi-send-plus"></i> <span>Dispatch</span></a>
+                <a class="nav-link" onclick="switchTab('monitor', this)"><i class="bi bi-broadcast"></i> <span>Monitor Live</span></a>
+                <a class="nav-link" onclick="switchTab('reports', this)"><i class="bi bi-journal-text"></i> <span>Laporan</span></a>
+                <a class="nav-link" onclick="switchTab('settings', this)"><i class="bi bi-gear-wide-connected"></i> <span>Pengaturan</span></a>
+            </nav>
+        </aside>
+
+        <!-- MAIN AREA -->
+        <main class="main-content">
+            <!-- TOP BAR -->
+            <header class="top-bar">
+                <div class="d-flex align-items-center">
+                    <button class="btn btn-sm btn-light border-0 me-3 d-none d-md-block" onclick="toggleSidebar()"><i class="bi bi-list fs-4"></i></button>
+                    <h5 class="m-0 fw-bold text-secondary" id="page-title">Analytics Dashboard</h5>
                 </div>
-            </div>
-        </div>
-
-        <div class="content">
-
-            <!-- SECTION 1: DASHBOARD STATS -->
-            <div id="view-dashboard" class="view-section active">
-                <div class="row g-4 mb-4">
-                    <div class="col-md-3">
-                        <div class="card-pro stat-card">
-                            <div class="stat-icon bg-blue"><i class="bi bi-activity"></i></div>
-                            <div><div class="val" id="stat-active">0</div><div class="lab">Tugas Aktif</div></div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="card-pro stat-card">
-                            <div class="stat-icon bg-green"><i class="bi bi-people-fill"></i></div>
-                            <div><div class="val" id="stat-online">0</div><div class="lab">Kurir Online</div></div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="card-pro stat-card">
-                            <div class="stat-icon bg-pink"><i class="bi bi-speedometer2"></i></div>
-                            <div><div class="val" id="stat-km">0.0</div><div class="lab">Total KM</div></div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="card-pro stat-card">
-                            <div class="stat-icon bg-yellow"><i class="bi bi-patch-check"></i></div>
-                            <div><div class="val" id="stat-done">0</div><div class="lab">Selesai</div></div>
-                        </div>
+                <div class="d-flex align-items-center gap-3">
+                    <button class="btn btn-sm btn-outline-danger d-none d-md-block" onclick="clearAllHistoryData()"><i class="bi bi-trash"></i> Hapus Data</button>
+                    <div class="profile-chip d-flex align-items-center gap-2 bg-light p-1 pe-3 rounded-pill">
+                        <img src="https://ui-avatars.com/api/?name=Admin+Wellen&background=3ac47d&color=fff" style="width:30px; border-radius:50%;">
+                        <span class="small fw-bold d-none d-sm-inline">Admin</span>
                     </div>
                 </div>
-            </div>
+            </header>
 
-            <!-- SECTION 2: DISPATCH (New Compact Top Layout) -->
-            <div id="view-dispatch" class="view-section">
-                <div class="card-pro p-4 mb-4">
-                    <div class="row g-3 align-items-end">
-                        <div class="col-md-3">
-                            <label class="small fw-bold mb-1 text-muted">Pilih Kurir</label>
-                            <select id="sel-courier" class="form-select shadow-none"></select>
-                        </div>
-                        <div class="col-md-6 position-relative">
-                            <label class="small fw-bold mb-1 text-muted">Cari Lokasi (Google Maps Style)</label>
-                            <div class="input-group">
-                                <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-primary"></i></span>
-                                <input type="text" class="form-control border-start-0 shadow-none" placeholder="Ketik nama PT / Alamat..." oninput="autoSuggest(this.value)">
+            <!-- CONTENT BODY -->
+            <div class="content-body">
+
+                <!-- ALWAYS VISIBLE MAP (Unless on Reports/Settings) -->
+                <div id="global-map-container" class="card-pro overflow-hidden">
+                    <div class="card-header-pro bg-light">
+                        <span class="small text-uppercase"><i class="bi bi-geo-alt-fill text-danger me-2"></i>Live Monitoring Map</span>
+                        <span class="badge bg-success small">Live</span>
+                    </div>
+                    <div class="p-0"><div id="map"></div></div>
+                </div>
+
+                <!-- VIEW 1: DASHBOARD -->
+                <div id="view-dashboard" class="view-section active">
+                    <div class="row g-3">
+                        <div class="col-6 col-md-3">
+                            <div class="card-pro p-3 d-flex align-items-center">
+                                <div class="stat-icon bg-primary"><i class="bi bi-activity"></i></div>
+                                <div><div class="val" id="stat-active">0</div><div class="lab">Aktif</div></div>
                             </div>
-                            <div id="search-results" class="shadow-lg border-0 bg-white" style="position:absolute; width:calc(100% - 24px); z-index:2000; border-radius:0 0 10px 10px; max-height:300px; overflow-y:auto; display:none;"></div>
                         </div>
-                        <div class="col-md-3">
-                            <button class="btn btn-primary w-100 fw-bold py-2 shadow-sm" onclick="submitTrip()"><i class="bi bi-send-fill me-2"></i>Kirim Tugas</button>
+                        <div class="col-6 col-md-3">
+                            <div class="card-pro p-3 d-flex align-items-center">
+                                <div class="stat-icon bg-success"><i class="bi bi-people"></i></div>
+                                <div><div class="val" id="stat-online">0</div><div class="lab">Online</div></div>
+                            </div>
                         </div>
-                    </div>
-                    <div id="dispatch-queue" class="mt-3 d-flex flex-wrap gap-2"></div>
-                </div>
-            </div>
-
-            <!-- SECTION 3: LIVE MONITOR -->
-            <div id="view-monitor" class="view-section">
-                <div id="monitor-list" class="row g-4 mb-4"></div>
-            </div>
-
-            <!-- SECTION 4: REPORTS & RATING -->
-            <div id="view-reports" class="view-section">
-                <div class="row g-4 mb-3">
-                    <div class="col-md-12 text-end">
-                        <input type="date" id="rep-date" class="form-control d-inline-block shadow-none" style="max-width:200px;" onchange="loadFullHistory()">
-                    </div>
-                </div>
-                <div class="card-pro mb-4">
-                    <div class="card-header-pro">
-                        <span><i class="bi bi-star-fill text-warning me-2"></i>Kinerja Kurir</span>
-                        <button class="btn btn-sm btn-success fw-bold" onclick="exportToExcel()"><i class="bi bi-file-earmark-excel"></i> Export Excel</button>
-                    </div>
-                    <div class="table-responsive">
-                        <table class="table table-hover m-0">
-                            <thead class="bg-light"><tr><th class="ps-4">Nama Kurir</th><th>Trip</th><th>Jarak</th><th>Rating</th><th>Aksi</th></tr></thead>
-                            <tbody id="report-table-body"></tbody>
-                        </table>
-                    </div>
-                </div>
-                <div id="full-history-list"></div>
-            </div>
-
-            <!-- GLOBAL MAP (Always Visible below controls) -->
-            <div id="global-map-container" class="card-pro mb-4">
-                <div class="card-header-pro">
-                    <span><i class="bi bi-geo-fill text-danger me-2"></i>Live Monitoring Map</span>
-                    <span class="badge bg-success">Real-time GPS</span>
-                </div>
-                <div class="p-2">
-                    <div id="map" style="height: 500px;"></div>
-                </div>
-            </div>
-
-            <!-- SECTION 5: GLOBAL CHAT -->
-            <div id="view-chat-global" class="view-section">
-                <div class="row g-4">
-                    <div class="col-md-4">
-                        <div class="card-pro p-3">
-                            <h6 class="fw-bold mb-3 text-uppercase small text-muted">Daftar Kurir</h6>
-                            <div id="chat-courier-list" style="max-height: 500px; overflow-y: auto;"></div>
+                        <div class="col-6 col-md-3">
+                            <div class="card-pro p-3 d-flex align-items-center">
+                                <div class="stat-icon bg-danger"><i class="bi bi-speedometer2"></i></div>
+                                <div><div class="val" id="stat-km">0.0</div><div class="lab">Total KM</div></div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="card-pro p-3 d-flex align-items-center">
+                                <div class="stat-icon bg-warning"><i class="bi bi-check-circle"></i></div>
+                                <div><div class="val" id="stat-done">0</div><div class="lab">Selesai</div></div>
+                            </div>
                         </div>
                     </div>
-                    <div class="col-md-8">
-                        <div class="card-pro d-flex flex-column shadow-lg" style="height: 600px; border-radius: 15px; overflow: hidden;">
-                            <div class="card-header bg-primary text-white py-3 px-4 d-flex justify-content-between align-items-center">
-                                <span id="active-chat-name" class="fw-bold">Pilih kurir untuk mulai chat</span>
-                                <div class="d-flex align-items-center">
-                                    <span class="badge bg-light text-primary me-3">Live</span>
-                                    <i class="bi bi-x-lg fs-5 cursor-pointer" onclick="switchTab('dashboard', document.querySelector('.nav-link'))" title="Tutup Chat"></i>
+                </div>
+
+                <!-- VIEW 2: DISPATCH -->
+                <div id="view-dispatch" class="view-section">
+                    <div class="card-pro p-4">
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <label class="small fw-bold text-muted">Pilih Kurir</label>
+                                <select id="sel-courier" class="form-select shadow-none"></select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="small fw-bold text-muted">Cari Lokasi</label>
+                                <div class="position-relative">
+                                    <input type="text" class="form-control shadow-none" placeholder="Ketik nama PT / Alamat..." oninput="autoSuggest(this.value)">
+                                    <div id="search-results"></div>
                                 </div>
                             </div>
-                            <div id="global-chat-msgs" class="flex-grow-1 p-4 bg-light overflow-y-auto d-flex flex-column"></div>
-                            <div class="p-3 bg-white border-top d-flex align-items-center">
-                                <input type="text" id="global-chat-input" class="form-control me-2 shadow-none border-0 bg-light py-2" placeholder="Tulis instruksi..." onkeypress="if(event.key==='Enter') sendGlobalChat()">
-                                <button class="btn btn-primary rounded-pill px-4 py-2 fw-bold" onclick="sendGlobalChat()"><i class="bi bi-send-fill me-2"></i>Kirim</button>
+                            <div class="col-md-3 text-end d-flex align-items-end">
+                                <button class="btn btn-primary w-100 fw-bold py-2 shadow-sm" onclick="submitTrip()">KIRIM TUGAS</button>
                             </div>
                         </div>
+                        <div id="dispatch-queue" class="mt-3"></div>
                     </div>
                 </div>
-            </div>
 
-            <!-- SECTION 6: SETTINGS -->
-            <div id="view-settings" class="view-section">
-                <div class="row g-4">
-                    <div class="col-md-6">
-                        <div class="card-pro p-4">
-                            <h6 class="fw-bold mb-4">Konfigurasi Sinkronisasi</h6>
-                            <label class="small fw-bold">Interval Update (Detik)</label>
-                            <input type="number" id="cfg-interval" class="form-control mb-3" value="10">
-                            <label class="small fw-bold">Radius Filter (Meter)</label>
-                            <input type="number" id="cfg-distance" class="form-control mb-4" value="10">
-                            <button class="btn btn-dark w-100 fw-bold" onclick="updateConfig()">Terapkan Aturan</button>
+                <!-- VIEW 3: LIVE MONITOR -->
+                <div id="view-monitor" class="view-section">
+                    <div id="monitor-list" class="row g-3"></div>
+                </div>
+
+                <!-- VIEW 4: REPORTS -->
+                <div id="view-reports" class="view-section">
+                    <div class="card-pro p-4">
+                        <div class="d-flex justify-content-between mb-4">
+                            <h6 class="fw-bold m-0">Laporan Riwayat</h6>
+                            <input type="date" id="rep-date" class="form-control" style="width:180px;" onchange="loadFullHistory()">
                         </div>
+                        <div id="history-list"></div>
                     </div>
-                    <div class="col-md-6">
-                        <div class="card-pro p-4">
-                            <h6 class="fw-bold mb-4">Cloudinary API</h6>
-                            <div id="cld-inputs">
+                </div>
+
+                <!-- VIEW 5: SETTINGS -->
+                <div id="view-settings" class="view-section">
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <div class="card-pro p-4">
+                                <h6 class="fw-bold mb-3">Sinkronisasi GPS</h6>
+                                <label class="small fw-bold">Interval (Detik)</label>
+                                <input type="number" id="cfg-interval" class="form-control mb-3" value="10">
+                                <label class="small fw-bold">Radius (Meter)</label>
+                                <input type="number" id="cfg-distance" class="form-control mb-4" value="10">
+                                <button class="btn btn-dark w-100 fw-bold" onclick="updateConfig()">Sinkronkan Aturan</button>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card-pro p-4">
+                                <h6 class="fw-bold mb-3">Cloudinary Storage</h6>
                                 <input type="text" id="cld-name" class="form-control mb-2" placeholder="Cloud Name">
                                 <input type="text" id="cld-preset" class="form-control mb-4" placeholder="Upload Preset">
-                                <button class="btn btn-primary w-100 btn-sm" onclick="saveCloudinary()">Simpan & Kunci</button>
-                            </div>
-                            <div id="cld-locked" class="text-center d-none">
-                                <div class="alert alert-success p-2 small"><i class="bi bi-cloud-check-fill me-1"></i> Cloudinary Terhubung</div>
-                                <button class="btn btn-link btn-sm" onclick="unlockCloudinary()">Ganti Akun</button>
+                                <button class="btn btn-primary btn-sm w-100" onclick="saveCloudinary()">Hubungkan</button>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-        </div>
+            </div>
+        </main>
     </div>
 
-    <!-- CHAT POPUP -->
+    <!-- CHAT WINDOW -->
     <div id="chat-window">
         <div class="chat-header">
-            <div class="d-flex align-items-center">
-                <div class="status-dot status-online me-2"></div>
-                <span id="chat-user-name" class="small fw-bold">Pusat Pesan</span>
-            </div>
-            <i class="bi bi-x-lg cursor-pointer" onclick="closeChat()" style="font-size: 1.2rem;"></i>
+            <span id="chat-user-name" class="small fw-bold">Chat</span>
+            <i class="bi bi-x-lg cursor-pointer" onclick="closeChat()"></i>
         </div>
-        <div id="chat-msgs" class="chat-messages d-flex flex-column"></div>
-        <div class="p-3 bg-white border-top d-flex align-items-center">
-            <input type="text" id="chat-input" class="form-control me-2 shadow-none border-0 bg-light" placeholder="Tulis instruksi..." onkeypress="if(event.key==='Enter') sendChat()">
-            <button class="btn btn-primary rounded-circle p-0" style="width: 40px; height: 40px;" onclick="sendChat()"><i class="bi bi-send-fill"></i></button>
+        <div id="chat-msgs" class="chat-messages"></div>
+        <div class="p-3 border-top d-flex">
+            <input type="text" id="chat-input" class="form-control form-control-sm me-2 border-0 bg-light" placeholder="Ketik pesan..." onkeypress="if(event.key==='Enter') sendChat()">
+            <button class="btn btn-primary rounded-pill px-3" onclick="sendChat()"><i class="bi bi-send"></i></button>
         </div>
     </div>
 
-    <!-- IMAGE POPUP -->
-    <div class="modal fade" id="imageModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content border-0"><div class="modal-body p-0 text-center"><img id="modalImg" src="" style="max-width:100%; border-radius:12px;"><button type="button" class="btn btn-light position-absolute top-0 end-0 m-3" data-bs-dismiss="modal"><i class="bi bi-x"></i></button></div></div></div></div>
-
+    <!-- Firebase & Scripts -->
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 
     <script>
         const firebaseConfig = {
@@ -378,146 +320,66 @@
             appId: "1:180144218738:android:b0b991a7575ae7693ed8eb"
         };
         firebase.initializeApp(firebaseConfig);
-        const rtdb = firebase.database();
-        const db = firebase.firestore();
-
+        const rtdb = firebase.database(), db = firebase.firestore();
         const map = L.map('map').setView([-6.2, 106.81], 12);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
         const markers = {}, registeredUsers = {};
         const tripMarkersLayer = L.layerGroup().addTo(map);
         let tripQueue = [], currentChatId = null, chatUnsub = null;
-        let globalChatId = null, globalChatUnsub = null;
 
-        function toggleSidebar() {
-            document.querySelector('.sidebar').classList.toggle('collapsed');
-            setTimeout(() => map.invalidateSize(), 300);
-        }
+        function toggleSidebar() { document.querySelector('.sidebar').classList.toggle('collapsed'); setTimeout(() => map.invalidateSize(), 300); }
 
         function switchTab(viewId, el) {
             document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
-            const target = document.getElementById('view-'+viewId);
-            if(target) target.classList.add('active');
-
+            document.getElementById('view-'+viewId).classList.add('active');
             document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
             el.classList.add('active');
             document.getElementById('page-title').innerText = el.querySelector('span').innerText;
 
-            // Hide map in specific sections
             const mapContainer = document.getElementById('global-map-container');
-            if(viewId==='reports' || viewId==='settings' || viewId==='chat-global') {
-                mapContainer.classList.add('d-none');
-            } else {
-                mapContainer.classList.remove('d-none');
-                setTimeout(() => map.invalidateSize(), 400);
-            }
-
-            if(viewId === 'chat-global') loadChatCourierList();
+            if(viewId==='reports' || viewId==='settings') mapContainer.classList.add('d-none');
+            else { mapContainer.classList.remove('d-none'); setTimeout(() => map.invalidateSize(), 300); }
         }
 
-        function loadChatCourierList() {
-            const el = document.getElementById('chat-courier-list');
-            el.innerHTML = '';
-            for (const id in registeredUsers) {
-                const name = registeredUsers[id];
-                el.innerHTML += `
-                    <div class="courier-pill mb-2 p-3 shadow-sm border-0 bg-white" style="cursor:pointer" onclick="openGlobalChat('${id}', '${name}')">
-                        <div class="d-flex align-items-center">
-                            <i class="bi bi-person-circle fs-4 me-3 text-secondary"></i>
-                            <span class="fw-bold">${name}</span>
-                        </div>
-                    </div>`;
-            }
-        }
-
-        function openGlobalChat(id, name) {
-            globalChatId = id;
-            document.getElementById('active-chat-name').innerText = "Sedang Chat: " + name;
-            if(globalChatUnsub) globalChatUnsub();
-            const col = id.startsWith('TRIP_') ? db.collection('trips').doc(id).collection('messages') : db.collection('chats').doc(id).collection('messages');
-            globalChatUnsub = col.orderBy('timestamp','asc').onSnapshot(snap => {
-                const container = document.getElementById('global-chat-msgs');
-                container.innerHTML = '';
-                snap.forEach(d => {
-                    const m = d.data();
-                    const isAdmin = m.senderId === 'admin';
-                    container.innerHTML += `<div class="msg ${isAdmin?'admin':'courier'}">${m.text}</div>`;
-                });
-                container.scrollTop = container.scrollHeight;
-            });
-        }
-
-        async function sendGlobalChat() {
-            const txt = document.getElementById('global-chat-input').value;
-            if(!txt || !globalChatId) return;
-            const col = globalChatId.startsWith('TRIP_') ? db.collection('trips').doc(globalChatId).collection('messages') : db.collection('chats').doc(globalChatId).collection('messages');
-            await col.add({ senderId: 'admin', text: txt, timestamp: firebase.firestore.Timestamp.now() });
-            document.getElementById('global-chat-input').value = '';
-        }
-
-        // --- REAL-TIME DATA ---
+        // --- DATA SYNC ---
         db.collection('users').onSnapshot(snap => {
             const sel = document.getElementById('sel-courier');
-            const table = document.getElementById('report-table-body');
             sel.innerHTML = '<option value="">-- Pilih Kurir --</option>';
-            table.innerHTML = '';
             snap.forEach(doc => {
-                const u = doc.data();
-                registeredUsers[doc.id] = u.name || doc.id.substring(0,8);
-                if (u.role === 'courier') {
-                    sel.innerHTML += `<option value="${doc.id}">${registeredUsers[doc.id]}</option>`;
-                    // Random Rating for Demo if not exists
-                    const rating = u.rating || (Math.random() * 2 + 3).toFixed(1);
-                    table.innerHTML += `<tr>
-                        <td><b>${registeredUsers[doc.id]}</b></td>
-                        <td>${u.tripsCount || 0}</td>
-                        <td>${(u.totalKm || 0).toFixed(2)} km</td>
-                        <td><span class="rating-star">★</span> ${rating}</td>
-                        <td><span class="badge bg-success">Aktif</span></td>
-                    </tr>`;
-                }
+                const u = doc.data(); registeredUsers[doc.id] = u.name || doc.id.substring(0,8);
+                if(u.role==='courier') sel.innerHTML += `<option value="${doc.id}">${registeredUsers[doc.id]}</option>`;
             });
         });
 
         rtdb.ref('courier_live_location').on('value', snap => {
-            const data = snap.val() || {}, list = document.getElementById('sidebar-chat-list');
-            list.innerHTML = ''; let km = 0, online = 0;
+            const data = snap.val() || {}; let km = 0, count = 0;
             for (const id in data) {
-                const c = data[id]; online++; km += c.totalDistanceKm;
-                const name = registeredUsers[id] || id.substring(0,8);
-                if (markers[id]) markers[id].setLatLng([c.lat, c.lng]);
-                else markers[id] = L.marker([c.lat, c.lng]).addTo(map).bindPopup(`<b>${name}</b>`);
-                list.innerHTML += `<div class="nav-link py-2" style="font-size:0.8rem" onclick="openChat('${id}', '${name}')"><i class="bi bi-chat-dots-fill text-primary"></i> ${name}</div>`;
+                const c = data[id]; count++; km += c.totalDistanceKm;
+                const pos = [c.lat, c.lng];
+                if (markers[id]) markers[id].setLatLng(pos);
+                else markers[id] = L.marker(pos).addTo(map).bindPopup(`<b>${registeredUsers[id]}</b>`);
             }
-            document.getElementById('stat-online').innerText = online;
+            document.getElementById('stat-online').innerText = count;
             document.getElementById('stat-km').innerText = km.toFixed(1);
         });
 
         db.collection('trips').onSnapshot(snap => {
             let active = 0, done = 0, mList = document.getElementById('monitor-list');
-            mList.innerHTML = '';
-            tripMarkersLayer.clearLayers();
-
+            mList.innerHTML = ''; tripMarkersLayer.clearLayers();
             snap.forEach(doc => {
                 const t = doc.data();
-                if(t.status === 'completed') done++; else {
+                if(t.status==='completed') done++; else {
                     active++;
-                    mList.innerHTML += `<div class="col-md-6"><div class="card-pro p-3">
-                        <div class="d-flex justify-content-between mb-2"><b>${registeredUsers[t.courierId] || 'Kurir'}</b> <span class="badge bg-info text-dark">${t.status}</span></div>
+                    mList.innerHTML += `<div class="col-md-6 col-lg-4"><div class="card-pro p-3 h-100 shadow-sm">
+                        <div class="d-flex justify-content-between mb-2"><b>${registeredUsers[t.courierId] || 'Kurir'}</b> <span class="badge bg-info text-dark extra-small">${t.status}</span></div>
                         ${t.destinations.map(d => `<div class="small dest-pill ${d.status}"><b>${d.locationName}</b></div>`).join('')}
-                        <button class="btn btn-sm btn-architect w-100 mt-2 btn-dark" onclick="openChat('${doc.id}', 'Tugas ${registeredUsers[t.courierId]}')">Chat Tugas</button>
+                        <button class="btn btn-sm btn-dark w-100 mt-3" onclick="openChat('${doc.id}', 'Tugas ${registeredUsers[t.courierId]}')">Chat Tugas</button>
                     </div></div>`;
-
-                    // Render markers for active trips
                     t.destinations.forEach(d => {
-                        const iconClass = d.status === 'done' ? 'marker-done' : '';
-                        const icon = L.divIcon({
-                            className: 'custom-div-icon ' + iconClass,
-                            html: `<div class='marker-pin'></div><div class='marker-num'>${d.stopIndex}</div>`,
-                            iconSize: [30, 42],
-                            iconAnchor: [15, 42]
-                        });
-                        L.marker([d.latitude, d.longitude], {icon}).addTo(tripMarkersLayer).bindPopup(`<b>${d.stopIndex}. ${d.locationName}</b><br>Status: ${d.status}`);
+                        const color = d.status==='done' ? 'marker-done' : '';
+                        const icon = L.divIcon({ className: 'custom-div-icon '+color, html: `<div class='marker-pin'></div><div class='marker-num'>${d.stopIndex}</div>`, iconSize: [30, 42], iconAnchor: [15, 42] });
+                        L.marker([d.latitude, d.longitude], {icon}).addTo(tripMarkersLayer).bindPopup(`<b>${d.stopIndex}. ${d.locationName}</b>`);
                     });
                 }
             });
@@ -525,40 +387,7 @@
             document.getElementById('stat-done').innerText = done;
         });
 
-        // --- EXCEL & DELETE ---
-        async function exportToExcel() {
-            const snap = await db.collection('trips').get();
-            const data = [];
-            snap.forEach(doc => {
-                const t = doc.data();
-                t.destinations.forEach(d => {
-                    data.push({
-                        'Tanggal': new Date(t.date.seconds*1000).toLocaleDateString(),
-                        'Kurir': registeredUsers[t.courierId] || t.courierId,
-                        'Trip ID': t.tripId.substring(0,8),
-                        'Lokasi': d.locationName,
-                        'Jarak (KM)': t.totalDistanceKm ? t.totalDistanceKm.toFixed(2) : '0',
-                        'Status': d.status,
-                        'Link Foto': d.proofPhotoUrl || 'Tidak ada'
-                    });
-                });
-            });
-            const ws = XLSX.utils.json_to_sheet(data);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Laporan_Logistik");
-            XLSX.writeFile(wb, "Laporan_Wellen_Print.xlsx");
-        }
-
-        async function clearAllHistoryData() {
-            if(!confirm("YAKIN? Semua data riwayat perjalanan akan dihapus permanen!")) return;
-            const snap = await db.collection('trips').where('status','==','completed').get();
-            const batch = db.batch();
-            snap.forEach(doc => batch.delete(doc.ref));
-            await batch.commit();
-            alert("Data Berhasil Dibersihkan!");
-        }
-
-        // --- MAP & DISPATCH ---
+        // --- LOGIC ---
         map.on('click', async e => {
             const name = prompt("Nama Tempat:"); if(!name) return;
             const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${e.latlng.lat}&lon=${e.latlng.lng}`);
@@ -568,22 +397,16 @@
         });
 
         function renderQueue() {
-            document.getElementById('dispatch-queue').innerHTML = tripQueue.map((d,i) => `
-                <div class="card-pro p-3 mb-2 d-flex justify-content-between align-items-center">
-                    <span><b>${i+1}. ${d.name}</b><br><small class="text-muted">${d.address.substring(0,50)}...</small></span>
-                    <i class="bi bi-x-circle text-danger fs-5 cursor-pointer" onclick="tripQueue.splice(${i},1);renderQueue()"></i>
-                </div>`).join('');
+            document.getElementById('dispatch-queue').innerHTML = tripQueue.map((d,i) => `<div class="dest-pill d-flex justify-content-between"><span><b>${i+1}. ${d.name}</b></span><i class="bi bi-x-circle text-danger cursor-pointer" onclick="tripQueue.splice(${i},1);renderQueue()"></i></div>`).join('');
         }
 
         async function submitTrip() {
-            const cid = document.getElementById('sel-courier').value;
-            if(!cid || tripQueue.length === 0) return alert("Lengkapi data!");
+            const cid = document.getElementById('sel-courier').value; if(!cid || tripQueue.length===0) return alert("Pilih Kurir & Rute!");
             const id = "TRIP_" + Date.now();
             await db.collection('trips').doc(id).set({ tripId: id, courierId: cid, status: "assigned", date: firebase.firestore.Timestamp.now(), destinations: tripQueue.map((d,i) => ({ stopIndex: i+1, locationName: d.name, address: d.address, latitude: d.lat, longitude: d.lng, status: "pending", proofPhotoUrl: "" })) });
-            alert("Tugas Terkirim!"); tripQueue = []; renderQueue();
+            alert("Tugas Dikirim!"); tripQueue = []; renderQueue();
         }
 
-        // --- GLOBAL CHAT ---
         function openChat(id, name) {
             currentChatId = id; document.getElementById('chat-user-name').innerText = name;
             document.getElementById('chat-window').style.display = 'flex';
@@ -604,163 +427,40 @@
         }
 
         async function updateConfig() {
-            const v = document.getElementById('cfg-interval').value;
-            const d = document.getElementById('cfg-distance').value;
+            const v = document.getElementById('cfg-interval').value; const d = document.getElementById('cfg-distance').value;
             await db.collection('config').doc('tracking').set({ intervalMs: v * 1000, minDistance: parseFloat(d) });
-            alert("Konfigurasi Diperbarui!");
+            alert("Aturan Diperbarui!");
         }
 
         async function loadFullHistory() {
-            const date = document.getElementById('rep-date').value;
-            const container = document.getElementById('full-history-list');
-            if(!date) return;
-
-            container.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary"></div><br><small class="text-muted mt-2 d-block">Menarik data dari server...</small></div>';
-
+            const date = document.getElementById('rep-date').value; const el = document.getElementById('history-list'); el.innerHTML = 'Memuat...';
             const start = new Date(date); start.setHours(0,0,0,0);
-            const end = new Date(date); end.setHours(23,59,59,999);
-            const snap = await db.collection('trips')
-                .where('date', '>=', firebase.firestore.Timestamp.fromDate(start))
-                .where('date', '<=', firebase.firestore.Timestamp.fromDate(end))
-                .get();
-
-            container.innerHTML = '';
-            if(snap.empty) {
-                container.innerHTML = '<div class="card-pro p-5 text-center text-muted">Tidak ada aktivitas pada tanggal ini.</div>';
-                return;
-            }
-
-            const groups = {};
+            const snap = await db.collection('trips').where('date','>=',firebase.firestore.Timestamp.fromDate(start)).get();
+            el.innerHTML = '';
             snap.forEach(doc => {
                 const t = doc.data();
-                if(!groups[t.courierId]) groups[t.courierId] = [];
-                groups[t.courierId].push({id: doc.id, ...t});
+                el.innerHTML += `<div class="courier-group-header mb-2" onclick="this.nextElementSibling.classList.toggle('d-none')"><span>${registeredUsers[t.courierId]} - ID: ${doc.id.substring(0,8)}</span><i class="bi bi-chevron-down"></i></div>
+                    <div class="d-none mb-3 p-3 bg-white rounded border">${t.destinations.map(d => `<div class="dest-pill ${d.status}">${d.locationName}<br>${d.proofPhotoUrl ? `<img src="${d.proofPhotoUrl}" class="proof-img" onclick="window.open('${d.proofPhotoUrl}')">`:''}</div>`).join('')}</div>`;
             });
-
-            for (const cid in groups) {
-                const name = registeredUsers[cid] || cid.substring(0,8);
-                const trips = groups[cid];
-
-                const groupEl = document.createElement('div');
-                groupEl.innerHTML = `
-                    <div class="courier-group-header shadow-sm" onclick="this.nextElementSibling.classList.toggle('d-none')">
-                        <span><i class="bi bi-person-badge-fill me-2 text-warning"></i> <b>${name}</b></span>
-                        <div class="d-flex align-items-center">
-                            <span class="badge bg-danger rounded-pill me-3">${trips.length} Trip</span>
-                            <i class="bi bi-chevron-down"></i>
-                        </div>
-                    </div>
-                    <div class="d-none pb-4">
-                        ${trips.map(t => {
-                            return `
-                            <div class="history-trip-card">
-                                <div class="d-flex justify-content-between align-items-center mb-3">
-                                    <h6 class="m-0 fw-bold text-primary"><i class="bi bi-tag-fill me-1"></i> TRIP ID: ${t.id.substring(0,8)}</h6>
-                                    <span class="small text-muted fw-bold">${new Date(t.date.seconds*1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</span>
-                                </div>
-                                <div class="mb-3 small"><i class="bi bi-speedometer2 me-1"></i> Jarak Tempuh: <b>${t.totalDistanceKm ? t.totalDistanceKm.toFixed(2) : 0} KM</b></div>
-
-                                <div class="mb-4">
-                                    <label class="extra-small fw-bold text-uppercase text-muted d-block mb-2" style="font-size:0.65rem">Rute & Bukti Foto:</label>
-                                    ${t.destinations.map(d => `
-                                        <div class="dest-row ${d.status}">
-                                            <div class="d-flex justify-content-between">
-                                                <span class="fw-bold small">${d.locationName}</span>
-                                                <span class="badge-pro ${d.status==='done'?'bg-completed':'bg-assigned'}">${d.status}</span>
-                                            </div>
-                                            <div class="extra-small text-muted" style="font-size:0.7rem">${d.address || '-'}</div>
-                                            ${d.proofPhotoUrl ? `
-                                                <img src="${d.proofPhotoUrl}" class="proof-img-thumb" onclick="openImagePopup('${d.proofPhotoUrl}')">
-                                                <div class="extra-small text-success mt-1"><i class="bi bi-check2-circle"></i> Foto bukti tersedia</div>
-                                            ` : ''}
-                                        </div>
-                                    `).join('')}
-                                </div>
-
-                                <button class="btn btn-xs btn-outline-secondary w-100 py-1" style="font-size:0.7rem" onclick="openChat('${t.id}', 'Tugas ${name}')">
-                                    <i class="bi bi-chat-left-text me-1"></i> Lihat Percakapan Chat
-                                </button>
-                            </div>`;
-                        }).join('')}
-                    </div>
-                `;
-                container.appendChild(groupEl);
-            }
         }
+
         let searchTimeout;
         async function autoSuggest(val) {
-            clearTimeout(searchTimeout);
-            const el = document.getElementById('search-results');
+            clearTimeout(searchTimeout); const el = document.getElementById('search-results');
             if (val.length < 3) { el.style.display = 'none'; return; }
-
             searchTimeout = setTimeout(async () => {
-                try {
-                    // Clean PT prefix for better Nominatim results
-                    const cleanVal = val.replace(/PT\.?\s+/gi, '').trim();
-                    const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cleanVal)}&countrycodes=id&limit=6&addressdetails=1`);
-                    const data = await resp.json();
-
-                    el.innerHTML = '';
-                    if (data.length === 0) { el.style.display = 'none'; return; }
-
-                    el.style.display = 'block';
-                    data.forEach(item => {
-                        const placeName = item.name || item.display_name.split(',')[0];
-                        const div = document.createElement('div');
-                        div.className = 'search-item';
-                        div.innerHTML = `
-                            <div class="d-flex align-items-start">
-                                <i class="bi bi-geo-alt-fill text-danger me-3 mt-1"></i>
-                                <div>
-                                    <div class="fw-bold text-dark">${placeName}</div>
-                                    <div class="text-muted extra-small" style="font-size: 0.75rem; line-height: 1.2;">${item.display_name}</div>
-                                </div>
-                            </div>
-                        `;
-                        div.onclick = () => {
-                            tripQueue.push({
-                                name: placeName,
-                                address: item.display_name,
-                                lat: parseFloat(item.lat),
-                                lng: parseFloat(item.lon)
-                            });
-                            renderQueue();
-                            el.style.display = 'none';
-                            // Clear input
-                            const input = document.querySelector('#view-dispatch input[oninput^="autoSuggest"]');
-                            if(input) input.value = '';
-
-                            map.flyTo([item.lat, item.lon], 16);
-                            L.marker([item.lat, item.lon]).addTo(map).bindPopup(`<b>${placeName}</b>`).openPopup();
-                        };
-                        el.appendChild(div);
-                    });
-                } catch (e) { console.error("Search error:", e); }
+                const clean = val.replace(/PT\.?\s+/gi, '').trim();
+                const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(clean)}&countrycodes=id&limit=6`);
+                const data = await resp.json();
+                el.innerHTML = ''; if (data.length === 0) { el.style.display = 'none'; return; }
+                el.style.display = 'block';
+                data.forEach(i => {
+                    const d = document.createElement('div'); d.className = 'search-item';
+                    d.innerHTML = `<b>${i.name || i.display_name.split(',')[0]}</b><br><small>${i.display_name}</small>`;
+                    d.onclick = () => { tripQueue.push({ name: i.name || "Lokasi", address: i.display_name, lat: parseFloat(i.lat), lng: parseFloat(i.lon) }); renderQueue(); el.style.display = 'none'; document.querySelector('#view-dispatch input').value = ''; };
+                    el.appendChild(d);
+                });
             }, 500);
-        }
-
-        async function saveCloudinary() {
-            const name = document.getElementById('cld-name').value;
-            const preset = document.getElementById('cld-preset').value;
-            if(!name || !preset) return alert("Harap isi Cloud Name & Preset!");
-
-            await db.collection('config').doc('cloudinary').set({
-                cloudName: name,
-                uploadPreset: preset,
-                updatedAt: firebase.firestore.Timestamp.now()
-            });
-            lockCloudinaryUI();
-            alert("Konfigurasi Cloudinary Berhasil Terhubung!");
-        }
-
-        function lockCloudinaryUI() {
-            document.getElementById('cld-inputs').classList.add('d-none');
-            document.getElementById('cld-locked').classList.remove('d-none');
-        }
-
-        function unlockCloudinary() {
-            document.getElementById('cld-inputs').classList.remove('d-none');
-            document.getElementById('cld-locked').classList.add('d-none');
         }
     </script>
 </body>
