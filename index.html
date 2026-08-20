@@ -143,6 +143,27 @@
         .dest-pill { background: #f8f9fa; padding: 10px; border-radius: 8px; margin-top: 8px; border-left: 4px solid #ddd; }
         .dest-pill.done { border-left-color: #3ac47d; background: #f4fff9; }
         .proof-img-thumb { width: 60px; height: 60px; object-fit: cover; border-radius: 6px; margin-top: 10px; border: 2px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: pointer; transition: 0.3s; }
+
+        /* NUMBERED MARKER STYLES */
+        .custom-div-icon { background: none; border: none; }
+        .marker-pin {
+            width: 30px; height: 30px; border-radius: 50% 50% 50% 0;
+            background: #3f6ad8; position: absolute; transform: rotate(-45deg);
+            left: 50%; top: 50%; margin: -15px 0 0 -15px;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+        .marker-pin::after {
+            content: ''; width: 22px; height: 22px; margin: 0;
+            background: #fff; position: absolute; border-radius: 50%;
+        }
+        .marker-num {
+            position: absolute; width: 30px; height: 30px;
+            line-height: 30px; text-align: center;
+            font-weight: 800; font-size: 13px; color: #333; z-index: 10;
+        }
+        .marker-done .marker-pin { background: #3ac47d !important; } /* Green for Success */
+
         /* IMAGE POPUP MODAL */
         .modal-body { position: relative; }
         .download-btn { position: absolute; bottom: 20px; right: 20px; z-index: 10; }
@@ -272,12 +293,21 @@
                     <div class="row g-4">
                         <div class="col-md-6">
                             <div class="card-pro p-4">
-                                <h6 class="fw-bold mb-3">Sinkronisasi GPS</h6>
-                                <label class="small fw-bold">Interval (Detik)</label>
-                                <input type="number" id="cfg-interval" class="form-control mb-3" value="10">
-                                <label class="small fw-bold">Radius (Meter)</label>
-                                <input type="number" id="cfg-distance" class="form-control mb-4" value="10">
-                                <button class="btn btn-dark w-100 fw-bold" onclick="updateConfig()">Sinkronkan Aturan</button>
+                                <h6 class="fw-bold mb-4">Konfigurasi Sinkronisasi</h6>
+                                <label class="small fw-bold">Interval Waktu</label>
+                                <div class="input-group mb-3">
+                                    <input type="number" id="cfg-interval" class="form-control shadow-none" value="10">
+                                    <select id="cfg-time-unit" class="form-select shadow-none">
+                                        <option value="1000">Detik</option>
+                                        <option value="60000">Menit</option>
+                                    </select>
+                                </div>
+                                <label class="small fw-bold">Radius Filter (Meter)</label>
+                                <div class="input-group mb-4">
+                                    <input type="number" id="cfg-distance" class="form-control shadow-none" value="10">
+                                    <span class="input-group-text">Meter</span>
+                                </div>
+                                <button class="btn btn-dark w-100 fw-bold" onclick="updateConfig()">SIMPAN & TERAPKAN KE SEMUA HP</button>
                             </div>
                         </div>
                         <div class="col-md-6">
@@ -527,9 +557,16 @@
         }
 
         async function updateConfig() {
-            const v = document.getElementById('cfg-interval').value; const d = document.getElementById('cfg-distance').value;
-            await db.collection('config').doc('tracking').set({ intervalMs: v * 1000, minDistance: parseFloat(d) });
-            alert("Aturan Diperbarui!");
+            const val = document.getElementById('cfg-interval').value;
+            const unit = document.getElementById('cfg-time-unit').value;
+            const dist = document.getElementById('cfg-distance').value;
+            await db.collection('config').doc('tracking').set({
+                intervalMs: parseInt(val) * parseInt(unit),
+                minDistance: parseFloat(dist),
+                updatedAt: firebase.firestore.Timestamp.now()
+            });
+            const toast = new bootstrap.Toast(document.getElementById('liveToast'));
+            toast.show();
         }
 
         async function loadFullHistory() {
