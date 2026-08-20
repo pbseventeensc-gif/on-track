@@ -290,6 +290,24 @@
 
                 <!-- VIEW 5: SETTINGS -->
                 <div id="view-settings" class="view-section">
+                    <h5 class="fw-bold mb-4">Konfigurasi Sistem</h5>
+
+                    <!-- NEW: APP UPDATE FEATURE -->
+                    <div class="card-pro p-4 mb-4">
+                        <h6 class="fw-bold mb-3 text-primary"><i class="bi bi-cloud-arrow-up me-2"></i>Rilis Update Aplikasi Baru</h6>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="small fw-bold">Versi Kode Baru (Angka)</label>
+                                <input type="number" id="upd-version" class="form-control shadow-none" placeholder="Contoh: 2">
+                            </div>
+                            <div class="col-md-8">
+                                <label class="small fw-bold">Link Download APK (Google Drive/Lainnya)</label>
+                                <input type="text" id="upd-url" class="form-control shadow-none" placeholder="https://drive.google.com/...">
+                            </div>
+                        </div>
+                        <button class="btn btn-primary mt-3 fw-bold shadow-sm px-4" onclick="publishUpdate()"><i class="bi bi-broadcast me-2"></i>Kirim Notif Update ke Semua HP</button>
+                    </div>
+
                     <div class="row g-4">
                         <div class="col-md-6">
                             <div class="card-pro p-4">
@@ -566,6 +584,23 @@
                 updatedAt: firebase.firestore.Timestamp.now()
             });
             const toast = new bootstrap.Toast(document.getElementById('liveToast'));
+            document.querySelector('#liveToast .toast-body').innerHTML = '<i class="bi bi-check-circle-fill me-2"></i> Konfigurasi GPS Berhasil Disinkronkan!';
+            toast.show();
+        }
+
+        async function publishUpdate() {
+            const ver = document.getElementById('upd-version').value;
+            const url = document.getElementById('upd-url').value;
+            if(!ver || !url) return alert("Harap isi Versi & Link Download!");
+
+            await db.collection('config').doc('app_status').set({
+                versionCode: parseInt(ver),
+                downloadUrl: url,
+                releasedAt: firebase.firestore.Timestamp.now()
+            });
+
+            const toast = new bootstrap.Toast(document.getElementById('liveToast'));
+            document.querySelector('#liveToast .toast-body').innerHTML = '<i class="bi bi-broadcast me-2"></i> Pengumuman Update Terkirim!';
             toast.show();
         }
 

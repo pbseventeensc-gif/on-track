@@ -61,7 +61,35 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             var darkTheme by remember { mutableStateOf(false) }
+            
+            // --- FEATURE: REAL-TIME UPDATE CHECK ---
+            var updateUrl by remember { mutableStateOf<String?>(null) }
+            LaunchedEffect(Unit) {
+                FirebaseFirestore.getInstance().collection("config").document("app_status")
+                    .addSnapshotListener { snap, _ ->
+                        val remoteVersion = snap?.getLong("versionCode") ?: 0L
+                        val currentVersion = 1L // Sesuai build.gradle.kts
+                        if (remoteVersion > currentVersion) {
+                            updateUrl = snap?.getString("downloadUrl")
+                        }
+                    }
+            }
+
             KurirKitaTheme(darkTheme = darkTheme) {
+                if (updateUrl != null) {
+                    AlertDialog(
+                        onDismissRequest = {},
+                        title = { Text("Update Tersedia!") },
+                        text = { Text("Versi aplikasi terbaru sudah dirilis. Silakan unduh untuk fitur yang lebih stabil.") },
+                        confirmButton = {
+                            Button(onClick = {
+                                val intent = Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(updateUrl))
+                                startActivity(intent)
+                            }) { Text("UNDUH SEKARANG") }
+                        }
+                    )
+                }
+
                 var isLoggedIn by remember { mutableStateOf(FirebaseAuth.getInstance().currentUser != null) }
                 if (!isLoggedIn) {
                     LoginScreen(onLoginSuccess = { isLoggedIn = true })
