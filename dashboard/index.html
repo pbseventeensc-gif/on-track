@@ -171,15 +171,30 @@
                     <div class="row g-4">
                         <div class="col-md-6">
                             <div class="card-pro p-4">
-                                <h6 class="fw-bold mb-3 text-primary">Aturan Sinkronisasi</h6>
-                                <label class="small fw-bold">Interval Waktu</label>
+                                <h6 class="fw-bold mb-3 text-primary">Aturan Sinkronisasi GPS</h6>
+
+                                <label class="small fw-bold">Interval Sinkronisasi Latar Belakang</label>
                                 <div class="input-group mb-3">
-                                    <input type="number" id="cfg-interval" class="form-control" value="10">
-                                    <select id="cfg-time-unit" class="form-select"><option value="1000">Detik</option><option value="60000">Menit</option></select>
+                                    <input type="number" id="cfg-interval" class="form-control shadow-none" value="10">
+                                    <select id="cfg-time-unit" class="form-select shadow-none">
+                                        <option value="1000">Detik</option>
+                                        <option value="60000">Menit</option>
+                                    </select>
                                 </div>
-                                <label class="small fw-bold">Radius Validasi Selesai (Geofence)</label>
-                                <div class="input-group mb-4"><input type="number" id="cfg-geofence" class="form-control border-danger" value="20"><span class="input-group-text bg-danger text-white">Meter</span></div>
-                                <button class="btn btn-dark w-100" onclick="updateConfig()">Simpan & Terapkan</button>
+
+                                <label class="small fw-bold">Batas Minimal Pergerakan (Meter)</label>
+                                <div class="input-group mb-3">
+                                    <input type="number" id="cfg-distance" class="form-control shadow-none" value="10">
+                                    <span class="input-group-text">Meter</span>
+                                </div>
+
+                                <label class="small fw-bold text-danger"><i class="bi bi-shield-check me-1"></i>Radius Validasi Selesai (Geofence)</label>
+                                <div class="input-group mb-4">
+                                    <input type="number" id="cfg-geofence" class="form-control shadow-none" value="20">
+                                    <span class="input-group-text bg-danger text-white">Meter</span>
+                                </div>
+
+                                <button class="btn btn-dark w-100 fw-bold py-2" onclick="updateConfig()">SIMPAN & TERAPKAN KE SEMUA HP</button>
                             </div>
                         </div>
                         <div class="col-md-6">
@@ -388,10 +403,31 @@
         function openImagePopup(url) { document.getElementById('modalImg').src = url; document.getElementById('downloadBtn').href = url; new bootstrap.Modal(document.getElementById('imageModal')).show(); }
 
         async function updateConfig() {
-            const v = document.getElementById('cfg-interval').value, u = document.getElementById('cfg-time-unit').value, d = document.getElementById('cfg-distance').value, g = document.getElementById('cfg-geofence').value;
-            await db.collection('config').doc('tracking').set({ intervalMs: v * u, minDistance: parseFloat(d), geofenceRadius: parseFloat(g), updatedAt: firebase.firestore.Timestamp.now() }, { merge: true });
-            const t = new bootstrap.Toast(document.getElementById('liveToast')); document.querySelector('.toast-body').innerText = "Berhasil Disinkronkan!"; t.show();
+        const v = document.getElementById('cfg-interval').value;
+        const u = document.getElementById('cfg-time-unit').value;
+        const d = document.getElementById('cfg-distance').value;
+        const g = document.getElementById('cfg-geofence').value;
+
+        try {
+            await db.collection('config').doc('tracking').set({
+                intervalMs: parseInt(v) * parseInt(u),
+                minDistance: parseFloat(d),
+                geofenceRadius: parseFloat(g),
+                updatedAt: firebase.firestore.Timestamp.now()
+            }, { merge: true });
+
+            const toastEl = document.getElementById('liveToast');
+            const toastBody = toastEl.querySelector('.toast-body');
+            toastBody.innerHTML = '<i class="bi bi-check-circle-fill me-2"></i> Pengaturan Berhasil Diterapkan ke Semua HP Kurir!';
+
+            const toast = new bootstrap.Toast(toastEl);
+            toast.show();
+            console.log("Config updated successfully.");
+        } catch (e) {
+            console.error("Error updating config:", e);
+            alert("Gagal menyimpan: " + e.message);
         }
+    }
 
         async function publishUpdateAuto() {
             const ver = document.getElementById('upd-version').value, file = document.getElementById('upd-file').files[0];
@@ -425,7 +461,21 @@
         function clearAllHistoryData() { if(confirm("Hapus permanen semua data perjalanan?")) { db.collection('trips').get().then(s => s.forEach(doc => doc.ref.delete())); alert("Data terhapus."); }}
 
         db.collection('config').doc('cloudinary').get().then(d => { if(d.exists) { document.getElementById('cld-name').value = d.data().cloudName; document.getElementById('cld-preset').value = d.data().uploadPreset; }});
-        db.collection('config').doc('tracking').get().then(d => { if(d.exists) { const v = d.data(); document.getElementById('cfg-interval').value = v.intervalMs >= 60000 ? v.intervalMs/60000 : v.intervalMs/1000; document.getElementById('cfg-time-unit').value = v.intervalMs >= 60000 ? "60000" : "1000"; document.getElementById('cfg-geofence').value = v.geofenceRadius || 20; }});
+        db.collection('config').doc('tracking').get().then(d => {
+        if(d.exists) {
+            const v = d.data();
+            if(document.getElementById('cfg-interval')) {
+                document.getElementById('cfg-interval').value = v.intervalMs >= 60000 ? v.intervalMs/60000 : v.intervalMs/1000;
+                document.getElementById('cfg-time-unit').value = v.intervalMs >= 60000 ? "60000" : "1000";
+            }
+            if(document.getElementById('cfg-distance')) {
+                document.getElementById('cfg-distance').value = v.minDistance || 10;
+            }
+            if(document.getElementById('cfg-geofence')) {
+                document.getElementById('cfg-geofence').value = v.geofenceRadius || 20;
+            }
+        }
+    });
     </script>
 </body>
 </html>
