@@ -10,79 +10,102 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
 
-    <script>
-        // --- GOOGLE MAPS CALLBACK ---
-        window.initAutocomplete = function() {
-            console.log("Google Maps API Loaded.");
-            const input = document.getElementById('places-search');
-            if (!input) return;
-
-            const autocomplete = new google.maps.places.Autocomplete(input, {
-                componentRestrictions: { country: "id" },
-                fields: ["geometry", "name", "formatted_address"]
-            });
-
-            autocomplete.addListener("place_changed", () => {
-                const place = autocomplete.getPlace();
-                if (!place.geometry) return;
-
-                const lat = place.geometry.location.lat();
-                const lng = place.geometry.location.lng();
-                const name = place.name || "Tujuan";
-                const address = place.formatted_address || "";
-
-                tripQueue.push({ name, address, lat, lng });
-                renderQueue();
-
-                input.value = "";
-                map.flyTo([lat, lng], 16);
-
-                // Temporary visual marker
-                const icon = L.divIcon({
-                    className: 'custom-div-icon',
-                    html: `<div class='marker-pin' style='background:#f7b924'></div><div class='marker-num'>?</div>`,
-                    iconSize: [30, 42], iconAnchor: [15, 42]
-                });
-                L.marker([lat, lng], {icon}).addTo(map).bindPopup(name).openPopup();
-            });
-        };
-    </script>
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBDoviDNLl_aSjM1NMN-g_gHpeIPPzC6Rk&libraries=places&callback=initAutocomplete" async defer></script>
+    <!-- Google Maps API with Places Library & Async -->
+    <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBDoviDNLl_aSjM1NMN-g_gHpeIPPzC6Rk&libraries=places"></script>
 
     <style>
+        .pac-container {
+            z-index: 9999 !important;
+            border-radius: 8px;
+            margin-top: 5px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            border: 1px solid #eee;
+            font-family: 'Inter', sans-serif;
+        }
+        .pac-item { padding: 10px 12px; cursor: pointer; }
+        .pac-item:hover { background-color: #f8f9fa; }
+        .pac-item-query { font-size: 14px; color: #333; }
+        .pac-matched { font-weight: 700; }
+
         :root {
             --sidebar-gradient: linear-gradient(135deg, #3ac47d 0%, #2fac66 100%);
             --sidebar-width: 260px;
             --header-height: 65px;
-            --architect-blue: #3f6ad8;
         }
 
-        body { background-color: #f1f4f6; font-family: 'Inter', sans-serif; margin: 0; display: flex; height: 100vh; overflow: hidden; }
-        .app-container { display: flex; height: 100vh; width: 100vw; overflow: hidden; }
+        * { box-sizing: border-box; }
+        body { background-color: #f1f4f6; font-family: 'Inter', sans-serif; margin: 0; padding: 0; overflow: hidden; }
 
-        /* Sidebar */
-        .sidebar { width: var(--sidebar-width); background: #fff; box-shadow: 7px 0 60px rgba(0,0,0,0.05); z-index: 1050; display: flex; flex-direction: column; transition: 0.3s; }
-        .sidebar.collapsed { width: 0; overflow: hidden; }
-        .sidebar-header { height: var(--header-height); display: flex; align-items: center; padding: 0 20px; border-bottom: 1px solid #f0f0f0; }
-        .sidebar-menu { flex: 1; padding: 20px 15px; overflow-y: auto; }
-        .nav-link { color: #555; font-weight: 600; padding: 12px 18px; border-radius: 10px; margin-bottom: 5px; display: flex; align-items: center; cursor: pointer; text-decoration: none !important; }
-        .nav-link i { font-size: 1.2rem; margin-right: 15px; }
+        .app-container { display: flex; height: 100vh; width: 100vw; overflow: hidden; position: relative; }
+
+        .sidebar {
+            width: var(--sidebar-width);
+            background: #fff;
+            box-shadow: 7px 0 60px rgba(0,0,0,0.05);
+            z-index: 1100;
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+        }
+        .sidebar.collapsed { transform: translateX(-100%); width: 0; position: absolute; }
+
+        .sidebar-header {
+            height: var(--header-height);
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            border-bottom: 1px solid #f0f0f0;
+            background: #fff;
+            overflow: hidden;
+            white-space: nowrap;
+        }
+
+        .sidebar-menu { flex: 1; padding: 15px; overflow-y: auto; }
+
+        .nav-link {
+            color: #555; font-weight: 600; padding: 10px 15px; border-radius: 8px; margin-bottom: 3px;
+            display: flex; align-items: center; cursor: pointer; transition: 0.2s; font-size: 0.85rem;
+            text-decoration: none !important;
+        }
+        .nav-link i { font-size: 1.1rem; margin-right: 12px; }
+        .nav-link:hover { background: #f8f9fa; }
         .nav-link.active { background: var(--sidebar-gradient); color: #fff !important; box-shadow: 0 4px 15px rgba(58, 196, 125, 0.3); }
-        .menu-label { font-size: 0.7rem; font-weight: 800; color: #ced4da; text-transform: uppercase; padding: 15px 0 10px 15px; }
+        .nav-link.active i { color: #fff !important; }
 
-        /* Main Content */
-        .main-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-        .top-bar { height: var(--header-height); background: #fff; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; padding: 0 25px; justify-content: space-between; }
-        .content-body { flex: 1; overflow-y: auto; padding: 25px; }
+        .menu-label { font-size: 0.65rem; font-weight: 800; color: #ced4da; text-transform: uppercase; padding: 15px 0 8px 15px; }
 
-        .card-pro { background: #fff; border: none; border-radius: 12px; margin-bottom: 25px; box-shadow: 0 0.46875rem 2.1875rem rgba(4, 9, 20, 0.03); }
-        .card-header-pro { padding: 15px 25px; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; font-weight: 700; color: #495057; }
+        .main-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
 
-        #map { height: 450px; width: 100%; border-radius: 12px; border: 1px solid #eee; }
+        .top-bar {
+            height: var(--header-height);
+            background: #fff;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 900;
+        }
+
+        .content-body { flex: 1; overflow-y: auto; padding: 20px; }
         .view-section { display: none; }
         .view-section.active { display: block; }
 
-        /* Custom Markers */
+        .card-pro {
+            background: #fff; border: none; border-radius: 12px; margin-bottom: 25px;
+            box-shadow: 0 0.46875rem 2.1875rem rgba(4, 9, 20, 0.03);
+        }
+        .card-header-pro { padding: 15px 25px; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; font-weight: 700; color: #495057; }
+
+        .stat-icon { width: 50px; height: 50px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; color: #fff; margin-right: 15px; }
+        .val { font-size: 1.6rem; font-weight: 800; color: #333; line-height: 1.2; }
+        .lab { color: #999; font-size: 0.75rem; text-transform: uppercase; font-weight: 700; }
+
+        #map { height: 400px; width: 100%; border-radius: 12px; border: 1px solid #eee; }
+
         .custom-div-icon { background: none; border: none; }
         .marker-pin {
             width: 30px; height: 30px; border-radius: 50% 50% 50% 0;
@@ -91,326 +114,368 @@
             display: flex; align-items: center; justify-content: center;
             box-shadow: 0 4px 10px rgba(0,0,0,0.2);
         }
-        .marker-pin::after { content: ''; width: 22px; height: 22px; background: #fff; position: absolute; border-radius: 50%; }
-        .marker-num { position: absolute; width: 30px; height: 30px; line-height: 30px; text-align: center; font-weight: 800; font-size: 13px; color: #333; z-index: 10; }
+        .marker-pin::after {
+            content: ''; width: 22px; height: 22px; margin: 0;
+            background: #fff; position: absolute; border-radius: 50%;
+        }
+        .marker-num {
+            position: absolute; width: 30px; height: 30px;
+            line-height: 30px; text-align: center;
+            font-weight: 800; font-size: 13px; color: #333; z-index: 10;
+        }
         .marker-done .marker-pin { background: #3ac47d !important; }
 
-        /* Autocomplete UI */
-        .pac-container { z-index: 9999 !important; border-radius: 8px; border: 1px solid #eee; box-shadow: 0 10px 25px rgba(0,0,0,0.1); font-family: 'Inter', sans-serif; }
+        .proof-img-thumb { width: 60px; height: 60px; object-fit: cover; border-radius: 6px; margin-top: 10px; border: 2px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: pointer; }
 
-        /* Helpers */
-        .stat-icon { width: 50px; height: 50px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; color: #fff; margin-right: 15px; }
-        .val { font-size: 1.6rem; font-weight: 800; color: #333; }
-        .lab { color: #999; font-size: 0.75rem; text-transform: uppercase; font-weight: 700; }
+        .chat-messages { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; background: #fdfdfd; }
+        .msg { max-width: 80%; padding: 10px 15px; border-radius: 15px; margin-bottom: 8px; font-size: 0.85rem; }
+        .msg.admin { align-self: flex-end; background: #3f6ad8; color: #fff; border-bottom-right-radius: 2px; }
+        .msg.courier { align-self: flex-start; background: #eef2f7; color: #333; border-bottom-left-radius: 2px; }
+
+        .courier-group-header { background: #2d2f39; color: white; padding: 15px 20px; border-radius: 12px; margin-bottom: 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
         .dest-pill { background: #f8f9fa; padding: 10px; border-radius: 8px; margin-top: 8px; border-left: 4px solid #ddd; }
         .dest-pill.done { border-left-color: #3ac47d; background: #f4fff9; }
-        .proof-img-thumb { width: 60px; height: 60px; object-fit: cover; border-radius: 6px; margin-top: 10px; border: 2px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: pointer; }
+
+        .modal-body { position: relative; }
+        .download-btn { position: absolute; bottom: 20px; right: 20px; z-index: 10; }
     </style>
 </head>
 <body>
 
-    <div class="app-container">
-        <aside class="sidebar">
-            <div class="sidebar-header">
-                <i class="bi bi-list fs-3 me-2 cursor-pointer" onclick="toggleSidebar()"></i>
-                <span class="fw-bold text-dark small">WELLEN LOGISTICS</span>
+<div class="app-container">
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <i class="bi bi-list fs-3 me-2 cursor-pointer" onclick="toggleSidebar()"></i>
+            <img src="wellen_logo.jpg" style="height:35px;" class="me-2 sidebar-hide">
+            <span class="fw-bold text-dark small sidebar-hide">WELLEN LOGISTICS</span>
+        </div>
+        <nav class="sidebar-menu">
+            <div class="menu-label">Navigasi</div>
+            <a class="nav-link active" onclick="switchTab('dashboard', this)"><i class="bi bi-speedometer2"></i> <span>Dashboard</span></a>
+            <a class="nav-link" onclick="switchTab('dispatch', this)"><i class="bi bi-send-plus"></i> <span>Dispatch</span></a>
+            <a class="nav-link" onclick="switchTab('monitor', this)"><i class="bi bi-broadcast"></i> <span>Monitor Live</span></a>
+            <a class="nav-link" onclick="switchTab('reports', this)"><i class="bi bi-journal-text"></i> <span>Laporan</span></a>
+            <a class="nav-link" onclick="switchTab('settings', this)"><i class="bi bi-gear-wide-connected"></i> <span>Pengaturan</span></a>
+            <a class="nav-link" onclick="switchTab('chat', this)"><i class="bi bi-chat-dots-fill"></i> <span>Chat</span></a>
+        </nav>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="main-content">
+        <header class="top-bar">
+            <h5 class="m-0 fw-bold text-secondary" id="page-title">Analytics Dashboard</h5>
+            <div class="d-flex align-items-center gap-3">
+                <button class="btn btn-sm btn-outline-danger" onclick="clearAllHistoryData()"><i class="bi bi-trash"></i> Hapus Data</button>
+                <div class="profile-chip d-flex align-items-center gap-2 bg-light p-1 pe-3 rounded-pill">
+                    <img src="https://ui-avatars.com/api/?name=Admin+Wellen&background=3ac47d&color=fff" style="width:30px; border-radius:50%;">
+                    <span class="small fw-bold d-none d-sm-inline">Admin</span>
+                </div>
             </div>
-            <nav class="sidebar-menu">
-                <div class="menu-label">Navigasi</div>
-                <a class="nav-link active" onclick="switchTab('dashboard', this)"><i class="bi bi-speedometer2"></i> <span>Dashboard</span></a>
-                <a class="nav-link" onclick="switchTab('dispatch', this)"><i class="bi bi-send-plus"></i> <span>Dispatch</span></a>
-                <a class="nav-link" onclick="switchTab('monitor', this)"><i class="bi bi-broadcast"></i> <span>Monitor Live</span></a>
-                <a class="nav-link" onclick="switchTab('reports', this)"><i class="bi bi-journal-text"></i> <span>Laporan</span></a>
-                <a class="nav-link" onclick="switchTab('settings', this)"><i class="bi bi-gear-wide-connected"></i> <span>Pengaturan</span></a>
-                <a class="nav-link" onclick="switchTab('chat', this)"><i class="bi bi-chat-dots-fill"></i> <span>Chat</span></a>
-            </nav>
-        </aside>
+        </header>
 
-        <main class="main-content">
-            <header class="top-bar">
-                <h5 class="m-0 fw-bold text-secondary" id="page-title">Dashboard</h5>
-                <div class="d-flex align-items-center gap-3">
-                    <button class="btn btn-sm btn-outline-danger" onclick="clearAllHistoryData()">Hapus Data</button>
-                    <div class="profile-chip d-flex align-items-center gap-2 bg-light p-1 pe-3 rounded-pill">
-                        <img src="https://ui-avatars.com/api/?name=Admin+Wellen&background=3ac47d&color=fff" style="width:30px; border-radius:50%;">
-                        <span class="small fw-bold">Admin</span>
-                    </div>
+        <div class="content-body">
+            <!-- MAP -->
+            <div id="global-map-container" class="card-pro overflow-hidden">
+                <div class="card-header-pro bg-light">
+                    <span class="small text-uppercase fw-bold"><i class="bi bi-geo-alt-fill text-danger me-2"></i>Live Monitoring Map</span>
+                    <span class="badge bg-success small">Real-time GPS</span>
                 </div>
-            </header>
+                <div class="p-0"><div id="map"></div></div>
+            </div>
 
-            <div class="content-body">
-                <div id="global-map-container" class="card-pro overflow-hidden">
-                    <div class="card-header-pro bg-light">
-                        <span class="small fw-bold text-uppercase"><i class="bi bi-geo-alt-fill text-danger me-2"></i>Live Map</span>
-                        <span class="badge bg-success">Live</span>
-                    </div>
-                    <div class="p-0"><div id="map"></div></div>
+            <!-- DASHBOARD -->
+            <div id="view-dashboard" class="view-section active">
+                <div class="row g-3">
+                    <div class="col-6 col-md-3"><div class="card-pro p-3 d-flex align-items-center"><div class="stat-icon bg-primary"><i class="bi bi-activity"></i></div><div><div class="val" id="stat-active">0</div><div class="lab">Aktif</div></div></div></div>
+                    <div class="col-6 col-md-3"><div class="card-pro p-3 d-flex align-items-center"><div class="stat-icon bg-success"><i class="bi bi-people"></i></div><div><div class="val" id="stat-online">0</div><div class="lab">Online</div></div></div></div>
+                    <div class="col-6 col-md-3"><div class="card-pro p-3 d-flex align-items-center"><div class="stat-icon bg-danger"><i class="bi bi-speedometer2"></i></div><div><div class="val" id="stat-km">0.0</div><div class="lab">Total KM</div></div></div></div>
+                    <div class="col-6 col-md-3"><div class="card-pro p-3 d-flex align-items-center"><div class="stat-icon bg-warning"><i class="bi bi-check-circle"></i></div><div><div class="val" id="stat-done">0</div><div class="lab">Selesai</div></div></div></div>
                 </div>
+            </div>
 
-                <!-- SECTIONS -->
-                <div id="view-dashboard" class="view-section active">
+            <!-- DISPATCH -->
+            <div id="view-dispatch" class="view-section">
+                <div class="card-pro p-4">
                     <div class="row g-3">
-                        <div class="col-6 col-md-3"><div class="card-pro p-3 d-flex align-items-center"><div class="stat-icon bg-primary"><i class="bi bi-activity"></i></div><div><div class="val" id="stat-active">0</div><div class="lab">Aktif</div></div></div></div>
-                        <div class="col-6 col-md-3"><div class="card-pro p-3 d-flex align-items-center"><div class="stat-icon bg-success"><i class="bi bi-people"></i></div><div><div class="val" id="stat-online">0</div><div class="lab">Online</div></div></div></div>
-                        <div class="col-6 col-md-3"><div class="card-pro p-3 d-flex align-items-center"><div class="stat-icon bg-danger"><i class="bi bi-speedometer2"></i></div><div><div class="val" id="stat-km">0.0</div><div class="lab">KM Hari Ini</div></div></div></div>
-                        <div class="col-6 col-md-3"><div class="card-pro p-3 d-flex align-items-center"><div class="stat-icon bg-warning"><i class="bi bi-check-circle"></i></div><div><div class="val" id="stat-done">0</div><div class="lab">Selesai</div></div></div></div>
-                    </div>
-                </div>
-
-                <div id="view-dispatch" class="view-section">
-                    <div class="card-pro p-4">
-                        <div class="row g-3">
-                            <div class="col-md-3"><label class="small fw-bold">Pilih Kurir</label><select id="sel-courier" class="form-select"></select></div>
-                            <div class="col-md-6"><label class="small fw-bold">Cari Alamat (Google)</label><input type="text" id="places-search" class="form-control" placeholder="Ketik nama jalan/gedung..."></div>
-                            <div class="col-md-3 d-flex align-items-end"><button class="btn btn-primary w-100 fw-bold" onclick="submitTrip()">KIRIM TUGAS</button></div>
-                        </div>
-                        <div id="dispatch-queue" class="mt-3"></div>
-                    </div>
-                </div>
-
-                <div id="view-monitor" class="view-section"><div id="monitor-list" class="row g-3"></div></div>
-
-                <div id="view-reports" class="view-section">
-                    <div class="card-pro p-4">
-                        <div class="d-flex justify-content-between mb-4"><h6>Riwayat Perjalanan</h6><input type="date" id="rep-date" class="form-control" style="width:180px;" onchange="loadFullHistory()"></div>
-                        <div id="history-list"></div>
-                    </div>
-                </div>
-
-                <div id="view-settings" class="view-section">
-                    <div class="card-pro p-4 mb-4">
-                        <h6 class="fw-bold mb-3">Update Aplikasi</h6>
-                        <div class="row g-3">
-                            <div class="col-md-3"><input type="number" id="upd-version" class="form-control" placeholder="Versi"></div>
-                            <div class="col-md-7"><input type="file" id="upd-file" class="form-control"></div>
-                            <div class="col-md-2"><button class="btn btn-primary w-100" onclick="publishUpdateAuto()">RILIS</button></div>
-                        </div>
-                        <div id="upd-progress" class="progress mt-3 d-none"><div class="progress-bar progress-bar-striped progress-bar-animated" style="width:0%"></div></div>
-                    </div>
-                    <div class="row g-4">
+                        <div class="col-md-3"><label class="small fw-bold text-muted">Pilih Kurir</label><select id="sel-courier" class="form-select"></select></div>
                         <div class="col-md-6">
-                            <div class="card-pro p-4">
-                                <h6 class="fw-bold mb-3">Aturan Sinkronisasi</h6>
-                                <label class="small fw-bold">Interval</label>
-                                <div class="input-group mb-2">
-                                    <input type="number" id="cfg-interval" class="form-control" value="10">
-                                    <select id="cfg-time-unit" class="form-select"><option value="1000">Detik</option><option value="60000">Menit</option></select>
-                                </div>
-                                <label class="small fw-bold">Jarak Validasi (Geofence)</label>
-                                <div class="input-group mb-3"><input type="number" id="cfg-geofence" class="form-control" value="20"><span class="input-group-text">Meter</span></div>
-                                <button class="btn btn-dark w-100" onclick="updateConfig()">Simpan & Terapkan</button>
+                            <label class="small fw-bold text-muted">Cari Lokasi (Google Places)</label>
+                            <div class="position-relative">
+                                <input type="text" id="places-search" class="form-control shadow-none" placeholder="Cari alamat, gedung, atau jalan...">
                             </div>
                         </div>
-                        <div class="col-md-6">
-                            <div class="card-pro p-4">
-                                <h6 class="fw-bold mb-3">Cloudinary</h6>
-                                <input type="text" id="cld-name" class="form-control mb-2" placeholder="Cloud Name">
-                                <input type="text" id="cld-preset" class="form-control mb-3" placeholder="Upload Preset">
-                                <button class="btn btn-primary w-100" onclick="saveCloudinary()">Simpan</button>
-                            </div>
+                        <div class="col-md-3 d-flex align-items-end"><button class="btn btn-primary w-100 fw-bold py-2" onclick="submitTrip()">KIRIM TUGAS</button></div>
+                    </div>
+                    <div id="dispatch-queue" class="mt-3"></div>
+                </div>
+            </div>
+
+            <!-- MONITOR -->
+            <div id="view-monitor" class="view-section"><div id="monitor-list" class="row g-3"></div></div>
+
+            <!-- REPORTS -->
+            <div id="view-reports" class="view-section">
+                <div class="card-pro p-4">
+                    <div class="d-flex justify-content-between mb-4"><h6>Riwayat Perjalanan</h6><input type="date" id="rep-date" class="form-control" style="width:180px;" onchange="loadFullHistory()"></div>
+                    <div id="history-list"></div>
+                </div>
+            </div>
+
+            <!-- SETTINGS -->
+            <div id="view-settings" class="view-section">
+                <div class="card-pro p-4 mb-4">
+                    <h6 class="fw-bold mb-3 text-primary"><i class="bi bi-cloud-arrow-up me-2"></i>Rilis Update Aplikasi Otomatis</h6>
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <label class="small fw-bold">Versi Baru (Angka)</label>
+                            <input type="number" id="upd-version" class="form-control" placeholder="Contoh: 2">
+                        </div>
+                        <div class="col-md-9">
+                            <label class="small fw-bold">Pilih File APK Terbaru</label>
+                            <input type="file" id="upd-file" class="form-control" accept=".apk">
                         </div>
                     </div>
+                    <div id="upd-progress" class="progress mt-3 d-none" style="height: 10px;">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: 0%"></div>
+                    </div>
+                    <button class="btn btn-primary mt-3 fw-bold" id="upd-btn" onclick="publishUpdateAuto()"><i class="bi bi-broadcast me-2"></i>UNGGAH & RILIS UPDATE</button>
+                    <div class="mt-2 extra-small text-muted" id="upd-status"></div>
                 </div>
-
-                <div id="view-chat" class="view-section">
-                    <div class="row g-4">
-                        <div class="col-md-4"><div class="card-pro p-4"><h6>Daftar Kurir</h6><div id="chat-list-container"></div></div></div>
-                        <div class="col-md-8">
-                            <div class="card-pro p-4 d-flex flex-column" style="height: 600px;">
-                                <h6 id="chat-header-main" class="border-bottom pb-2">Percakapan</h6>
-                                <div id="chat-messages-main" class="chat-messages flex-grow-1"></div>
-                                <div class="mt-3 d-flex">
-                                    <input type="text" id="chat-input-main" class="form-control me-2" placeholder="Ketik..." onkeypress="if(event.key==='Enter') sendChatMain()">
-                                    <button class="btn btn-primary" onclick="sendChatMain()"><i class="bi bi-send"></i></button>
-                                </div>
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="card-pro p-4">
+                            <h6 class="fw-bold mb-3">Sinkronisasi GPS</h6>
+                            <label class="small fw-bold">Interval Waktu</label>
+                            <div class="input-group mb-3">
+                                <input type="number" id="cfg-interval" class="form-control" value="10">
+                                <select id="cfg-time-unit" class="form-select"><option value="1000">Detik</option><option value="60000">Menit</option></select>
                             </div>
+                            <label class="small fw-bold text-danger">Radius Validasi Selesai (Geofence)</label>
+                            <div class="input-group mb-4">
+                                <input type="number" id="cfg-geofence" class="form-control border-danger" value="20">
+                                <span class="input-group-text bg-danger text-white">Meter</span>
+                            </div>
+                            <button class="btn btn-dark w-100" onclick="updateConfig()">Terapkan Aturan</button>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card-pro p-4">
+                            <h6 class="fw-bold mb-3">Cloudinary</h6>
+                            <input type="text" id="cld-name" class="form-control mb-2" placeholder="Cloud Name">
+                            <input type="text" id="cld-preset" class="form-control mb-4" placeholder="Upload Preset">
+                            <button class="btn btn-primary w-100" onclick="saveCloudinary()">Simpan</button>
                         </div>
                     </div>
                 </div>
             </div>
-        </main>
-    </div>
 
-    <!-- TOAST -->
-    <div class="toast-container position-fixed top-0 start-50 translate-middle-x p-3"><div id="liveToast" class="toast align-items-center text-white bg-success border-0 shadow-lg"><div class="d-flex p-2"><div class="toast-body"></div></div></div></div>
+            <!-- CHAT -->
+            <div id="view-chat" class="view-section">
+                <div class="row g-4">
+                    <div class="col-md-4"><div class="card-pro p-4"><h6>Daftar Kurir</h6><div id="chat-list-container" style="max-height: 500px; overflow-y: auto;"></div></div></div>
+                    <div class="col-md-8">
+                        <div class="card-pro p-4 d-flex flex-column" style="height: 600px;">
+                            <h6 class="border-bottom pb-2">Jendela Percakapan</h6>
+                            <div id="chat-messages-main" class="chat-messages flex-grow-1"></div>
+                            <div class="mt-3 d-flex"><input type="text" id="chat-input-main" class="form-control me-2" placeholder="Tulis instruksi..." onkeypress="if(event.key==='Enter') sendChatMain()"><button class="btn btn-primary" onclick="sendChatMain()"><i class="bi bi-send"></i></button></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
 
-    <!-- IMAGE POPUP -->
-    <div class="modal fade" id="imageModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content border-0"><div class="modal-body p-0 text-center"><img id="modalImg" src="" style="max-width:100%; border-radius:12px;"><button type="button" class="btn btn-light position-absolute top-0 end-0 m-3" data-bs-dismiss="modal"><i class="bi bi-x"></i></button><div class="p-3 bg-white d-flex justify-content-center"><a id="downloadBtn" href="#" download class="btn btn-primary btn-sm">Download Foto</a></div></div></div></div></div>
+    <!-- TOAST & MODAL -->
+<div class="toast-container position-fixed top-0 start-50 translate-middle-x p-3"><div id="liveToast" class="toast align-items-center text-white bg-success border-0 shadow-lg" role="alert"><div class="d-flex p-2"><div class="toast-body"></div></div></div></div>
+<div class="modal fade" id="imageModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content border-0"><div class="modal-body p-0 text-center"><img id="modalImg" src="" style="max-width:100%; border-radius:12px;"><button type="button" class="btn btn-light position-absolute top-0 end-0 m-3" data-bs-dismiss="modal"><i class="bi bi-x"></i></button><a id="downloadBtn" href="#" download class="btn btn-primary download-btn">Download</a></div></div></div></div>
 
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-    <script>
-        const firebaseConfig = {
-            apiKey: "AIzaSyBDoviDNLl_aSjM1NMN-g_gHpeIPPzC6Rk",
-            authDomain: "ontrack-fccb8.firebaseapp.com",
-            databaseURL: "https://ontrack-fccb8-default-rtdb.asia-southeast1.firebasedatabase.app",
-            projectId: "ontrack-fccb8",
-            storageBucket: "ontrack-fccb8.firebasestorage.app",
-            messagingSenderId: "180144218738",
-            appId: "1:180144218738:android:b0b991a7575ae7693ed8eb"
+<script>
+    const firebaseConfig = {
+        apiKey: "AIzaSyBDoviDNLl_aSjM1NMN-g_gHpeIPPzC6Rk",
+        authDomain: "ontrack-fccb8.firebaseapp.com",
+        databaseURL: "https://ontrack-fccb8-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "ontrack-fccb8",
+        storageBucket: "ontrack-fccb8.firebasestorage.app",
+        messagingSenderId: "180144218738",
+        appId: "1:180144218738:android:b0b991a7575ae7693ed8eb"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const rtdb = firebase.database(), db = firebase.firestore();
+    const map = L.map('map').setView([-6.2, 106.81], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    function initAutocomplete() {
+        const input = document.getElementById('places-search');
+        if (!input) return;
+
+        if (typeof google === 'undefined' || !google.maps || !google.maps.places) {
+            setTimeout(initAutocomplete, 300);
+            return;
+        }
+
+        const options = {
+            componentRestrictions: { country: "id" },
+            fields: ["address_components", "geometry", "name", "formatted_address"]
         };
-        firebase.initializeApp(firebaseConfig);
-        const rtdb = firebase.database(), db = firebase.firestore();
-        const map = L.map('map').setView([-6.2, 106.81], 12);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-        const markers = {}, registeredUsers = {};
-        const tripMarkersLayer = L.layerGroup().addTo(map);
-        const draftMarkersLayer = L.layerGroup().addTo(map);
-        let tripQueue = [], currentChatId = null, chatUnsub = null;
+        const autocomplete = new google.maps.places.Autocomplete(input, options);
 
-        function toggleSidebar() { document.querySelector('.sidebar').classList.toggle('collapsed'); setTimeout(() => map.invalidateSize(), 300); }
+        autocomplete.addListener("place_changed", () => {
+            const place = autocomplete.getPlace();
+            if (!place.geometry || !place.geometry.location) return;
 
-        function switchTab(viewId, el) {
-            document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
-            document.getElementById('view-'+viewId).classList.add('active');
-            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
-            el.classList.add('active');
-            document.getElementById('page-title').innerText = el.querySelector('span').innerText;
+            const lat = place.geometry.location.lat();
+            const lng = place.geometry.location.lng();
+            const name = place.name || "Tujuan";
+            const address = place.formatted_address || "";
 
-            const mapContainer = document.getElementById('global-map-container');
-            if(viewId==='reports' || viewId==='settings' || viewId==='chat') mapContainer.classList.add('d-none');
-            else { mapContainer.classList.remove('d-none'); setTimeout(() => map.invalidateSize(), 300); }
-            if(viewId === 'chat') loadChatList();
+            tripQueue.push({ name, address, lat, lng });
+            renderQueue();
+
+            input.value = "";
+            map.flyTo([lat, lng], 16);
+            L.marker([lat, lng]).addTo(map).bindPopup(`<b>${name}</b>`).openPopup();
+        });
+        console.log("Google Maps API Loaded.");
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        initAutocomplete();
+    });
+
+    const markers = {}, registeredUsers = {};
+    const tripMarkersLayer = L.layerGroup().addTo(map);
+    const draftMarkersLayer = L.layerGroup().addTo(map);
+    let tripQueue = [], currentChatId = null, chatUnsub = null;
+
+    function toggleSidebar() { document.querySelector('.sidebar').classList.toggle('collapsed'); setTimeout(() => map.invalidateSize(), 300); }
+
+    function switchTab(viewId, el) {
+        document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
+        const target = document.getElementById('view-'+viewId); if(target) target.classList.add('active');
+        document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active')); el.classList.add('active');
+        document.getElementById('page-title').innerText = el.querySelector('span').innerText;
+
+        const mapContainer = document.getElementById('global-map-container');
+        if(viewId==='reports' || viewId==='settings' || viewId==='chat') mapContainer.classList.add('d-none');
+        else { mapContainer.classList.remove('d-none'); setTimeout(() => map.invalidateSize(), 300); }
+        if(viewId === 'chat') loadChatList();
+    }
+
+    function loadChatList() {
+        const el = document.getElementById('chat-list-container'); el.innerHTML = '';
+        for (const id in registeredUsers) {
+            const name = registeredUsers[id];
+            el.innerHTML += `<div class="courier-group-header mb-2 py-2 shadow-none" style="background:#f8f9fa; color:#333; border:1px solid #eee;" onclick="openChat('${id}', '${name}')"><span>${name}</span><i class="bi bi-chat-dots text-primary"></i></div>`;
         }
+    }
 
-        function loadChatList() {
-            const el = document.getElementById('chat-list-container'); el.innerHTML = '';
-            for (const id in registeredUsers) {
-                const name = registeredUsers[id];
-                el.innerHTML += `<div class="courier-group-header mb-2 py-2 shadow-none" style="background:#f8f9fa; color:#333; border:1px solid #eee;" onclick="openChat('${id}', '${name}')"><span>${name}</span><i class="bi bi-chat-dots text-primary"></i></div>`;
+    db.collection('users').onSnapshot(snap => {
+        const sel = document.getElementById('sel-courier'); sel.innerHTML = '<option value="">-- Pilih Kurir --</option>';
+        snap.forEach(doc => {
+            const u = doc.data(); registeredUsers[doc.id] = u.name || doc.id.substring(0,8);
+            if(u.role==='courier') sel.innerHTML += `<option value="${doc.id}">${registeredUsers[doc.id]}</option>`;
+        });
+    });
+
+    rtdb.ref('courier_live_location').on('value', snap => {
+        const data = snap.val() || {}; let km = 0, count = 0;
+        for (const id in data) {
+            const c = data[id]; count++; km += (c.totalDistanceKm || 0);
+            const pos = [c.lat, c.lng];
+            if (markers[id]) markers[id].setLatLng(pos);
+            else markers[id] = L.marker(pos).addTo(map).bindPopup(`<b>${registeredUsers[id]}</b>`);
+        }
+        document.getElementById('stat-online').innerText = count; document.getElementById('stat-km').innerText = km.toFixed(1);
+    });
+
+    db.collection('trips').onSnapshot(snap => {
+        let active = 0, done = 0, mList = document.getElementById('monitor-list');
+        if(!mList) return; mList.innerHTML = ''; tripMarkersLayer.clearLayers();
+        snap.forEach(doc => {
+            const t = doc.data();
+            if(t.status==='completed') done++; else {
+                active++;
+                const cName = registeredUsers[t.courierId] || t.courierId.substring(0,8);
+                mList.innerHTML += `<div class="col-md-6 col-lg-4"><div class="card-pro p-3 h-100 shadow-sm"><div class="d-flex justify-content-between mb-2"><b>${cName}</b><span class="badge bg-info extra-small">${t.status}</span></div>${t.destinations.map(d => `<div class="small dest-pill ${d.status}"><b>${d.stopIndex}. ${d.locationName}</b></div>`).join('')}<button class="btn btn-sm btn-dark w-100 mt-3" onclick="openChat('${doc.id}', 'Tugas ${cName}')">Chat Tugas</button></div></div>`;
+                t.destinations.forEach(d => {
+                    const lat = d.latitude || d.lat, lng = d.longitude || d.lng;
+                    if(lat && lng) {
+                        const isDone = d.status==='done';
+                        const icon = L.divIcon({ className: 'custom-div-icon '+(isDone?'marker-done':''), html: `<div class='marker-pin'></div><div class='marker-num'>${d.stopIndex}</div>`, iconSize:[30,42], iconAnchor:[15,42] });
+                        L.marker([lat,lng], {icon}).addTo(tripMarkersLayer).bindPopup(`<b>${cName} - ${d.stopIndex}</b><br>${d.locationName}<br>Status: ${d.status.toUpperCase()}`);
+                    }
+                });
+            }
+        });
+        document.getElementById('stat-active').innerText = active; document.getElementById('stat-done').innerText = done;
+    });
+
+    function renderQueue() {
+        document.getElementById('dispatch-queue').innerHTML = tripQueue.map((d,i) => `<div class="dest-pill d-flex justify-content-between"><span><b>${i+1}. ${d.name}</b></span><i class="bi bi-x-circle text-danger cursor-pointer" onclick="tripQueue.splice(${i},1);renderQueue()"></i></div>`).join('');
+        draftMarkersLayer.clearLayers();
+        tripQueue.forEach((d,i) => {
+            const icon = L.divIcon({ className:'custom-div-icon', html:`<div class='marker-pin' style='background:#f7b924'></div><div class='marker-num'>${i+1}</div>`, iconSize:[30,42], iconAnchor:[15,42] });
+            L.marker([d.lat,d.lng], {icon}).addTo(draftMarkersLayer);
+        });
+    }
+
+    async function submitTrip() {
+        const cid = document.getElementById('sel-courier').value; if(!cid || tripQueue.length===0) return alert("Pilih Kurir & Rute!");
+        const id = "TRIP_" + Date.now();
+        await db.collection('trips').doc(id).set({ tripId: id, courierId: cid, status: "assigned", date: firebase.firestore.Timestamp.now(), destinations: tripQueue.map((d,i) => ({ stopIndex: i+1, locationName: d.name, address: d.address, latitude: d.lat, longitude: d.lng, status: "pending", proofPhotoUrl: "" })) });
+        alert("Tugas Dikirim!"); tripQueue = []; renderQueue();
+    }
+
+    function openChat(id, name) {
+        currentChatId = id;
+        const mainH = document.getElementById('chat-header-main'); if(mainH) mainH.innerText = "Percakapan dengan: " + name;
+        if(chatUnsub) chatUnsub();
+        const col = id.startsWith('TRIP_') ? db.collection('trips').doc(id).collection('messages') : db.collection('chats').doc(id).collection('messages');
+        chatUnsub = col.orderBy('timestamp','asc').onSnapshot(snap => {
+            let html = ''; snap.forEach(d => { const m = d.data(); html += `<div class="msg ${m.senderId==='admin'?'admin':'courier'}">${m.text}</div>`; });
+            if(document.getElementById('chat-messages-main')) {
+                document.getElementById('chat-messages-main').innerHTML = html;
+                document.getElementById('chat-messages-main').scrollTop = 99999;
+            }
+        });
+    }
+
+    function openImagePopup(url) {
+        document.getElementById('modalImg').src = url;
+        document.getElementById('downloadBtn').href = url;
+        new bootstrap.Modal(document.getElementById('imageModal')).show();
+    }
+
+    async function updateConfig() {
+        const v = document.getElementById('cfg-interval').value;
+        const u = document.getElementById('cfg-time-unit').value;
+        const g = document.getElementById('cfg-geofence').value;
+        await db.collection('config').doc('tracking').set({ intervalMs: v * u, geofenceRadius: parseFloat(g), updatedAt: firebase.firestore.Timestamp.now() }, { merge: true });
+        const t = new bootstrap.Toast(document.getElementById('liveToast')); document.querySelector('.toast-body').innerText = "Berhasil Disinkronkan!"; t.show();
+    }
+
+    db.collection('config').doc('tracking').get().then(d => {
+        if(d.exists) {
+            const v = d.data();
+            if(document.getElementById('cfg-interval')) {
+                document.getElementById('cfg-interval').value = v.intervalMs >= 60000 ? v.intervalMs/60000 : v.intervalMs/1000;
+                document.getElementById('cfg-time-unit').value = v.intervalMs >= 60000 ? "60000" : "1000";
+            }
+            if(document.getElementById('cfg-geofence')) {
+                document.getElementById('cfg-geofence').value = v.geofenceRadius || 20;
             }
         }
-
-        // --- DATA SYNC ---
-        db.collection('users').onSnapshot(snap => {
-            const sel = document.getElementById('sel-courier');
-            sel.innerHTML = '<option value="">-- Pilih Kurir --</option>';
-            snap.forEach(doc => {
-                const u = doc.data(); registeredUsers[doc.id] = u.name || doc.id.substring(0,8);
-                if(u.role==='courier') sel.innerHTML += `<option value="${doc.id}">${registeredUsers[doc.id]}</option>`;
-            });
-        });
-
-        rtdb.ref('courier_live_location').on('value', snap => {
-            const data = snap.val() || {}; let km = 0, count = 0;
-            for (const id in data) {
-                const c = data[id]; count++; km += (c.totalDistanceKm || 0);
-                const pos = [c.lat, c.lng];
-                if (markers[id]) markers[id].setLatLng(pos);
-                else markers[id] = L.marker(pos).addTo(map).bindPopup(`<b>${registeredUsers[id]}</b>`);
-            }
-            document.getElementById('stat-online').innerText = count;
-            document.getElementById('stat-km').innerText = km.toFixed(1);
-        });
-
-        db.collection('trips').onSnapshot(snap => {
-            let active = 0, done = 0, mList = document.getElementById('monitor-list');
-            if(!mList) return; mList.innerHTML = ''; tripMarkersLayer.clearLayers();
-            snap.forEach(doc => {
-                const t = doc.data();
-                if(t.status==='completed') done++; else {
-                    active++;
-                    const cName = registeredUsers[t.courierId] || t.courierId.substring(0,8);
-                    mList.innerHTML += `<div class="col-md-6 col-lg-4"><div class="card-pro p-3 h-100 shadow-sm">
-                        <div class="d-flex justify-content-between mb-2"><b>${cName}</b> <span class="badge bg-info extra-small">${t.status}</span></div>
-                        ${t.destinations.map(d => `<div class="small dest-pill ${d.status}"><b>${d.stopIndex}. ${d.locationName}</b></div>`).join('')}
-                        <button class="btn btn-sm btn-dark w-100 mt-3" onclick="openChat('${doc.id}', 'Tugas ${cName}')">Chat Tugas</button>
-                    </div></div>`;
-                    t.destinations.forEach(d => {
-                        const lat = d.latitude || d.lat, lng = d.longitude || d.lng;
-                        if(lat && lng) {
-                            const isDone = d.status==='done';
-                            const icon = L.divIcon({ className: 'custom-div-icon '+(isDone?'marker-done':''), html: `<div class='marker-pin'></div><div class='marker-num'>${d.stopIndex}</div>`, iconSize:[30,42], iconAnchor:[15,42] });
-                            L.marker([lat,lng], {icon}).addTo(tripMarkersLayer).bindPopup(`<b>${cName} - ${d.stopIndex}</b><br>${d.locationName}<br>Status: ${d.status.toUpperCase()}`);
-                        }
-                    });
-                }
-            });
-            document.getElementById('stat-active').innerText = active;
-            document.getElementById('stat-done').innerText = done;
-        });
-
-        function renderQueue() {
-            document.getElementById('dispatch-queue').innerHTML = tripQueue.map((d,i) => `<div class="dest-pill d-flex justify-content-between"><span><b>${i+1}. ${d.name}</b></span><i class="bi bi-x-circle text-danger cursor-pointer" onclick="tripQueue.splice(${i},1);renderQueue()"></i></div>`).join('');
-            draftMarkersLayer.clearLayers();
-            tripQueue.forEach((d,i) => {
-                const icon = L.divIcon({ className:'custom-div-icon', html:`<div class='marker-pin' style='background:#f7b924'></div><div class='marker-num'>${i+1}</div>`, iconSize:[30,42], iconAnchor:[15,42] });
-                L.marker([d.lat,d.lng], {icon}).addTo(draftMarkersLayer);
-            });
-        }
-
-        async function submitTrip() {
-            const cid = document.getElementById('sel-courier').value; if(!cid || tripQueue.length===0) return alert("Lengkapi data!");
-            const id = "TRIP_" + Date.now();
-            await db.collection('trips').doc(id).set({ tripId: id, courierId: cid, status: "assigned", date: firebase.firestore.Timestamp.now(), destinations: tripQueue.map((d,i) => ({ stopIndex: i+1, locationName: d.name, address: d.address, latitude: d.lat, longitude: d.lng, status: "pending", proofPhotoUrl: "" })) });
-            alert("Tugas Dikirim!"); tripQueue = []; renderQueue();
-        }
-
-        function openChat(id, name) {
-            currentChatId = id;
-            const mainH = document.getElementById('chat-header-main'); if(mainH) mainH.innerText = "Percakapan dengan: " + name;
-            if(chatUnsub) chatUnsub();
-            const col = id.startsWith('TRIP_') ? db.collection('trips').doc(id).collection('messages') : db.collection('chats').doc(id).collection('messages');
-            chatUnsub = col.orderBy('timestamp','asc').onSnapshot(snap => {
-                let html = ''; snap.forEach(d => { const m = d.data(); html += `<div class="msg ${m.senderId==='admin'?'admin':'courier'}">${m.text}</div>`; });
-                if(document.getElementById('chat-messages-main')) { document.getElementById('chat-messages-main').innerHTML = html; document.getElementById('chat-messages-main').scrollTop = 99999; }
-            });
-        }
-        async function sendChatMain() {
-            const txt = document.getElementById('chat-input-main').value; if(!txt || !currentChatId) return;
-            const col = currentChatId.startsWith('TRIP_') ? db.collection('trips').doc(currentChatId).collection('messages') : db.collection('chats').doc(currentChatId).collection('messages');
-            await col.add({ senderId: 'admin', text: txt, timestamp: firebase.firestore.Timestamp.now() });
-            document.getElementById('chat-input-main').value = '';
-        }
-
-        async function updateConfig() {
-            const v = document.getElementById('cfg-interval').value, u = document.getElementById('cfg-time-unit').value, d = document.getElementById('cfg-distance').value, g = document.getElementById('cfg-geofence').value;
-            await db.collection('config').doc('tracking').set({ intervalMs: v * u, minDistance: parseFloat(d), geofenceRadius: parseFloat(g), updatedAt: firebase.firestore.Timestamp.now() });
-            const t = new bootstrap.Toast(document.getElementById('liveToast')); document.querySelector('.toast-body').innerText = "Berhasil Disinkronkan!"; t.show();
-        }
-
-        async function publishUpdateAuto() {
-            const ver = document.getElementById('upd-version').value;
-            const file = document.getElementById('upd-file').files[0];
-            if(!ver || !file) return alert("Lengkapi data update!");
-            const btn = event.target; btn.disabled = true;
-            const prog = document.getElementById('upd-progress'); prog.classList.remove('d-none');
-            const storageRef = firebase.storage().ref('updates/wtrack_v' + ver + '.apk');
-            const uploadTask = storageRef.put(file);
-            uploadTask.on('state_changed', (s) => { document.querySelector('.progress-bar').style.width = (s.bytesTransferred/s.totalBytes)*100 + '%'; }, (e) => { alert(e.message); btn.disabled=false; }, async () => {
-                const url = await uploadTask.snapshot.ref.getDownloadURL();
-                await db.collection('config').doc('app_status').set({ versionCode: parseInt(ver), downloadUrl: url, releasedAt: firebase.firestore.Timestamp.now() });
-                alert("Sukses Rilis!"); btn.disabled=false; prog.classList.add('d-none');
-            });
-        }
-
-        async function loadFullHistory() {
-            const date = document.getElementById('rep-date').value; if(!date) return;
-            const container = document.getElementById('history-list'); container.innerHTML = 'Memuat...';
-            const start = new Date(date); start.setHours(0,0,0,0); const end = new Date(date); end.setHours(23,59,59,999);
-            const snap = await db.collection('trips').where('date', '>=', firebase.firestore.Timestamp.fromDate(start)).where('date', '<=', firebase.firestore.Timestamp.fromDate(end)).get();
-            container.innerHTML = '';
-            const groups = {}; snap.forEach(doc => { const t = doc.data(); if(!groups[t.courierId]) groups[t.courierId] = []; groups[t.courierId].push({id: doc.id, ...t}); });
-            for (const cid in groups) {
-                const name = registeredUsers[cid], trips = groups[cid], totalKm = trips.reduce((acc, t) => acc + (t.totalDistanceKm || 0), 0);
-                const gEl = document.createElement('div');
-                gEl.innerHTML = `<div class="courier-group-header shadow-sm" onclick="this.nextElementSibling.classList.toggle('d-none')"><span><b>${name}</b> <small>Total: ${totalKm.toFixed(2)} KM</small></span><i class="bi bi-chevron-down"></i></div>
-                <div class="d-none pb-4">${trips.map(t => `<div class="card-pro p-3 mb-2 border shadow-sm" style="margin-left:20px"><b>ID: ${t.id.substring(0,8)}</b> - ${t.totalDistanceKm?.toFixed(2) || 0} KM<br>
-                ${t.destinations.map(d => `<div class="dest-pill ${d.status}"><b>${d.locationName}</b><br>${d.proofPhotoUrl ? `<img src="${d.proofPhotoUrl}" class="proof-img-thumb" onclick="openImagePopup('${d.proofPhotoUrl}')">`:''}</div>`).join('')}</div>`).join('')}</div>`;
-                container.appendChild(gEl);
-            }
-        }
-        function openImagePopup(url) { document.getElementById('modalImg').src = url; document.getElementById('downloadBtn').href = url; new bootstrap.Modal(document.getElementById('imageModal')).show(); }
-
-        // Initial Loads
-        db.collection('config').doc('cloudinary').get().then(d => { if(d.exists) { document.getElementById('cld-name').value = d.data().cloudName; document.getElementById('cld-preset').value = d.data().uploadPreset; }});
-        db.collection('config').doc('tracking').get().then(d => { if(d.exists) { const v = d.data(); document.getElementById('cfg-interval').value = v.intervalMs >= 60000 ? v.intervalMs/60000 : v.intervalMs/1000; document.getElementById('cfg-time-unit').value = v.intervalMs >= 60000 ? "60000" : "1000"; document.getElementById('cfg-distance').value = v.minDistance || 10; document.getElementById('cfg-geofence').value = v.geofenceRadius || 20; }});
-    </script>
+    });
+</script>
 </body>
 </html>
