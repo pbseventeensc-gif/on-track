@@ -14,7 +14,7 @@
         :root {
             --sidebar-gradient: linear-gradient(135deg, #3ac47d 0%, #2fac66 100%);
             --sidebar-width: 260px;
-            --sidebar-collapsed-width: 80px;
+            --sidebar-collapsed-width: 0px;
             --header-height: 65px;
             --primary-red: #d32f2f;
             --wellen-yellow: #f1c40f;
@@ -25,21 +25,21 @@
         body { background-color: #f1f4f6; font-family: 'Inter', sans-serif; margin: 0; padding: 0; overflow: hidden; }
 
         /* Layout Container */
-        .app-container { display: flex; height: 100vh; width: 100vw; overflow: hidden; }
+        .app-container { display: flex; height: 100vh; width: 100vw; overflow: hidden; position: relative; }
 
         /* Sidebar - Vertical by Default */
         .sidebar {
             width: var(--sidebar-width);
             background: #fff;
             box-shadow: 7px 0 60px rgba(0,0,0,0.05);
-            z-index: 1050;
+            z-index: 1100;
             display: flex;
             flex-direction: column;
-            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
         }
 
-        .sidebar.collapsed { width: var(--sidebar-collapsed-width); }
+        .sidebar.collapsed { transform: translateX(-100%); width: 0; position: absolute; }
 
         .sidebar-header {
             height: var(--header-height);
@@ -47,33 +47,24 @@
             align-items: center;
             padding: 0 20px;
             border-bottom: 1px solid #f0f0f0;
+            background: #fff;
             overflow: hidden;
             white-space: nowrap;
         }
 
-        .sidebar-menu { flex: 1; padding: 20px 15px; overflow-y: auto; overflow-x: hidden; }
+        .sidebar-menu { flex: 1; padding: 15px; overflow-y: auto; }
 
         .nav-link {
-            color: #555; font-weight: 600; padding: 12px 18px; border-radius: 10px; margin-bottom: 8px;
-            display: flex; align-items: center; cursor: pointer; transition: 0.3s;
+            color: #555; font-weight: 600; padding: 10px 15px; border-radius: 8px; margin-bottom: 3px;
+            display: flex; align-items: center; cursor: pointer; transition: 0.2s; font-size: 0.85rem;
             text-decoration: none !important;
-            white-space: nowrap;
         }
-        .nav-link i { font-size: 1.25rem; min-width: 25px; margin-right: 15px; transition: margin 0.3s; }
-        .nav-link span { transition: opacity 0.3s; opacity: 1; }
-
-        /* Active State */
+        .nav-link i { font-size: 1.1rem; margin-right: 12px; }
+        .nav-link:hover { background: #f8f9fa; color: var(--architect-green); }
         .nav-link.active { background: var(--sidebar-gradient); color: #fff !important; box-shadow: 0 4px 15px rgba(58, 196, 125, 0.3); }
         .nav-link.active i { color: #fff !important; }
 
-        /* Collapsed Sidebar Tweaks */
-        .sidebar.collapsed .nav-link span { opacity: 0; pointer-events: none; width: 0; }
-        .sidebar.collapsed .nav-link i { margin-right: 0; }
-        .sidebar.collapsed .nav-link { justify-content: center; padding: 12px 0; }
-        .sidebar.collapsed .sidebar-hide { display: none !important; }
-        .sidebar.collapsed .menu-label { display: none; }
-
-        .menu-label { font-size: 0.7rem; font-weight: 800; color: #ced4da; text-transform: uppercase; padding: 15px 0 10px 15px; }
+        .menu-label { font-size: 0.65rem; font-weight: 800; color: #ced4da; text-transform: uppercase; padding: 15px 0 8px 15px; }
 
         /* Main Content Area */
         .main-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
@@ -85,20 +76,22 @@
             border-bottom: 1px solid #f0f0f0;
             display: flex;
             align-items: center;
-            padding: 0 25px;
+            padding: 0 20px;
             justify-content: space-between;
-            z-index: 1000;
+            position: sticky;
+            top: 0;
+            z-index: 900;
         }
 
         /* Content Body */
-        .content-body { flex: 1; overflow-y: auto; padding: 25px; }
+        .content-body { flex: 1; overflow-y: auto; padding: 20px; }
         .view-section { display: none; }
         .view-section.active { display: block; }
 
         /* Components Styles */
         .card-pro {
             background: #fff; border: none; border-radius: 12px; margin-bottom: 25px;
-            box-shadow: 0 0.46875rem 2.1875rem rgba(4, 9, 20, 0.03), 0 0.9375rem 1.40625rem rgba(4, 9, 20, 0.03);
+            box-shadow: 0 0.46875rem 2.1875rem rgba(4, 9, 20, 0.03);
         }
         .card-header-pro { padding: 15px 25px; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; font-weight: 700; color: #495057; }
 
@@ -109,42 +102,29 @@
         #map { height: 400px; width: 100%; border-radius: 12px; border: 1px solid #eee; }
 
         /* Responsive Fixes */
-        @media (max-width: 768px) {
+        @media (max-width: 992px) {
             .app-container { flex-direction: column; }
             .sidebar {
-                width: 100%; height: auto; position: fixed; bottom: 0; left: 0; top: auto;
-                flex-direction: row; box-shadow: 0 -5px 20px rgba(0,0,0,0.1);
-                border-top: 1px solid #eee;
+                width: 100%; height: auto; border-right: none; border-bottom: 1px solid #eee;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+                position: relative; transform: none;
             }
-            .sidebar-header, .menu-label, .sidebar-content hr { display: none; }
-            .sidebar-menu { display: flex; flex-direction: row; justify-content: space-around; padding: 10px; width: 100%; overflow: visible; }
-            .nav-link { flex-direction: column; padding: 8px; margin-bottom: 0; background: none !important; box-shadow: none !important; }
-            .nav-link i { margin-right: 0; margin-bottom: 4px; color: #aaa; }
-            .nav-link span { font-size: 0.65rem; }
-            .nav-link.active i, .nav-link.active span { color: var(--architect-green) !important; }
-
-            .main-content { margin-bottom: 70px; }
-            .top-bar { padding: 0 15px; height: 55px; }
+            .sidebar.collapsed { width: 100%; position: relative; transform: none; }
+            .sidebar-header { height: 50px; padding: 10px; }
+            .sidebar-menu {
+                display: flex; flex-direction: row; overflow-x: auto; padding: 5px 10px;
+                white-space: nowrap; -webkit-overflow-scrolling: touch;
+            }
+            .nav-link { margin-bottom: 0; margin-right: 5px; padding: 8px 12px; flex-direction: column; height: auto; }
+            .nav-link i { margin-right: 0; margin-bottom: 4px; }
+            .menu-label, .sidebar-header span { display: none; }
+            .main-content { height: auto; overflow: visible; }
             .content-body { padding: 15px; }
-            #map { height: 300px; }
+            #map { height: 350px; }
+            .top-bar { padding: 0 15px; border-top: 1px solid #f0f0f0; }
         }
 
-        /* Auto-suggest */
-        #search-results { position: absolute; top: 100%; left: 0; right: 0; background: white; z-index: 2000; border-radius: 0 0 12px 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); display: none; max-height: 250px; overflow-y: auto; }
-        .search-item { padding: 12px 20px; border-bottom: 1px solid #f8f9fa; cursor: pointer; }
-        .search-item:hover { background: #f1f4f6; }
-
-        /* Chat Pop-up */
-        #chat-window { position: fixed; bottom: 85px; right: 20px; width: 340px; height: 480px; background: white; border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); display: none; flex-direction: column; z-index: 2000; border: 1px solid #eee; }
-        @media (max-width: 768px) { #chat-window { width: 92vw; height: 80vh; bottom: 80px; right: 4vw; } }
-
-        /* History Cards */
-        .courier-group-header { background: #2d2f39; color: white; padding: 15px 20px; border-radius: 12px; margin-bottom: 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
-        .dest-pill { background: #f8f9fa; padding: 10px; border-radius: 8px; margin-top: 8px; border-left: 4px solid #ddd; }
-        .dest-pill.done { border-left-color: #3ac47d; background: #f4fff9; }
-        .proof-img-thumb { width: 60px; height: 60px; object-fit: cover; border-radius: 6px; margin-top: 10px; border: 2px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: pointer; transition: 0.3s; }
-
-        /* NUMBERED MARKER STYLES */
+        /* Numbered Markers */
         .custom-div-icon { background: none; border: none; }
         .marker-pin {
             width: 30px; height: 30px; border-radius: 50% 50% 50% 0;
@@ -162,9 +142,24 @@
             line-height: 30px; text-align: center;
             font-weight: 800; font-size: 13px; color: #333; z-index: 10;
         }
-        .marker-done .marker-pin { background: #3ac47d !important; } /* Green for Success */
+        .marker-done .marker-pin { background: #3ac47d !important; }
 
-        /* IMAGE POPUP MODAL */
+        /* Proof Photo */
+        .proof-img-thumb { width: 60px; height: 60px; object-fit: cover; border-radius: 6px; margin-top: 10px; border: 2px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: pointer; transition: 0.3s; }
+
+        /* Chat Pop-up */
+        #chat-window { position: fixed; bottom: 30px; right: 30px; width: 340px; height: 480px; background: white; border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); display: none; flex-direction: column; z-index: 2000; border: 1px solid #eee; }
+        .chat-messages { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; background: #fdfdfd; }
+        .msg { max-width: 80%; padding: 10px 15px; border-radius: 15px; margin-bottom: 8px; font-size: 0.85rem; }
+        .msg.admin { align-self: flex-end; background: #3f6ad8; color: #fff; border-bottom-right-radius: 2px; }
+        .msg.courier { align-self: flex-start; background: #eef2f7; color: #333; border-bottom-left-radius: 2px; }
+
+        /* History */
+        .courier-group-header { background: #2d2f39; color: white; padding: 15px 20px; border-radius: 12px; margin-bottom: 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+        .dest-pill { background: #f8f9fa; padding: 10px; border-radius: 8px; margin-top: 8px; border-left: 4px solid #ddd; }
+        .dest-pill.done { border-left-color: #3ac47d; background: #f4fff9; }
+
+        /* Modal Download */
         .modal-body { position: relative; }
         .download-btn { position: absolute; bottom: 20px; right: 20px; z-index: 10; }
     </style>
@@ -172,7 +167,7 @@
 <body>
 
     <div class="app-container">
-        <!-- SIDEBAR (Left on PC, Bottom on Mobile) -->
+        <!-- SIDEBAR -->
         <aside class="sidebar">
             <div class="sidebar-header">
                 <i class="bi bi-list fs-3 me-2 cursor-pointer" onclick="toggleSidebar()"></i>
@@ -190,16 +185,12 @@
             </nav>
         </aside>
 
-        <!-- MAIN AREA -->
+        <!-- MAIN -->
         <main class="main-content">
-            <!-- TOP BAR -->
             <header class="top-bar">
-                <div class="d-flex align-items-center">
-                    <button class="btn btn-sm btn-light border-0 me-3 d-none d-md-block" onclick="toggleSidebar()"><i class="bi bi-list fs-4"></i></button>
-                    <h5 class="m-0 fw-bold text-secondary" id="page-title">Analytics Dashboard</h5>
-                </div>
+                <h5 class="m-0 fw-bold text-secondary" id="page-title">Analytics Dashboard</h5>
                 <div class="d-flex align-items-center gap-3">
-                    <button class="btn btn-sm btn-outline-danger d-none d-md-block" onclick="clearAllHistoryData()"><i class="bi bi-trash"></i> Hapus Data</button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="clearAllHistoryData()"><i class="bi bi-trash"></i> Hapus Data</button>
                     <div class="profile-chip d-flex align-items-center gap-2 bg-light p-1 pe-3 rounded-pill">
                         <img src="https://ui-avatars.com/api/?name=Admin+Wellen&background=3ac47d&color=fff" style="width:30px; border-radius:50%;">
                         <span class="small fw-bold d-none d-sm-inline">Admin</span>
@@ -207,199 +198,117 @@
                 </div>
             </header>
 
-            <!-- CONTENT BODY -->
             <div class="content-body">
-
-                <!-- ALWAYS VISIBLE MAP (Unless on Reports/Settings) -->
+                <!-- MAP -->
                 <div id="global-map-container" class="card-pro overflow-hidden">
                     <div class="card-header-pro bg-light">
-                        <span class="small text-uppercase"><i class="bi bi-geo-alt-fill text-danger me-2"></i>Live Monitoring Map</span>
-                        <span class="badge bg-success small">Live</span>
+                        <span class="small text-uppercase fw-bold"><i class="bi bi-geo-alt-fill text-danger me-2"></i>Live Monitoring Map</span>
+                        <span class="badge bg-success small">Real-time GPS</span>
                     </div>
                     <div class="p-0"><div id="map"></div></div>
                 </div>
 
-                <!-- VIEW 1: DASHBOARD -->
+                <!-- DASHBOARD -->
                 <div id="view-dashboard" class="view-section active">
                     <div class="row g-3">
-                        <div class="col-6 col-md-3">
-                            <div class="card-pro p-3 d-flex align-items-center">
-                                <div class="stat-icon bg-primary"><i class="bi bi-activity"></i></div>
-                                <div><div class="val" id="stat-active">0</div><div class="lab">Aktif</div></div>
-                            </div>
-                        </div>
-                        <div class="col-6 col-md-3">
-                            <div class="card-pro p-3 d-flex align-items-center">
-                                <div class="stat-icon bg-success"><i class="bi bi-people"></i></div>
-                                <div><div class="val" id="stat-online">0</div><div class="lab">Online</div></div>
-                            </div>
-                        </div>
-                        <div class="col-6 col-md-3">
-                            <div class="card-pro p-3 d-flex align-items-center">
-                                <div class="stat-icon bg-danger"><i class="bi bi-speedometer2"></i></div>
-                                <div><div class="val" id="stat-km">0.0</div><div class="lab">Total KM</div></div>
-                            </div>
-                        </div>
-                        <div class="col-6 col-md-3">
-                            <div class="card-pro p-3 d-flex align-items-center">
-                                <div class="stat-icon bg-warning"><i class="bi bi-check-circle"></i></div>
-                                <div><div class="val" id="stat-done">0</div><div class="lab">Selesai</div></div>
-                            </div>
-                        </div>
+                        <div class="col-6 col-md-3"><div class="card-pro p-3 d-flex align-items-center"><div class="stat-icon bg-primary"><i class="bi bi-activity"></i></div><div><div class="val" id="stat-active">0</div><div class="lab">Aktif</div></div></div></div>
+                        <div class="col-6 col-md-3"><div class="card-pro p-3 d-flex align-items-center"><div class="stat-icon bg-success"><i class="bi bi-people"></i></div><div><div class="val" id="stat-online">0</div><div class="lab">Online</div></div></div></div>
+                        <div class="col-6 col-md-3"><div class="card-pro p-3 d-flex align-items-center"><div class="stat-icon bg-danger"><i class="bi bi-speedometer2"></i></div><div><div class="val" id="stat-km">0.0</div><div class="lab">Total KM</div></div></div></div>
+                        <div class="col-6 col-md-3"><div class="card-pro p-3 d-flex align-items-center"><div class="stat-icon bg-warning"><i class="bi bi-check-circle"></i></div><div><div class="val" id="stat-done">0</div><div class="lab">Selesai</div></div></div></div>
                     </div>
                 </div>
 
-                <!-- VIEW 2: DISPATCH -->
+                <!-- DISPATCH -->
                 <div id="view-dispatch" class="view-section">
                     <div class="card-pro p-4">
                         <div class="row g-3">
-                            <div class="col-md-3">
-                                <label class="small fw-bold text-muted">Pilih Kurir</label>
-                                <select id="sel-courier" class="form-select shadow-none"></select>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="small fw-bold text-muted">Cari Lokasi</label>
-                                <div class="position-relative">
-                                    <input type="text" class="form-control shadow-none" placeholder="Ketik nama PT / Alamat..." oninput="autoSuggest(this.value)">
-                                    <div id="search-results"></div>
-                                </div>
-                            </div>
-                            <div class="col-md-3 text-end d-flex align-items-end">
-                                <button class="btn btn-primary w-100 fw-bold py-2 shadow-sm" onclick="submitTrip()">KIRIM TUGAS</button>
-                            </div>
+                            <div class="col-md-3"><label class="small fw-bold text-muted">Pilih Kurir</label><select id="sel-courier" class="form-select"></select></div>
+                            <div class="col-md-6"><label class="small fw-bold text-muted">Cari Lokasi</label><div class="position-relative"><input type="text" class="form-control" placeholder="Ketik nama PT / Alamat..." oninput="autoSuggest(this.value)"><div id="search-results"></div></div></div>
+                            <div class="col-md-3 d-flex align-items-end"><button class="btn btn-primary w-100 fw-bold py-2" onclick="submitTrip()">KIRIM TUGAS</button></div>
                         </div>
                         <div id="dispatch-queue" class="mt-3"></div>
                     </div>
                 </div>
 
-                <!-- VIEW 3: LIVE MONITOR -->
-                <div id="view-monitor" class="view-section">
-                    <div id="monitor-list" class="row g-3"></div>
-                </div>
+                <!-- MONITOR -->
+                <div id="view-monitor" class="view-section"><div id="monitor-list" class="row g-3"></div></div>
 
-                <!-- VIEW 4: REPORTS -->
+                <!-- REPORTS -->
                 <div id="view-reports" class="view-section">
                     <div class="card-pro p-4">
-                        <div class="d-flex justify-content-between mb-4">
-                            <h6 class="fw-bold m-0">Laporan Riwayat</h6>
-                            <input type="date" id="rep-date" class="form-control" style="width:180px;" onchange="loadFullHistory()">
-                        </div>
+                        <div class="d-flex justify-content-between mb-4"><h6>Riwayat Perjalanan</h6><input type="date" id="rep-date" class="form-control" style="width:180px;" onchange="loadFullHistory()"></div>
                         <div id="history-list"></div>
                     </div>
                 </div>
 
-                <!-- VIEW 5: SETTINGS -->
+                <!-- SETTINGS -->
                 <div id="view-settings" class="view-section">
-                    <h5 class="fw-bold mb-4">Konfigurasi Sistem</h5>
-
-                    <!-- NEW: APP UPDATE FEATURE -->
                     <div class="card-pro p-4 mb-4">
-                        <h6 class="fw-bold mb-3 text-primary"><i class="bi bi-cloud-arrow-up me-2"></i>Rilis Update Aplikasi Baru</h6>
+                        <h6 class="fw-bold mb-3">Rilis Update Aplikasi</h6>
                         <div class="row g-3">
-                            <div class="col-md-4">
-                                <label class="small fw-bold">Versi Kode Baru (Angka)</label>
-                                <input type="number" id="upd-version" class="form-control shadow-none" placeholder="Contoh: 2">
-                            </div>
-                            <div class="col-md-8">
-                                <label class="small fw-bold">Link Download APK (Google Drive/Lainnya)</label>
-                                <input type="text" id="upd-url" class="form-control shadow-none" placeholder="https://drive.google.com/...">
-                            </div>
+                            <div class="col-md-4"><label class="small fw-bold">Versi Kode</label><input type="number" id="upd-version" class="form-control"></div>
+                            <div class="col-md-8"><label class="small fw-bold">Link Download APK</label><input type="text" id="upd-url" class="form-control"></div>
                         </div>
-                        <button class="btn btn-primary mt-3 fw-bold shadow-sm px-4" onclick="publishUpdate()"><i class="bi bi-broadcast me-2"></i>Kirim Notif Update ke Semua HP</button>
+                        <button class="btn btn-primary mt-3" onclick="publishUpdate()">Kirim Notif Update</button>
                     </div>
-
                     <div class="row g-4">
                         <div class="col-md-6">
                             <div class="card-pro p-4">
-                                <h6 class="fw-bold mb-4">Konfigurasi Sinkronisasi</h6>
+                                <h6 class="fw-bold mb-3">Sinkronisasi GPS</h6>
                                 <label class="small fw-bold">Interval Waktu</label>
                                 <div class="input-group mb-3">
-                                    <input type="number" id="cfg-interval" class="form-control shadow-none" value="10">
-                                    <select id="cfg-time-unit" class="form-select shadow-none">
-                                        <option value="1000">Detik</option>
-                                        <option value="60000">Menit</option>
-                                    </select>
+                                    <input type="number" id="cfg-interval" class="form-control" value="10">
+                                    <select id="cfg-time-unit" class="form-select"><option value="1000">Detik</option><option value="60000">Menit</option></select>
                                 </div>
-                                <label class="small fw-bold">Radius Filter (Meter)</label>
+                                <label class="small fw-bold text-danger">Radius Validasi Selesai (Geofence)</label>
                                 <div class="input-group mb-4">
-                                    <input type="number" id="cfg-distance" class="form-control shadow-none" value="10">
-                                    <span class="input-group-text">Meter</span>
+                                    <input type="number" id="cfg-geofence" class="form-control border-danger" value="20">
+                                    <span class="input-group-text bg-danger text-white">Meter</span>
                                 </div>
-                                <button class="btn btn-dark w-100 fw-bold" onclick="updateConfig()">SIMPAN & TERAPKAN KE SEMUA HP</button>
+                                <button class="btn btn-dark w-100" onclick="updateConfig()">Terapkan Aturan</button>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="card-pro p-4">
-                                <h6 class="fw-bold mb-3">Cloudinary Storage</h6>
+                                <h6 class="fw-bold mb-3">Cloudinary</h6>
                                 <input type="text" id="cld-name" class="form-control mb-2" placeholder="Cloud Name">
                                 <input type="text" id="cld-preset" class="form-control mb-4" placeholder="Upload Preset">
-                                <button class="btn btn-primary btn-sm w-100" onclick="saveCloudinary()">Hubungkan</button>
+                                <button class="btn btn-primary w-100" onclick="saveCloudinary()">Simpan</button>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- VIEW 6: CHAT -->
+                <!-- CHAT -->
                 <div id="view-chat" class="view-section">
                     <div class="row g-4">
-                        <div class="col-md-4">
-                            <div class="card-pro p-4">
-                                <h6 class="fw-bold mb-3">Daftar Kurir</h6>
-                                <div id="chat-list-container" style="max-height: 500px; overflow-y: auto;">
-                                    <!-- Dynamic List -->
-                                </div>
-                            </div>
-                        </div>
+                        <div class="col-md-4"><div class="card-pro p-4"><h6>Daftar Kurir</h6><div id="chat-list-container" style="max-height: 500px; overflow-y: auto;"></div></div></div>
                         <div class="col-md-8">
                             <div class="card-pro p-4 d-flex flex-column" style="height: 600px;">
-                                <h6 class="fw-bold mb-3 border-bottom pb-2">Jendela Percakapan</h6>
-                                <div id="chat-messages-main" class="chat-messages flex-grow-1" style="background:#fdfdfd; border-radius:10px; padding:15px; overflow-y:auto; display:flex; flex-direction:column;">
-                                    <p class="text-center text-muted my-auto">Pilih kurir di sebelah kiri untuk mulai mengobrol.</p>
-                                </div>
-                                <div class="mt-3 d-flex">
-                                    <input type="text" id="chat-input-main" class="form-control me-2" placeholder="Tulis instruksi..." onkeypress="if(event.key==='Enter') sendChatMain()">
-                                    <button class="btn btn-primary" onclick="sendChatMain()"><i class="bi bi-send"></i></button>
-                                </div>
+                                <h6 class="border-bottom pb-2">Jendela Percakapan</h6>
+                                <div id="chat-messages-main" class="chat-messages flex-grow-1"></div>
+                                <div class="mt-3 d-flex"><input type="text" id="chat-input-main" class="form-control me-2" placeholder="Tulis instruksi..." onkeypress="if(event.key==='Enter') sendChatMain()"><button class="btn btn-primary" onclick="sendChatMain()"><i class="bi bi-send"></i></button></div>
                             </div>
                         </div>
                     </div>
                 </div>
-
             </div>
         </main>
     </div>
 
-    <!-- CHAT WINDOW -->
+    <!-- CHAT POPUP -->
     <div id="chat-window">
-        <div class="chat-header">
-            <span id="chat-user-name" class="small fw-bold">Chat</span>
-            <i class="bi bi-x-lg cursor-pointer" onclick="closeChat()"></i>
-        </div>
+        <div class="chat-header"><span id="chat-user-name">Chat</span><i class="bi bi-x-lg cursor-pointer" onclick="closeChat()"></i></div>
         <div id="chat-msgs" class="chat-messages"></div>
-        <div class="p-3 border-top d-flex">
-            <input type="text" id="chat-input" class="form-control form-control-sm me-2 border-0 bg-light" placeholder="Ketik pesan..." onkeypress="if(event.key==='Enter') sendChat()">
-            <button class="btn btn-primary rounded-pill px-3" onclick="sendChat()"><i class="bi bi-send"></i></button>
-        </div>
+        <div class="p-3 border-top d-flex"><input type="text" id="chat-input" class="form-control me-2" placeholder="Ketik..." onkeypress="if(event.key==='Enter') sendChat()"><button class="btn btn-primary px-3" onclick="sendChat()"><i class="bi bi-send"></i></button></div>
     </div>
+
+    <!-- TOAST -->
+    <div class="toast-container position-fixed top-0 start-50 translate-middle-x p-3"><div id="liveToast" class="toast align-items-center text-white bg-success border-0 shadow-lg" role="alert"><div class="d-flex p-2"><div class="toast-body"></div></div></div></div>
 
     <!-- IMAGE POPUP -->
-    <div class="modal fade" id="imageModal" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content border-0">
-                <div class="modal-body p-0 text-center position-relative shadow-lg" style="background: #000; border-radius: 12px; overflow: hidden;">
-                    <img id="modalImg" src="" style="max-width: 100%; max-height: 80vh;">
-                    <button type="button" class="btn btn-light rounded-circle position-absolute top-0 end-0 m-3 shadow" data-bs-dismiss="modal"><i class="bi bi-x"></i></button>
-                    <div class="p-3 bg-white d-flex justify-content-center">
-                        <a id="downloadBtn" href="#" download="bukti_pengantaran.jpg" class="btn btn-primary btn-sm px-4 fw-bold">
-                            <i class="bi bi-download me-2"></i> Download Foto
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+    <div class="modal fade" id="imageModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content border-0"><div class="modal-body p-0 text-center"><img id="modalImg" src="" style="max-width:100%; border-radius:12px;"><button type="button" class="btn btn-light position-absolute top-0 end-0 m-3" data-bs-dismiss="modal"><i class="bi bi-x"></i></button><a id="downloadBtn" href="#" download class="btn btn-primary download-btn">Download</a></div></div></div></div>
 
-    <!-- Firebase & Scripts -->
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -423,41 +332,34 @@
 
         const markers = {}, registeredUsers = {};
         const tripMarkersLayer = L.layerGroup().addTo(map);
-        let tripQueue = [], currentChatId = null, chatUnsub = null;
+        const draftMarkersLayer = L.layerGroup().addTo(map);
+        let tripQueue = [], currentChatId = null, chatUnsub = null, globalChatUnsub = null;
 
         function toggleSidebar() { document.querySelector('.sidebar').classList.toggle('collapsed'); setTimeout(() => map.invalidateSize(), 300); }
 
         function switchTab(viewId, el) {
             document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
-            document.getElementById('view-'+viewId).classList.add('active');
-            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
-            el.classList.add('active');
+            const target = document.getElementById('view-'+viewId); if(target) target.classList.add('active');
+            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active')); el.classList.add('active');
             document.getElementById('page-title').innerText = el.querySelector('span').innerText;
 
             const mapContainer = document.getElementById('global-map-container');
             if(viewId==='reports' || viewId==='settings' || viewId==='chat') mapContainer.classList.add('d-none');
             else { mapContainer.classList.remove('d-none'); setTimeout(() => map.invalidateSize(), 300); }
-
             if(viewId === 'chat') loadChatList();
         }
 
         function loadChatList() {
-            const el = document.getElementById('chat-list-container');
-            el.innerHTML = '';
+            const el = document.getElementById('chat-list-container'); el.innerHTML = '';
             for (const id in registeredUsers) {
                 const name = registeredUsers[id];
-                el.innerHTML += `
-                    <div class="courier-group-header mb-2 py-2 px-3 shadow-none" style="background:#f8f9fa; color:#333; border:1px solid #eee;" onclick="openChat('${id}', '${name}')">
-                        <span><i class="bi bi-person-circle me-2"></i> ${name}</span>
-                        <i class="bi bi-chat-dots text-primary"></i>
-                    </div>`;
+                el.innerHTML += `<div class="courier-group-header mb-2 py-2 shadow-none" style="background:#f8f9fa; color:#333; border:1px solid #eee;" onclick="openChat('${id}', '${name}')"><span>${name}</span><i class="bi bi-chat-dots text-primary"></i></div>`;
             }
         }
 
         // --- DATA SYNC ---
         db.collection('users').onSnapshot(snap => {
-            const sel = document.getElementById('sel-courier');
-            sel.innerHTML = '<option value="">-- Pilih Kurir --</option>';
+            const sel = document.getElementById('sel-courier'); sel.innerHTML = '<option value="">-- Pilih Kurir --</option>';
             snap.forEach(doc => {
                 const u = doc.data(); registeredUsers[doc.id] = u.name || doc.id.substring(0,8);
                 if(u.role==='courier') sel.innerHTML += `<option value="${doc.id}">${registeredUsers[doc.id]}</option>`;
@@ -467,36 +369,34 @@
         rtdb.ref('courier_live_location').on('value', snap => {
             const data = snap.val() || {}; let km = 0, count = 0;
             for (const id in data) {
-                const c = data[id]; count++; km += c.totalDistanceKm;
+                const c = data[id]; count++; km += (c.totalDistanceKm || 0);
                 const pos = [c.lat, c.lng];
                 if (markers[id]) markers[id].setLatLng(pos);
                 else markers[id] = L.marker(pos).addTo(map).bindPopup(`<b>${registeredUsers[id]}</b>`);
             }
-            document.getElementById('stat-online').innerText = count;
-            document.getElementById('stat-km').innerText = km.toFixed(1);
+            document.getElementById('stat-online').innerText = count; document.getElementById('stat-km').innerText = km.toFixed(1);
         });
 
         db.collection('trips').onSnapshot(snap => {
             let active = 0, done = 0, mList = document.getElementById('monitor-list');
-            mList.innerHTML = ''; tripMarkersLayer.clearLayers();
+            if(!mList) return; mList.innerHTML = ''; tripMarkersLayer.clearLayers();
             snap.forEach(doc => {
                 const t = doc.data();
                 if(t.status==='completed') done++; else {
                     active++;
-                    mList.innerHTML += `<div class="col-md-6 col-lg-4"><div class="card-pro p-3 h-100 shadow-sm">
-                        <div class="d-flex justify-content-between mb-2"><b>${registeredUsers[t.courierId] || 'Kurir'}</b> <span class="badge bg-info text-dark extra-small">${t.status}</span></div>
-                        ${t.destinations.map(d => `<div class="small dest-pill ${d.status}"><b>${d.locationName}</b></div>`).join('')}
-                        <button class="btn btn-sm btn-dark w-100 mt-3" onclick="openChat('${doc.id}', 'Tugas ${registeredUsers[t.courierId]}')">Chat Tugas</button>
-                    </div></div>`;
+                    const cName = registeredUsers[t.courierId] || t.courierId.substring(0,8);
+                    mList.innerHTML += `<div class="col-md-6 col-lg-4"><div class="card-pro p-3 h-100 shadow-sm"><div class="d-flex justify-content-between mb-2"><b>${cName}</b><span class="badge bg-info extra-small">${t.status}</span></div>${t.destinations.map(d => `<div class="small dest-pill ${d.status}"><b>${d.stopIndex}. ${d.locationName}</b></div>`).join('')}<button class="btn btn-sm btn-dark w-100 mt-3" onclick="openChat('${doc.id}', 'Tugas ${cName}')">Chat Tugas</button></div></div>`;
                     t.destinations.forEach(d => {
-                        const color = d.status==='done' ? 'marker-done' : '';
-                        const icon = L.divIcon({ className: 'custom-div-icon '+color, html: `<div class='marker-pin'></div><div class='marker-num'>${d.stopIndex}</div>`, iconSize: [30, 42], iconAnchor: [15, 42] });
-                        L.marker([d.latitude, d.longitude], {icon}).addTo(tripMarkersLayer).bindPopup(`<b>${d.stopIndex}. ${d.locationName}</b>`);
+                        const lat = d.latitude || d.lat, lng = d.longitude || d.lng;
+                        if(lat && lng) {
+                            const isDone = d.status==='done';
+                            const icon = L.divIcon({ className: 'custom-div-icon '+(isDone?'marker-done':''), html: `<div class='marker-pin'></div><div class='marker-num'>${d.stopIndex}</div>`, iconSize:[30,42], iconAnchor:[15,42] });
+                            L.marker([lat,lng], {icon}).addTo(tripMarkersLayer).bindPopup(`<b>${cName} - ${d.stopIndex}</b><br>${d.locationName}<br>Status: ${d.status.toUpperCase()}`);
+                        }
                     });
                 }
             });
-            document.getElementById('stat-active').innerText = active;
-            document.getElementById('stat-done').innerText = done;
+            document.getElementById('stat-active').innerText = active; document.getElementById('stat-done').innerText = done;
         });
 
         // --- LOGIC ---
@@ -504,12 +404,16 @@
             const name = prompt("Nama Tempat:"); if(!name) return;
             const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${e.latlng.lat}&lon=${e.latlng.lng}`);
             const data = await res.json();
-            tripQueue.push({ name, address: data.display_name, lat: e.latlng.lat, lng: e.latlng.lng });
-            renderQueue();
+            tripQueue.push({ name, address: data.display_name, lat: e.latlng.lat, lng: e.latlng.lng }); renderQueue();
         });
 
         function renderQueue() {
             document.getElementById('dispatch-queue').innerHTML = tripQueue.map((d,i) => `<div class="dest-pill d-flex justify-content-between"><span><b>${i+1}. ${d.name}</b></span><i class="bi bi-x-circle text-danger cursor-pointer" onclick="tripQueue.splice(${i},1);renderQueue()"></i></div>`).join('');
+            draftMarkersLayer.clearLayers();
+            tripQueue.forEach((d,i) => {
+                const icon = L.divIcon({ className:'custom-div-icon', html:`<div class='marker-pin' style='background:#f7b924'></div><div class='marker-num'>${i+1}</div>`, iconSize:[30,42], iconAnchor:[15,42] });
+                L.marker([d.lat,d.lng], {icon}).addTo(draftMarkersLayer);
+            });
         }
 
         async function submitTrip() {
@@ -520,213 +424,52 @@
         }
 
         function openChat(id, name) {
-            currentChatId = id;
-
-            // Handle Pop-up Chat
-            document.getElementById('chat-user-name').innerText = name;
-            document.getElementById('chat-window').style.display = 'flex';
-
-            // Handle Main Page Chat (if in chat tab)
-            const mainHeader = document.querySelector('#view-chat h6.border-bottom');
-            if(mainHeader) mainHeader.innerText = "Percakapan dengan: " + name;
-
+            currentChatId = id; document.getElementById('chat-user-name').innerText = name; document.getElementById('chat-window').style.display = 'flex';
+            const mainH = document.querySelector('#view-chat h6.border-bottom'); if(mainH) mainH.innerText = "Percakapan dengan: " + name;
             if(chatUnsub) chatUnsub();
             const col = id.startsWith('TRIP_') ? db.collection('trips').doc(id).collection('messages') : db.collection('chats').doc(id).collection('messages');
             chatUnsub = col.orderBy('timestamp','asc').onSnapshot(snap => {
-                const popupMsgs = document.getElementById('chat-msgs');
-                const mainMsgs = document.getElementById('chat-messages-main');
-
-                let html = '';
-                snap.forEach(d => {
-                    const m = d.data();
-                    html += `<div class="msg ${m.senderId==='admin'?'admin':'courier'}">${m.text}</div>`;
-                });
-
-                if(popupMsgs) {
-                    popupMsgs.innerHTML = html;
-                    popupMsgs.scrollTop = popupMsgs.scrollHeight;
-                }
-                if(mainMsgs) {
-                    mainMsgs.innerHTML = html;
-                    mainMsgs.scrollTop = mainMsgs.scrollHeight;
-                }
+                let html = ''; snap.forEach(d => { const m = d.data(); html += `<div class="msg ${m.senderId==='admin'?'admin':'courier'}">${m.text}</div>`; });
+                document.getElementById('chat-msgs').innerHTML = html; document.getElementById('chat-msgs').scrollTop = 99999;
+                if(document.getElementById('chat-messages-main')) { document.getElementById('chat-messages-main').innerHTML = html; document.getElementById('chat-messages-main').scrollTop = 99999; }
             });
-        }
-
-        async function sendChatMain() {
-            const txt = document.getElementById('chat-input-main').value;
-            if(!txt || !currentChatId) return;
-            const col = currentChatId.startsWith('TRIP_') ? db.collection('trips').doc(currentChatId).collection('messages') : db.collection('chats').doc(currentChatId).collection('messages');
-            await col.add({ senderId: 'admin', text: txt, timestamp: firebase.firestore.Timestamp.now() });
-            document.getElementById('chat-input-main').value = '';
         }
         function closeChat() { document.getElementById('chat-window').style.display = 'none'; }
-
-        function openImagePopup(url) {
-            document.getElementById('modalImg').src = url;
-            document.getElementById('downloadBtn').href = url;
-            new bootstrap.Modal(document.getElementById('imageModal')).show();
-        }
-        async function sendChat() {
-            const txt = document.getElementById('chat-input').value; if(!txt || !currentChatId) return;
-            const col = currentChatId.startsWith('TRIP_') ? db.collection('trips').doc(currentChatId).collection('messages') : db.collection('chats').doc(currentChatId).collection('messages');
-            await col.add({ senderId: 'admin', text: txt, timestamp: firebase.firestore.Timestamp.now() });
-            document.getElementById('chat-input').value = '';
-        }
+        function openImagePopup(url) { document.getElementById('modalImg').src = url; document.getElementById('downloadBtn').href = url; new bootstrap.Modal(document.getElementById('imageModal')).show(); }
 
         async function updateConfig() {
-            const val = document.getElementById('cfg-interval').value;
-            const unit = document.getElementById('cfg-time-unit').value;
-            const dist = document.getElementById('cfg-distance').value;
-            await db.collection('config').doc('tracking').set({
-                intervalMs: parseInt(val) * parseInt(unit),
-                minDistance: parseFloat(dist),
-                updatedAt: firebase.firestore.Timestamp.now()
-            });
-            const toast = new bootstrap.Toast(document.getElementById('liveToast'));
-            document.querySelector('#liveToast .toast-body').innerHTML = '<i class="bi bi-check-circle-fill me-2"></i> Konfigurasi GPS Berhasil Disinkronkan!';
-            toast.show();
+            const v = document.getElementById('cfg-interval').value, u = document.getElementById('cfg-time-unit').value, d = document.getElementById('cfg-distance').value, g = document.getElementById('cfg-geofence').value;
+            await db.collection('config').doc('tracking').set({ intervalMs: v * u, minDistance: parseFloat(d), geofenceRadius: parseFloat(g), updatedAt: firebase.firestore.Timestamp.now() });
+            const t = new bootstrap.Toast(document.getElementById('liveToast')); document.querySelector('.toast-body').innerText = "Berhasil Disinkronkan!"; t.show();
         }
 
         async function publishUpdate() {
-            const ver = document.getElementById('upd-version').value;
-            const url = document.getElementById('upd-url').value;
-            if(!ver || !url) return alert("Harap isi Versi & Link Download!");
-
-            await db.collection('config').doc('app_status').set({
-                versionCode: parseInt(ver),
-                downloadUrl: url,
-                releasedAt: firebase.firestore.Timestamp.now()
-            });
-
-            const toast = new bootstrap.Toast(document.getElementById('liveToast'));
-            document.querySelector('#liveToast .toast-body').innerHTML = '<i class="bi bi-broadcast me-2"></i> Pengumuman Update Terkirim!';
-            toast.show();
+            const ver = document.getElementById('upd-version').value, url = document.getElementById('upd-url').value;
+            if(!ver || !url) return alert("Isi data!");
+            await db.collection('config').doc('app_status').set({ versionCode: parseInt(ver), downloadUrl: url, releasedAt: firebase.firestore.Timestamp.now() });
+            alert("Update Terkirim!");
         }
 
         async function loadFullHistory() {
-            const date = document.getElementById('rep-date').value;
-            const container = document.getElementById('history-list');
-            if(!date) return;
-
-            container.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary"></div><br><small class="text-muted mt-2 d-block">Menarik data dari server...</small></div>';
-
-            const start = new Date(date); start.setHours(0,0,0,0);
-            const end = new Date(date); end.setHours(23,59,59,999);
-            const snap = await db.collection('trips')
-                .where('date', '>=', firebase.firestore.Timestamp.fromDate(start))
-                .where('date', '<=', firebase.firestore.Timestamp.fromDate(end))
-                .get();
-
+            const date = document.getElementById('rep-date').value; if(!date) return;
+            const container = document.getElementById('history-list'); container.innerHTML = 'Memuat...';
+            const start = new Date(date); start.setHours(0,0,0,0); const end = new Date(date); end.setHours(23,59,59,999);
+            const snap = await db.collection('trips').where('date', '>=', firebase.firestore.Timestamp.fromDate(start)).where('date', '<=', firebase.firestore.Timestamp.fromDate(end)).get();
             container.innerHTML = '';
-            if(snap.empty) {
-                container.innerHTML = '<div class="card-pro p-5 text-center text-muted border-0 shadow-none">Tidak ada aktivitas pada tanggal ini.</div>';
-                return;
-            }
-
-            const groups = {};
-            snap.forEach(doc => {
-                const t = doc.data();
-                if(!groups[t.courierId]) groups[t.courierId] = [];
-                groups[t.courierId].push({id: doc.id, ...t});
-            });
-
+            const groups = {}; snap.forEach(doc => { const t = doc.data(); if(!groups[t.courierId]) groups[t.courierId] = []; groups[t.courierId].push({id: doc.id, ...t}); });
             for (const cid in groups) {
-                const name = registeredUsers[cid] || cid.substring(0,8);
-                const trips = groups[cid];
-
-                // Calculate Total KM for this courier today
-                const totalKm = trips.reduce((acc, t) => acc + (t.totalDistanceKm || 0), 0);
-
-                const groupEl = document.createElement('div');
-                groupEl.innerHTML = `
-                    <div class="courier-group-header shadow-sm" onclick="this.nextElementSibling.classList.toggle('d-none')">
-                        <span>
-                            <i class="bi bi-person-badge-fill me-2 text-warning"></i>
-                            <b>${name}</b>
-                            <span class="ms-3 small text-muted font-monospace" style="color: #cbd5e0 !important;">Total: ${totalKm.toFixed(2)} KM</span>
-                        </span>
-                        <div class="d-flex align-items-center">
-                            <span class="badge bg-danger rounded-pill me-3">${trips.length} Perjalanan</span>
-                            <i class="bi bi-chevron-down"></i>
-                        </div>
-                    </div>
-                    <div class="d-none pb-4">
-                        ${trips.map(t => {
-                            const startTime = new Date(t.date.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-                            return `
-                            <div class="card-pro p-4 mb-3 border shadow-sm" style="margin-left: 20px; border-radius: 15px;">
-                                <div class="d-flex justify-content-between align-items-center mb-3">
-                                    <h6 class="m-0 fw-bold text-primary"><i class="bi bi-tag-fill me-1"></i> TRIP ID: ${t.id.substring(0,8)}</h6>
-                                    <span class="badge bg-light text-dark border">Dimulai: ${startTime}</span>
-                                </div>
-
-                                <div class="row mb-4">
-                                    <div class="col-md-6">
-                                        <div class="small text-muted mb-1">Informasi Perjalanan:</div>
-                                        <div class="fw-bold"><i class="bi bi-speedometer2 me-1"></i> Jarak Tempuh: ${t.totalDistanceKm ? t.totalDistanceKm.toFixed(2) : 0} KM</div>
-                                    </div>
-                                </div>
-
-                                <div class="mb-4">
-                                    <label class="extra-small fw-bold text-uppercase text-muted d-block mb-3" style="font-size:0.7rem">Daftar Titik Kunjungan & Waktu:</label>
-                                    ${t.destinations.map(d => {
-                                        const arrTime = d.arrivalTime ? new Date(d.arrivalTime.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '--:--';
-                                        const doneTime = d.completedTime ? new Date(d.completedTime.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '--:--';
-
-                                        return `
-                                        <div class="dest-row ${d.status} mb-3 pb-3 border-bottom">
-                                            <div class="d-flex justify-content-between align-items-start">
-                                                <div>
-                                                    <div class="fw-bold text-dark">${d.locationName}</div>
-                                                    <div class="extra-small text-muted mb-2">${d.address || '-'}</div>
-                                                    <div class="d-flex gap-3 extra-small">
-                                                        <span class="text-primary"><i class="bi bi-geo-alt"></i> Tiba: ${arrTime}</span>
-                                                        <span class="text-success"><i class="bi bi-check2-all"></i> Selesai: ${doneTime}</span>
-                                                    </div>
-                                                </div>
-                                                <span class="badge ${d.status==='done'?'bg-success':'bg-secondary'}">${d.status.toUpperCase()}</span>
-                                            </div>
-                                            ${d.proofPhotoUrl ? `
-                                                <div class="mt-3">
-                                                    <img src="${d.proofPhotoUrl}" class="proof-img-thumb shadow-sm" onclick="openImagePopup('${d.proofPhotoUrl}')">
-                                                    <div class="extra-small text-success mt-1 fw-bold"><i class="bi bi-image me-1"></i> Bukti Foto Terlampir</div>
-                                                </div>
-                                            ` : ''}
-                                        </div>
-                                        `;
-                                    }).join('')}
-                                </div>
-
-                                <button class="btn btn-sm btn-outline-primary w-100 py-2 fw-bold" onclick="openChat('${t.id}', 'Tugas ${name}')">
-                                    <i class="bi bi-chat-left-text me-2"></i> LIHAT RIWAYAT CHAT TUGAS INI
-                                </button>
-                            </div>`;
-                        }).join('')}
-                    </div>
-                `;
-                container.appendChild(groupEl);
+                const name = registeredUsers[cid] || cid.substring(0,8), trips = groups[cid], totalKm = trips.reduce((acc, t) => acc + (t.totalDistanceKm || 0), 0);
+                const gEl = document.createElement('div');
+                gEl.innerHTML = `<div class="courier-group-header shadow-sm" onclick="this.nextElementSibling.classList.toggle('d-none')"><span><b>${name}</b> <small class="ms-2">Total: ${totalKm.toFixed(2)} KM</small></span><i class="bi bi-chevron-down"></i></div>
+                <div class="d-none pb-4">${trips.map(t => `<div class="card-pro p-3 mb-2 border shadow-sm" style="margin-left:20px"><div class="d-flex justify-content-between mb-2"><b>ID: ${t.id.substring(0,8)}</b><span>KM: ${t.totalDistanceKm?.toFixed(2) || 0}</span></div>
+                ${t.destinations.map(d => `<div class="dest-pill ${d.status}"><b>${d.locationName}</b><br>${d.proofPhotoUrl ? `<img src="${d.proofPhotoUrl}" class="proof-img-thumb" onclick="openImagePopup('${d.proofPhotoUrl}')">`:''}</div>`).join('')}</div>`).join('')}</div>`;
+                container.appendChild(gEl);
             }
         }
 
-        let searchTimeout;
-        async function autoSuggest(val) {
-            clearTimeout(searchTimeout); const el = document.getElementById('search-results');
-            if (val.length < 3) { el.style.display = 'none'; return; }
-            searchTimeout = setTimeout(async () => {
-                const clean = val.replace(/PT\.?\s+/gi, '').trim();
-                const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(clean)}&countrycodes=id&limit=6`);
-                const data = await resp.json();
-                el.innerHTML = ''; if (data.length === 0) { el.style.display = 'none'; return; }
-                el.style.display = 'block';
-                data.forEach(i => {
-                    const d = document.createElement('div'); d.className = 'search-item';
-                    d.innerHTML = `<b>${i.name || i.display_name.split(',')[0]}</b><br><small>${i.display_name}</small>`;
-                    d.onclick = () => { tripQueue.push({ name: i.name || "Lokasi", address: i.display_name, lat: parseFloat(i.lat), lng: parseFloat(i.lon) }); renderQueue(); el.style.display = 'none'; document.querySelector('#view-dispatch input').value = ''; };
-                    el.appendChild(d);
-                });
-            }, 500);
-        }
+        // Initial Load
+        db.collection('config').doc('cloudinary').get().then(d => { if(d.exists) { document.getElementById('cld-name').value = d.data().cloudName; document.getElementById('cld-preset').value = d.data().uploadPreset; }});
+        db.collection('config').doc('tracking').get().then(d => { if(d.exists) { const v = d.data(); document.getElementById('cfg-interval').value = v.intervalMs >= 60000 ? v.intervalMs/60000 : v.intervalMs/1000; document.getElementById('cfg-time-unit').value = v.intervalMs >= 60000 ? "60000" : "1000"; document.getElementById('cfg-distance').value = v.minDistance || 10; document.getElementById('cfg-geofence').value = v.geofenceRadius || 20; }});
     </script>
 </body>
 </html>

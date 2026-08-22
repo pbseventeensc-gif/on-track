@@ -46,9 +46,15 @@ fun ActiveTripScreen(trip: Trip, onBack: () -> Unit, onChatClick: () -> Unit) {
     var currentTrip by remember { mutableStateOf(trip) }
     val storage = FirebaseStorage.getInstance()
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
+    var geofenceRadius by remember { mutableStateOf(50f) } // Default 50m
     
-    // Initialize Cloudinary if needed
+    // Listen for remote config
     LaunchedEffect(Unit) {
+        db.collection("config").document("tracking").addSnapshotListener { snap, _ ->
+            val radius = snap?.getDouble("geofenceRadius")?.toFloat()
+            if (radius != null) geofenceRadius = radius
+        }
+
         db.collection("config").document("cloudinary").get().addOnSuccessListener { doc ->
             val cloudName = doc.getString("cloudName")
             if (!cloudName.isNullOrEmpty()) {
@@ -123,6 +129,7 @@ fun ActiveTripScreen(trip: Trip, onBack: () -> Unit, onChatClick: () -> Unit) {
                     DestinationItem(
                         dest = dest,
                         fusedLocationClient = fusedLocationClient,
+                        geofenceRadius = geofenceRadius,
                         onStatusUpdate = { newStatus, photoUri ->
                             if (photoUri != null) {
                                 uploadPhotoAndUpdate(storage, db, currentTrip, dest, photoUri, newStatus)
@@ -144,6 +151,7 @@ private fun validateSecurityAndLocation(
     client: com.google.android.gms.location.FusedLocationProviderClient,
     targetLat: Double,
     targetLng: Double,
+    radiusThreshold: Float,
     onValid: () -> Unit
 ) {
     val cts = CancellationTokenSource()
@@ -167,13 +175,13 @@ private fun validateSecurityAndLocation(
             return@addOnSuccessListener
         }
 
-        // 2. Geofencing (Max 50 meters)
+        // 2. Geofencing (Configurable radius)
         val results = FloatArray(1)
         Location.distanceBetween(location.latitude, location.longitude, targetLat, targetLng, results)
         val distance = results[0]
         
-        if (distance > 50f) {
-            Toast.makeText(context, "Terlalu Jauh! Jarak Anda %.0f meter. Silakan mendekat ke lokasi (Maks 50m).".format(distance), Toast.LENGTH_LONG).show()
+        if (distance > radiusThreshold) {
+            Toast.makeText(context, "Terlalu Jauh! Jarak Anda %.0f meter. Silakan mendekat ke lokasi (Maks %.0f m).".format(distance, radiusThreshold), Toast.LENGTH_LONG).show()
         } else {
             onValid()
         }
@@ -186,6 +194,7 @@ private fun validateSecurityAndLocation(
 fun DestinationItem(
     dest: Destination, 
     fusedLocationClient: com.google.android.gms.location.FusedLocationProviderClient,
+    geofenceRadius: Float,
     onStatusUpdate: (String, Bitmap?) -> Unit
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -198,7 +207,7 @@ fun DestinationItem(
         if (bitmap != null) {
             isUploading = true
             // Validation before finishing task with photo
-            validateSecurityAndLocation(context, fusedLocationClient, dest.latitude, dest.longitude) {
+            validateSecurityAndLocation(context, fusedLocationClient, dest.latitude, dest.longitude, geofenceRadius) {
                 onStatusUpdate("done", bitmap)
             }
             if (dest.status != "done") isUploading = false
@@ -282,7 +291,7 @@ fun DestinationItem(
                     if (dest.status == "pending") {
                         Button(
                             onClick = { 
-                                validateSecurityAndLocation(context, fusedLocationClient, dest.latitude, dest.longitude) {
+                                validateSecurityAndLocation(context, fusedLocationClient, dest.latitude, dest.longitude, geofenceRadius) {
                                     onStatusUpdate("arrived", null)
                                 }
                             }, 
@@ -294,7 +303,7 @@ fun DestinationItem(
                         Column(horizontalAlignment = Alignment.End) {
                             Button(
                                 onClick = { 
-                                    validateSecurityAndLocation(context, fusedLocationClient, dest.latitude, dest.longitude) {
+                                    validateSecurityAndLocation(context, fusedLocationClient, dest.latitude, dest.longitude, geofenceRadius) {
                                         cameraLauncher.launch(null)
                                     }
                                 },
@@ -312,7 +321,7 @@ fun DestinationItem(
                             }
                             TextButton(
                                 onClick = { 
-                                    validateSecurityAndLocation(context, fusedLocationClient, dest.latitude, dest.longitude) {
+                                    validateSecurityAndLocation(context, fusedLocationClient, dest.latitude, dest.longitude, geofenceRadius) {
                                         isUploading = true
                                         onStatusUpdate("done", null) 
                                     }
