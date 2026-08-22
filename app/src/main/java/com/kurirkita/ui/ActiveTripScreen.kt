@@ -340,15 +340,15 @@ fun DestinationItem(
 }
 
 private fun uploadPhotoAndUpdate(storage: FirebaseStorage, db: FirebaseFirestore, trip: Trip, dest: Destination, bitmap: Bitmap, newStatus: String) {
-    val scaledBitmap = scaleBitmap(bitmap, 640)
-    Log.d("Upload", "Starting upload for ${dest.locationName} with Direct Cloudinary")
+    val scaledBitmap = scaleBitmap(bitmap, 1280) // Increased resolution from 640
+    Log.d("Upload", "Starting upload for ${dest.locationName} with High Res")
     
     // DATA DITANAM LANGSUNG KE APLIKASI
     val cloudName = "dgf3shxpf"
     val preset = "KurirTrack"
 
     val baos = ByteArrayOutputStream()
-    scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 50, baos)
+    scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 80, baos) // Increased quality from 50
     val bytes = baos.toByteArray()
     
     try {
