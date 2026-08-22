@@ -1,5 +1,6 @@
 package com.KurirKita.ui
 
+import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -32,6 +33,10 @@ import com.cloudinary.android.callback.UploadCallback
 import java.io.ByteArrayOutputStream
 import java.util.UUID
 
+import android.location.Location
+import android.widget.Toast
+import com.google.android.gms.location.LocationServices
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ActiveTripScreen(trip: Trip, onBack: () -> Unit, onChatClick: () -> Unit) {
@@ -39,6 +44,9 @@ fun ActiveTripScreen(trip: Trip, onBack: () -> Unit, onChatClick: () -> Unit) {
     val db = FirebaseFirestore.getInstance()
     var currentTrip by remember { mutableStateOf(trip) }
     val storage = FirebaseStorage.getInstance()
+    val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
+    
+    // ... existing Cloudinary init ...
     
     // Initialize Cloudinary if needed
     LaunchedEffect(Unit) {
@@ -113,13 +121,17 @@ fun ActiveTripScreen(trip: Trip, onBack: () -> Unit, onChatClick: () -> Unit) {
             
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 items(currentTrip.destinations.sortedBy { it.stopIndex }) { dest ->
-                    DestinationItem(dest, onStatusUpdate = { newStatus, photoUri ->
-                        if (photoUri != null) {
-                            uploadPhotoAndUpdate(storage, db, currentTrip, dest, photoUri, newStatus)
-                        } else {
-                            updateDestinationStatus(db, currentTrip, dest, newStatus, null)
+                    DestinationItem(
+                        dest = dest,
+                        fusedLocationClient = fusedLocationClient,
+                        onStatusUpdate = { newStatus, photoUri ->
+                            if (photoUri != null) {
+                                uploadPhotoAndUpdate(storage, db, currentTrip, dest, photoUri, newStatus)
+                            } else {
+                                updateDestinationStatus(db, currentTrip, dest, newStatus, null)
+                            }
                         }
-                    })
+                    )
                 }
                 item { Spacer(modifier = Modifier.height(20.dp)) }
             }
@@ -127,8 +139,38 @@ fun ActiveTripScreen(trip: Trip, onBack: () -> Unit, onChatClick: () -> Unit) {
     }
 }
 
+@SuppressLint("MissingPermission")
+private fun checkLocation(
+    client: com.google.android.gms.location.FusedLocationProviderClient,
+    targetLat: Double,
+    targetLng: Double,
+    onResult: (Boolean) -> Unit
+) {
+    client.lastLocation.addOnSuccessListener { location ->
+        if (location != null) {
+            val results = FloatArray(1)
+            Location.distanceBetween(location.latitude, location.longitude, targetLat, targetLng, results)
+            val distance = results[0]
+            Log.d("LocationCheck", "Distance to ${targetLat},${targetLng}: $distance meters")
+            
+            // Threshold 150 meters
+            onResult(distance <= 150f)
+        } else {
+            // No last location, maybe GPS off or not yet fixed
+            onResult(false)
+        }
+    }.addOnFailureListener {
+        onResult(false)
+    }
+}
+
 @Composable
-fun DestinationItem(dest: Destination, onStatusUpdate: (String, Bitmap?) -> Unit) {
+fun DestinationItem(
+    dest: Destination, 
+    fusedLocationClient: com.google.android.gms.location.FusedLocationProviderClient,
+    onStatusUpdate: (String, Bitmap?) -> Unit
+) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     var isUploading by remember { mutableStateOf(false) }
     var showPhotoDialog by remember { mutableStateOf(false) }
 
@@ -137,7 +179,15 @@ fun DestinationItem(dest: Destination, onStatusUpdate: (String, Bitmap?) -> Unit
     ) { bitmap ->
         if (bitmap != null) {
             isUploading = true
-            onStatusUpdate("done", bitmap)
+            // Final validation before upload
+            checkLocation(fusedLocationClient, dest.latitude, dest.longitude) { isNear ->
+                if (isNear) {
+                    onStatusUpdate("done", bitmap)
+                } else {
+                    isUploading = false
+                    Toast.makeText(context, "Gagal Selesai: Anda terlalu jauh dari lokasi!", Toast.LENGTH_LONG).show()
+                }
+            }
         }
     }
 
@@ -217,7 +267,12 @@ fun DestinationItem(dest: Destination, onStatusUpdate: (String, Bitmap?) -> Unit
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     if (dest.status == "pending") {
                         Button(
-                            onClick = { onStatusUpdate("arrived", null) }, 
+                            onClick = { 
+                                checkLocation(fusedLocationClient, dest.latitude, dest.longitude) { isNear ->
+                                    if (isNear) onStatusUpdate("arrived", null)
+                                    else Toast.makeText(context, "Terlalu Jauh! Mendekatlah ke lokasi untuk absen tiba.", Toast.LENGTH_LONG).show()
+                                }
+                            }, 
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer)
                         ) {
                             Text("SAYA TIBA")
@@ -225,7 +280,12 @@ fun DestinationItem(dest: Destination, onStatusUpdate: (String, Bitmap?) -> Unit
                     } else if (dest.status == "arrived") {
                         Column(horizontalAlignment = Alignment.End) {
                             Button(
-                                onClick = { cameraLauncher.launch(null) },
+                                onClick = { 
+                                    checkLocation(fusedLocationClient, dest.latitude, dest.longitude) { isNear ->
+                                        if (isNear) cameraLauncher.launch(null)
+                                        else Toast.makeText(context, "Terlalu Jauh! Silakan mendekat ke titik tujuan untuk mengambil foto bukti.", Toast.LENGTH_LONG).show()
+                                    }
+                                },
                                 enabled = !isUploading,
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF1C40F), contentColor = Color.Black),
                                 shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
@@ -239,7 +299,16 @@ fun DestinationItem(dest: Destination, onStatusUpdate: (String, Bitmap?) -> Unit
                                 }
                             }
                             TextButton(
-                                onClick = { isUploading = true; onStatusUpdate("done", null) },
+                                onClick = { 
+                                    checkLocation(fusedLocationClient, dest.latitude, dest.longitude) { isNear ->
+                                        if (isNear) {
+                                            isUploading = true
+                                            onStatusUpdate("done", null) 
+                                        } else {
+                                            Toast.makeText(context, "Terlalu Jauh! Mendekatlah ke lokasi untuk menyelesaikan tugas.", Toast.LENGTH_LONG).show()
+                                        }
+                                    }
+                                },
                                 enabled = !isUploading,
                                 modifier = Modifier.padding(top = 4.dp)
                             ) {
