@@ -357,7 +357,23 @@
                     mList.innerHTML += `<div class="col-md-6 col-lg-4"><div class="card-pro p-3 h-100 shadow-sm"><div class="d-flex justify-content-between mb-2"><b>${cName}</b><span class="badge bg-info extra-small">${t.status}</span></div>${t.destinations.map(d => `<div class="small dest-pill ${d.status}"><b>${d.stopIndex}. ${d.locationName}</b></div>`).join('')}<button class="btn btn-sm btn-dark w-100 mt-3" onclick="openChat('${doc.id}', 'Tugas ${cName}')">Chat Tugas</button></div></div>`;
                     t.destinations.forEach(d => {
                         const icon = L.divIcon({ className: 'custom-div-icon '+(d.status==='done'?'marker-done':''), html: `<div class='marker-pin'></div><div class='marker-num'>${d.stopIndex}</div>`, iconSize:[30,42], iconAnchor:[15,42] });
-                        L.marker([d.latitude || d.lat, d.longitude || d.lng], {icon}).addTo(tripMarkersLayer).bindPopup(`${d.locationName} (${d.status})`);
+
+                        const arrTime = d.arrivalTime ? new Date(d.arrivalTime.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : 'Belum tiba';
+                        const doneTime = d.completedTime ? new Date(d.completedTime.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : 'Belum selesai';
+                        const dist = t.totalDistanceKm ? t.totalDistanceKm.toFixed(2) : 0;
+
+                        L.marker([d.latitude || d.lat, d.longitude || d.lng], {icon}).addTo(tripMarkersLayer)
+                            .bindPopup(`
+                                <div style="min-width:150px">
+                                    <b style="color:var(--architect-blue)">${d.locationName}</b><br>
+                                    <small>Kurir: ${cName}</small><hr style="margin:5px 0">
+                                    <small>
+                                        <b>Tiba:</b> ${arrTime}<br>
+                                        <b>Selesai:</b> ${doneTime}<br>
+                                        <b>Jarak Trip:</b> ${dist} KM
+                                    </small>
+                                </div>
+                            `);
                     });
                 }
             });
