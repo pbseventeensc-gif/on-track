@@ -431,17 +431,17 @@
 
     function toggleSidebar() { document.querySelector('.sidebar').classList.toggle('collapsed'); setTimeout(() => map.invalidateSize(), 300); }
 
-    function switchTab(viewId, el) {
-        document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
-        const target = document.getElementById('view-'+viewId); if(target) target.classList.add('active');
-        document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active')); el.classList.add('active');
-        document.getElementById('page-title').innerText = el.querySelector('span').innerText;
+        function switchTab(viewId, el) {
+            document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
+            const target = document.getElementById('view-'+viewId); if(target) target.classList.add('active');
+            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active')); el.classList.add('active');
+            document.getElementById('page-title').innerText = el.querySelector('span').innerText;
 
-        const mapContainer = document.getElementById('global-map-container');
-        if(viewId==='reports' || viewId==='settings' || viewId==='chat') mapContainer.classList.add('d-none');
-        else { mapContainer.classList.remove('d-none'); setTimeout(() => map.invalidateSize(), 300); }
-        if(viewId === 'chat') loadChatList();
-    }
+            const mapContainer = document.getElementById('global-map-container');
+            if(viewId==='reports' || viewId==='settings' || viewId==='chat') mapContainer.classList.add('d-none');
+            else { mapContainer.classList.remove('d-none'); setTimeout(() => map.invalidateSize(), 300); }
+            if(viewId === 'chat') loadChatList();
+        }
 
     function loadChatList() {
         const el = document.getElementById('chat-list-container'); el.innerHTML = '';
