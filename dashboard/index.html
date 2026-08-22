@@ -241,15 +241,28 @@
                     </div>
                 </div>
 
-                <!-- SETTINGS -->
+                <!-- VIEW 5: SETTINGS -->
                 <div id="view-settings" class="view-section">
                     <div class="card-pro p-4 mb-4">
-                        <h6 class="fw-bold mb-3">Rilis Update Aplikasi</h6>
-                        <div class="row g-3">
-                            <div class="col-md-4"><label class="small fw-bold">Versi Kode</label><input type="number" id="upd-version" class="form-control"></div>
-                            <div class="col-md-8"><label class="small fw-bold">Link Download APK</label><input type="text" id="upd-url" class="form-control"></div>
+                        <h6 class="fw-bold mb-3 text-primary"><i class="bi bi-cloud-arrow-up me-2"></i>Rilis Update Aplikasi Otomatis</h6>
+                        <div class="alert alert-info small py-2 mb-3">
+                            <i class="bi bi-info-circle-fill me-2"></i> <b>Cara Update:</b> Pilih file APK terbaru dari folder project Anda, isi nomor versi baru, lalu klik rilis. Link download akan dibuat otomatis.
                         </div>
-                        <button class="btn btn-primary mt-3" onclick="publishUpdate()">Kirim Notif Update</button>
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <label class="small fw-bold">Versi Baru (Angka)</label>
+                                <input type="number" id="upd-version" class="form-control" placeholder="Contoh: 2">
+                            </div>
+                            <div class="col-md-9">
+                                <label class="small fw-bold">Pilih File APK Terbaru</label>
+                                <input type="file" id="upd-file" class="form-control" accept=".apk">
+                            </div>
+                        </div>
+                        <div id="upd-progress" class="progress mt-3 d-none" style="height: 10px;">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: 0%"></div>
+                        </div>
+                        <button class="btn btn-primary mt-3 fw-bold" id="upd-btn" onclick="publishUpdateAuto()"><i class="bi bi-broadcast me-2"></i>UNGGAH & RILIS UPDATE</button>
+                        <div class="mt-2 extra-small text-muted" id="upd-status"></div>
                     </div>
                     <div class="row g-4">
                         <div class="col-md-6">
@@ -312,6 +325,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -443,11 +457,49 @@
             const t = new bootstrap.Toast(document.getElementById('liveToast')); document.querySelector('.toast-body').innerText = "Berhasil Disinkronkan!"; t.show();
         }
 
-        async function publishUpdate() {
-            const ver = document.getElementById('upd-version').value, url = document.getElementById('upd-url').value;
-            if(!ver || !url) return alert("Isi data!");
-            await db.collection('config').doc('app_status').set({ versionCode: parseInt(ver), downloadUrl: url, releasedAt: firebase.firestore.Timestamp.now() });
-            alert("Update Terkirim!");
+        async function publishUpdateAuto() {
+            const ver = document.getElementById('upd-version').value;
+            const fileInput = document.getElementById('upd-file');
+            const file = fileInput.files[0];
+            const btn = document.getElementById('upd-btn');
+            const prog = document.getElementById('upd-progress');
+            const progBar = prog.querySelector('.progress-bar');
+            const status = document.getElementById('upd-status');
+
+            if(!ver || !file) return alert("Harap isi Versi dan Pilih File APK!");
+
+            btn.disabled = true;
+            prog.classList.remove('d-none');
+            status.innerText = "Mengunggah APK ke server...";
+
+            const storageRef = firebase.storage().ref('updates/wtrack_v' + ver + '.apk');
+            const uploadTask = storageRef.put(file);
+
+            uploadTask.on('state_changed',
+                (snapshot) => {
+                    const percentage = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                    progBar.style.width = percentage + '%';
+                },
+                (error) => {
+                    alert("Gagal unggah: " + error.message);
+                    btn.disabled = false;
+                },
+                async () => {
+                    const downloadUrl = await uploadTask.snapshot.ref.getDownloadURL();
+
+                    // Update Firestore
+                    await db.collection('config').doc('app_status').set({
+                        versionCode: parseInt(ver),
+                        downloadUrl: downloadUrl,
+                        releasedAt: firebase.firestore.Timestamp.now()
+                    });
+
+                    status.innerText = "Sukses! Versi " + ver + " telah dirilis ke semua HP.";
+                    btn.disabled = false;
+                    prog.classList.add('d-none');
+                    alert("Update Berhasil Dirilis!");
+                }
+            );
         }
 
         async function loadFullHistory() {
