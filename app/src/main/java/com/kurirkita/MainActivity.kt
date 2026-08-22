@@ -1,18 +1,28 @@
 package com.KurirKita
 
 import android.Manifest
+import android.annotation.SuppressLint
+import android.app.DownloadManager
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Environment
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.DeleteSweep
@@ -21,71 +31,82 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.ui.graphics.Color
+import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.KurirKita.R
 import com.KurirKita.model.Trip
 import com.KurirKita.model.User
 import com.KurirKita.ui.*
 import com.KurirKita.ui.theme.KurirKitaTheme
+import com.cloudinary.android.MediaManager
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import com.cloudinary.android.MediaManager
+import java.io.File
 
 class MainActivity : ComponentActivity() {
 
+    private val onDownloadComplete = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            val id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1)
+            if (id != -1L) {
+                installApk(context)
+            }
+        }
+    }
+
+    @SuppressLint("UnspecifiedRegisterReceiverFlag")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // TANAM LANGSUNG CLOUDINARY KE APLIKASI
-        try {
-            val config = mapOf(
-                "cloud_name" to "dgf3shxpf",
-                "secure" to true
-            )
-            MediaManager.init(this, config)
-        } catch (e: Exception) {
-            // Sudah terinisialisasi
+        // Register Download Receiver
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(onDownloadComplete, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE), RECEIVER_EXPORTED)
+        } else {
+            registerReceiver(onDownloadComplete, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE))
         }
+
+        try {
+            val config = mapOf("cloud_name" to "dgf3shxpf", "secure" to true)
+            MediaManager.init(this, config)
+        } catch (e: Exception) {}
         
         val currentUser = FirebaseAuth.getInstance().currentUser
-        if (currentUser != null) {
-            registerUserInFirestore(currentUser.uid, currentUser.email ?: "")
-        }
+        if (currentUser != null) registerUserInFirestore(currentUser.uid, currentUser.email ?: "")
 
         enableEdgeToEdge()
         setContent {
             var darkTheme by remember { mutableStateOf(false) }
             
-            // --- FEATURE: REAL-TIME UPDATE CHECK ---
+            // --- FEATURE: IN-APP UPDATE ---
             var updateUrl by remember { mutableStateOf<String?>(null) }
+            var showUpdateDialog by remember { mutableStateOf(false) }
+            
             LaunchedEffect(Unit) {
                 FirebaseFirestore.getInstance().collection("config").document("app_status")
                     .addSnapshotListener { snap, _ ->
                         val remoteVersion = snap?.getLong("versionCode") ?: 0L
-                        val currentVersion = 1L // Sesuai build.gradle.kts
+                        val currentVersion = 1L // matches versionCode in build.gradle
                         if (remoteVersion > currentVersion) {
                             updateUrl = snap?.getString("downloadUrl")
+                            showUpdateDialog = true
                         }
                     }
             }
 
             KurirKitaTheme(darkTheme = darkTheme) {
-                if (updateUrl != null) {
+                if (showUpdateDialog && updateUrl != null) {
                     AlertDialog(
-                        onDismissRequest = {},
-                        title = { Text("Update Tersedia!") },
-                        text = { Text("Versi aplikasi terbaru sudah dirilis. Silakan unduh untuk fitur yang lebih stabil.") },
+                        onDismissRequest = { },
+                        title = { Text("Update Aplikasi!") },
+                        text = { Text("Versi terbaru tersedia. Unduh sekarang untuk performa lebih baik.") },
                         confirmButton = {
                             Button(onClick = {
-                                val intent = Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(updateUrl))
-                                startActivity(intent)
-                            }) { Text("UNDUH SEKARANG") }
+                                startDownload(updateUrl!!)
+                                showUpdateDialog = false
+                            }) { Text("UNDUH & INSTALL") }
                         }
                     )
                 }
@@ -110,6 +131,37 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun startDownload(url: String) {
+        val request = DownloadManager.Request(Uri.parse(url))
+            .setTitle("Wtrack Update")
+            .setDescription("Mengunduh versi terbaru...")
+            .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+            .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "wtrack_update.apk")
+            .setAllowedOverMetered(true)
+            .setAllowedOverRoaming(true)
+
+        val dm = getSystemService(DOWNLOAD_SERVICE) as DownloadManager
+        dm.enqueue(request)
+        Toast.makeText(this, "Unduhan dimulai...", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun installApk(context: Context) {
+        try {
+            val file = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), "wtrack_update.apk")
+            if (file.exists()) {
+                val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                val intent = Intent(Intent.ACTION_VIEW).apply {
+                    setDataAndType(uri, "application/vnd.android.package-archive")
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(intent)
+            }
+        } catch (e: Exception) {
+            Toast.makeText(context, "Gagal menginstal: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
     private fun startTrackingService() {
         val intent = Intent(this, TrackingService::class.java)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(intent)
@@ -124,6 +176,11 @@ class MainActivity : ComponentActivity() {
     private fun registerUserInFirestore(uid: String, email: String) {
         val user = User(userId = uid, name = email.split("@")[0], role = "courier")
         FirebaseFirestore.getInstance().collection("users").document(uid).set(user)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        try { unregisterReceiver(onDownloadComplete) } catch (e: Exception) {}
     }
 }
 
@@ -216,7 +273,6 @@ fun HistoryScreen(viewModel: TripViewModel, onTripClick: (Trip) -> Unit) {
                 }
             }
         }
-        // ... rest same ...
         Spacer(modifier = Modifier.height(16.dp))
         if (isLoading) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Color(0xFFF1C40F)) }
