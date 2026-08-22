@@ -11,10 +11,52 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
 
     <!-- Google Maps API with Places Library (Fixed Loading) -->
+    <script>
+        // Define callback early to avoid 'initAutocomplete is not a function' error
+        window.initAutocomplete = function() {
+            console.log("Google Maps API Callback: initAutocomplete started");
+            const input = document.getElementById('places-search');
+            if (!input) {
+                console.error("Search input element not found!");
+                return;
+            }
+
+            if (typeof google === 'undefined' || !google.maps || !google.maps.places) {
+                console.error("Places library not available in google object.");
+                return;
+            }
+
+            const options = {
+                componentRestrictions: { country: "id" },
+                fields: ["address_components", "geometry", "name", "formatted_address"]
+            };
+
+            const autocomplete = new google.maps.places.Autocomplete(input, options);
+
+            autocomplete.addListener("place_changed", () => {
+                const place = autocomplete.getPlace();
+                if (!place.geometry || !place.geometry.location) return;
+
+                const lat = place.geometry.location.lat();
+                const lng = place.geometry.location.lng();
+                const name = place.name || "Tujuan";
+                const address = place.formatted_address || "";
+
+                tripQueue.push({ name, address, lat, lng });
+                renderQueue();
+
+                input.value = "";
+                map.flyTo([lat, lng], 16);
+                const marker = L.marker([lat, lng]).addTo(map).bindPopup(`<b>${name}</b>`).openPopup();
+                setTimeout(() => { if (map.hasLayer(marker)) map.removeLayer(marker); }, 5000);
+            });
+            console.log("Autocomplete successfully bound to input.");
+        };
+    </script>
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBDoviDNLl_aSjM1NMN-g_gHpeIPPzC6Rk&libraries=places&callback=initAutocomplete" async defer></script>
 
     <style>
-        /* Ensure Google Places Autocomplete dropdown is visible and styled */
+        /* FIX: Google Places Autocomplete dropdown visibility and error icons */
         .pac-container {
             z-index: 9999 !important;
             border-radius: 8px;
@@ -27,6 +69,9 @@
         .pac-item:hover { background-color: #f8f9fa; }
         .pac-item-query { font-size: 14px; color: #333; }
         .pac-matched { font-weight: 700; }
+
+        /* Ensure input doesn't show Google error icon background */
+        #places-search { background-image: none !important; }
 
         :root {
             --sidebar-gradient: linear-gradient(135deg, #3ac47d 0%, #2fac66 100%);
@@ -365,65 +410,6 @@
     const rtdb = firebase.database(), db = firebase.firestore();
     const map = L.map('map').setView([-6.2, 106.81], 12);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-    // --- GOOGLE PLACES AUTOCOMPLETE INITIALIZATION (RELIABLE CALLBACK) ---
-    function initAutocomplete() {
-        console.log("Initializing Google Places Autocomplete...");
-        const input = document.getElementById('places-search');
-        if (!input) return;
-
-        // Ensure google maps is available
-        if (typeof google === 'undefined' || !google.maps || !google.maps.places) {
-            console.error("Google Maps API not yet available, retrying...");
-            setTimeout(initAutocomplete, 500);
-            return;
-        }
-
-        const options = {
-            componentRestrictions: { country: "id" },
-            fields: ["address_components", "geometry", "name", "formatted_address"]
-        };
-
-        const autocomplete = new google.maps.places.Autocomplete(input, options);
-
-        // Prevent form submission when selecting address
-        input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && document.querySelector('.pac-container:not([style*="display: none"])')) {
-                e.preventDefault();
-            }
-        });
-
-        autocomplete.addListener("place_changed", () => {
-            const place = autocomplete.getPlace();
-
-            if (!place.geometry || !place.geometry.location) {
-                // If user didn't select from dropdown but pressed enter
-                console.log("No details available for input: '" + place.name + "'");
-                return;
-            }
-
-            const lat = place.geometry.location.lat();
-            const lng = place.geometry.location.lng();
-            const name = place.name || "Tujuan";
-            const address = place.formatted_address || "";
-
-            // Tambahkan ke antrean tugas
-            tripQueue.push({ name, address, lat, lng });
-            renderQueue();
-
-            // Reset input & geser peta
-            input.value = "";
-            map.flyTo([lat, lng], 16);
-            const marker = L.marker([lat, lng]).addTo(map).bindPopup(`<b>${name}</b>`).openPopup();
-
-            // Auto-cleanup markers after 5 seconds to keep map clean
-            setTimeout(() => {
-                if (map.hasLayer(marker)) map.removeLayer(marker);
-            }, 5000);
-        });
-
-        console.log("Google Places Autocomplete is active.");
-    }
 
     const markers = {}, registeredUsers = {};
     const tripMarkersLayer = L.layerGroup().addTo(map);
