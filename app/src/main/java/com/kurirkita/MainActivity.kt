@@ -26,7 +26,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.GpsFixed
+import androidx.compose.material.icons.filled.GpsOff
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -77,8 +81,16 @@ class MainActivity : ComponentActivity() {
         if (currentUser != null) registerUserInFirestore(currentUser.uid, currentUser.email ?: "")
 
         enableEdgeToEdge()
+        val prefs = getSharedPreferences("app_settings", Context.MODE_PRIVATE)
+
         setContent {
-            var darkTheme by remember { mutableStateOf(false) }
+            var darkTheme by remember { mutableStateOf(prefs.getBoolean("dark_mode", false)) }
+            
+            // Function to toggle theme and save it
+            val toggleTheme = {
+                darkTheme = !darkTheme
+                prefs.edit().putBoolean("dark_mode", darkTheme).apply()
+            }
             
             // --- FEATURE: IN-APP UPDATE ---
             var updateUrl by remember { mutableStateOf<String?>(null) }
@@ -100,8 +112,8 @@ class MainActivity : ComponentActivity() {
                 if (showUpdateDialog && updateUrl != null) {
                     AlertDialog(
                         onDismissRequest = { },
-                        title = { Text("Update Aplikasi!") },
-                        text = { Text("Versi terbaru tersedia. Unduh sekarang untuk performa lebih baik.") },
+                        title = { Text("Update Tersedia!") },
+                        text = { Text("Versi terbaru sudah dirilis. Silakan unduh untuk fitur yang lebih stabil.") },
                         confirmButton = {
                             Button(onClick = {
                                 startDownload(updateUrl!!)
@@ -117,7 +129,7 @@ class MainActivity : ComponentActivity() {
                 } else {
                     MainNavigation(
                         darkTheme = darkTheme,
-                        onThemeToggle = { darkTheme = !darkTheme },
+                        onThemeToggle = toggleTheme,
                         onLogout = {
                             FirebaseAuth.getInstance().signOut()
                             isLoggedIn = false
@@ -197,27 +209,45 @@ fun MainNavigation(
     var showHistory by remember { mutableStateOf(false) }
     val tripViewModel: TripViewModel = viewModel()
 
-    if (showChatTripId != null) {
-        ChatScreen(tripId = showChatTripId!!, onBack = { showChatTripId = null })
-    } else if (selectedTrip == null) {
-        Column(modifier = Modifier.fillMaxSize()) {
+    Scaffold(
+        topBar = {
             ServiceControlBar(onStartService, onStopService, onLogout, darkTheme, onThemeToggle)
-            TabRow(selectedTabIndex = if (showHistory) 1 else 0, containerColor = MaterialTheme.colorScheme.surface) {
-                Tab(selected = !showHistory, onClick = { showHistory = false }) {
-                    Text("Tugas Aktif", modifier = Modifier.padding(12.dp))
-                }
-                Tab(selected = showHistory, onClick = { showHistory = true }) {
-                    Text("Riwayat", modifier = Modifier.padding(12.dp))
-                }
-            }
-            if (!showHistory) {
-                TripListScreen(viewModel = tripViewModel, onTripClick = { selectedTrip = it })
-            } else {
-                HistoryScreen(viewModel = tripViewModel, onTripClick = { selectedTrip = it })
+        },
+        bottomBar = {
+            NavigationBar(
+                containerColor = MaterialTheme.colorScheme.surface,
+                tonalElevation = 8.dp
+            ) {
+                NavigationBarItem(
+                    selected = !showHistory,
+                    onClick = { showHistory = false; selectedTrip = null },
+                    icon = { Icon(Icons.Default.LocalShipping, null) },
+                    label = { Text("Tugas Aktif", fontWeight = FontWeight.Bold) },
+                    colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.primary, selectedTextColor = MaterialTheme.colorScheme.primary)
+                )
+                NavigationBarItem(
+                    selected = showHistory,
+                    onClick = { showHistory = true; selectedTrip = null },
+                    icon = { Icon(Icons.Default.History, null) },
+                    label = { Text("Riwayat", fontWeight = FontWeight.Bold) },
+                    colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.primary, selectedTextColor = MaterialTheme.colorScheme.primary)
+                )
             }
         }
-    } else {
-        ActiveTripScreen(trip = selectedTrip!!, onBack = { selectedTrip = null }, onChatClick = { showChatTripId = selectedTrip!!.tripId })
+    ) { innerPadding ->
+        Box(modifier = Modifier.padding(innerPadding)) {
+            if (showChatTripId != null) {
+                ChatScreen(tripId = showChatTripId!!, onBack = { showChatTripId = null })
+            } else if (selectedTrip == null) {
+                if (!showHistory) {
+                    TripListScreen(viewModel = tripViewModel, onTripClick = { selectedTrip = it })
+                } else {
+                    HistoryScreen(viewModel = tripViewModel, onTripClick = { selectedTrip = it })
+                }
+            } else {
+                ActiveTripScreen(trip = selectedTrip!!, onBack = { selectedTrip = null }, onChatClick = { showChatTripId = selectedTrip!!.tripId })
+            }
+        }
     }
 }
 
@@ -293,27 +323,113 @@ fun ServiceControlBar(onStart: () -> Unit, onStop: () -> Unit, onLogout: () -> U
     var isTracking by remember { mutableStateOf(false) }
     val permissions = mutableListOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) permissions.add(Manifest.permission.POST_NOTIFICATIONS)
-    val launcher = rememberLauncherForActivityResult(contract = ActivityResultContracts.RequestMultiplePermissions()) { results -> if (results.values.all { it }) { isTracking = true; onStart() } }
+    val launcher = rememberLauncherForActivityResult(contract = ActivityResultContracts.RequestMultiplePermissions()) { results -> 
+        if (results.values.all { it }) { isTracking = true; onStart() } 
+    }
 
-    Surface(color = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.fillMaxWidth(), shadowElevation = 8.dp) {
-        Column {
-            Row(modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp).statusBarsPadding(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 2.dp,
+        modifier = Modifier.fillMaxWidth().statusBarsPadding()
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Image(painter = painterResource(id = R.drawable.wellen_logo), contentDescription = null, modifier = Modifier.size(44.dp).padding(end = 12.dp))
+                    Image(
+                        painter = painterResource(id = R.drawable.wellen_logo),
+                        contentDescription = null,
+                        modifier = Modifier.size(40.dp).padding(end = 12.dp)
+                    )
                     Column {
+                        Text(
+                            text = "Wellen Logistics",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
                         val uid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
-                        Text(text = if (isTracking) "Live Tracking: ON" else "Tracking OFF", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        Text(text = "UID: ${uid.take(8)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f))
+                        Text(
+                            text = "ID: ${uid.take(8).uppercase()}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
+                
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onThemeToggle) { Icon(imageVector = if (darkTheme) Icons.Default.LightMode else Icons.Default.DarkMode, contentDescription = "Theme", tint = Color.White) }
-                    Switch(checked = isTracking, onCheckedChange = { checked -> if (checked) launcher.launch(permissions.toTypedArray()) else { isTracking = false; onStop() } }, colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFFF1C40F), checkedTrackColor = Color(0xFFF1C40F).copy(alpha = 0.5f)))
+                    IconButton(onClick = onThemeToggle) {
+                        Icon(
+                            imageVector = if (darkTheme) Icons.Default.LightMode else Icons.Default.DarkMode,
+                            contentDescription = "Theme",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    TextButton(onClick = onLogout) {
+                        Text("Keluar", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
-            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.End) {
-                Text(text = "LOGOUT", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Black, modifier = Modifier.clickable { onLogout() })
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = if (isTracking) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                ),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = if (isTracking) Icons.Default.GpsFixed else Icons.Default.GpsOff,
+                            contentDescription = null,
+                            tint = if (isTracking) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (isTracking) "Tracking Aktif" else "Tracking Nonaktif",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isTracking) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = isTracking,
+                        onCheckedChange = { checked ->
+                            if (checked) launcher.launch(permissions.toTypedArray())
+                            else { isTracking = false; onStop() }
+                        },
+                        scale = 0.8f
+                    )
+                }
             }
         }
+    }
+}
+
+// Helper to scale switch
+@Composable
+fun Switch(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    scale: Float = 1f,
+    enabled: Boolean = true
+) {
+    Box(modifier = Modifier.size((48 * scale).dp, (24 * scale).dp), contentAlignment = Alignment.Center) {
+        androidx.compose.material3.Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            enabled = enabled,
+            modifier = Modifier.padding(0.dp)
+        )
     }
 }

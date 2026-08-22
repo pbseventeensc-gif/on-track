@@ -78,18 +78,26 @@ fun ActiveTripScreen(trip: Trip, onBack: () -> Unit, onChatClick: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Detail Perjalanan", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) },
+                title = { 
+                    Column {
+                        Text("Detail Rute", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black)
+                        Text(currentTrip.tripId.take(8).uppercase(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) { 
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali", tint = MaterialTheme.colorScheme.primary) 
                     }
                 },
                 actions = {
-                    IconButton(onClick = onChatClick) {
-                        Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = "Chat", tint = Color(0xFFF1C40F))
+                    IconButton(
+                        onClick = onChatClick,
+                        modifier = Modifier.padding(end = 8.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), androidx.compose.foundation.shape.CircleShape)
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = "Chat", tint = MaterialTheme.colorScheme.primary)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White, titleContentColor = Color.Black)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         }
     ) { innerPadding ->
@@ -98,33 +106,52 @@ fun ActiveTripScreen(trip: Trip, onBack: () -> Unit, onChatClick: () -> Unit) {
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
                 .padding(innerPadding)
-                .padding(horizontal = 16.dp)
         ) {
-            Card(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = MaterialTheme.colorScheme.surface,
+                shadowElevation = 2.dp
             ) {
-                Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("STATUS SAAT INI", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
-                        Text(currentTrip.status.replace("_", " ").uppercase(), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(
+                    modifier = Modifier.padding(20.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column {
+                        Text("STATUS PERJALANAN", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
+                        Text(
+                            text = currentTrip.status.replace("_", " ").uppercase(), 
+                            style = MaterialTheme.typography.headlineSmall, 
+                            fontWeight = FontWeight.Black, 
+                            color = MaterialTheme.colorScheme.primary
+                        )
                     }
                     if (currentTrip.status == "assigned") {
                         Button(
                             onClick = { db.collection("trips").document(currentTrip.tripId).update("status", "accepted") },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF1C40F), contentColor = Color.Black),
-                            shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp)
                         ) {
-                            Text("TERIMA", fontWeight = FontWeight.Bold)
+                            Text("MULAI TUGAS", fontWeight = FontWeight.ExtraBold)
                         }
                     }
                 }
             }
 
-            Text("Rute Tujuan", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground, modifier = Modifier.padding(bottom = 8.dp))
+            Text(
+                "TITIK TUJUAN", 
+                style = MaterialTheme.typography.labelMedium, 
+                fontWeight = FontWeight.Black, 
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f), 
+                modifier = Modifier.padding(start = 20.dp, top = 24.dp, bottom = 8.dp)
+            )
             
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
                 items(currentTrip.destinations.sortedBy { it.stopIndex }) { dest ->
                     DestinationItem(
                         dest = dest,
@@ -139,7 +166,7 @@ fun ActiveTripScreen(trip: Trip, onBack: () -> Unit, onChatClick: () -> Unit) {
                         }
                     )
                 }
-                item { Spacer(modifier = Modifier.height(20.dp)) }
+                item { Spacer(modifier = Modifier.height(40.dp)) }
             }
         }
     }
@@ -243,46 +270,67 @@ fun DestinationItem(
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = if (dest.status == "done") MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f) else MaterialTheme.colorScheme.surface
+            containerColor = if (dest.status == "done") MaterialTheme.colorScheme.primary.copy(alpha = 0.05f) else MaterialTheme.colorScheme.surface
         ),
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (dest.status == "done") 0.dp else 2.dp),
+        border = if (dest.status == "done") androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)) else null
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Surface(
                     shape = androidx.compose.foundation.shape.CircleShape,
-                    color = if (dest.status == "done") Color(0xFF43A047) else MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(24.dp)
+                    color = if (dest.status == "done") Color(0xFF27AE60) else MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(32.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Text(dest.stopIndex.toString(), color = Color.White, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                        Text(dest.stopIndex.toString(), color = Color.White, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Black)
                     }
                 }
-                Spacer(modifier = Modifier.width(12.dp))
-                Text(text = dest.locationName, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, color = MaterialTheme.colorScheme.onSurface)
-            }
-            
-            if (dest.address.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(text = dest.address, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f))
+                Spacer(modifier = Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = dest.locationName, 
+                        style = MaterialTheme.typography.titleMedium, 
+                        fontWeight = FontWeight.ExtraBold, 
+                        color = if (dest.status == "done") Color(0xFF27AE60) else MaterialTheme.colorScheme.onSurface
+                    )
+                    if (dest.address.isNotEmpty()) {
+                        Text(
+                            text = dest.address, 
+                            style = MaterialTheme.typography.bodySmall, 
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(20.dp))
             
             if (dest.status == "done") {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF43A047), modifier = Modifier.size(20.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Terkirim", color = Color(0xFF43A047), fontWeight = FontWeight.Bold)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF27AE60), modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Selesai", color = Color(0xFF27AE60), fontWeight = FontWeight.Black, style = MaterialTheme.typography.labelLarge)
+                    }
                     if (dest.proofPhotoUrl.isNotEmpty()) {
-                        Spacer(modifier = Modifier.width(12.dp))
-                        TextButton(onClick = { showPhotoDialog = true }) {
+                        Button(
+                            onClick = { showPhotoDialog = true },
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), contentColor = MaterialTheme.colorScheme.primary),
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                            modifier = Modifier.height(32.dp)
+                        ) {
                             Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Lihat Foto", style = MaterialTheme.typography.labelSmall)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("LIHAT FOTO", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -295,30 +343,13 @@ fun DestinationItem(
                                     onStatusUpdate("arrived", null)
                                 }
                             }, 
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer)
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
                         ) {
-                            Text("SAYA TIBA")
+                            Text("SAYA TIBA", fontWeight = FontWeight.Black)
                         }
                     } else if (dest.status == "arrived") {
-                        Column(horizontalAlignment = Alignment.End) {
-                            Button(
-                                onClick = { 
-                                    validateSecurityAndLocation(context, fusedLocationClient, dest.latitude, dest.longitude, geofenceRadius) {
-                                        cameraLauncher.launch(null)
-                                    }
-                                },
-                                enabled = !isUploading,
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF1C40F), contentColor = Color.Black),
-                                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
-                            ) {
-                                if (isUploading) {
-                                    CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.Black, strokeWidth = 2.dp)
-                                } else {
-                                    Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(20.dp))
-                                    Spacer(modifier = Modifier.width(10.dp))
-                                    Text("FOTO & SELESAI", fontWeight = FontWeight.Black)
-                                }
-                            }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             TextButton(
                                 onClick = { 
                                     validateSecurityAndLocation(context, fusedLocationClient, dest.latitude, dest.longitude, geofenceRadius) {
@@ -326,10 +357,30 @@ fun DestinationItem(
                                         onStatusUpdate("done", null) 
                                     }
                                 },
-                                enabled = !isUploading,
-                                modifier = Modifier.padding(top = 4.dp)
+                                enabled = !isUploading
                             ) {
-                                Text("Selesai Tanpa Foto", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelSmall)
+                                Text("Tanpa Foto", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), style = MaterialTheme.typography.labelLarge)
+                            }
+                            
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            Button(
+                                onClick = { 
+                                    validateSecurityAndLocation(context, fusedLocationClient, dest.latitude, dest.longitude, geofenceRadius) {
+                                        cameraLauncher.launch(null)
+                                    }
+                                },
+                                enabled = !isUploading,
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                            ) {
+                                if (isUploading) {
+                                    CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
+                                } else {
+                                    Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("FOTO & SELESAI", fontWeight = FontWeight.Black)
+                                }
                             }
                         }
                     }
