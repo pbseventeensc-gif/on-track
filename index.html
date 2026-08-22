@@ -295,7 +295,8 @@
         const map = L.map('map').setView([-6.2, 106.81], 12);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-        const markers = {}, courierMarkers = {}, tripMarkersLayer = L.layerGroup().addTo(map);
+        const markers = {}, courierMarkers = {}, registeredUsers = {};
+        const tripMarkersLayer = L.layerGroup().addTo(map);
         const draftMarkersLayer = L.layerGroup().addTo(map);
         let tripQueue = [], currentChatId = null, chatUnsub = null, lastLoadedHistory = [];
 
@@ -329,8 +330,13 @@
         }
 
         db.collection('users').onSnapshot(snap => {
-            snap.forEach(doc => { const u = doc.data(); registeredUsers[doc.id] = u.name || doc.id.substring(0,8); });
+            console.log("Users updated:", snap.size);
+            snap.forEach(doc => {
+                const u = doc.data();
+                registeredUsers[doc.id] = u.name || doc.id.substring(0,8);
+            });
             renderCourierOptions();
+            if(document.getElementById('view-chat').classList.contains('active')) loadChatList();
         });
 
         function renderCourierOptions(filter = "") {
