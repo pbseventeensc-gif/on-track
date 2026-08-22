@@ -10,47 +10,61 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
 
-    <!-- Google Maps API with Places Library -->
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCpVOcVJgCCpfwfAFIIOwMMYcuuW7WkNNM&libraries=places&callback=initAutocomplete" async defer></script>
+    <!-- Google Maps API with Best Practice Loading & Verified API Key -->
+    <script>
+        (g=>{var h,a,k,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("callback",c+".maps."+q);a.src=`https://maps.${c}apis.com/maps/api/js?`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=m.querySelector("script[nonce]")?.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Re-referencing library name."):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})({
+            key: "AIzaSyCpVOcvJgCCpfwfAFIIOwMMYcuuW7WkNNM",
+            v: "weekly"
+        });
+    </script>
 
     <style>
         :root {
             --sidebar-gradient: linear-gradient(135deg, #3ac47d 0%, #2fac66 100%);
             --sidebar-width: 260px;
             --header-height: 65px;
+            --primary-red: #d32f2f;
+            --wellen-yellow: #f1c40f;
             --architect-blue: #3f6ad8;
         }
 
-        body { background-color: #f1f4f6; font-family: 'Inter', sans-serif; margin: 0; display: flex; height: 100vh; overflow: hidden; }
-        .app-container { display: flex; height: 100vh; width: 100vw; overflow: hidden; }
+        * { box-sizing: border-box; }
+        body { background-color: #f1f4f6; font-family: 'Inter', sans-serif; margin: 0; padding: 0; overflow: hidden; }
 
-        /* Sidebar */
-        .sidebar { width: var(--sidebar-width); background: #fff; box-shadow: 7px 0 60px rgba(0,0,0,0.05); z-index: 1050; display: flex; flex-direction: column; transition: 0.3s; }
-        .sidebar.collapsed { width: 0; overflow: hidden; }
-        .sidebar-header { height: var(--header-height); display: flex; align-items: center; padding: 0 20px; border-bottom: 1px solid #f0f0f0; }
-        .sidebar-menu { flex: 1; padding: 20px 15px; overflow-y: auto; }
-        .nav-link { color: #555; font-weight: 600; padding: 12px 18px; border-radius: 10px; margin-bottom: 5px; display: flex; align-items: center; cursor: pointer; text-decoration: none !important; }
-        .nav-link i { font-size: 1.2rem; margin-right: 15px; }
+        .app-container { display: flex; height: 100vh; width: 100vw; overflow: hidden; position: relative; }
+
+        .sidebar {
+            width: var(--sidebar-width); background: #fff; box-shadow: 7px 0 60px rgba(0,0,0,0.05); z-index: 1100;
+            display: flex; flex-direction: column; transition: transform 0.3s; position: relative;
+        }
+        .sidebar.collapsed { transform: translateX(-100%); width: 0; position: absolute; }
+        .sidebar-header { height: var(--header-height); display: flex; align-items: center; padding: 0 20px; border-bottom: 1px solid #f0f0f0; background: #fff; }
+        .sidebar-menu { flex: 1; padding: 15px; overflow-y: auto; }
+        .nav-link { color: #555; font-weight: 600; padding: 10px 15px; border-radius: 8px; margin-bottom: 3px; display: flex; align-items: center; cursor: pointer; transition: 0.2s; font-size: 0.85rem; text-decoration: none !important; }
+        .nav-link i { font-size: 1.1rem; margin-right: 12px; }
         .nav-link.active { background: var(--sidebar-gradient); color: #fff !important; box-shadow: 0 4px 15px rgba(58, 196, 125, 0.3); }
-        .menu-label { font-size: 0.7rem; font-weight: 800; color: #ced4da; text-transform: uppercase; padding: 15px 0 10px 15px; }
+        .nav-link.active i { color: #fff !important; }
+        .menu-label { font-size: 0.65rem; font-weight: 800; color: #ced4da; text-transform: uppercase; padding: 15px 0 8px 15px; }
 
-        /* Main Content */
-        .main-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-        .top-bar { height: var(--header-height); background: #fff; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; padding: 0 25px; justify-content: space-between; }
-        .content-body { flex: 1; overflow-y: auto; padding: 25px; }
+        .main-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+        .top-bar { height: var(--header-height); background: #fff; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; padding: 0 20px; justify-content: space-between; position: sticky; top: 0; z-index: 900; }
+        .content-body { flex: 1; overflow-y: auto; padding: 20px; }
 
         .card-pro { background: #fff; border: none; border-radius: 12px; margin-bottom: 25px; box-shadow: 0 0.46875rem 2.1875rem rgba(4, 9, 20, 0.03); }
         .card-header-pro { padding: 15px 25px; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; font-weight: 700; color: #495057; }
 
-        #map { height: 450px; width: 100%; border-radius: 12px; border: 1px solid #eee; }
+        .stat-icon { width: 50px; height: 50px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; color: #fff; margin-right: 15px; }
+        .val { font-size: 1.6rem; font-weight: 800; color: #333; line-height: 1.2; }
+        .lab { color: #999; font-size: 0.75rem; text-transform: uppercase; font-weight: 700; }
+
+        #map { height: 400px; width: 100%; border-radius: 12px; border: 1px solid #eee; }
         .view-section { display: none; }
         .view-section.active { display: block; }
 
-        /* Custom Markers */
         .custom-div-icon { background: none; border: none; }
         .marker-pin {
             width: 30px; height: 30px; border-radius: 50% 50% 50% 0;
-            background: #3f6ad8; position: absolute; transform: rotate(-45deg);
+            background: # architect-blue; position: absolute; transform: rotate(-45deg);
             left: 50%; top: 50%; margin: -15px 0 0 -15px;
             display: flex; align-items: center; justify-content: center;
             box-shadow: 0 4px 10px rgba(0,0,0,0.2);
@@ -59,20 +73,19 @@
         .marker-num { position: absolute; width: 30px; height: 30px; line-height: 30px; text-align: center; font-weight: 800; font-size: 13px; color: #333; z-index: 10; }
         .marker-done .marker-pin { background: #3ac47d !important; }
 
-        /* Autocomplete UI Styling */
-        .pac-container { z-index: 9999 !important; border-radius: 12px; border: none; box-shadow: 0 10px 40px rgba(0,0,0,0.15); font-family: 'Inter', sans-serif; margin-top: 5px; }
-        .pac-item { padding: 12px 16px; cursor: pointer; display: flex; align-items: center; }
-        .pac-item:hover { background-color: #f1f4f6; }
-        .pac-item-query { font-size: 14px; color: #333; font-weight: 600; }
-        .pac-icon { margin-right: 10px; }
+        .proof-img-thumb { width: 60px; height: 60px; object-fit: cover; border-radius: 6px; margin-top: 10px; border: 2px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: pointer; transition: 0.3s; }
+        .chat-messages { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; background: #fdfdfd; }
+        .msg { max-width: 80%; padding: 10px 15px; border-radius: 15px; margin-bottom: 8px; font-size: 0.85rem; }
+        .msg.admin { align-self: flex-end; background: #3f6ad8; color: #fff; border-bottom-right-radius: 2px; }
+        .msg.courier { align-self: flex-start; background: #eef2f7; color: #333; border-bottom-left-radius: 2px; }
 
-        /* Helpers */
-        .stat-icon { width: 50px; height: 50px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; color: #fff; margin-right: 15px; }
-        .val { font-size: 1.6rem; font-weight: 800; color: #333; }
-        .lab { color: #999; font-size: 0.75rem; text-transform: uppercase; font-weight: 700; }
+        .courier-group-header { background: #2d2f39; color: white; padding: 15px 20px; border-radius: 12px; margin-bottom: 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
         .dest-pill { background: #f8f9fa; padding: 10px; border-radius: 8px; margin-top: 8px; border-left: 4px solid #ddd; }
         .dest-pill.done { border-left-color: #3ac47d; background: #f4fff9; }
-        .proof-img-thumb { width: 60px; height: 60px; object-fit: cover; border-radius: 6px; margin-top: 10px; border: 2px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: pointer; }
+        .modal-body { position: relative; }
+        .download-btn { position: absolute; bottom: 20px; right: 20px; z-index: 10; }
+
+        .pac-container { z-index: 9999 !important; border-radius: 8px; border: 1px solid #eee; box-shadow: 0 10px 25px rgba(0,0,0,0.1); font-family: 'Inter', sans-serif; }
     </style>
 </head>
 <body>
@@ -81,6 +94,7 @@
         <aside class="sidebar">
             <div class="sidebar-header">
                 <i class="bi bi-list fs-3 me-2 cursor-pointer" onclick="toggleSidebar()"></i>
+                <img src="wellen_logo.jpg" style="height:35px;" class="me-2">
                 <span class="fw-bold text-dark small">WELLEN LOGISTICS</span>
             </div>
             <nav class="sidebar-menu">
@@ -109,13 +123,12 @@
             <div class="content-body">
                 <div id="global-map-container" class="card-pro overflow-hidden">
                     <div class="card-header-pro bg-light">
-                        <span class="small fw-bold text-uppercase"><i class="bi bi-geo-alt-fill text-danger me-2"></i>Live Map</span>
-                        <span class="badge bg-success">Live</span>
+                        <span class="small fw-bold text-uppercase fw-bold"><i class="bi bi-geo-alt-fill text-danger me-2"></i>Live Map</span>
+                        <span class="badge bg-success small">Live</span>
                     </div>
                     <div class="p-0"><div id="map"></div></div>
                 </div>
 
-                <!-- DASHBOARD -->
                 <div id="view-dashboard" class="view-section active">
                     <div class="row g-3">
                         <div class="col-6 col-md-3"><div class="card-pro p-3 d-flex align-items-center"><div class="stat-icon bg-primary"><i class="bi bi-activity"></i></div><div><div class="val" id="stat-active">0</div><div class="lab">Aktif</div></div></div></div>
@@ -125,13 +138,12 @@
                     </div>
                 </div>
 
-                <!-- DISPATCH -->
                 <div id="view-dispatch" class="view-section">
                     <div class="card-pro p-4">
                         <div class="row g-3">
-                            <div class="col-md-3"><label class="small fw-bold">Pilih Kurir</label><select id="sel-courier" class="form-select"></select></div>
-                            <div class="col-md-6"><label class="small fw-bold">Cari Alamat (Google)</label><input type="text" id="places-search" class="form-control" placeholder="Ketik nama jalan/gedung..."></div>
-                            <div class="col-md-3 d-flex align-items-end"><button class="btn btn-primary w-100 fw-bold" onclick="submitTrip()">KIRIM TUGAS</button></div>
+                            <div class="col-md-3"><label class="small fw-bold text-muted">Pilih Kurir</label><select id="sel-courier" class="form-select"></select></div>
+                            <div class="col-md-6"><label class="small fw-bold text-muted">Cari Lokasi (Google Places)</label><input type="text" id="places-search" class="form-control" placeholder="Cari alamat, gedung, atau jalan..."></div>
+                            <div class="col-md-3 d-flex align-items-end"><button class="btn btn-primary w-100 fw-bold py-2" onclick="submitTrip()">KIRIM TUGAS</button></div>
                         </div>
                         <div id="dispatch-queue" class="mt-3"></div>
                     </div>
@@ -159,14 +171,14 @@
                     <div class="row g-4">
                         <div class="col-md-6">
                             <div class="card-pro p-4">
-                                <h6 class="fw-bold mb-3">Aturan Sinkronisasi</h6>
-                                <label class="small fw-bold">Interval</label>
-                                <div class="input-group mb-2">
+                                <h6 class="fw-bold mb-3 text-primary">Aturan Sinkronisasi</h6>
+                                <label class="small fw-bold">Interval Waktu</label>
+                                <div class="input-group mb-3">
                                     <input type="number" id="cfg-interval" class="form-control" value="10">
                                     <select id="cfg-time-unit" class="form-select"><option value="1000">Detik</option><option value="60000">Menit</option></select>
                                 </div>
-                                <label class="small fw-bold">Jarak Validasi (Geofence)</label>
-                                <div class="input-group mb-3"><input type="number" id="cfg-geofence" class="form-control" value="20"><span class="input-group-text">Meter</span></div>
+                                <label class="small fw-bold">Radius Validasi Selesai (Geofence)</label>
+                                <div class="input-group mb-4"><input type="number" id="cfg-geofence" class="form-control border-danger" value="20"><span class="input-group-text bg-danger text-white">Meter</span></div>
                                 <button class="btn btn-dark w-100" onclick="updateConfig()">Simpan & Terapkan</button>
                             </div>
                         </div>
@@ -174,7 +186,7 @@
                             <div class="card-pro p-4">
                                 <h6 class="fw-bold mb-3">Cloudinary</h6>
                                 <input type="text" id="cld-name" class="form-control mb-2" placeholder="Cloud Name">
-                                <input type="text" id="cld-preset" class="form-control mb-3" placeholder="Upload Preset">
+                                <input type="text" id="cld-preset" class="form-control mb-4" placeholder="Upload Preset">
                                 <button class="btn btn-primary w-100" onclick="saveCloudinary()">Simpan</button>
                             </div>
                         </div>
@@ -183,15 +195,12 @@
 
                 <div id="view-chat" class="view-section">
                     <div class="row g-4">
-                        <div class="col-md-4"><div class="card-pro p-4"><h6>Daftar Kurir</h6><div id="chat-list-container"></div></div></div>
+                        <div class="col-md-4"><div class="card-pro p-4"><h6>Daftar Kurir</h6><div id="chat-list-container" style="max-height: 500px; overflow-y: auto;"></div></div></div>
                         <div class="col-md-8">
                             <div class="card-pro p-4 d-flex flex-column" style="height: 600px;">
                                 <h6 id="chat-header-main" class="border-bottom pb-2">Percakapan</h6>
                                 <div id="chat-messages-main" class="chat-messages flex-grow-1"></div>
-                                <div class="mt-3 d-flex">
-                                    <input type="text" id="chat-input-main" class="form-control me-2" placeholder="Ketik..." onkeypress="if(event.key==='Enter') sendChatMain()">
-                                    <button class="btn btn-primary" onclick="sendChatMain()"><i class="bi bi-send"></i></button>
-                                </div>
+                                <div class="mt-3 d-flex"><input type="text" id="chat-input-main" class="form-control me-2" onkeypress="if(event.key==='Enter') sendChatMain()"><button class="btn btn-primary" onclick="sendChatMain()"><i class="bi bi-send"></i></button></div>
                             </div>
                         </div>
                     </div>
@@ -200,7 +209,6 @@
         </main>
     </div>
 
-    <!-- TOAST & MODAL -->
     <div class="toast-container position-fixed top-0 start-50 translate-middle-x p-3"><div id="liveToast" class="toast align-items-center text-white bg-success border-0 shadow-lg"><div class="d-flex p-2"><div class="toast-body"></div></div></div></div>
     <div class="modal fade" id="imageModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content border-0"><div class="modal-body p-0 text-center"><img id="modalImg" src="" style="max-width:100%; border-radius:12px;"><button type="button" class="btn btn-light position-absolute top-0 end-0 m-3" data-bs-dismiss="modal"><i class="bi bi-x"></i></button><div class="p-3 bg-white d-flex justify-content-center"><a id="downloadBtn" href="#" download class="btn btn-primary btn-sm">Download Foto</a></div></div></div></div></div>
 
@@ -225,11 +233,6 @@
         const rtdb = firebase.database(), db = firebase.firestore();
         const map = L.map('map').setView([-6.2, 106.81], 12);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-        const markers = {}, registeredUsers = {};
-        const tripMarkersLayer = L.layerGroup().addTo(map);
-        const draftMarkersLayer = L.layerGroup().addTo(map);
-        let tripQueue = [], currentChatId = null, chatUnsub = null;
 
         // --- GOOGLE PLACES INITIALIZATION (MODERN PATTERN) ---
         async function initAutocomplete() {
@@ -267,6 +270,11 @@
         }
 
         window.addEventListener('load', initAutocomplete);
+
+        const markers = {}, registeredUsers = {};
+        const tripMarkersLayer = L.layerGroup().addTo(map);
+        const draftMarkersLayer = L.layerGroup().addTo(map);
+        let tripQueue = [], currentChatId = null, chatUnsub = null;
 
         function toggleSidebar() { document.querySelector('.sidebar').classList.toggle('collapsed'); setTimeout(() => map.invalidateSize(), 300); }
 
