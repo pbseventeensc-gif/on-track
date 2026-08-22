@@ -231,13 +231,6 @@
         </main>
     </div>
 
-    <!-- CHAT POPUP -->
-    <div id="chat-window">
-        <div class="chat-header"><span id="chat-user-name">Chat</span><i class="bi bi-x-lg cursor-pointer" onclick="closeChat()"></i></div>
-        <div id="chat-msgs" class="chat-messages"></div>
-        <div class="p-3 border-top d-flex"><input type="text" id="chat-input" class="form-control me-2" onkeypress="if(event.key==='Enter') sendChat()"><button class="btn btn-primary" onclick="sendChat()"><i class="bi bi-send"></i></button></div>
-    </div>
-
     <!-- TOAST -->
     <div class="toast-container position-fixed top-0 start-50 translate-middle-x p-3"><div id="liveToast" class="toast align-items-center text-white bg-success border-0 shadow-lg"><div class="d-flex p-2"><div class="toast-body"></div></div></div></div>
 
@@ -360,22 +353,14 @@
         }
 
         function openChat(id, name) {
-            currentChatId = id; document.getElementById('chat-user-name').innerText = name; document.getElementById('chat-window').style.display = 'flex';
+            currentChatId = id;
             const mainH = document.getElementById('chat-header-main'); if(mainH) mainH.innerText = "Percakapan dengan: " + name;
             if(chatUnsub) chatUnsub();
             const col = id.startsWith('TRIP_') ? db.collection('trips').doc(id).collection('messages') : db.collection('chats').doc(id).collection('messages');
             chatUnsub = col.orderBy('timestamp','asc').onSnapshot(snap => {
                 let html = ''; snap.forEach(d => { const m = d.data(); html += `<div class="msg ${m.senderId==='admin'?'admin':'courier'}">${m.text}</div>`; });
-                document.getElementById('chat-msgs').innerHTML = html; document.getElementById('chat-msgs').scrollTop = 99999;
                 if(document.getElementById('chat-messages-main')) { document.getElementById('chat-messages-main').innerHTML = html; document.getElementById('chat-messages-main').scrollTop = 99999; }
             });
-        }
-        function closeChat() { document.getElementById('chat-window').style.display = 'none'; }
-        async function sendChat() {
-            const txt = document.getElementById('chat-input').value; if(!txt || !currentChatId) return;
-            const col = currentChatId.startsWith('TRIP_') ? db.collection('trips').doc(currentChatId).collection('messages') : db.collection('chats').doc(currentChatId).collection('messages');
-            await col.add({ senderId: 'admin', text: txt, timestamp: firebase.firestore.Timestamp.now() });
-            document.getElementById('chat-input').value = '';
         }
         async function sendChatMain() {
             const txt = document.getElementById('chat-input-main').value; if(!txt || !currentChatId) return;
