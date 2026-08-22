@@ -3,6 +3,8 @@ package com.KurirKita.ui
 import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import android.util.Log
+import android.location.Location
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -27,15 +29,14 @@ import com.KurirKita.model.Trip
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
+import com.google.android.gms.tasks.CancellationTokenSource
 import com.cloudinary.android.MediaManager
 import com.cloudinary.android.callback.ErrorInfo
 import com.cloudinary.android.callback.UploadCallback
 import java.io.ByteArrayOutputStream
 import java.util.UUID
-
-import android.location.Location
-import android.widget.Toast
-import com.google.android.gms.location.LocationServices
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,8 +46,6 @@ fun ActiveTripScreen(trip: Trip, onBack: () -> Unit, onChatClick: () -> Unit) {
     var currentTrip by remember { mutableStateOf(trip) }
     val storage = FirebaseStorage.getInstance()
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
-    
-    // ... existing Cloudinary init ...
     
     // Initialize Cloudinary if needed
     LaunchedEffect(Unit) {
@@ -140,27 +139,46 @@ fun ActiveTripScreen(trip: Trip, onBack: () -> Unit, onChatClick: () -> Unit) {
 }
 
 @SuppressLint("MissingPermission")
-private fun checkLocation(
+private fun validateSecurityAndLocation(
+    context: android.content.Context,
     client: com.google.android.gms.location.FusedLocationProviderClient,
     targetLat: Double,
     targetLng: Double,
-    onResult: (Boolean) -> Unit
+    onValid: () -> Unit
 ) {
-    client.lastLocation.addOnSuccessListener { location ->
-        if (location != null) {
-            val results = FloatArray(1)
-            Location.distanceBetween(location.latitude, location.longitude, targetLat, targetLng, results)
-            val distance = results[0]
-            Log.d("LocationCheck", "Distance to ${targetLat},${targetLng}: $distance meters")
-            
-            // Threshold 150 meters
-            onResult(distance <= 150f)
+    val cts = CancellationTokenSource()
+    client.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, cts.token).addOnSuccessListener { location ->
+        if (location == null) {
+            Toast.makeText(context, "GPS tidak terdeteksi. Aktifkan GPS Anda.", Toast.LENGTH_SHORT).show()
+            return@addOnSuccessListener
+        }
+
+        // 1. Detect Fake GPS (Mock Location)
+        val isMock = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            location.isMock
         } else {
-            // No last location, maybe GPS off or not yet fixed
-            onResult(false)
+            @Suppress("DEPRECATION")
+            location.isFromMockProvider
+        }
+
+        if (isMock) {
+            Toast.makeText(context, "🚨 PERINGATAN: Fake GPS Terdeteksi! Gunakan GPS asli atau akun Anda akan diblokir.", Toast.LENGTH_LONG).show()
+            Log.e("Security", "Fake GPS Detected!")
+            return@addOnSuccessListener
+        }
+
+        // 2. Geofencing (Max 50 meters)
+        val results = FloatArray(1)
+        Location.distanceBetween(location.latitude, location.longitude, targetLat, targetLng, results)
+        val distance = results[0]
+        
+        if (distance > 50f) {
+            Toast.makeText(context, "Terlalu Jauh! Jarak Anda %.0f meter. Silakan mendekat ke lokasi (Maks 50m).".format(distance), Toast.LENGTH_LONG).show()
+        } else {
+            onValid()
         }
     }.addOnFailureListener {
-        onResult(false)
+        Toast.makeText(context, "Gagal memverifikasi lokasi GPS.", Toast.LENGTH_SHORT).show()
     }
 }
 
@@ -179,15 +197,11 @@ fun DestinationItem(
     ) { bitmap ->
         if (bitmap != null) {
             isUploading = true
-            // Final validation before upload
-            checkLocation(fusedLocationClient, dest.latitude, dest.longitude) { isNear ->
-                if (isNear) {
-                    onStatusUpdate("done", bitmap)
-                } else {
-                    isUploading = false
-                    Toast.makeText(context, "Gagal Selesai: Anda terlalu jauh dari lokasi!", Toast.LENGTH_LONG).show()
-                }
+            // Validation before finishing task with photo
+            validateSecurityAndLocation(context, fusedLocationClient, dest.latitude, dest.longitude) {
+                onStatusUpdate("done", bitmap)
             }
+            if (dest.status != "done") isUploading = false
         }
     }
 
@@ -268,9 +282,8 @@ fun DestinationItem(
                     if (dest.status == "pending") {
                         Button(
                             onClick = { 
-                                checkLocation(fusedLocationClient, dest.latitude, dest.longitude) { isNear ->
-                                    if (isNear) onStatusUpdate("arrived", null)
-                                    else Toast.makeText(context, "Terlalu Jauh! Mendekatlah ke lokasi untuk absen tiba.", Toast.LENGTH_LONG).show()
+                                validateSecurityAndLocation(context, fusedLocationClient, dest.latitude, dest.longitude) {
+                                    onStatusUpdate("arrived", null)
                                 }
                             }, 
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer)
@@ -281,9 +294,8 @@ fun DestinationItem(
                         Column(horizontalAlignment = Alignment.End) {
                             Button(
                                 onClick = { 
-                                    checkLocation(fusedLocationClient, dest.latitude, dest.longitude) { isNear ->
-                                        if (isNear) cameraLauncher.launch(null)
-                                        else Toast.makeText(context, "Terlalu Jauh! Silakan mendekat ke titik tujuan untuk mengambil foto bukti.", Toast.LENGTH_LONG).show()
+                                    validateSecurityAndLocation(context, fusedLocationClient, dest.latitude, dest.longitude) {
+                                        cameraLauncher.launch(null)
                                     }
                                 },
                                 enabled = !isUploading,
@@ -300,13 +312,9 @@ fun DestinationItem(
                             }
                             TextButton(
                                 onClick = { 
-                                    checkLocation(fusedLocationClient, dest.latitude, dest.longitude) { isNear ->
-                                        if (isNear) {
-                                            isUploading = true
-                                            onStatusUpdate("done", null) 
-                                        } else {
-                                            Toast.makeText(context, "Terlalu Jauh! Mendekatlah ke lokasi untuk menyelesaikan tugas.", Toast.LENGTH_LONG).show()
-                                        }
+                                    validateSecurityAndLocation(context, fusedLocationClient, dest.latitude, dest.longitude) {
+                                        isUploading = true
+                                        onStatusUpdate("done", null) 
                                     }
                                 },
                                 enabled = !isUploading,
