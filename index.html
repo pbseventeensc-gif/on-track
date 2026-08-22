@@ -10,47 +10,60 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
 
-    <!-- Google Maps API with Places Library (Fixed Loading) -->
+    <!-- Google Maps API with Places Library -->
     <script>
-        // Define callback early to avoid 'initAutocomplete is not a function' error
+        // Global error handler for Google Maps authentication failures
+        window.gm_authFailure = function() {
+            console.error("Google Maps Authentication Error!");
+            const input = document.getElementById('places-search');
+            if (input) {
+                input.placeholder = "API Google Maps Error (Cek Billing/Key)...";
+                input.style.backgroundColor = "#ffebee";
+            }
+            alert("Gagal memuat Google Maps. Biasanya karena Billing belum aktif atau API Key salah.");
+        };
+
+        // Define callback for successful loading
         window.initAutocomplete = function() {
             console.log("Google Maps API Callback: initAutocomplete started");
             const input = document.getElementById('places-search');
-            if (!input) {
-                console.error("Search input element not found!");
-                return;
+            if (!input) return;
+
+            try {
+                const options = {
+                    componentRestrictions: { country: "id" },
+                    fields: ["geometry", "name", "formatted_address"]
+                };
+
+                const autocomplete = new google.maps.places.Autocomplete(input, options);
+
+                autocomplete.addListener("place_changed", () => {
+                    const place = autocomplete.getPlace();
+                    if (!place.geometry || !place.geometry.location) {
+                        console.warn("Place selection incomplete");
+                        return;
+                    }
+
+                    const lat = place.geometry.location.lat();
+                    const lng = place.geometry.location.lng();
+                    const name = place.name || "Tujuan";
+                    const address = place.formatted_address || "";
+
+                    tripQueue.push({ name, address, lat, lng });
+                    renderQueue();
+
+                    input.value = "";
+                    map.flyTo([lat, lng], 16);
+                    const marker = L.marker([lat, lng]).addTo(map).bindPopup(`<b>${name}</b>`).openPopup();
+                    setTimeout(() => { if (map.hasLayer(marker)) map.removeLayer(marker); }, 5000);
+                });
+
+                input.disabled = false;
+                input.placeholder = "Cari alamat, gedung, atau jalan...";
+                console.log("Autocomplete initialized successfully.");
+            } catch (e) {
+                console.error("Autocomplete init error:", e);
             }
-
-            if (typeof google === 'undefined' || !google.maps || !google.maps.places) {
-                console.error("Places library not available in google object.");
-                return;
-            }
-
-            const options = {
-                componentRestrictions: { country: "id" },
-                fields: ["address_components", "geometry", "name", "formatted_address"]
-            };
-
-            const autocomplete = new google.maps.places.Autocomplete(input, options);
-
-            autocomplete.addListener("place_changed", () => {
-                const place = autocomplete.getPlace();
-                if (!place.geometry || !place.geometry.location) return;
-
-                const lat = place.geometry.location.lat();
-                const lng = place.geometry.location.lng();
-                const name = place.name || "Tujuan";
-                const address = place.formatted_address || "";
-
-                tripQueue.push({ name, address, lat, lng });
-                renderQueue();
-
-                input.value = "";
-                map.flyTo([lat, lng], 16);
-                const marker = L.marker([lat, lng]).addTo(map).bindPopup(`<b>${name}</b>`).openPopup();
-                setTimeout(() => { if (map.hasLayer(marker)) map.removeLayer(marker); }, 5000);
-            });
-            console.log("Autocomplete successfully bound to input.");
         };
     </script>
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBDoviDNLl_aSjM1NMN-g_gHpeIPPzC6Rk&libraries=places&callback=initAutocomplete" async defer></script>
