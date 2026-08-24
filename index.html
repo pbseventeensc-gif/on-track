@@ -183,9 +183,8 @@
 
         .card-title { font-weight: 700; font-size: 1.1rem; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
 
-        /* Map Containers */
-        #map, #map-monitor { height: 450px; width: 100%; border-radius: 12px; border: 1px solid var(--border-color); }
-        #map-monitor { min-height: 500px; background: #f0f0f0; }
+        #map, #map-monitor, #map-dispatch { height: 450px; width: 100%; border-radius: 12px; border: 1px solid var(--border-color); }
+        #map-monitor, #map-dispatch { min-height: 500px; background: #f0f0f0; }
 
         /* Table Styling */
         .table-container { border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; }
@@ -470,7 +469,7 @@
                 <div id="view-dispatch" class="view-section">
                     <div class="border rounded-4 p-4 bg-white mb-4">
                         <h6 class="fw-bold mb-4">Create New Shipment</h6>
-                        <div class="row g-3">
+                        <div class="row g-3 mb-4">
                             <div class="col-md-4">
                                 <label class="extra-small fw-bold text-muted text-uppercase mb-2">Select Carrier</label>
                                 <select id="sel-courier" class="form-select border-1 py-2" style="border-radius: 10px;"></select>
@@ -486,16 +485,32 @@
                                 <button class="btn btn-dark w-100 py-2 fw-bold" style="border-radius:10px;" onclick="submitTrip()"><i class="bi bi-send-plus me-2"></i> DISPATCH</button>
                             </div>
                         </div>
-                        <div id="dispatch-queue" class="mt-4 d-flex flex-wrap gap-2"></div>
+
+                        <!-- Dispatch Map -->
+                        <div id="map-dispatch" class="mb-4"></div>
+
+                        <div id="dispatch-queue" class="d-flex flex-wrap gap-2"></div>
                     </div>
                 </div>
 
                 <!-- MONITOR VIEW -->
                 <div id="view-monitor" class="view-section">
-                    <div class="d-flex justify-content-between align-items-center mb-4">
-                        <h6 class="fw-bold m-0">Live Fleet Monitor</h6>
-                        <input type="text" class="form-control form-control-sm border w-auto" placeholder="Search carrier..." oninput="filterMonitorList(this.value)">
+                    <div class="border rounded-4 p-4 bg-white mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h6 class="fw-bold m-0"><i class="bi bi-geo-alt-fill me-2"></i>Live Fleet Tracking</h6>
+                            <span class="badge bg-success-subtle text-success px-3 py-2 border border-success-subtle">LIVE</span>
+                        </div>
+
+                        <!-- Search Bar for Monitor -->
+                        <div class="position-relative mb-4">
+                            <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"></i>
+                            <input type="text" id="monitor-search" class="form-control ps-5 py-2" style="border-radius: 12px; background: #F9FAFB;" placeholder="Search by Order ID, Client, Courier..." oninput="filterMonitorAll(this.value)">
+                        </div>
+
+                        <!-- Monitor Map -->
+                        <div id="map-monitor" style="height: 500px; width: 100%; border-radius: 16px; border: 1px solid var(--border-color);"></div>
                     </div>
+
                     <div id="monitor-list" class="row g-4"></div>
                 </div>
 
@@ -629,7 +644,7 @@
         firebase.initializeApp(firebaseConfig);
         const rtdb = firebase.database(), db = firebase.firestore(), storage = firebase.storage();
 
-        let map, mapMonitor;
+        let map, mapMonitor, mapDispatch;
         const courierMarkers = {}, monitorMarkers = {}, registeredUsers = {};
         const tripMarkersLayer = L.layerGroup();
         const monitorMarkersLayer = L.layerGroup();
@@ -649,19 +664,28 @@
                 };
 
                 // Dashboard Map
-                if (!document.getElementById('map')) return;
-                map = L.map('map', { zoomControl: false }).setView([-6.2, 106.81], 12);
-                L.control.zoom({ position: 'bottomright' }).addTo(map);
-                L.tileLayer(googleTiles.url, googleTiles.options).addTo(map);
-                tripMarkersLayer.addTo(map);
-                draftMarkersLayer.addTo(map);
+                if (document.getElementById('map')) {
+                    map = L.map('map', { zoomControl: false }).setView([-6.2, 106.81], 12);
+                    L.control.zoom({ position: 'bottomright' }).addTo(map);
+                    L.tileLayer(googleTiles.url, googleTiles.options).addTo(map);
+                    tripMarkersLayer.addTo(map);
+                }
 
                 // Monitor Map
-                if (!document.getElementById('map-monitor')) return;
-                mapMonitor = L.map('map-monitor', { zoomControl: false }).setView([-6.2, 106.81], 12);
-                L.control.zoom({ position: 'bottomright' }).addTo(mapMonitor);
-                L.tileLayer(googleTiles.url, googleTiles.options).addTo(mapMonitor);
-                monitorMarkersLayer.addTo(mapMonitor);
+                if (document.getElementById('map-monitor')) {
+                    mapMonitor = L.map('map-monitor', { zoomControl: false }).setView([-6.2, 106.81], 12);
+                    L.control.zoom({ position: 'bottomright' }).addTo(mapMonitor);
+                    L.tileLayer(googleTiles.url, googleTiles.options).addTo(mapMonitor);
+                    monitorMarkersLayer.addTo(mapMonitor);
+                }
+
+                // Dispatch Map
+                if (document.getElementById('map-dispatch')) {
+                    mapDispatch = L.map('map-dispatch', { zoomControl: false }).setView([-6.2, 106.81], 12);
+                    L.control.zoom({ position: 'bottomright' }).addTo(mapDispatch);
+                    L.tileLayer(googleTiles.url, googleTiles.options).addTo(mapDispatch);
+                    draftMarkersLayer.addTo(mapDispatch);
+                }
             } catch (e) { console.error("Leaflet Init Error:", e); }
         }
         window.addEventListener('load', initMaps);
@@ -691,7 +715,8 @@
                     const place = autocomplete.getPlace(); if (!place.geometry) return;
                     const lat = place.geometry.location.lat(), lng = place.geometry.location.lng();
                     tripQueue.push({ name: place.name || "Tujuan", address: place.formatted_address || "", lat, lng });
-                    renderQueue(); input.value = ""; map.flyTo([lat, lng], 16);
+                    renderQueue(); input.value = "";
+                    if(mapDispatch) mapDispatch.flyTo([lat, lng], 16);
                 });
             } catch (e) { console.error("Maps Error", e); }
         }
@@ -718,6 +743,7 @@
             setTimeout(() => {
                 if(map) map.invalidateSize();
                 if(mapMonitor) mapMonitor.invalidateSize();
+                if(mapDispatch) mapDispatch.invalidateSize();
             }, 400);
 
             if(viewId === 'chat') loadChatList();
@@ -740,52 +766,107 @@
             for (const id in data) {
                 const c = data[id]; count++;
                 const color = getCourierColor(id);
-                if (courierMarkers[id]) courierMarkers[id].setLatLng([c.lat, c.lng]);
-                else courierMarkers[id] = L.circleMarker([c.lat, c.lng], { radius: 10, fillColor: color, color: "#fff", weight: 3, opacity: 1, fillOpacity: 0.9 }).addTo(map).bindPopup(`<b>${registeredUsers[id] || 'Carrier'}</b>`);
+                const pos = [c.lat, c.lng];
+
+                // Dashboard Map Marker
+                if (courierMarkers[id]) courierMarkers[id].setLatLng(pos);
+                else courierMarkers[id] = L.circleMarker(pos, { radius: 10, fillColor: color, color: "#fff", weight: 3, fillOpacity: 0.9 }).addTo(map).bindPopup(`<b>${registeredUsers[id] || 'Carrier'}</b>`);
+
+                // Monitor Map Marker
+                if (monitorMarkers[id]) monitorMarkers[id].setLatLng(pos);
+                else monitorMarkers[id] = L.circleMarker(pos, { radius: 10, fillColor: color, color: "#fff", weight: 3, fillOpacity: 0.9 }).addTo(mapMonitor).bindPopup(`<b>${registeredUsers[id] || 'Carrier'}</b>`);
             }
             document.getElementById('stat-transit-count').innerText = count;
         });
 
         db.collection('trips').onSnapshot(snap => {
-            let active = 0, mList = document.getElementById('monitor-list'), table = document.getElementById('recent-shipments-table');
-            if(!mList || !table) return; mList.innerHTML = ''; table.innerHTML = ''; tripMarkersLayer.clearLayers();
+            let active = 0;
+            allCurrentTrips = [];
+            tripMarkersLayer.clearLayers();
+            monitorMarkersLayer.clearLayers();
 
             snap.forEach(doc => {
                 const t = doc.data();
+                t.id = doc.id;
+                allCurrentTrips.push(t);
+                if(t.status !== 'completed') active++;
+
                 const cName = registeredUsers[t.courierId] || t.courierId.substring(0,8);
                 const cColor = getCourierColor(t.courierId);
+
+                t.destinations.forEach(d => {
+                    const isDone = d.status === 'done';
+                    const icon = L.divIcon({ className: 'custom-div-icon', html: `<div class='marker-pin' style='background:${isDone ? '#10B981' : cColor}'></div><div class='marker-num' style='color:#fff'>${d.stopIndex}</div>`, iconSize:[30,42], iconAnchor:[15,42] });
+                    const marker = L.marker([d.latitude, d.longitude], {icon}).bindPopup(`<b>${d.locationName}</b><br>ID: ${t.id}<br>Driver: ${cName}`);
+
+                    marker.addTo(tripMarkersLayer);
+                    L.marker([d.latitude, d.longitude], {icon}).bindPopup(`<b>${d.locationName}</b><br>ID: ${t.id}<br>Driver: ${cName}`).addTo(monitorMarkersLayer);
+                });
+            });
+            document.getElementById('stat-active').innerText = active;
+            renderMonitorUI();
+            renderRecentShipments();
+        });
+
+        function renderMonitorUI(filter = "") {
+            const mList = document.getElementById('monitor-list');
+            if(!mList) return;
+            mList.innerHTML = '';
+
+            const search = filter.toLowerCase();
+            const filtered = allCurrentTrips.filter(t => {
+                if(t.status === 'completed') return false;
+                const cName = (registeredUsers[t.courierId] || "").toLowerCase();
+                const tripId = t.id.toLowerCase();
+                const clients = t.destinations.map(d => d.locationName.toLowerCase()).join(" ");
+                return cName.includes(search) || tripId.includes(search) || clients.includes(search);
+            });
+
+            filtered.forEach(t => {
+                const cName = registeredUsers[t.courierId] || t.courierId.substring(0,8);
+                const cColor = getCourierColor(t.courierId);
+                const statusClass = t.status === 'assigned' ? 'pending' : 'transit';
+
+                mList.innerHTML += `<div class="col-md-6 col-xl-4"><div class="border rounded-4 p-4 h-100 bg-white" style="border-top: 4px solid ${cColor} !important">
+                    <div class="d-flex justify-content-between mb-3"><span class="fw-bold">${cName}</span><span class="badge-pill badge-${statusClass}">${t.status}</span></div>
+                    <div class="extra-small text-muted mb-1">ID: ${t.id}</div>
+                    <div class="extra-small text-muted mb-3">${t.destinations.length} Stops</div>
+                    <button class="btn btn-sm btn-outline-dark w-100" onclick="focusOnCourier('${t.courierId}', true)">Focus Track</button></div></div>`;
+            });
+        }
+
+        function renderRecentShipments() {
+            const table = document.getElementById('recent-shipments-table');
+            if(!table) return;
+            table.innerHTML = '';
+            allCurrentTrips.slice(-10).reverse().forEach(t => {
+                const cName = registeredUsers[t.courierId] || t.courierId.substring(0,8);
                 const statusClass = t.status === 'completed' ? 'delivered' : (t.status === 'assigned' ? 'pending' : 'transit');
-
-                if(t.status !== 'completed') {
-                    active++;
-                    mList.innerHTML += `<div class="col-md-6 col-xl-4"><div class="border rounded-4 p-4 h-100 bg-white" style="border-top: 4px solid ${cColor} !important">
-                        <div class="d-flex justify-content-between mb-3"><span class="fw-bold">${cName}</span><span class="badge-pill badge-${statusClass}">${t.status}</span></div>
-                        <div class="extra-small text-muted mb-3">${t.destinations.length} Stops</div>
-                        <button class="btn btn-sm btn-outline-dark w-100" onclick="focusOnCourier('${t.courierId}')">Focus Track</button></div></div>`;
-                }
-
-                // Table Row
                 const eta = t.status === 'completed' ? 'Finished' : (t.destinations[0]?.arrivalTime ? new Date(t.destinations[0].arrivalTime.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : 'TBD');
+
                 table.innerHTML += `<tr>
-                    <td class="fw-bold">#${doc.id.substring(5,11)}</td>
-                    <td>Jakarta Central</td>
+                    <td class="fw-bold">#${t.id.substring(5,11)}</td>
+                    <td>Warehouse</td>
                     <td>${t.destinations[0]?.locationName || 'TBD'}</td>
                     <td><span class="badge-pill badge-${statusClass}">${t.status}</span></td>
                     <td>${cName}</td>
                     <td>${eta}</td>
                 </tr>`;
-
-                t.destinations.forEach(d => {
-                    const isDone = d.status === 'done';
-                    const icon = L.divIcon({ className: 'custom-div-icon', html: `<div class='marker-pin' style='background:${isDone ? '#10B981' : cColor}'></div><div class='marker-num' style='color:#fff'>${d.stopIndex}</div>`, iconSize:[30,42], iconAnchor:[15,42] });
-                    L.marker([d.latitude || d.lat, d.longitude || d.lng], {icon}).addTo(tripMarkersLayer).bindPopup(`<b>${d.locationName}</b><br>Carrier: ${cName}`);
-                });
             });
-            document.getElementById('stat-active').innerText = active;
-        });
+        }
 
-        function focusOnCourier(id) {
-            if(courierMarkers[id]) { map.flyTo(courierMarkers[id].getLatLng(), 16); courierMarkers[id].openPopup(); switchTab('dashboard'); }
+        function filterMonitorAll(val) {
+            renderMonitorUI(val);
+        }
+
+        function focusOnCourier(id, isMonitor = false) {
+            const targetMap = isMonitor ? mapMonitor : map;
+            const targetMarkers = isMonitor ? monitorMarkers : courierMarkers;
+            if(targetMarkers[id]) {
+                targetMap.flyTo(targetMarkers[id].getLatLng(), 16);
+                targetMarkers[id].openPopup();
+                if(!isMonitor) switchTab('dashboard');
+            }
         }
 
         function renderQueue() {

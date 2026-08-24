@@ -183,9 +183,8 @@
 
         .card-title { font-weight: 700; font-size: 1.1rem; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
 
-        /* Map Containers */
-        #map, #map-monitor { height: 450px; width: 100%; border-radius: 12px; border: 1px solid var(--border-color); }
-        #map-monitor { min-height: 500px; background: #f0f0f0; }
+        #map, #map-monitor, #map-dispatch { height: 450px; width: 100%; border-radius: 12px; border: 1px solid var(--border-color); }
+        #map-monitor, #map-dispatch { min-height: 500px; background: #f0f0f0; }
 
         /* Table Styling */
         .table-container { border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; }
@@ -470,7 +469,7 @@
                 <div id="view-dispatch" class="view-section">
                     <div class="border rounded-4 p-4 bg-white mb-4">
                         <h6 class="fw-bold mb-4">Create New Shipment</h6>
-                        <div class="row g-3">
+                        <div class="row g-3 mb-4">
                             <div class="col-md-4">
                                 <label class="extra-small fw-bold text-muted text-uppercase mb-2">Select Carrier</label>
                                 <select id="sel-courier" class="form-select border-1 py-2" style="border-radius: 10px;"></select>
@@ -486,7 +485,11 @@
                                 <button class="btn btn-dark w-100 py-2 fw-bold" style="border-radius:10px;" onclick="submitTrip()"><i class="bi bi-send-plus me-2"></i> DISPATCH</button>
                             </div>
                         </div>
-                        <div id="dispatch-queue" class="mt-4 d-flex flex-wrap gap-2"></div>
+
+                        <!-- Dispatch Map -->
+                        <div id="map-dispatch" class="mb-4"></div>
+
+                        <div id="dispatch-queue" class="d-flex flex-wrap gap-2"></div>
                     </div>
                 </div>
 
@@ -641,7 +644,7 @@
         firebase.initializeApp(firebaseConfig);
         const rtdb = firebase.database(), db = firebase.firestore(), storage = firebase.storage();
 
-        let map, mapMonitor;
+        let map, mapMonitor, mapDispatch;
         const courierMarkers = {}, monitorMarkers = {}, registeredUsers = {};
         const tripMarkersLayer = L.layerGroup();
         const monitorMarkersLayer = L.layerGroup();
@@ -661,19 +664,28 @@
                 };
 
                 // Dashboard Map
-                if (!document.getElementById('map')) return;
-                map = L.map('map', { zoomControl: false }).setView([-6.2, 106.81], 12);
-                L.control.zoom({ position: 'bottomright' }).addTo(map);
-                L.tileLayer(googleTiles.url, googleTiles.options).addTo(map);
-                tripMarkersLayer.addTo(map);
-                draftMarkersLayer.addTo(map);
+                if (document.getElementById('map')) {
+                    map = L.map('map', { zoomControl: false }).setView([-6.2, 106.81], 12);
+                    L.control.zoom({ position: 'bottomright' }).addTo(map);
+                    L.tileLayer(googleTiles.url, googleTiles.options).addTo(map);
+                    tripMarkersLayer.addTo(map);
+                }
 
                 // Monitor Map
-                if (!document.getElementById('map-monitor')) return;
-                mapMonitor = L.map('map-monitor', { zoomControl: false }).setView([-6.2, 106.81], 12);
-                L.control.zoom({ position: 'bottomright' }).addTo(mapMonitor);
-                L.tileLayer(googleTiles.url, googleTiles.options).addTo(mapMonitor);
-                monitorMarkersLayer.addTo(mapMonitor);
+                if (document.getElementById('map-monitor')) {
+                    mapMonitor = L.map('map-monitor', { zoomControl: false }).setView([-6.2, 106.81], 12);
+                    L.control.zoom({ position: 'bottomright' }).addTo(mapMonitor);
+                    L.tileLayer(googleTiles.url, googleTiles.options).addTo(mapMonitor);
+                    monitorMarkersLayer.addTo(mapMonitor);
+                }
+
+                // Dispatch Map
+                if (document.getElementById('map-dispatch')) {
+                    mapDispatch = L.map('map-dispatch', { zoomControl: false }).setView([-6.2, 106.81], 12);
+                    L.control.zoom({ position: 'bottomright' }).addTo(mapDispatch);
+                    L.tileLayer(googleTiles.url, googleTiles.options).addTo(mapDispatch);
+                    draftMarkersLayer.addTo(mapDispatch);
+                }
             } catch (e) { console.error("Leaflet Init Error:", e); }
         }
         window.addEventListener('load', initMaps);
@@ -703,7 +715,8 @@
                     const place = autocomplete.getPlace(); if (!place.geometry) return;
                     const lat = place.geometry.location.lat(), lng = place.geometry.location.lng();
                     tripQueue.push({ name: place.name || "Tujuan", address: place.formatted_address || "", lat, lng });
-                    renderQueue(); input.value = ""; map.flyTo([lat, lng], 16);
+                    renderQueue(); input.value = "";
+                    if(mapDispatch) mapDispatch.flyTo([lat, lng], 16);
                 });
             } catch (e) { console.error("Maps Error", e); }
         }
@@ -730,6 +743,7 @@
             setTimeout(() => {
                 if(map) map.invalidateSize();
                 if(mapMonitor) mapMonitor.invalidateSize();
+                if(mapDispatch) mapDispatch.invalidateSize();
             }, 400);
 
             if(viewId === 'chat') loadChatList();
