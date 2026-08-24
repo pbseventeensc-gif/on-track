@@ -183,8 +183,9 @@
 
         .card-title { font-weight: 700; font-size: 1.1rem; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
 
-        /* Map Container */
-        #map { height: 450px; width: 100%; border-radius: 12px; border: 1px solid var(--border-color); }
+        /* Map Containers */
+        #map, #map-monitor { height: 450px; width: 100%; border-radius: 12px; border: 1px solid var(--border-color); }
+        #map-monitor { min-height: 500px; background: #f0f0f0; }
 
         /* Table Styling */
         .table-container { border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; }
@@ -256,7 +257,7 @@
         <!-- Sidebar -->
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
-                <img src="wellen_logo.jpg" style="height:32px; border-radius:6px;">
+                <img src="wellen_logo.jpg" style="height:35px; border-radius:6px;">
                 <div class="sidebar-brand">WellenGO</div>
             </div>
 
@@ -649,18 +650,22 @@
         let allCurrentTrips = []; // Store for filtering
 
         function initMaps() {
-            // Dashboard Map
-            map = L.map('map', { zoomControl: false }).setView([-6.2, 106.81], 12);
-            L.control.zoom({ position: 'bottomright' }).addTo(map);
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(map);
-            tripMarkersLayer.addTo(map);
-            draftMarkersLayer.addTo(map);
+            try {
+                // Dashboard Map
+                if (!document.getElementById('map')) return;
+                map = L.map('map', { zoomControl: false }).setView([-6.2, 106.81], 12);
+                L.control.zoom({ position: 'bottomright' }).addTo(map);
+                L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(map);
+                tripMarkersLayer.addTo(map);
+                draftMarkersLayer.addTo(map);
 
-            // Monitor Map
-            mapMonitor = L.map('map-monitor', { zoomControl: false }).setView([-6.2, 106.81], 12);
-            L.control.zoom({ position: 'bottomright' }).addTo(mapMonitor);
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(mapMonitor);
-            monitorMarkersLayer.addTo(mapMonitor);
+                // Monitor Map
+                if (!document.getElementById('map-monitor')) return;
+                mapMonitor = L.map('map-monitor', { zoomControl: false }).setView([-6.2, 106.81], 12);
+                L.control.zoom({ position: 'bottomright' }).addTo(mapMonitor);
+                L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(mapMonitor);
+                monitorMarkersLayer.addTo(mapMonitor);
+            } catch (e) { console.error("Leaflet Init Error:", e); }
         }
         window.addEventListener('load', initMaps);
 
@@ -699,19 +704,24 @@
 
         function switchTab(viewId, el) {
             document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
-            document.getElementById('view-'+viewId).classList.add('active');
+            const target = document.getElementById('view-'+viewId);
+            if(target) target.classList.add('active');
+
             document.querySelectorAll('.nav-link-custom').forEach(l => l.classList.remove('active'));
 
             if(el) el.classList.add('active');
-            else document.querySelector(`[onclick*="'${viewId}'"]`)?.classList.add('active');
+            else {
+                const navLink = document.querySelector(`[onclick*="'${viewId}'"]`);
+                if(navLink) navLink.classList.add('active');
+            }
 
             document.getElementById('sidebar').classList.remove('open');
 
-            // Re-invalidate maps
+            // Force map resize
             setTimeout(() => {
                 if(map) map.invalidateSize();
                 if(mapMonitor) mapMonitor.invalidateSize();
-            }, 300);
+            }, 400);
 
             if(viewId === 'chat') loadChatList();
         }
