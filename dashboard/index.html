@@ -184,7 +184,26 @@
         .card-title { font-weight: 700; font-size: 1.1rem; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
 
         #map, #map-monitor, #map-dispatch { height: 450px; width: 100%; border-radius: 12px; border: 1px solid var(--border-color); }
-        #map-monitor, #map-dispatch { min-height: 500px; background: #f0f0f0; }
+        #map-monitor, #map-dispatch { min-height: 500px; background: #f8fafc; }
+
+        /* Current Shipment Tracking Component */
+        .tracking-card { border: 1px solid var(--border-color); border-radius: 16px; padding: 24px; background: #fff; margin-bottom: 24px; }
+        .tracking-header { font-size: 0.9rem; font-weight: 600; color: var(--text-muted); margin-bottom: 20px; }
+        .shipment-info { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; }
+        .shipment-img { width: 56px; height: 56px; border-radius: 50%; background: #f3f4f6; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; }
+        .shipment-id { font-weight: 700; font-size: 1.1rem; margin-bottom: 2px; }
+        .shipment-desc { font-size: 0.85rem; color: var(--text-muted); }
+
+        .stepper { display: flex; align-items: center; justify-content: space-between; position: relative; padding: 0 10px; }
+        .step-item { display: flex; flex-direction: column; align-items: center; position: relative; z-index: 1; flex: 1; }
+        .step-icon { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold; border: 2px solid var(--border-color); background: #fff; transition: 0.3s; }
+        .step-icon.completed { background: #F97316; border-color: #F97316; color: #fff; }
+        .step-icon.active { background: #fff; border-color: #F97316; color: #F97316; }
+        .step-icon.pending { background: #f3f4f6; color: #9ca3af; }
+        .step-line { position: absolute; top: 12px; height: 2px; background: var(--border-color); z-index: 0; left: 50%; width: 100%; border-top: 2px dotted #d1d5db; }
+        .step-line.filled { border-top: 2px dotted #F97316; }
+        .step-item:last-child .step-line { display: none; }
+        .step-label { font-size: 0.7rem; font-weight: 600; color: #F97316; margin-bottom: 4px; position: absolute; top: -20px; width: 100px; text-align: center; }
 
         /* Table Styling */
         .table-container { border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; }
@@ -508,7 +527,22 @@
                         </div>
 
                         <!-- Monitor Map -->
-                        <div id="map-monitor" style="height: 500px; width: 100%; border-radius: 16px; border: 1px solid var(--border-color);"></div>
+                        <div id="map-monitor" style="height: 500px; width: 100%; border-radius: 16px; border: 1px solid var(--border-color);" class="mb-4"></div>
+
+                        <!-- Current Shipment Detail (New) -->
+                        <div id="current-shipment-detail" class="tracking-card d-none">
+                            <div class="tracking-header text-uppercase">Current Shipment</div>
+                            <div class="shipment-info">
+                                <div class="shipment-img"><i class="bi bi-box-seam"></i></div>
+                                <div>
+                                    <div class="shipment-id" id="track-shipment-id">ID: -</div>
+                                    <div class="shipment-desc" id="track-client-name">Loading...</div>
+                                </div>
+                            </div>
+                            <div class="stepper" id="track-stepper">
+                                <!-- Steps will be injected here -->
+                            </div>
+                        </div>
                     </div>
 
                     <div id="monitor-list" class="row g-4"></div>
@@ -865,8 +899,49 @@
             if(targetMarkers[id]) {
                 targetMap.flyTo(targetMarkers[id].getLatLng(), 16);
                 targetMarkers[id].openPopup();
-                if(!isMonitor) switchTab('dashboard');
+
+                if(isMonitor) {
+                    showDetailedTracking(id);
+                } else {
+                    switchTab('dashboard');
+                }
             }
+        }
+
+        function showDetailedTracking(courierId) {
+            const trip = allCurrentTrips.find(t => t.courierId === courierId && t.status !== 'completed');
+            const container = document.getElementById('current-shipment-detail');
+            if(!trip) {
+                container.classList.add('d-none');
+                return;
+            }
+
+            container.classList.remove('d-none');
+            document.getElementById('track-shipment-id').innerText = "ID: " + trip.id.substring(5,15);
+            document.getElementById('track-client-name').innerText = trip.destinations[0]?.locationName || "New Task";
+
+            const stepper = document.getElementById('track-stepper');
+            stepper.innerHTML = '';
+
+            // Add Start Step
+            const steps = [{ name: 'Start', status: 'done' }, ...trip.destinations];
+
+            steps.forEach((s, i) => {
+                const isCompleted = s.status === 'done' || s.status === 'arrived';
+                const isActive = !isCompleted && (i === 0 || steps[i-1].status === 'done');
+                const isLast = i === steps.length - 1;
+
+                let iconHtml = i === 0 ? '<i class="bi bi-check"></i>' : (s.status === 'done' ? '<i class="bi bi-check"></i>' : (s.status === 'arrived' ? '🚚' : i+1));
+                if (s.status === 'arrived') iconHtml = '<i class="bi bi-truck"></i>';
+
+                stepper.innerHTML += `
+                    <div class="step-item">
+                        ${s.status === 'arrived' ? '<div class="step-label">Arrived</div>' : ''}
+                        <div class="step-icon ${isCompleted ? 'completed' : (isActive ? 'active' : 'pending')}">${iconHtml}</div>
+                        <div class="step-line ${isCompleted ? 'filled' : ''}"></div>
+                    </div>
+                `;
+            });
         }
 
         function renderQueue() {
