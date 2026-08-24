@@ -651,11 +651,20 @@
 
         function initMaps() {
             try {
+                const googleTiles = {
+                    url: 'https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
+                    options: {
+                        maxZoom: 20,
+                        subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+                        attribution: '&copy; Google Maps'
+                    }
+                };
+
                 // Dashboard Map
                 if (!document.getElementById('map')) return;
                 map = L.map('map', { zoomControl: false }).setView([-6.2, 106.81], 12);
                 L.control.zoom({ position: 'bottomright' }).addTo(map);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+                L.tileLayer(googleTiles.url, googleTiles.options).addTo(map);
                 tripMarkersLayer.addTo(map);
                 draftMarkersLayer.addTo(map);
 
@@ -663,7 +672,7 @@
                 if (!document.getElementById('map-monitor')) return;
                 mapMonitor = L.map('map-monitor', { zoomControl: false }).setView([-6.2, 106.81], 12);
                 L.control.zoom({ position: 'bottomright' }).addTo(mapMonitor);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapMonitor);
+                L.tileLayer(googleTiles.url, googleTiles.options).addTo(mapMonitor);
                 monitorMarkersLayer.addTo(mapMonitor);
             } catch (e) { console.error("Leaflet Init Error:", e); }
         }
