@@ -1,20 +1,24 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <title>Wellen Analytics - Pro Admin</title>
+    <title>LogiTrack - Professional Logistics Dashboard</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
+    <!-- Stylesheets -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
+    <!-- Libraries -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
     <script>
         // Helper: Individual Courier Colors
         function getCourierColor(id) {
-            const colors = ['#3f6ad8', '#3ac47d', '#f7b924', '#d92550', '#6f42c1', '#16a085', '#f39c12', '#2980b9'];
+            const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#6366f1'];
             let hash = 0; for (let i = 0; i < id.length; i++) hash = id.charCodeAt(i) + ((hash << 5) - hash);
             return colors[Math.abs(hash) % colors.length];
         }
@@ -27,253 +31,585 @@
 
     <style>
         :root {
-            --primary: #3ac47d;
-            --secondary: #2d3436;
-            --bg-body: #f8fafc;
-            --sidebar-width: 280px;
-            --architect-blue: #3f6ad8;
+            --primary: #111827; /* Dark Green / Black */
+            --bg-body: #FFFFFF;
+            --border-color: #E5E7EB;
+            --text-main: #111827;
+            --text-muted: #6B7280;
+            --sidebar-width: 260px;
+
+            /* Status Colors */
+            --status-transit: #3B82F6;
+            --status-delivered: #10B981;
+            --status-pending: #F59E0B;
+            --status-delayed: #EF4444;
         }
 
-        body { background-color: var(--bg-body); font-family: 'Plus Jakarta Sans', sans-serif; color: #1e293b; overflow: hidden; height: 100vh; }
+        body {
+            background-color: var(--bg-body);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            color: var(--text-main);
+            overflow: hidden;
+            height: 100vh;
+        }
+
         .wrapper { display: flex; height: 100vh; width: 100vw; overflow: hidden; }
 
-        /* Sidebar */
-        .sidebar { width: var(--sidebar-width); background: #fff; border-right: 1px solid #e2e8f0; display: flex; flex-direction: column; transition: 0.4s; z-index: 1050; }
-        .sidebar-header { padding: 20px 24px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #f1f5f9; }
-        .sidebar-brand { font-weight: 800; font-size: 1.1rem; color: #0f172a; }
-        .nav-menu { flex: 1; padding: 15px; overflow-y: auto; }
-        .nav-link-custom { display: flex; align-items: center; padding: 10px 16px; color: #64748b; font-weight: 600; text-decoration: none !important; border-radius: 12px; transition: 0.2s; cursor: pointer; margin-bottom: 4px; font-size: 0.9rem; }
-        .nav-link-custom:hover { background: #f1f5f9; color: var(--primary); }
-        .nav-link-custom.active { background: var(--primary); color: #fff !important; box-shadow: 0 8px 15px -3px rgba(58, 196, 125, 0.25); }
+        /* Sidebar Styling */
+        .sidebar {
+            width: var(--sidebar-width);
+            background: #fff;
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            transition: 0.3s;
+            z-index: 1050;
+        }
+        .sidebar-header {
+            padding: 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .sidebar-brand { font-weight: 800; font-size: 1.25rem; letter-spacing: -0.5px; }
+
+        .nav-category {
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            padding: 24px 24px 8px;
+            letter-spacing: 0.05em;
+        }
+
+        .nav-menu { flex: 1; overflow-y: auto; padding: 0 12px; }
+        .nav-link-custom {
+            display: flex;
+            align-items: center;
+            padding: 10px 12px;
+            color: var(--text-muted);
+            font-weight: 500;
+            text-decoration: none !important;
+            border-radius: 8px;
+            transition: 0.2s;
+            cursor: pointer;
+            margin-bottom: 2px;
+            font-size: 0.9rem;
+        }
+        .nav-link-custom:hover { background: #F9FAFB; color: var(--primary); }
+        .nav-link-custom.active { background: #F3F4F6; color: var(--primary); font-weight: 600; }
         .nav-link-custom i { font-size: 1.2rem; margin-right: 12px; }
 
-        /* Main Panel */
-        .main-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
-        .top-bar { height: 65px; background: #fff; border-bottom: 1px solid #e2e8f0; padding: 0 24px; display: flex; align-items: center; justify-content: space-between; }
-        .content-scroll { flex: 1; overflow-y: auto; padding: 20px; }
+        .sidebar-footer {
+            padding: 20px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .profile-img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; }
+        .profile-info { overflow: hidden; }
+        .profile-name { font-weight: 700; font-size: 0.85rem; margin-bottom: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .profile-role { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0; }
 
-        /* Cards */
-        .card-modern { background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); padding: 18px; margin-bottom: 20px; }
-        .stat-card { display: flex; align-items: center; gap: 16px; }
-        .stat-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; color: #fff; }
-        .stat-value { font-size: 1.5rem; font-weight: 800; color: #0f172a; }
-        .stat-label { color: #64748b; font-size: 0.75rem; font-weight: 600; }
+        /* Main Panel Styling */
+        .main-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 
-        /* Map */
-        #map { height: 400px; width: 100%; border-radius: 16px; border: 1px solid #e2e8f0; }
+        .top-header {
+            height: 70px;
+            background: #fff;
+            border-bottom: 1px solid var(--border-color);
+            padding: 0 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .search-container { position: relative; width: 300px; }
+        .search-container i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
+        .search-input {
+            padding-left: 36px;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+            background: #F9FAFB;
+            font-size: 0.9rem;
+            width: 100%;
+            height: 40px;
+        }
+        .search-input:focus { outline: none; border-color: #D1D5DB; background: #fff; }
+
+        .header-actions { display: flex; align-items: center; gap: 16px; }
+        .action-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            cursor: pointer;
+            position: relative;
+        }
+        .btn-new-shipment {
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-new-shipment:hover { opacity: 0.9; }
+
+        .content-scroll { flex: 1; overflow-y: auto; padding: 32px; background: #fff; }
+
+        /* Grid & Cards */
+        .stat-card {
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            background: #fff;
+            height: 100%;
+        }
+        .stat-label { font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 8px; }
+        .stat-value { font-size: 1.5rem; font-weight: 800; color: var(--text-main); margin-bottom: 4px; }
+        .stat-trend { font-size: 0.75rem; font-weight: 700; display: flex; align-items: center; gap: 4px; }
+        .trend-up { color: #10B981; }
+        .trend-down { color: #EF4444; }
+
+        .card-title { font-weight: 700; font-size: 1.1rem; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+
+        /* Map Container */
+        #map { height: 450px; width: 100%; border-radius: 12px; border: 1px solid var(--border-color); }
+
+        /* Table Styling */
+        .table-container { border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; }
+        .table thead { background: #F9FAFB; }
+        .table thead th {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+            font-weight: 700;
+            color: var(--text-muted);
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .table tbody td { padding: 16px; font-size: 0.85rem; vertical-align: middle; border-bottom: 1px solid var(--border-color); }
+
+        /* Status Badges */
+        .badge-pill {
+            padding: 6px 12px;
+            border-radius: 9999px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .badge-transit { background: #EFF6FF; color: #3B82F6; }
+        .badge-delivered { background: #ECFDF5; color: #10B981; }
+        .badge-pending { background: #FFFBEB; color: #F59E0B; }
+        .badge-delayed { background: #FEF2F2; color: #EF4444; }
+
+        /* Progress Bars */
+        .progress-custom { height: 8px; border-radius: 4px; background: #F3F4F6; overflow: hidden; margin-bottom: 12px; }
+        .progress-bar-custom { height: 100%; border-radius: 4px; }
+
+        /* Responsive Sidebar */
+        @media (max-width: 991px) {
+            .sidebar { position: fixed; left: -100%; top: 0; bottom: 0; }
+            .sidebar.open { left: 0; }
+            .top-header { padding: 0 16px; }
+            .search-container { display: none; }
+            .content-scroll { padding: 16px; }
+        }
+
+        /* Helpers & Misc */
+        .view-section { display: none; animation: fadeIn 0.3s; }
+        .view-section.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .extra-small { font-size: 0.7rem; }
+        .cursor-pointer { cursor: pointer; }
 
         /* Markers */
         .custom-div-icon { background: none; border: none; }
-        .marker-pin { width: 32px; height: 32px; border-radius: 50% 50% 50% 0; background: var(--architect-blue); position: absolute; transform: rotate(-45deg); left: 50%; top: 50%; margin: -15px 0 0 -15px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.2); border: 2px solid #fff; }
+        .marker-pin { width: 32px; height: 32px; border-radius: 50% 50% 50% 0; background: var(--status-transit); position: absolute; transform: rotate(-45deg); left: 50%; top: 50%; margin: -15px 0 0 -15px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.2); border: 2px solid #fff; }
         .marker-pin::after { content: ''; width: 22px; height: 22px; background: #fff; position: absolute; border-radius: 50%; }
         .marker-num { position: absolute; width: 32px; height: 32px; line-height: 32px; text-align: center; font-weight: 800; font-size: 13px; color: #000; z-index: 10; }
-        .marker-done .marker-pin { background: var(--primary) !important; }
 
         /* Proof Photo */
-        .proof-img-thumb { width: 70px; height: 70px; object-fit: cover; border-radius: 10px; border: 2px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: pointer; transition: 0.2s; }
-        .dest-pill { background: #f8fafc; padding: 14px; border-radius: 12px; margin-top: 10px; border: 1px solid #f1f5f9; }
-        .dest-pill.done { background: #f0fdf4; border-color: #dcfce7; }
+        .proof-img-thumb { width: 40px; height: 40px; border-radius: 8px; object-fit: cover; cursor: pointer; border: 1px solid var(--border-color); }
 
-        .bubble { max-width: 85%; padding: 10px 14px; border-radius: 14px; font-size: 0.85rem; margin-bottom: 6px; }
+        .bubble { max-width: 85%; padding: 10px 14px; border-radius: 12px; font-size: 0.85rem; margin-bottom: 8px; }
         .bubble.admin { align-self: flex-end; background: var(--primary); color: #fff; border-bottom-right-radius: 2px; }
-        .bubble.courier { align-self: flex-start; background: #fff; border: 1px solid #e2e8f0; color: #1e293b; border-bottom-left-radius: 2px; }
-
-        .view-section { display: none; }
-        .view-section.active { display: block; }
-
-        @media (max-width: 991px) {
-            .sidebar { position: fixed; left: -100%; top: 0; bottom: 0; width: 280px; }
-            .sidebar.open { left: 0; }
-            .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; height: 65px; background: #fff; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-around; align-items: center; z-index: 1001; }
-            .bnav-item { display: flex; flex-direction: column; align-items: center; color: #94a3b8; text-decoration: none !important; font-size: 0.6rem; font-weight: 700; flex: 1; }
-            .bnav-item i { font-size: 1.3rem; margin-bottom: 2px; }
-            .bnav-item.active { color: var(--primary); }
-            .main-panel { padding-bottom: 65px; }
-        }
-        .pac-container { z-index: 9999 !important; border-radius: 12px; border: none; box-shadow: 0 10px 40px rgba(0,0,0,0.1); }
+        .bubble.courier { align-self: flex-start; background: #F3F4F6; color: var(--text-main); border-bottom-left-radius: 2px; }
     </style>
 </head>
 <body>
 
     <div class="wrapper">
+        <!-- Sidebar -->
         <aside class="sidebar" id="sidebar">
-            <div class="sidebar-header"><img src="wellen_logo.jpg" style="height:35px; border-radius:6px;"><div class="sidebar-brand">Wellen Pro</div></div>
+            <div class="sidebar-header">
+                <div class="bg-dark rounded-3 d-flex align-items-center justify-content-center" style="width:32px; height:32px;">
+                    <i class="bi bi-box-seam-fill text-white"></i>
+                </div>
+                <div class="sidebar-brand">LogiTrack Pro</div>
+            </div>
+
             <nav class="nav-menu">
-                <a class="nav-link-custom active" onclick="switchTab('dashboard', this)"><i class="bi bi-grid-1x2-fill"></i> <span>Dashboard</span></a>
-                <a class="nav-link-custom" onclick="switchTab('dispatch', this)"><i class="bi bi-send-fill"></i> <span>Dispatch</span></a>
-                <a class="nav-link-custom" onclick="switchTab('monitor', this)"><i class="bi bi-broadcast-pin"></i> <span>Monitor Live</span></a>
-                <a class="nav-link-custom" onclick="switchTab('reports', this)"><i class="bi bi-file-earmark-bar-graph-fill"></i> <span>Laporan</span></a>
-                <a class="nav-link-custom" onclick="switchTab('chat', this)"><i class="bi bi-chat-left-dots-fill"></i> <span>Chat</span></a>
-                <a class="nav-link-custom" onclick="switchTab('settings', this)"><i class="bi bi-gear-fill"></i> <span>Pengaturan</span></a>
+                <div class="nav-category">Overview</div>
+                <a class="nav-link-custom active" onclick="switchTab('dashboard', this)">
+                    <i class="bi bi-grid-1x2"></i> <span>Dashboard</span>
+                </a>
+                <a class="nav-link-custom" onclick="switchTab('monitor', this)">
+                    <i class="bi bi-geo-alt"></i> <span>Live Tracking</span>
+                </a>
+
+                <div class="nav-category">Operations</div>
+                <a class="nav-link-custom" onclick="switchTab('dispatch', this)">
+                    <i class="bi bi-plus-square"></i> <span>Shipments</span>
+                </a>
+                <a class="nav-link-custom" onclick="switchTab('fleet', this)">
+                    <i class="bi bi-truck"></i> <span>Fleet</span>
+                </a>
+                <a class="nav-link-custom" onclick="switchTab('chat', this)">
+                    <i class="bi bi-chat-dots"></i> <span>Drivers Chat</span>
+                </a>
+
+                <div class="nav-category">System</div>
+                <a class="nav-link-custom" onclick="switchTab('reports', this)">
+                    <i class="bi bi-bar-chart"></i> <span>Reports</span>
+                </a>
+                <a class="nav-link-custom" onclick="switchTab('settings', this)">
+                    <i class="bi bi-gear"></i> <span>Settings</span>
+                </a>
             </nav>
+
+            <div class="sidebar-footer">
+                <img src="https://ui-avatars.com/api/?name=Admin+W&background=111827&color=fff" class="profile-img" alt="Profile">
+                <div class="profile-info">
+                    <p class="profile-name">Admin Wtrack</p>
+                    <p class="profile-role">Fleet Operations</p>
+                </div>
+                <i class="bi bi-three-dots-vertical ms-auto text-muted cursor-pointer"></i>
+            </div>
         </aside>
 
+        <!-- Main Panel -->
         <div class="main-panel">
-            <header class="top-bar">
-                <button class="btn btn-light d-lg-none" onclick="toggleSidebar()"><i class="bi bi-list fs-4"></i></button>
-                <h5 class="fw-bold m-0" id="page-title">Dashboard</h5>
-                <div class="d-flex align-items-center gap-2">
-                    <span class="small fw-bold d-none d-sm-block">Admin Portal</span>
-                    <img src="https://ui-avatars.com/api/?name=W+Admin&background=3ac47d&color=fff" style="width:36px; border-radius:10px;">
+            <header class="top-header">
+                <div class="d-flex align-items-center gap-3">
+                    <button class="btn btn-light d-lg-none" onclick="toggleSidebar()">
+                        <i class="bi bi-list fs-4"></i>
+                    </button>
+                    <div class="search-container">
+                        <i class="bi bi-search"></i>
+                        <input type="text" class="search-input" placeholder="Search shipments...">
+                    </div>
+                </div>
+
+                <div class="header-actions">
+                    <div class="action-btn">
+                        <i class="bi bi-bell"></i>
+                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="padding: 4px; border: 2px solid #fff;">
+                            <span class="visually-hidden">notifications</span>
+                        </span>
+                    </div>
+                    <img src="https://ui-avatars.com/api/?name=Admin+W&background=F3F4F6&color=111827" style="width:36px; height:36px; border-radius:10px; border: 1px solid var(--border-color);">
+                    <button class="btn-new-shipment" onclick="switchTab('dispatch', document.querySelector('[onclick*=\'dispatch\']'))">
+                        <i class="bi bi-plus-lg"></i> New Shipment
+                    </button>
                 </div>
             </header>
 
             <div class="content-scroll">
-                <!-- DISPATCH (MOVED TO TOP) -->
-                <div id="view-dispatch" class="view-section active">
-                    <div class="card-modern">
-                        <h6 class="fw-bold mb-3">Kirim Tugas Baru</h6>
-                        <div class="row g-2">
-                            <div class="col-md-3">
-                                <input type="text" class="form-control form-control-sm bg-light border-0 mb-1" placeholder="Cari kurir..." oninput="filterCourierSelect(this.value)">
-                                <select id="sel-courier" class="form-select form-select-sm bg-light border-0"></select>
+
+                <!-- DASHBOARD VIEW -->
+                <div id="view-dashboard" class="view-section active">
+                    <!-- Stats Cards Row 1 -->
+                    <div class="row g-4 mb-4">
+                        <div class="col-md-4 col-xl-2">
+                            <div class="stat-card">
+                                <div class="stat-label">Active Shipments</div>
+                                <div class="stat-value" id="stat-active">0</div>
+                                <div class="stat-trend trend-up"><i class="bi bi-arrow-up-short"></i> +12% vs lw</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 col-xl-2">
+                            <div class="stat-card">
+                                <div class="stat-label">On-Time Rate</div>
+                                <div class="stat-value">94.2%</div>
+                                <div class="stat-trend trend-up"><i class="bi bi-arrow-up-short"></i> +2.1%</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 col-xl-2">
+                            <div class="stat-card">
+                                <div class="stat-label">Delayed</div>
+                                <div class="stat-value">12</div>
+                                <div class="stat-trend trend-down"><i class="bi bi-arrow-down-short"></i> -4%</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 col-xl-2">
+                            <div class="stat-card">
+                                <div class="stat-label">In Transit</div>
+                                <div class="stat-value" id="stat-transit-count">0</div>
+                                <div class="stat-trend trend-up"><i class="bi bi-arrow-up-short"></i> +8%</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 col-xl-2">
+                            <div class="stat-card">
+                                <div class="stat-label">Orders Today</div>
+                                <div class="stat-value">156</div>
+                                <div class="stat-trend trend-up"><i class="bi bi-arrow-up-short"></i> +24%</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 col-xl-2">
+                            <div class="stat-card">
+                                <div class="stat-label">Avg Delivery</div>
+                                <div class="stat-value">4.2h</div>
+                                <div class="stat-trend trend-down"><i class="bi bi-arrow-down-short"></i> -15m</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Row 2: Map & Alerts -->
+                    <div class="row g-4 mb-4">
+                        <div class="col-lg-8">
+                            <div class="border rounded-4 overflow-hidden">
+                                <div class="p-3 bg-white border-bottom d-flex justify-content-between align-items-center">
+                                    <span class="fw-bold"><i class="bi bi-map me-2"></i>Live Fleet Tracking</span>
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">LIVE</span>
+                                </div>
+                                <div id="map"></div>
+                            </div>
+                        </div>
+                        <div class="col-lg-4">
+                            <div class="border rounded-4 p-4 h-100 bg-white">
+                                <div class="card-title">Priority Alerts <span class="text-primary cursor-pointer fs-6 fw-normal">View all</span></div>
+                                <div id="priority-alerts" class="d-flex flex-column gap-3">
+                                    <!-- Dynamic Alerts -->
+                                    <div class="d-flex gap-3 p-3 rounded-3" style="background: #FEF2F2;">
+                                        <div class="text-danger fs-4"><i class="bi bi-exclamation-triangle"></i></div>
+                                        <div>
+                                            <div class="fw-bold small">Delay: SHIP-9021</div>
+                                            <div class="extra-small text-muted">Vehicle breakdown at Gatot Subroto</div>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex gap-3 p-3 rounded-3" style="background: #FFFBEB;">
+                                        <div class="text-warning fs-4"><i class="bi bi-clock"></i></div>
+                                        <div>
+                                            <div class="fw-bold small">ETA Warning: SHIP-8812</div>
+                                            <div class="extra-small text-muted">Predicted 15m delay due to traffic</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Row 3: Status & Performance -->
+                    <div class="row g-4 mb-4">
+                        <div class="col-lg-4">
+                            <div class="border rounded-4 p-4 bg-white h-100">
+                                <div class="card-title">Shipment Status</div>
+                                <div class="mb-4">
+                                    <div class="d-flex justify-content-between mb-2 small fw-bold"><span>In Transit</span><span>45%</span></div>
+                                    <div class="progress-custom"><div class="progress-bar-custom bg-primary" style="width: 45%"></div></div>
+                                </div>
+                                <div class="mb-4">
+                                    <div class="d-flex justify-content-between mb-2 small fw-bold"><span>Delivered</span><span>82%</span></div>
+                                    <div class="progress-custom"><div class="progress-bar-custom" style="width: 82%; background: #10B981;"></div></div>
+                                </div>
+                                <div>
+                                    <div class="d-flex justify-content-between mb-2 small fw-bold"><span>Pending</span><span>12%</span></div>
+                                    <div class="progress-custom"><div class="progress-bar-custom" style="width: 12%; background: #F59E0B;"></div></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-8">
+                            <div class="border rounded-4 p-4 bg-white h-100">
+                                <div class="card-title">Delivery Performance</div>
+                                <canvas id="performanceChart" style="height: 200px;"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Row 4: Recent Shipments -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="border rounded-4 p-4 bg-white">
+                                <div class="card-title">Recent Shipments <button class="btn btn-sm btn-light border" onclick="loadFullHistory()"><i class="bi bi-arrow-clockwise"></i></button></div>
+                                <div class="table-responsive">
+                                    <table class="table table-borderless m-0">
+                                        <thead>
+                                            <tr>
+                                                <th>Shipment ID</th>
+                                                <th>Origin</th>
+                                                <th>Destination</th>
+                                                <th>Status</th>
+                                                <th>Carrier</th>
+                                                <th>ETA / Completed</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="recent-shipments-table">
+                                            <!-- Dynamic Rows -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- DISPATCH VIEW -->
+                <div id="view-dispatch" class="view-section">
+                    <div class="border rounded-4 p-4 bg-white mb-4">
+                        <h6 class="fw-bold mb-4">Create New Shipment</h6>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="extra-small fw-bold text-muted text-uppercase mb-2">Select Carrier</label>
+                                <select id="sel-courier" class="form-select border-1 py-2" style="border-radius: 10px;"></select>
                             </div>
                             <div class="col-md-6">
-                                <input type="text" id="places-search" class="form-control bg-light border-0 py-2" placeholder="Nama PT / Alamat Tujuan...">
+                                <label class="extra-small fw-bold text-muted text-uppercase mb-2">Search Destination</label>
+                                <div class="position-relative">
+                                    <i class="bi bi-geo-alt position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"></i>
+                                    <input type="text" id="places-search" class="form-control ps-5 py-2" style="border-radius: 10px;" placeholder="Company Name or Address...">
+                                </div>
                             </div>
-                            <div class="col-md-3">
-                                <button class="btn btn-dark w-100 py-2 fw-bold shadow-sm" onclick="submitTrip()"><i class="bi bi-send-fill me-2"></i>KIRIM</button>
+                            <div class="col-md-2 d-flex align-items-end">
+                                <button class="btn btn-dark w-100 py-2 fw-bold" style="border-radius:10px;" onclick="submitTrip()"><i class="bi bi-send-plus me-2"></i> DISPATCH</button>
                             </div>
                         </div>
-                        <div id="dispatch-queue" class="mt-3"></div>
+                        <div id="dispatch-queue" class="mt-4 d-flex flex-wrap gap-2"></div>
                     </div>
                 </div>
 
-                <div id="map-section" class="card-modern p-0 overflow-hidden mb-4">
-                    <div class="p-2 px-3 bg-light border-bottom d-flex justify-content-between align-items-center">
-                        <span class="extra-small fw-bold text-muted text-uppercase"><i class="bi bi-geo-alt-fill text-danger me-1"></i>Real-time Tracking</span>
-                        <span class="badge bg-success-subtle text-success small">Live Status</span>
-                    </div>
-                    <div id="map" style="height:350px"></div>
-                </div>
-
-                <div id="view-dashboard" class="view-section active">
-                    <div class="row g-3">
-                        <div class="col-6 col-lg-3">
-                            <div class="card-modern">
-                                <div class="stat-card">
-                                    <div class="stat-icon" style="background:#3f6ad8"><i class="bi bi-box-seam"></i></div>
-                                    <div><div class="stat-value" id="stat-active">0</div><div class="stat-label">Trip Aktif</div></div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-6 col-lg-3">
-                            <div class="card-modern">
-                                <div class="stat-card">
-                                    <div class="stat-icon" style="background:#3ac47d"><i class="bi bi-wallet2"></i></div>
-                                    <div><div class="stat-value">Rp 0</div><div class="stat-label">Pendapatan Hari Ini</div></div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-6 col-lg-3">
-                            <div class="card-modern">
-                                <div class="stat-card">
-                                    <div class="stat-icon" style="background:#f7b924"><i class="bi bi-speedometer2"></i></div>
-                                    <div><div class="stat-value" id="stat-km">0.0</div><div class="stat-label">Total KM</div></div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-6 col-lg-3">
-                            <div class="card-modern">
-                                <div class="stat-card">
-                                    <div class="stat-icon" style="background:#d92550"><i class="bi bi-check2-all"></i></div>
-                                    <div><div class="stat-value" id="stat-done">0</div><div class="stat-label">Selesai</div></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
+                <!-- MONITOR VIEW -->
                 <div id="view-monitor" class="view-section">
-                    <div class="card-modern mb-3">
-                        <div class="row align-items-center">
-                            <div class="col-md-6"><h6 class="fw-bold m-0 text-primary">Monitor Live Kurir</h6></div>
-                            <div class="col-md-6 text-end"><input type="text" class="form-control form-control-sm border-0 bg-light d-inline-block w-auto" placeholder="Cari kurir..." oninput="filterMonitorList(this.value)"></div>
-                        </div>
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h6 class="fw-bold m-0">Live Fleet Monitor</h6>
+                        <input type="text" class="form-control form-control-sm border w-auto" placeholder="Search carrier..." oninput="filterMonitorList(this.value)">
                     </div>
-                    <div id="monitor-list" class="row g-3"></div>
+                    <div id="monitor-list" class="row g-4"></div>
                 </div>
 
+                <!-- REPORTS VIEW -->
                 <div id="view-reports" class="view-section">
-                    <div class="card-modern">
+                    <div class="border rounded-4 p-4 bg-white mb-4">
                         <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
-                            <div><h6 class="fw-bold m-0">Laporan Harian</h6><small class="text-primary fw-bold" id="current-report-date"></small></div>
+                            <div>
+                                <h6 class="fw-bold m-0">Daily Reports</h6>
+                                <p class="extra-small text-primary fw-bold mb-0" id="current-report-date"></p>
+                            </div>
                             <div class="d-flex gap-2">
-                                <input type="date" id="rep-date" class="form-control border-0 bg-light" style="width:160px" onchange="loadFullHistory()">
-                                <button class="btn btn-success btn-sm fw-bold px-3" onclick="exportToExcel()"><i class="bi bi-file-earmark-excel me-1"></i>Excel</button>
-                                <button class="btn btn-danger btn-sm fw-bold px-3" onclick="clearAllHistory()"><i class="bi bi-trash me-1"></i>Hapus Semua</button>
+                                <input type="date" id="rep-date" class="form-control border" style="border-radius: 10px;" onchange="loadFullHistory()">
+                                <button class="btn btn-outline-dark fw-bold px-3 btn-sm" style="border-radius: 8px;" onclick="exportToExcel()"><i class="bi bi-download me-1"></i> Excel</button>
+                                <button class="btn btn-danger fw-bold px-3 btn-sm" style="border-radius: 8px;" onclick="clearAllHistory()"><i class="bi bi-trash me-1"></i> Hapus Semua</button>
                             </div>
                         </div>
                         <div id="history-list"></div>
                     </div>
                 </div>
 
-                <div id="view-settings" class="view-section">
-                    <div class="row g-4">
-                        <div class="col-lg-6">
-                            <div class="card-modern">
-                                <h6 class="fw-bold mb-3 text-primary">Rilis Update App</h6>
-                                <div class="row g-2">
-                                    <div class="col-4"><label class="extra-small fw-bold">Versi</label><input type="number" id="upd-version" class="form-control bg-light border-0"></div>
-                                    <div class="col-8"><label class="extra-small fw-bold">File APK</label><input type="file" id="upd-file" class="form-control bg-light border-0"></div>
-                                </div>
-                                <div id="upd-progress" class="progress mt-3 d-none" style="height:6px"><div class="progress-bar bg-success"></div></div>
-                                <button class="btn btn-primary w-100 mt-4 fw-bold py-3" style="border-radius:14px" onclick="publishUpdateAuto()">UNGGAH & RILIS</button>
-                            </div>
-                        </div>
-                        <div class="col-lg-6">
-                            <div class="card-modern">
-                                <h6 class="fw-bold mb-3 text-primary">Aturan Sinkronisasi</h6>
-                                <label class="small fw-bold mb-2">Interval Pembaruan</label>
-                                <div class="input-group mb-3"><input type="number" id="cfg-interval" class="form-control bg-light border-0 p-3" value="10"><select id="cfg-time-unit" class="form-select bg-light border-0 p-3"><option value="1000">Detik</option><option value="60000">Menit</option></select></div>
-                                <label class="small fw-bold mb-2 text-danger">Radius Geofence</label>
-                                <div class="input-group mb-4"><input type="number" id="cfg-geofence" class="form-control bg-light border-0 p-3" value="20"><span class="input-group-text bg-light border-0 fw-bold">Meter</span></div>
-                                <button class="btn btn-dark w-100 py-3 fw-bold" style="border-radius:14px" onclick="updateConfig()">SIMPAN PERUBAHAN</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
+                <!-- CHAT VIEW -->
                 <div id="view-chat" class="view-section">
                     <div class="row g-4">
                         <div class="col-lg-4">
-                            <div class="card-modern">
-                                <h6 class="fw-bold mb-3">Daftar Kurir</h6>
-                                <input type="text" class="form-control bg-light border-0 mb-3" placeholder="Cari..." oninput="filterCourierChat(this.value)">
-                                <div id="chat-list-container" style="max-height:400px; overflow-y:auto"></div>
+                            <div class="border rounded-4 p-4 bg-white">
+                                <h6 class="fw-bold mb-4">Drivers</h6>
+                                <input type="text" class="form-control border mb-3" style="border-radius: 10px;" placeholder="Search..." oninput="filterCourierChat(this.value)">
+                                <div id="chat-list-container" class="d-flex flex-column gap-2" style="max-height:500px; overflow-y:auto"></div>
                             </div>
                         </div>
                         <div class="col-lg-8">
-                            <div class="card-modern p-0 overflow-hidden d-flex flex-column" style="height:550px">
-                                <div class="p-3 bg-light border-bottom fw-bold" id="chat-header-main">Chat</div>
-                                <div id="chat-messages-main" class="chat-msgs flex-grow-1 p-3"></div>
-                                <div class="p-3 border-top bg-white d-flex gap-2">
-                                    <input type="text" id="chat-input-main" class="form-control border-0 bg-light p-3 shadow-none" placeholder="Pesan..." onkeypress="if(event.key==='Enter') sendChatMain()">
-                                    <button class="btn btn-primary px-4 shadow-sm" onclick="sendChatMain()"><i class="bi bi-send-fill"></i></button>
+                            <div class="border rounded-4 bg-white overflow-hidden d-flex flex-column" style="height:620px">
+                                <div class="p-3 border-bottom d-flex align-items-center justify-content-between">
+                                    <span class="fw-bold" id="chat-header-main">Select a driver</span>
+                                    <span class="extra-small text-success fw-bold"><i class="bi bi-circle-fill me-1" style="font-size: 6px;"></i> Online</span>
+                                </div>
+                                <div id="chat-messages-main" class="flex-grow-1 p-4 overflow-y-auto d-flex flex-column"></div>
+                                <div class="p-3 border-top bg-light">
+                                    <div class="input-group">
+                                        <input type="text" id="chat-input-main" class="form-control border-0 bg-white p-3 shadow-none" style="border-radius: 12px 0 0 12px;" placeholder="Type a message..." onkeypress="if(event.key==='Enter') sendChatMain()">
+                                        <button class="btn btn-dark px-4" style="border-radius: 0 12px 12px 0;" onclick="sendChatMain()"><i class="bi bi-send"></i></button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
+
+                <!-- SETTINGS VIEW -->
+                <div id="view-settings" class="view-section">
+                    <div class="row g-4">
+                        <div class="col-lg-6">
+                            <div class="border rounded-4 p-4 bg-white">
+                                <h6 class="fw-bold mb-4">App Release Management</h6>
+                                <div class="mb-3">
+                                    <label class="extra-small fw-bold text-muted mb-2">VERSION CODE</label>
+                                    <input type="number" id="upd-version" class="form-control border" style="border-radius: 10px;">
+                                </div>
+                                <div class="mb-4">
+                                    <label class="extra-small fw-bold text-muted mb-2">APK FILE</label>
+                                    <input type="file" id="upd-file" class="form-control border" style="border-radius: 10px;">
+                                </div>
+                                <div id="upd-progress" class="progress mt-3 d-none mb-3" style="height:8px"><div class="progress-bar bg-primary"></div></div>
+                                <button class="btn btn-dark w-100 py-3 fw-bold" style="border-radius:12px" onclick="publishUpdateAuto()">PUBLISH & UPDATE</button>
+                            </div>
+                        </div>
+                        <div class="col-lg-6">
+                            <div class="border rounded-4 p-4 bg-white">
+                                <h6 class="fw-bold mb-4">System Configuration</h6>
+                                <div class="mb-4">
+                                    <label class="extra-small fw-bold text-muted mb-2">SYNC INTERVAL</label>
+                                    <div class="input-group">
+                                        <input type="number" id="cfg-interval" class="form-control border" value="10" style="border-radius: 10px 0 0 10px;">
+                                        <select id="cfg-time-unit" class="form-select border" style="border-radius: 0 10px 10px 0;">
+                                            <option value="1000">Seconds</option>
+                                            <option value="60000">Minutes</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="mb-4">
+                                    <label class="extra-small fw-bold text-muted mb-2">GEOFENCE RADIUS (METERS)</label>
+                                    <input type="number" id="cfg-geofence" class="form-control border" value="20" style="border-radius: 10px;">
+                                </div>
+                                <button class="btn btn-dark w-100 py-3 fw-bold" style="border-radius:12px" onclick="updateConfig()">SAVE CHANGES</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
-
-        <nav class="bottom-nav d-lg-none">
-            <a class="bnav-item active" onclick="switchTab('dashboard', this)"><i class="bi bi-house"></i><span>Home</span></a>
-            <a class="bnav-item" onclick="switchTab('dispatch', this)"><i class="bi bi-send-plus"></i><span>Tugas</span></a>
-            <a class="bnav-item" onclick="switchTab('chat', this)"><i class="bi bi-chat-dots"></i><span>Chat</span></a>
-            <a class="bnav-item" onclick="switchTab('settings', this)"><i class="bi bi-gear"></i><span>Rules</span></a>
-        </nav>
     </div>
 
+    <!-- Modals & Toasts -->
     <div class="toast-container position-fixed top-0 start-50 translate-middle-x p-3" style="z-index:99999">
-        <div id="myToast" class="toast align-items-center text-white bg-success border-0 shadow-lg" role="alert" style="border-radius:12px">
+        <div id="myToast" class="toast align-items-center text-white bg-dark border-0 shadow-lg" role="alert" style="border-radius:12px">
             <div class="d-flex p-3"><div class="toast-body fw-bold"></div></div>
         </div>
     </div>
 
-    <div class="modal fade" id="imageModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content border-0" style="border-radius:20px; overflow:hidden"><div class="modal-body p-0 text-center"><img id="modalImg" src="" style="max-width:100%"><div class="p-4"><a id="downloadBtn" href="#" download class="btn btn-primary w-100 fw-bold py-3">Download Foto</a></div></div></div></div></div>
+    <div class="modal fade" id="imageModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0" style="border-radius:20px; overflow:hidden">
+                <div class="modal-body p-0 text-center">
+                    <img id="modalImg" src="" style="max-width:100%">
+                    <div class="p-4"><a id="downloadBtn" href="#" download class="btn btn-dark w-100 fw-bold py-3">Download Photo</a></div>
+                </div>
+            </div>
+        </div>
+    </div>
 
+    <!-- Scripts -->
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -293,13 +629,31 @@
         };
         firebase.initializeApp(firebaseConfig);
         const rtdb = firebase.database(), db = firebase.firestore(), storage = firebase.storage();
-        const map = L.map('map').setView([-6.2, 106.81], 12);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+        const map = L.map('map', { zoomControl: false }).setView([-6.2, 106.81], 12);
+        L.control.zoom({ position: 'bottomright' }).addTo(map);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(map);
 
         const markers = {}, courierMarkers = {}, registeredUsers = {};
         const tripMarkersLayer = L.layerGroup().addTo(map);
         const draftMarkersLayer = L.layerGroup().addTo(map);
         let tripQueue = [], currentChatId = null, chatUnsub = null, lastLoadedHistory = [];
+
+        // Performance Chart Init
+        const ctx = document.getElementById('performanceChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                datasets: [{
+                    label: 'Deliveries',
+                    data: [65, 59, 80, 81, 56, 55, 40],
+                    backgroundColor: '#111827',
+                    borderRadius: 8
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, border: { display: false } }, x: { grid: { display: false } } } }
+        });
 
         async function initAutocomplete() {
             try {
@@ -317,106 +671,100 @@
         window.addEventListener('load', initAutocomplete);
 
         function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
+
         function switchTab(viewId, el) {
             document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
             document.getElementById('view-'+viewId).classList.add('active');
-            document.querySelectorAll('.nav-link-custom, .bnav-item').forEach(l => l.classList.remove('active'));
-            document.querySelectorAll(`[onclick*="'${viewId}'"]`).forEach(i => i.classList.add('active'));
-            document.getElementById('page-title').innerText = el.innerText || viewId.toUpperCase();
+            document.querySelectorAll('.nav-link-custom').forEach(l => l.classList.remove('active'));
+
+            // Set active class for the correct link
+            if(el) el.classList.add('active');
+            else document.querySelector(`[onclick*="'${viewId}'"]`).classList.add('active');
+
             document.getElementById('sidebar').classList.remove('open');
-            const mapContainer = document.getElementById('map-section');
-            if(['reports','settings','chat'].includes(viewId)) mapContainer.classList.add('d-none');
-            else { mapContainer.classList.remove('d-none'); setTimeout(() => map.invalidateSize(), 300); }
+            setTimeout(() => map.invalidateSize(), 300);
             if(viewId === 'chat') loadChatList();
         }
 
         db.collection('users').onSnapshot(snap => {
-            console.log("Users updated:", snap.size);
-            snap.forEach(doc => {
-                const u = doc.data();
-                registeredUsers[doc.id] = u.name || doc.id.substring(0,8);
-            });
+            snap.forEach(doc => { registeredUsers[doc.id] = doc.data().name || doc.id.substring(0,8); });
             renderCourierOptions();
             if(document.getElementById('view-chat').classList.contains('active')) loadChatList();
         });
 
-        function renderCourierOptions(filter = "") {
+        function renderCourierOptions() {
             const sel = document.getElementById('sel-courier'); if(!sel) return;
-            sel.innerHTML = '<option value="">-- Pilih Kurir --</option>';
-            for (const id in registeredUsers) {
-                if (registeredUsers[id].toLowerCase().includes(filter.toLowerCase())) sel.innerHTML += `<option value="${id}">${registeredUsers[id]}</option>`;
-            }
+            sel.innerHTML = '<option value="">Select Carrier...</option>';
+            for (const id in registeredUsers) { sel.innerHTML += `<option value="${id}">${registeredUsers[id]}</option>`; }
         }
-        function filterCourierSelect(val) { renderCourierOptions(val); }
 
         rtdb.ref('courier_live_location').on('value', snap => {
-            const data = snap.val() || {}; let km = 0, count = 0;
+            const data = snap.val() || {}; let count = 0;
             for (const id in data) {
-                const c = data[id]; count++; km += (c.totalDistanceKm || 0);
+                const c = data[id]; count++;
                 const color = getCourierColor(id);
                 if (courierMarkers[id]) courierMarkers[id].setLatLng([c.lat, c.lng]);
-                else courierMarkers[id] = L.circleMarker([c.lat, c.lng], { radius: 10, fillColor: color, color: "#fff", weight: 3, opacity: 1, fillOpacity: 0.9 }).addTo(map).bindPopup(`<b>${registeredUsers[id] || 'Kurir'}</b>`);
+                else courierMarkers[id] = L.circleMarker([c.lat, c.lng], { radius: 10, fillColor: color, color: "#fff", weight: 3, opacity: 1, fillOpacity: 0.9 }).addTo(map).bindPopup(`<b>${registeredUsers[id] || 'Carrier'}</b>`);
             }
-            document.getElementById('stat-online').innerText = count; document.getElementById('stat-km').innerText = km.toFixed(1);
+            document.getElementById('stat-transit-count').innerText = count;
         });
 
         db.collection('trips').onSnapshot(snap => {
-            let active = 0, done = 0, mList = document.getElementById('monitor-list');
-            if(!mList) return; mList.innerHTML = ''; tripMarkersLayer.clearLayers();
+            let active = 0, mList = document.getElementById('monitor-list'), table = document.getElementById('recent-shipments-table');
+            if(!mList || !table) return; mList.innerHTML = ''; table.innerHTML = ''; tripMarkersLayer.clearLayers();
+
             snap.forEach(doc => {
                 const t = doc.data();
-                if(t.status==='completed') done++; else {
+                const cName = registeredUsers[t.courierId] || t.courierId.substring(0,8);
+                const cColor = getCourierColor(t.courierId);
+                const statusClass = t.status === 'completed' ? 'delivered' : (t.status === 'assigned' ? 'pending' : 'transit');
+
+                if(t.status !== 'completed') {
                     active++;
-                    const cName = registeredUsers[t.courierId] || t.courierId.substring(0,8);
-                    const cColor = getCourierColor(t.courierId);
-                    mList.innerHTML += `<div class="col-md-6 col-xl-4 monitor-card" data-name="${cName.toLowerCase()}"><div class="card-modern p-3 h-100 shadow-sm" style="border-top: 4px solid ${cColor}">
-                        <div class="d-flex justify-content-between mb-2"><b>${cName}</b><span class="badge bg-primary extra-small">${t.status}</span></div>
-                        ${t.destinations.map(d => `<div class="extra-small dest-pill ${d.status}">${d.stopIndex}. ${d.locationName}</div>`).join('')}
-                        <button class="btn btn-sm btn-dark w-100 mt-3" onclick="focusOnCourier('${t.courierId}')">Monitor Lokasi</button></div></div>`;
-                    t.destinations.forEach(d => {
-                        const isDone = d.status==='done';
-                        const icon = L.divIcon({ className: 'custom-div-icon', html: `<div class='marker-pin' style='background:${isDone ? '#3ac47d' : cColor}'></div><div class='marker-num' style='color:#fff'>${d.stopIndex}</div>`, iconSize:[30,42], iconAnchor:[15,42] });
-                        const arr = d.arrivalTime ? new Date(d.arrivalTime.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '-';
-                        const finish = d.completedTime ? new Date(d.completedTime.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '-';
-                        const kmInfo = isDone ? `<br><b>Jarak:</b> ${t.totalDistanceKm?.toFixed(2) || 0} KM` : "";
-                        L.marker([d.latitude || d.lat, d.longitude || d.lng], {icon}).addTo(tripMarkersLayer).bindPopup(`<b>${d.locationName}</b><br>Kurir: ${cName}<br>Tiba: ${arr} | Selesai: ${finish}${kmInfo}`);
-                    });
+                    mList.innerHTML += `<div class="col-md-6 col-xl-4"><div class="border rounded-4 p-4 h-100 bg-white" style="border-top: 4px solid ${cColor} !important">
+                        <div class="d-flex justify-content-between mb-3"><span class="fw-bold">${cName}</span><span class="badge-pill badge-${statusClass}">${t.status}</span></div>
+                        <div class="extra-small text-muted mb-3">${t.destinations.length} Stops</div>
+                        <button class="btn btn-sm btn-outline-dark w-100" onclick="focusOnCourier('${t.courierId}')">Focus Track</button></div></div>`;
                 }
+
+                // Table Row
+                const eta = t.status === 'completed' ? 'Finished' : (t.destinations[0]?.arrivalTime ? new Date(t.destinations[0].arrivalTime.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : 'TBD');
+                table.innerHTML += `<tr>
+                    <td class="fw-bold">#${doc.id.substring(5,11)}</td>
+                    <td>Jakarta Central</td>
+                    <td>${t.destinations[0]?.locationName || 'TBD'}</td>
+                    <td><span class="badge-pill badge-${statusClass}">${t.status}</span></td>
+                    <td>${cName}</td>
+                    <td>${eta}</td>
+                </tr>`;
+
+                t.destinations.forEach(d => {
+                    const isDone = d.status === 'done';
+                    const icon = L.divIcon({ className: 'custom-div-icon', html: `<div class='marker-pin' style='background:${isDone ? '#10B981' : cColor}'></div><div class='marker-num' style='color:#fff'>${d.stopIndex}</div>`, iconSize:[30,42], iconAnchor:[15,42] });
+                    L.marker([d.latitude || d.lat, d.longitude || d.lng], {icon}).addTo(tripMarkersLayer).bindPopup(`<b>${d.locationName}</b><br>Carrier: ${cName}`);
+                });
             });
-            document.getElementById('stat-active').innerText = active; document.getElementById('stat-done').innerText = done;
+            document.getElementById('stat-active').innerText = active;
         });
 
         function focusOnCourier(id) {
-            if(courierMarkers[id]) {
-                const pos = courierMarkers[id].getLatLng();
-                map.flyTo(pos, 16);
-                courierMarkers[id].openPopup();
-                switchTab('dashboard', document.querySelector('.nav-link-custom'));
-            } else { alert("Kurir tidak aktif."); }
-        }
-
-        function filterMonitorList(val) {
-            const cards = document.querySelectorAll('.monitor-card');
-            cards.forEach(c => {
-                if(c.getAttribute('data-name').includes(val.toLowerCase())) c.style.display = 'block';
-                else c.style.display = 'none';
-            });
+            if(courierMarkers[id]) { map.flyTo(courierMarkers[id].getLatLng(), 16); courierMarkers[id].openPopup(); switchTab('dashboard'); }
         }
 
         function renderQueue() {
-            document.getElementById('dispatch-queue').innerHTML = tripQueue.map((d,i) => `<div class="dest-pill d-flex justify-content-between p-3 bg-light mb-2"><span><b>${i+1}. ${d.name}</b></span><i class="bi bi-trash text-danger cursor-pointer" onclick="tripQueue.splice(${i},1);renderQueue()"></i></div>`).join('');
+            document.getElementById('dispatch-queue').innerHTML = tripQueue.map((d,i) => `<div class="badge-pill bg-light border text-dark p-2">${i+1}. ${d.name} <i class="bi bi-x-circle ms-2 cursor-pointer text-danger" onclick="tripQueue.splice(${i},1);renderQueue()"></i></div>`).join('');
             draftMarkersLayer.clearLayers();
             tripQueue.forEach((d,i) => {
-                const icon = L.divIcon({ className:'custom-div-icon', html:`<div class='marker-pin' style='background:#f7b924'></div><div class='marker-num'>${i+1}</div>`, iconSize:[30,42], iconAnchor:[15,42] });
+                const icon = L.divIcon({ className:'custom-div-icon', html:`<div class='marker-pin' style='background:#F59E0B'></div><div class='marker-num'>${i+1}</div>`, iconSize:[30,42], iconAnchor:[15,42] });
                 L.marker([d.lat,d.lng], {icon}).addTo(draftMarkersLayer);
             });
         }
 
         async function submitTrip() {
-            const cid = document.getElementById('sel-courier').value; if(!cid || tripQueue.length===0) return alert("Pilih kurir dan rute!");
+            const cid = document.getElementById('sel-courier').value; if(!cid || tripQueue.length===0) return alert("Select carrier and destination!");
             const id = "TRIP_" + Date.now();
             await db.collection('trips').doc(id).set({ tripId: id, courierId: cid, status: "assigned", date: firebase.firestore.Timestamp.now(), destinations: tripQueue.map((d,i) => ({ stopIndex: i+1, locationName: d.name, address: d.address, latitude: d.lat, longitude: d.lng, status: "pending", proofPhotoUrl: "" })) });
-            showToast("Tugas Berhasil Dikirim!"); tripQueue = []; renderQueue();
+            showToast("Shipment Dispatched!"); tripQueue = []; renderQueue();
         }
 
         function loadChatList(filter = "") {
@@ -424,91 +772,62 @@
             for (const id in registeredUsers) {
                 const name = registeredUsers[id];
                 if (name.toLowerCase().includes(filter.toLowerCase())) {
-                    el.innerHTML += `<div class="p-2 px-3 bg-light mb-2 cursor-pointer d-flex justify-content-between align-items-center" style="border-radius:10px" onclick="openChat('${id}', '${name}')"><span>${name}</span><i class="bi bi-chat-dots text-primary"></i></div>`;
+                    el.innerHTML += `<div class="p-3 border rounded-3 cursor-pointer d-flex justify-content-between align-items-center bg-white" onclick="openChat('${id}', '${name}')">
+                        <div class="d-flex align-items-center gap-2"><img src="https://ui-avatars.com/api/?name=${name}" style="width:32px; border-radius:50%"><span>${name}</span></div>
+                        <i class="bi bi-chevron-right text-muted"></i></div>`;
                 }
             }
         }
-        function filterCourierChat(val) { loadChatList(val); }
 
         function openChat(id, name) {
-            currentChatId = id; document.getElementById('chat-header-main').innerText = "Chat: " + name;
+            currentChatId = id; document.getElementById('chat-header-main').innerText = name;
             if(chatUnsub) chatUnsub();
-            const col = id.startsWith('TRIP_') ? db.collection('trips').doc(id).collection('messages') : db.collection('chats').doc(id).collection('messages');
+            const col = db.collection('chats').doc(id).collection('messages');
             chatUnsub = col.orderBy('timestamp','asc').onSnapshot(snap => {
                 let html = ''; snap.forEach(d => { const m = d.data(); html += `<div class="bubble ${m.senderId==='admin'?'admin':'courier'}">${m.text}</div>`; });
-                document.getElementById('chat-messages-main').innerHTML = html; document.getElementById('chat-messages-main').scrollTop = 99999;
+                const mbox = document.getElementById('chat-messages-main'); mbox.innerHTML = html; mbox.scrollTop = mbox.scrollHeight;
             });
         }
         async function sendChatMain() {
             const txt = document.getElementById('chat-input-main').value; if(!txt || !currentChatId) return;
-            const col = currentChatId.startsWith('TRIP_') ? db.collection('trips').doc(currentChatId).collection('messages') : db.collection('chats').doc(currentChatId).collection('messages');
-            await col.add({ senderId: 'admin', text: txt, timestamp: firebase.firestore.Timestamp.now() });
+            await db.collection('chats').doc(currentChatId).collection('messages').add({ senderId: 'admin', text: txt, timestamp: firebase.firestore.Timestamp.now() });
             document.getElementById('chat-input-main').value = '';
         }
 
         async function loadFullHistory() {
             const date = document.getElementById('rep-date').value; if(!date) return;
-            const container = document.getElementById('history-list'); container.innerHTML = 'Memuat...';
-            document.getElementById('current-report-date').innerText = "Laporan Tanggal: " + date;
+            const container = document.getElementById('history-list'); container.innerHTML = '<p class="p-5 text-center">Loading reports...</p>';
+            document.getElementById('current-report-date').innerText = "REPORT DATE: " + date;
             const start = new Date(date); start.setHours(0,0,0,0); const end = new Date(date); end.setHours(23,59,59,999);
             const snap = await db.collection('trips').where('date', '>=', firebase.firestore.Timestamp.fromDate(start)).where('date', '<=', firebase.firestore.Timestamp.fromDate(end)).get();
             container.innerHTML = ''; lastLoadedHistory = [];
             snap.forEach(doc => { lastLoadedHistory.push({id: doc.id, ...doc.data()}); });
-            if(lastLoadedHistory.length===0) { container.innerHTML = "<p class='text-center py-5 text-muted'>Tidak ada data.</p>"; return; }
+            if(lastLoadedHistory.length===0) { container.innerHTML = "<p class='text-center py-5 text-muted'>No data available for this date.</p>"; return; }
 
-            const groups = {};
-            lastLoadedHistory.forEach(t => { if(!groups[t.courierId]) groups[t.courierId] = []; groups[t.courierId].push(t); });
-            for (const cid in groups) {
-                const trips = groups[cid], totalKm = trips.reduce((acc, t) => acc + (t.totalDistanceKm || 0), 0);
-                const gEl = document.createElement('div');
-                gEl.innerHTML = `<div class="courier-group-header mb-3" onclick="this.nextElementSibling.classList.toggle('d-none')"><span><b>${registeredUsers[cid] || cid}</b> <small>(${totalKm.toFixed(2)} KM)</small></span><i class="bi bi-chevron-down"></i></div>
-                <div class="d-none pb-4">${trips.map(t => {
-                    const time = new Date(t.date.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-                    return `<div class="card-modern mb-3" style="margin-left:15px; border-left:4px solid var(--primary)">
-                        <div class="d-flex justify-content-between mb-3"><b class="small">TRIP ID: ${t.id.substring(0,8)}</b> <span class="badge bg-light text-dark small">${time}</span></div>
-                        ${t.destinations.map(d => {
-                            const arr = d.arrivalTime ? new Date(d.arrivalTime.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '-';
-                            const done = d.completedTime ? new Date(d.completedTime.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '-';
-                            return `<div class="dest-pill ${d.status}">
-                                <div class="row align-items-center g-2">
-                                    <div class="col-8">
-                                        <div class="fw-bold small">${d.stopIndex}. ${d.locationName}</div>
-                                        <div class="extra-small text-muted mb-2">Tiba: ${arr} | Selesai: ${done}</div>
-                                        <div class="extra-small text-primary"><b>Alamat:</b> ${d.address || '-'}</div>
-                                    </div>
-                                    <div class="col-4 text-end">
-                                        ${d.proofPhotoUrl ? `<img src="${d.proofPhotoUrl}" class="proof-img-thumb" onclick="openImagePopup('${d.proofPhotoUrl}')">` : '<small class="extra-small text-muted">No Photo</small>'}
-                                    </div>
-                                </div>
-                            </div>`;
-                        }).join('')}
-                    </div>`;
-                }).join('')}</div>`;
-                container.appendChild(gEl);
-            }
+            lastLoadedHistory.forEach(t => {
+                const hEl = document.createElement('div');
+                hEl.className = "border rounded-3 p-3 mb-3 bg-light";
+                hEl.innerHTML = `<div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="fw-bold">#${t.id.substring(5,11)} - ${registeredUsers[t.courierId]}</span>
+                    <span class="badge-pill badge-delivered">${t.status}</span>
+                </div>
+                <div class="d-flex flex-column gap-2">${t.destinations.map(d => `<div class="extra-small d-flex justify-content-between border-bottom pb-1"><span>${d.locationName}</span><span>${d.status}</span></div>`).join('')}</div>`;
+                container.appendChild(hEl);
+            });
         }
 
         function exportToExcel() {
-            if(lastLoadedHistory.length === 0) return alert("Pilih data laporan dulu!");
-            const data = [];
-            lastLoadedHistory.forEach(t => {
-                t.destinations.forEach(d => {
-                    data.push({
-                        "Tanggal": new Date(t.date.seconds * 1000).toLocaleDateString(),
-                        "Kurir": registeredUsers[t.courierId] || t.courierId,
-                        "Lokasi": d.locationName,
-                        "Alamat": d.address,
-                        "Jam Tiba": d.arrivalTime ? new Date(d.arrivalTime.seconds * 1000).toLocaleTimeString() : "-",
-                        "Jam Selesai": d.completedTime ? new Date(d.completedTime.seconds * 1000).toLocaleTimeString() : "-",
-                        "Total KM": t.totalDistanceKm ? t.totalDistanceKm.toFixed(2) : 0,
-                        "Status": d.status
-                    });
-                });
-            });
-            const ws = XLSX.utils.json_to_sheet(data);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Laporan Kurir");
-            XLSX.writeFile(wb, `Laporan_Wtrack_${document.getElementById('rep-date').value}.xlsx`);
+            if(lastLoadedHistory.length === 0) return alert("No data to export!");
+            const data = lastLoadedHistory.flatMap(t => t.destinations.map(d => ({ "Date": new Date(t.date.seconds * 1000).toLocaleDateString(), "Carrier": registeredUsers[t.courierId], "Location": d.locationName, "Status": d.status })));
+            const ws = XLSX.utils.json_to_sheet(data); const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Reports"); XLSX.writeFile(wb, `LogiTrack_Report_${Date.now()}.xlsx`);
+        }
+
+        async function clearAllHistory() {
+            if (!confirm("Delete ALL shipment history? This cannot be undone.")) return;
+            const snap = await db.collection('trips').get(); const batch = db.batch();
+            snap.forEach(doc => batch.delete(doc.ref)); await batch.commit();
+            showToast("All history cleared."); loadFullHistory();
         }
 
         function showToast(msg) {
@@ -517,81 +836,22 @@
             new bootstrap.Toast(toastEl).show();
         }
 
-        async function clearAllHistory() {
-            if (!confirm("PERHATIAN! Semua riwayat tugas akan dihapus PERMANEN dari database. Lanjutkan?")) return;
-
-            const btn = event.target;
-            btn.disabled = true;
-            btn.innerText = "Menghapus...";
-
-            try {
-                const snap = await db.collection('trips').get();
-                const batch = db.batch();
-                snap.forEach(doc => batch.delete(doc.ref));
-                await batch.commit();
-
-                showToast("Semua riwayat berhasil dihapus!");
-                loadFullHistory(); // Refresh list
-            } catch (e) {
-                alert("Gagal menghapus: " + e.message);
-            } finally {
-                btn.disabled = false;
-                btn.innerText = "Hapus Semua";
-            }
-        }
-
-        function openImagePopup(url) { document.getElementById('modalImg').src = url; document.getElementById('downloadBtn').href = url; new bootstrap.Modal(document.getElementById('imageModal')).show(); }
         async function updateConfig() {
             const v = document.getElementById('cfg-interval').value, u = document.getElementById('cfg-time-unit').value, g = document.getElementById('cfg-geofence').value;
             await db.collection('config').doc('tracking').set({ intervalMs: v * u, geofenceRadius: parseFloat(g), updatedAt: firebase.firestore.Timestamp.now() }, { merge: true });
-            showToast("Sync Berhasil!");
+            showToast("System updated.");
         }
 
         async function publishUpdateAuto() {
-            const version = document.getElementById('upd-version').value;
-            const file = document.getElementById('upd-file').files[0];
-            const progressContainer = document.getElementById('upd-progress');
-            const progressBar = progressContainer.querySelector('.progress-bar');
-
-            if (!version || !file) {
-                alert("Harap masukkan nomor versi (Angka) dan pilih file APK!");
-                return;
-            }
-
-            if (isNaN(parseInt(version))) {
-                alert("Nomor versi harus berupa angka!");
-                return;
-            }
-
-            progressContainer.classList.remove('d-none');
-            const storageRef = storage.ref('updates/' + file.name);
-            const uploadTask = storageRef.put(file);
-
-            uploadTask.on('state_changed',
-                (snapshot) => {
-                    const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                    progressBar.style.width = progress + '%';
-                },
-                (error) => {
-                    console.error("Upload failed:", error);
-                    alert("Gagal mengunggah APK: " + error.message);
-                    progressContainer.classList.add('d-none');
-                },
-                async () => {
-                    const downloadUrl = await uploadTask.snapshot.ref.getDownloadURL();
-                    await db.collection('config').document('app_status').set({
-                        versionCode: parseInt(version),
-                        downloadUrl: downloadUrl,
-                        updatedAt: firebase.firestore.Timestamp.now()
-                    }, { merge: true });
-
-                    showToast("Versi " + version + " berhasil dirilis!");
-                    progressContainer.classList.add('d-none');
-                    progressBar.style.width = '0%';
-                    document.getElementById('upd-version').value = '';
-                    document.getElementById('upd-file').value = '';
-                }
-            );
+            const v = document.getElementById('upd-version').value, f = document.getElementById('upd-file').files[0];
+            if (!v || !f) return alert("Select version and file!");
+            const prog = document.getElementById('upd-progress'); prog.classList.remove('d-none');
+            const task = storage.ref('updates/' + f.name).put(f);
+            task.on('state_changed', s => { prog.querySelector('.progress-bar').style.width = (s.bytesTransferred/s.totalBytes)*100 + '%'; }, e => alert(e.message), async () => {
+                const url = await task.snapshot.ref.getDownloadURL();
+                await db.collection('config').doc('app_status').set({ versionCode: parseInt(v), downloadUrl: url, updatedAt: firebase.firestore.Timestamp.now() }, { merge: true });
+                showToast("Update published!"); prog.classList.add('d-none');
+            });
         }
     </script>
 </body>
