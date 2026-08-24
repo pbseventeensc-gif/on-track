@@ -8,17 +8,23 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import java.util.*
 
 class TripViewModel : ViewModel() {
     private val db = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
     private var listener: ListenerRegistration? = null
+    private var historyListener: ListenerRegistration? = null
 
     private val _trips = MutableStateFlow<List<Trip>>(emptyList())
     val trips: StateFlow<List<Trip>> = _trips
 
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing
+
+    private val _dashboardState = MutableStateFlow(DashboardState())
+    val dashboardState = _dashboardState.asStateFlow()
 
     init {
         refresh()
@@ -27,6 +33,7 @@ class TripViewModel : ViewModel() {
     fun refresh() {
         _isRefreshing.value = true
         fetchAssignedTrips()
+        fetchHistoryAndStats()
     }
 
     private fun fetchAssignedTrips() {
@@ -43,17 +50,21 @@ class TripViewModel : ViewModel() {
                     return@addSnapshotListener
                 }
                 
-                // Filter "completed" in Kotlin to avoid complex index requirement for now
                 val tripList = snapshot?.toObjects(Trip::class.java)
                     ?.filter { it.status != "completed" } ?: emptyList()
                 
-                Log.d("TripVM", "Loaded ${tripList.size} trips")
                 _trips.value = tripList
             }
+    }
+
+    private fun fetchHistoryAndStats() {
+        // Stop calculating real stats for now as requested
+        _dashboardState.value = DashboardState()
     }
 
     override fun onCleared() {
         super.onCleared()
         listener?.remove()
+        historyListener?.remove()
     }
 }

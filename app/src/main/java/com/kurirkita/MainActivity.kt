@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.GpsFixed
@@ -39,12 +40,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.KurirKita.model.Trip
 import com.KurirKita.model.User
 import com.KurirKita.ui.*
 import com.KurirKita.ui.theme.KurirKitaTheme
+import com.KurirKita.ui.theme.GaugeGreen
 import com.cloudinary.android.MediaManager
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -92,26 +95,24 @@ class MainActivity : ComponentActivity() {
                 prefs.edit().putBoolean("dark_mode", darkTheme).apply()
             }
             
-            // --- FEATURE: IN-APP UPDATE ---
+            // --- FEATURE: IN-APP UPDATE (MATIKAN SEMENTARA AGAR TIDAK OVERWRITE DESAIN BARU) ---
             var updateUrl by remember { mutableStateOf<String?>(null) }
             var showUpdateDialog by remember { mutableStateOf(false) }
             
+            /* 
             LaunchedEffect(Unit) {
                 FirebaseFirestore.getInstance().collection("config").document("app_status")
                     .addSnapshotListener { snap, _ ->
                         val remoteVersion = snap?.getLong("versionCode") ?: 0L
-                        val currentVersion = 1L // matches versionCode in build.gradle
-                        if (remoteVersion > currentVersion) {
-                            updateUrl = snap?.getString("downloadUrl")
-                            showUpdateDialog = true
-                        }
+                        // ... logic update ...
                     }
             }
+            */
 
             KurirKitaTheme(darkTheme = darkTheme) {
                 if (showUpdateDialog && updateUrl != null) {
                     AlertDialog(
-                        onDismissRequest = { },
+                        onDismissRequest = { showUpdateDialog = false },
                         title = { Text("Update Tersedia!") },
                         text = { Text("Versi terbaru sudah dirilis. Silakan unduh untuk fitur yang lebih stabil.") },
                         confirmButton = {
@@ -119,6 +120,11 @@ class MainActivity : ComponentActivity() {
                                 startDownload(updateUrl!!)
                                 showUpdateDialog = false
                             }) { Text("UNDUH & INSTALL") }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showUpdateDialog = false }) {
+                                Text("NANTI SAJA", color = Color.Gray)
+                            }
                         }
                     )
                 }
@@ -206,43 +212,62 @@ fun MainNavigation(
 ) {
     var selectedTrip by remember { mutableStateOf<Trip?>(null) }
     var showChatTripId by remember { mutableStateOf<String?>(null) }
-    var showHistory by remember { mutableStateOf(false) }
+    var currentTab by remember { mutableStateOf("dashboard") }
     val tripViewModel: TripViewModel = viewModel()
 
     Scaffold(
         topBar = {
-            ServiceControlBar(onStartService, onStopService, onLogout, darkTheme, onThemeToggle)
+            if (currentTab != "dashboard" && selectedTrip == null && showChatTripId == null) {
+                ServiceControlBar(onStartService, onStopService, onLogout, darkTheme, onThemeToggle)
+            }
         },
         bottomBar = {
-            NavigationBar(
-                containerColor = MaterialTheme.colorScheme.surface,
-                tonalElevation = 8.dp
-            ) {
-                NavigationBarItem(
-                    selected = !showHistory,
-                    onClick = { showHistory = false; selectedTrip = null },
-                    icon = { Icon(Icons.Default.LocalShipping, null) },
-                    label = { Text("Tugas Aktif", fontWeight = FontWeight.Bold) },
-                    colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.primary, selectedTextColor = MaterialTheme.colorScheme.primary)
-                )
-                NavigationBarItem(
-                    selected = showHistory,
-                    onClick = { showHistory = true; selectedTrip = null },
-                    icon = { Icon(Icons.Default.History, null) },
-                    label = { Text("Riwayat", fontWeight = FontWeight.Bold) },
-                    colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.primary, selectedTextColor = MaterialTheme.colorScheme.primary)
-                )
+            // Sembunyikan navigasi bawah jika sedang chat atau buka detail tugas agar tidak terhimpit
+            if (selectedTrip == null && showChatTripId == null) {
+                NavigationBar(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 8.dp
+                ) {
+                    NavigationBarItem(
+                        selected = currentTab == "dashboard",
+                        onClick = { currentTab = "dashboard"; selectedTrip = null },
+                        icon = { Icon(Icons.Default.Dashboard, null) },
+                        label = { Text("Dashboard", fontWeight = FontWeight.Bold) },
+                        colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.primary, selectedTextColor = MaterialTheme.colorScheme.primary)
+                    )
+                    NavigationBarItem(
+                        selected = currentTab == "active",
+                        onClick = { currentTab = "active"; selectedTrip = null },
+                        icon = { Icon(Icons.Default.LocalShipping, null) },
+                        label = { Text("Tugas", fontWeight = FontWeight.Bold) },
+                        colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.primary, selectedTextColor = MaterialTheme.colorScheme.primary)
+                    )
+                    NavigationBarItem(
+                        selected = currentTab == "history",
+                        onClick = { currentTab = "history"; selectedTrip = null },
+                        icon = { Icon(Icons.Default.History, null) },
+                        label = { Text("Riwayat", fontWeight = FontWeight.Bold) },
+                        colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.primary, selectedTextColor = MaterialTheme.colorScheme.primary)
+                    )
+                }
             }
         }
     ) { innerPadding ->
-        Box(modifier = Modifier.padding(innerPadding)) {
+        Box(modifier = Modifier.padding(if (selectedTrip == null && showChatTripId == null) innerPadding else PaddingValues(0.dp))) {
             if (showChatTripId != null) {
                 ChatScreen(tripId = showChatTripId!!, onBack = { showChatTripId = null })
             } else if (selectedTrip == null) {
-                if (!showHistory) {
-                    TripListScreen(viewModel = tripViewModel, onTripClick = { selectedTrip = it })
-                } else {
-                    HistoryScreen(viewModel = tripViewModel, onTripClick = { selectedTrip = it })
+                when (currentTab) {
+                    "dashboard" -> {
+                        val dashboardState by tripViewModel.dashboardState.collectAsState()
+                        DashboardScreen(
+                            state = dashboardState,
+                            onMenuClick = { /* Handle menu */ },
+                            onCheckInClick = { onStartService() }
+                        )
+                    }
+                    "active" -> TripListScreen(viewModel = tripViewModel, onTripClick = { selectedTrip = it })
+                    "history" -> HistoryScreen(viewModel = tripViewModel, onTripClick = { selectedTrip = it })
                 }
             } else {
                 ActiveTripScreen(trip = selectedTrip!!, onBack = { selectedTrip = null }, onChatClick = { showChatTripId = selectedTrip!!.tripId })
@@ -296,23 +321,47 @@ fun HistoryScreen(viewModel: TripViewModel, onTripClick: (Trip) -> Unit) {
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(16.dp)) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text("Riwayat Selesai", color = MaterialTheme.colorScheme.onBackground, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            Column {
+                Text(
+                    "Riwayat Selesai", 
+                    color = MaterialTheme.colorScheme.onBackground, 
+                    style = MaterialTheme.typography.titleLarge, 
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = (-0.5).sp
+                )
+                Text(
+                    "Daftar tugas yang telah Anda selesaikan",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
+                    fontWeight = FontWeight.Medium
+                )
+            }
             if (historyTrips.isNotEmpty()) {
-                IconButton(onClick = { showConfirmDelete = true }) {
-                    Icon(Icons.Default.DeleteSweep, contentDescription = "Hapus Semua", tint = MaterialTheme.colorScheme.error)
+                IconButton(
+                    onClick = { showConfirmDelete = true },
+                    colors = IconButtonDefaults.iconButtonColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f))
+                ) {
+                    Icon(Icons.Default.DeleteSweep, contentDescription = "Hapus Semua", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
                 }
             }
         }
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(20.dp))
         if (isLoading) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Color(0xFFF1C40F)) }
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = GaugeGreen, strokeWidth = 3.dp) }
         } else if (historyTrips.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Belum ada riwayat tugas.", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)) }
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { 
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(Icons.Default.History, null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.1f))
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text("Belum ada riwayat tugas.", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f), style = MaterialTheme.typography.bodyMedium) 
+                }
+            }
         } else {
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(historyTrips) { trip ->
                     TripCard(trip, onClick = { onTripClick(trip) })
                 }
+                item { Spacer(modifier = Modifier.height(24.dp)) }
             }
         }
     }

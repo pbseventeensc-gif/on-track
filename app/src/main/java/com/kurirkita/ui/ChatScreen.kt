@@ -124,18 +124,23 @@ fun ChatScreen(tripId: String, onBack: () -> Unit) {
             }
 
             Surface(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .imePadding(),
                 color = Color.White,
                 shadowElevation = 12.dp
             ) {
                 Row(
-                    modifier = Modifier.padding(12.dp),
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     TextField(
                         value = inputText,
                         onValueChange = { inputText = it },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(vertical = 4.dp),
                         placeholder = { Text("Ketik pesan...", color = Color.Gray) },
                         colors = TextFieldDefaults.colors(
                             focusedContainerColor = Color(0xFFF5F5F5),
@@ -158,7 +163,10 @@ fun ChatScreen(tripId: String, onBack: () -> Unit) {
                                 inputText = ""
                             }
                         },
-                        modifier = Modifier.background(Color(0xFFD32F2F), androidx.compose.foundation.shape.CircleShape).size(48.dp)
+                        modifier = Modifier
+                            .padding(bottom = 4.dp)
+                            .background(Color(0xFFD32F2F), androidx.compose.foundation.shape.CircleShape)
+                            .size(48.dp)
                     ) {
                         Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send", tint = Color.White)
                     }

@@ -149,7 +149,7 @@
 
                 <div id="view-dashboard" class="view-section active">
                     <div class="row g-3">
-                        <div class="col-6 col-lg-3">
+                        <div class="col-6 col-lg-4">
                             <div class="card-modern">
                                 <div class="stat-card">
                                     <div class="stat-icon" style="background:#3f6ad8"><i class="bi bi-box-seam"></i></div>
@@ -157,23 +157,15 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="col-6 col-lg-3">
+                        <div class="col-6 col-lg-4">
                             <div class="card-modern">
                                 <div class="stat-card">
-                                    <div class="stat-icon" style="background:#3ac47d"><i class="bi bi-people"></i></div>
-                                    <div><div class="stat-value" id="stat-online">0</div><div class="stat-label">Online</div></div>
+                                    <div class="stat-icon" style="background:#3ac47d"><i class="bi bi-wallet2"></i></div>
+                                    <div><div class="stat-value">Rp 0</div><div class="stat-label">Pendapatan Hari Ini</div></div>
                                 </div>
                             </div>
                         </div>
-                        <div class="col-6 col-lg-3">
-                            <div class="card-modern">
-                                <div class="stat-card">
-                                    <div class="stat-icon" style="background:#f7b924"><i class="bi bi-speedometer2"></i></div>
-                                    <div><div class="stat-value" id="stat-km">0.0</div><div class="stat-label">Total KM</div></div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-6 col-lg-3">
+                        <div class="col-6 col-lg-4">
                             <div class="card-modern">
                                 <div class="stat-card">
                                     <div class="stat-icon" style="background:#d92550"><i class="bi bi-check2-all"></i></div>
@@ -201,6 +193,7 @@
                             <div class="d-flex gap-2">
                                 <input type="date" id="rep-date" class="form-control border-0 bg-light" style="width:160px" onchange="loadFullHistory()">
                                 <button class="btn btn-success btn-sm fw-bold px-3" onclick="exportToExcel()"><i class="bi bi-file-earmark-excel me-1"></i>Excel</button>
+                                <button class="btn btn-danger btn-sm fw-bold px-3" onclick="clearAllHistory()"><i class="bi bi-trash me-1"></i>Hapus Semua</button>
                             </div>
                         </div>
                         <div id="history-list"></div>
@@ -291,7 +284,7 @@
             appId: "1:180144218738:android:b0b991a7575ae7693ed8eb"
         };
         firebase.initializeApp(firebaseConfig);
-        const rtdb = firebase.database(), db = firebase.firestore();
+        const rtdb = firebase.database(), db = firebase.firestore(), storage = firebase.storage();
         const map = L.map('map').setView([-6.2, 106.81], 12);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
@@ -516,11 +509,81 @@
             new bootstrap.Toast(toastEl).show();
         }
 
+        async function clearAllHistory() {
+            if (!confirm("PERHATIAN! Semua riwayat tugas akan dihapus PERMANEN dari database. Lanjutkan?")) return;
+
+            const btn = event.target;
+            btn.disabled = true;
+            btn.innerText = "Menghapus...";
+
+            try {
+                const snap = await db.collection('trips').get();
+                const batch = db.batch();
+                snap.forEach(doc => batch.delete(doc.ref));
+                await batch.commit();
+
+                showToast("Semua riwayat berhasil dihapus!");
+                loadFullHistory(); // Refresh list
+            } catch (e) {
+                alert("Gagal menghapus: " + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "Hapus Semua";
+            }
+        }
+
         function openImagePopup(url) { document.getElementById('modalImg').src = url; document.getElementById('downloadBtn').href = url; new bootstrap.Modal(document.getElementById('imageModal')).show(); }
         async function updateConfig() {
             const v = document.getElementById('cfg-interval').value, u = document.getElementById('cfg-time-unit').value, g = document.getElementById('cfg-geofence').value;
             await db.collection('config').doc('tracking').set({ intervalMs: v * u, geofenceRadius: parseFloat(g), updatedAt: firebase.firestore.Timestamp.now() }, { merge: true });
             showToast("Sync Berhasil!");
+        }
+
+        async function publishUpdateAuto() {
+            const version = document.getElementById('upd-version').value;
+            const file = document.getElementById('upd-file').files[0];
+            const progressContainer = document.getElementById('upd-progress');
+            const progressBar = progressContainer.querySelector('.progress-bar');
+
+            if (!version || !file) {
+                alert("Harap masukkan nomor versi (Angka) dan pilih file APK!");
+                return;
+            }
+
+            if (isNaN(parseInt(version))) {
+                alert("Nomor versi harus berupa angka!");
+                return;
+            }
+
+            progressContainer.classList.remove('d-none');
+            const storageRef = storage.ref('updates/' + file.name);
+            const uploadTask = storageRef.put(file);
+
+            uploadTask.on('state_changed',
+                (snapshot) => {
+                    const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                    progressBar.style.width = progress + '%';
+                },
+                (error) => {
+                    console.error("Upload failed:", error);
+                    alert("Gagal mengunggah APK: " + error.message);
+                    progressContainer.classList.add('d-none');
+                },
+                async () => {
+                    const downloadUrl = await uploadTask.snapshot.ref.getDownloadURL();
+                    await db.collection('config').document('app_status').set({
+                        versionCode: parseInt(version),
+                        downloadUrl: downloadUrl,
+                        updatedAt: firebase.firestore.Timestamp.now()
+                    }, { merge: true });
+
+                    showToast("Versi " + version + " berhasil dirilis!");
+                    progressContainer.classList.add('d-none');
+                    progressBar.style.width = '0%';
+                    document.getElementById('upd-version').value = '';
+                    document.getElementById('upd-file').value = '';
+                }
+            );
         }
     </script>
 </body>
