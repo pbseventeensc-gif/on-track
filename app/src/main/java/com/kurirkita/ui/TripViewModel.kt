@@ -40,6 +40,14 @@ class TripViewModel : ViewModel() {
         val userId = auth.currentUser?.uid ?: return
         Log.d("TripVM", "Fetching trips for user: $userId")
         
+        // Audit: Cek 5 data pertama di koleksi trips (apapun ID-nya) untuk cek format
+        db.collection("trips").limit(5).get().addOnSuccessListener { snap ->
+            Log.d("TripVM", "DATABASE AUDIT: Total trips in collection: ${snap.size()}")
+            snap.forEach { doc ->
+                Log.d("TripVM", "Audit - TripID: ${doc.id}, CourierID in DB: '${doc.getString("courierId")}'")
+            }
+        }
+
         listener?.remove()
         listener = db.collection("trips")
             .whereEqualTo("courierId", userId)
@@ -47,13 +55,26 @@ class TripViewModel : ViewModel() {
                 _isRefreshing.value = false
                 if (e != null) {
                     Log.e("TripVM", "Firestore Error: ${e.message}")
+                    _dashboardState.value = _dashboardState.value.copy(activeShipments = "-1") // Mark as offline/error
                     return@addSnapshotListener
                 }
                 
-                val tripList = snapshot?.toObjects(Trip::class.java)
-                    ?.filter { it.status != "completed" } ?: emptyList()
-                
-                _trips.value = tripList
+                if (snapshot == null) return@addSnapshotListener
+
+                try {
+                    val allTrips = snapshot.toObjects(Trip::class.java)
+                    val tripList = allTrips.filter { it.status != "completed" }
+                    
+                    Log.d("TripVM", "SUCCESS: Found ${tripList.size} active trips for current user ($userId)")
+                    _trips.value = tripList
+                    
+                    _dashboardState.value = _dashboardState.value.copy(
+                        activeShipments = tripList.size.toString(),
+                        courierId = userId
+                    )
+                } catch (err: Exception) {
+                    Log.e("TripVM", "Mapping Error: ${err.message}")
+                }
             }
     }
 

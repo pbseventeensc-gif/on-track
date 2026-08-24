@@ -332,46 +332,46 @@
                 <div id="view-dashboard" class="view-section active">
                     <!-- Stats Cards Row 1 -->
                     <div class="row g-4 mb-4">
-                        <div class="col-md-4 col-xl-2">
+                        <div class="col-6 col-md-4 col-xl-2">
                             <div class="stat-card">
                                 <div class="stat-label">Active Shipments</div>
                                 <div class="stat-value" id="stat-active">0</div>
-                                <div class="stat-trend trend-up"><i class="bi bi-arrow-up-short"></i> +12% vs lw</div>
+                                <div class="stat-trend trend-up"><i class="bi bi-arrow-up-short"></i> +0% vs lw</div>
                             </div>
                         </div>
-                        <div class="col-md-4 col-xl-2">
+                        <div class="col-6 col-md-4 col-xl-2">
                             <div class="stat-card">
                                 <div class="stat-label">On-Time Rate</div>
-                                <div class="stat-value">94.2%</div>
-                                <div class="stat-trend trend-up"><i class="bi bi-arrow-up-short"></i> +2.1%</div>
+                                <div class="stat-value">100%</div>
+                                <div class="stat-trend trend-up"><i class="bi bi-arrow-up-short"></i> +0%</div>
                             </div>
                         </div>
-                        <div class="col-md-4 col-xl-2">
+                        <div class="col-6 col-md-4 col-xl-2">
                             <div class="stat-card">
                                 <div class="stat-label">Delayed</div>
-                                <div class="stat-value">12</div>
-                                <div class="stat-trend trend-down"><i class="bi bi-arrow-down-short"></i> -4%</div>
+                                <div class="stat-value">0</div>
+                                <div class="stat-trend text-muted">Stable</div>
                             </div>
                         </div>
-                        <div class="col-md-4 col-xl-2">
+                        <div class="col-6 col-md-4 col-xl-2">
                             <div class="stat-card">
                                 <div class="stat-label">In Transit</div>
                                 <div class="stat-value" id="stat-transit-count">0</div>
-                                <div class="stat-trend trend-up"><i class="bi bi-arrow-up-short"></i> +8%</div>
+                                <div class="stat-trend trend-up"><i class="bi bi-arrow-up-short"></i> +0%</div>
                             </div>
                         </div>
-                        <div class="col-md-4 col-xl-2">
+                        <div class="col-6 col-md-4 col-xl-2">
                             <div class="stat-card">
                                 <div class="stat-label">Orders Today</div>
-                                <div class="stat-value">156</div>
-                                <div class="stat-trend trend-up"><i class="bi bi-arrow-up-short"></i> +24%</div>
+                                <div class="stat-value" id="stat-done">0</div>
+                                <div class="stat-trend trend-up"><i class="bi bi-arrow-up-short"></i> +0%</div>
                             </div>
                         </div>
-                        <div class="col-md-4 col-xl-2">
+                        <div class="col-6 col-md-4 col-xl-2">
                             <div class="stat-card">
-                                <div class="stat-label">Avg Delivery</div>
-                                <div class="stat-value">4.2h</div>
-                                <div class="stat-trend trend-down"><i class="bi bi-arrow-down-short"></i> -15m</div>
+                                <div class="stat-label">Total Earning</div>
+                                <div class="stat-value">Rp 0</div>
+                                <div class="stat-trend text-muted">Stable</div>
                             </div>
                         </div>
                     </div>
@@ -414,26 +414,26 @@
                     <!-- Row 3: Status & Performance -->
                     <div class="row g-4 mb-4">
                         <div class="col-lg-4">
-                            <div class="border rounded-4 p-4 bg-white h-100">
+                            <div class="border rounded-4 p-4 bg-white">
                                 <div class="card-title">Shipment Status</div>
                                 <div class="mb-4">
-                                    <div class="d-flex justify-content-between mb-2 small fw-bold"><span>In Transit</span><span>45%</span></div>
-                                    <div class="progress-custom"><div class="progress-bar-custom bg-primary" style="width: 45%"></div></div>
+                                    <div class="d-flex justify-content-between mb-2 small fw-bold"><span>In Transit</span><span>0%</span></div>
+                                    <div class="progress-custom"><div class="progress-bar-custom bg-primary" style="width: 0%"></div></div>
                                 </div>
                                 <div class="mb-4">
-                                    <div class="d-flex justify-content-between mb-2 small fw-bold"><span>Delivered</span><span>82%</span></div>
-                                    <div class="progress-custom"><div class="progress-bar-custom" style="width: 82%; background: #10B981;"></div></div>
+                                    <div class="d-flex justify-content-between mb-2 small fw-bold"><span>Delivered</span><span>0%</span></div>
+                                    <div class="progress-custom"><div class="progress-bar-custom" style="width: 0%; background: #10B981;"></div></div>
                                 </div>
                                 <div>
-                                    <div class="d-flex justify-content-between mb-2 small fw-bold"><span>Pending</span><span>12%</span></div>
-                                    <div class="progress-custom"><div class="progress-bar-custom" style="width: 12%; background: #F59E0B;"></div></div>
+                                    <div class="d-flex justify-content-between mb-2 small fw-bold"><span>Pending</span><span>0%</span></div>
+                                    <div class="progress-custom"><div class="progress-bar-custom" style="width: 0%; background: #F59E0B;"></div></div>
                                 </div>
                             </div>
                         </div>
                         <div class="col-lg-8">
-                            <div class="border rounded-4 p-4 bg-white h-100">
+                            <div class="border rounded-4 p-4 bg-white">
                                 <div class="card-title">Delivery Performance</div>
-                                <canvas id="performanceChart" style="height: 200px;"></canvas>
+                                <canvas id="performanceChart" style="height: 180px; width: 100%;"></canvas>
                             </div>
                         </div>
                     </div>

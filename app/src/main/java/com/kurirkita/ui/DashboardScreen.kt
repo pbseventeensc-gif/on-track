@@ -22,6 +22,8 @@ data class DashboardState(
     val totalDistanceCovered: String = "0.0KM",
     val totalOrderDelivered: String = "0",
     val totalOrderRejected: String = "0",
+    val activeShipments: String = "0",
+    val courierId: String = "",
     val statusMessage: String = "Waiting for orders..."
 )
 
@@ -156,8 +158,8 @@ fun DashboardScreen(
                     Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
                         StatItem(
                             modifier = Modifier.weight(1f),
-                            label = "Total Amount Collected",
-                            value = "0"
+                            label = "Active Shipments",
+                            value = state.activeShipments
                         )
                         VerticalDivider(thickness = 0.5.dp, color = Color.LightGray.copy(alpha = 0.5f))
                         StatItem(
@@ -216,35 +218,44 @@ fun DashboardScreen(
             }
 
             // Footer Area
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                shape = RoundedCornerShape(20.dp),
-                color = GaugeGreen.copy(alpha = 0.05f),
-            ) {
-                Row(
-                    modifier = Modifier
-                        .padding(16.dp)
-                        .fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    color = GaugeGreen.copy(alpha = 0.05f),
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.HourglassEmpty,
-                        contentDescription = null,
-                        tint = TextSecondary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Row(
+                        modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(imageVector = Icons.Default.HourglassEmpty, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(state.statusMessage, style = MaterialTheme.typography.bodyMedium.copy(color = TextSecondary, fontWeight = FontWeight.Medium))
+                    }
+                }
+                
+                // Debug ID & Connection Status
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
+                    Surface(
+                        color = if (state.activeShipments != "-1") Color(0xFF10B981) else Color.Red,
+                        shape = CircleShape,
+                        modifier = Modifier.size(6.dp)
+                    ) {}
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        state.statusMessage,
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            color = TextSecondary,
-                            fontWeight = FontWeight.Medium
-                        )
+                        text = if (state.activeShipments != "-1") "Sistem Online" else "Sistem Offline (Cek Internet)",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (state.activeShipments != "-1") TextSecondary.copy(alpha = 0.6f) else Color.Red
                     )
                 }
+                
+                Text(
+                    text = "ID Kurir: ${state.courierId}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TextSecondary.copy(alpha = 0.4f),
+                    modifier = Modifier.padding(top = 4.dp)
+                )
             }
         }
     }
