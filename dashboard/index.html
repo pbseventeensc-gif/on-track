@@ -85,28 +85,38 @@
         .sidebar-backdrop.active { display: block; }
 
         .sidebar-header {
-            padding: 24px;
+            padding: 20px;
             display: flex;
             align-items: center;
-            justify-content: center;
-            min-height: 140px;
+            gap: 12px;
+            min-height: 120px;
         }
         .sidebar.collapsed .sidebar-header {
             background: #F9FAFB;
             margin: 12px;
             border-radius: 12px;
             padding: 10px;
-            min-height: 80px;
+            min-height: 60px;
+            justify-content: center;
         }
         .main-logo {
-            height: 96px;
+            height: 70px;
             max-width: 100%;
             object-fit: contain;
             transition: 0.3s;
         }
         .sidebar.collapsed .main-logo {
-            height: 48px;
+            height: 32px;
         }
+        .sidebar-brand {
+            font-weight: 800;
+            font-size: 1.1rem;
+            letter-spacing: -0.5px;
+            line-height: 1.2;
+            color: var(--primary);
+            transition: 0.2s;
+        }
+        .sidebar.collapsed .sidebar-brand { opacity: 0; visibility: hidden; width: 0; display: none; }
 
         .nav-category {
             font-size: 0.7rem;
@@ -402,6 +412,7 @@
             </div>
             <div class="sidebar-header">
                 <img src="wellen_logo.jpeg" class="main-logo" alt="Wellen Print">
+                <div class="sidebar-brand">Wellen Print</div>
             </div>
 
             <nav class="nav-menu">
