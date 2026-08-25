@@ -1132,11 +1132,11 @@
                     }
                 }
                 courierStats[cId].totalKM += actualTripKM;
+                grandTotalKM += actualTripKM; // Add to grand total regardless of trip status
 
                 if(t.status === 'completed') {
                     courierStats[cId].completed++;
                     totalCompleted++;
-                    grandTotalKM += actualTripKM;
                 }
             });
 
@@ -1152,15 +1152,18 @@
             }
 
             // ADVANCED COST CALCULATOR (Manual Input Based)
-            const kmPerLiter = parseFloat(document.getElementById('calc-efficiency')?.value) || 40;
-            const pricePerLiter = parseFloat(document.getElementById('calc-price')?.value) || 10000;
+            const effInput = document.getElementById('calc-efficiency');
+            const priceInput = document.getElementById('calc-price');
+
+            const kmPerLiter = (effInput && effInput.value > 0) ? parseFloat(effInput.value) : 40;
+            const pricePerLiter = (priceInput && priceInput.value >= 0) ? parseFloat(priceInput.value) : 10000;
 
             const totalLitersUsed = grandTotalKM / kmPerLiter;
             const totalCost = totalLitersUsed * pricePerLiter;
 
             if(document.getElementById('kpi-total-fuel')) {
-                document.getElementById('kpi-total-fuel').innerText = "Rp " + Math.round(totalCost).toLocaleString();
-                document.getElementById('kpi-fuel-liters').innerText = totalLitersUsed.toFixed(2) + " Liters expected";
+                document.getElementById('kpi-total-fuel').innerText = "Rp " + Math.round(totalCost || 0).toLocaleString();
+                document.getElementById('kpi-fuel-liters').innerText = (totalLitersUsed || 0).toFixed(2) + " Liters expected";
             }
 
             // Table with Manual Rating Logic
