@@ -836,16 +836,16 @@
     </div>
 
     <div class="modal fade" id="imageModal" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-dialog modal-sm modal-dialog-centered" style="max-width: 400px;">
             <div class="modal-content border-0 shadow-lg" style="border-radius:24px; overflow:hidden">
                 <div class="position-absolute top-0 end-0 p-3" style="z-index: 10">
                     <button type="button" class="btn-close btn-close-white bg-dark rounded-circle p-2 shadow" data-bs-dismiss="modal" aria-label="Close" style="opacity: 1"></button>
                 </div>
-                <div class="modal-body p-0 text-center bg-black d-flex align-items-center justify-content-center" style="min-height: 400px;">
-                    <img id="modalImg" src="" style="max-width:100%; max-height: 85vh; width: auto; height: auto; object-fit: contain; image-rendering: high-quality;">
-                    <div class="position-absolute bottom-0 start-0 end-0 p-4" style="background: linear-gradient(transparent, rgba(0,0,0,0.8))">
-                        <a id="downloadBtn" href="#" download class="btn btn-light w-100 fw-bold py-3" style="border-radius: 12px">
-                            <i class="bi bi-download me-2"></i>Download Original HD Photo
+                <div class="modal-body p-0 text-center bg-black d-flex align-items-center justify-content-center" style="min-height: 300px;">
+                    <img id="modalImg" src="" style="max-width:100%; max-height: 70vh; width: auto; height: auto; object-fit: contain; image-rendering: high-quality;">
+                    <div class="position-absolute bottom-0 start-0 end-0 p-3" style="background: linear-gradient(transparent, rgba(0,0,0,0.8))">
+                        <a id="downloadBtn" href="#" download class="btn btn-light btn-sm w-100 fw-bold py-2" style="border-radius: 8px">
+                            <i class="bi bi-download me-2"></i>Download HD
                         </a>
                     </div>
                 </div>
@@ -1563,27 +1563,98 @@
 
         async function loadFullHistory() {
             const date = document.getElementById('rep-date').value; if(!date) return;
-            const container = document.getElementById('history-list'); container.innerHTML = '<p class="p-5 text-center">Loading reports...</p>';
+            const container = document.getElementById('history-list'); container.innerHTML = '<p class="p-5 text-center text-muted">Loading daily reports...</p>';
             document.getElementById('current-report-date').innerText = "REPORT DATE: " + date;
-            const start = new Date(date); start.setHours(0,0,0,0); const end = new Date(date); end.setHours(23,59,59,999);
-            const snap = await db.collection('trips').where('date', '>=', firebase.firestore.Timestamp.fromDate(start)).where('date', '<=', firebase.firestore.Timestamp.fromDate(end)).get();
+
+            const start = new Date(date); start.setHours(0,0,0,0);
+            const end = new Date(date); end.setHours(23,59,59,999);
+
+            const snap = await db.collection('trips')
+                .where('date', '>=', firebase.firestore.Timestamp.fromDate(start))
+                .where('date', '<=', firebase.firestore.Timestamp.fromDate(end))
+                .get();
+
             container.innerHTML = ''; lastLoadedHistory = [];
             snap.forEach(doc => { lastLoadedHistory.push({id: doc.id, ...doc.data()}); });
-            if(lastLoadedHistory.length===0) { container.innerHTML = "<p class='text-center py-5 text-muted'>No data available for this date.</p>"; return; }
+
+            if(lastLoadedHistory.length === 0) {
+                container.innerHTML = "<div class='text-center py-5'><i class='bi bi-inbox fs-1 text-muted d-block mb-2'></i><p class='text-muted'>No data found for this date.</p></div>";
+                return;
+            }
 
             lastLoadedHistory.forEach(t => {
+                const statusClass = t.status === 'completed' ? 'delivered' : (t.status === 'assigned' ? 'pending' : 'transit');
+                const cName = registeredUsers[t.courierId] || t.courierId.substring(0,8);
                 const hEl = document.createElement('div');
-                hEl.className = "border rounded-3 p-3 mb-3 bg-light shadow-sm";
-                hEl.innerHTML = `<div class="d-flex justify-content-between align-items-center mb-3">
-                    <span class="fw-bold">#${t.id.substring(5,11)} - ${registeredUsers[t.courierId] || t.courierId.substring(0,8)}</span>
-                    <div class="d-flex gap-2 align-items-center">
-                        <span class="badge-pill badge-delivered">${t.status}</span>
-                        <button class="btn btn-sm btn-white border text-danger py-0 px-2" onclick="deleteTrip('${t.id}')"><i class="bi bi-x-lg"></i></button>
+                hEl.className = "card border rounded-4 mb-3 shadow-sm overflow-hidden";
+                hEl.innerHTML = `
+                    <div class="card-header bg-white border-0 p-3 d-flex justify-content-between align-items-center cursor-pointer hover-bg-light" onclick="toggleReportDetail('${t.id}')">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="bg-light rounded-circle d-flex align-items-center justify-content-center" style="width:40px; height:40px">
+                                <i class="bi bi-truck text-primary"></i>
+                            </div>
+                            <div>
+                                <span class="fw-bold d-block">#${t.id.substring(5,11)} — ${cName}</span>
+                                <small class="text-muted" style="font-size:0.7rem">${t.destinations.length} Stops • ${new Date(t.date.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</small>
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2 align-items-center">
+                            <span class="badge-pill badge-${statusClass}">${t.status}</span>
+                            <button class="btn btn-sm btn-light border text-danger py-1" onclick="event.stopPropagation(); deleteTrip('${t.id}')"><i class="bi bi-trash"></i></button>
+                            <i class="bi bi-chevron-down ms-2 text-muted" id="icon-${t.id}"></i>
+                        </div>
                     </div>
-                </div>
-                <div class="d-flex flex-column gap-2">${t.destinations.map(d => `<div class="extra-small d-flex justify-content-between border-bottom pb-1"><span>${d.locationName}</span><span>${d.status}</span></div>`).join('')}</div>`;
+                    <div class="card-body p-0 d-none bg-light" id="detail-${t.id}">
+                        <div class="p-3 border-top">
+                            <div class="table-responsive">
+                                <table class="table table-sm table-borderless m-0" style="font-size: 0.75rem">
+                                    <thead>
+                                        <tr class="text-muted text-uppercase" style="font-size: 0.65rem">
+                                            <th>Stop</th>
+                                            <th>Location / Address</th>
+                                            <th class="text-center">Arrival</th>
+                                            <th class="text-center">Done</th>
+                                            <th class="text-center">Proof</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="align-middle">
+                                        ${t.destinations.map(d => {
+                                            const arrTime = d.arrivalTime ? new Date(d.arrivalTime.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '-';
+                                            const doneTime = d.completedTime ? new Date(d.completedTime.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '-';
+                                            const photoHtml = d.proofPhotoUrl ? `<img src="${d.proofPhotoUrl}" class="proof-img-thumb shadow-sm" onclick="openPoDModal('${d.proofPhotoUrl}')">` : '<span class="text-muted">-</span>';
+                                            return `
+                                                <tr class="border-bottom">
+                                                    <td class="fw-bold text-center" style="width:50px">${d.stopIndex}</td>
+                                                    <td>
+                                                        <div class="fw-bold text-dark">${d.locationName}</div>
+                                                        <div class="text-muted text-truncate" style="max-width:250px">${d.address || ''}</div>
+                                                    </td>
+                                                    <td class="text-center">${arrTime}</td>
+                                                    <td class="text-center">${doneTime}</td>
+                                                    <td class="text-center">${photoHtml}</td>
+                                                </tr>
+                                            `;
+                                        }).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                `;
                 container.appendChild(hEl);
             });
+        }
+
+        function toggleReportDetail(id) {
+            const el = document.getElementById('detail-' + id);
+            const icon = document.getElementById('icon-' + id);
+            if(el.classList.contains('d-none')) {
+                el.classList.remove('d-none');
+                icon.classList.replace('bi-chevron-down', 'bi-chevron-up');
+            } else {
+                el.classList.add('d-none');
+                icon.classList.replace('bi-chevron-up', 'bi-chevron-down');
+            }
         }
 
         function exportToExcel() {
