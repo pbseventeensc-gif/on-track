@@ -63,12 +63,26 @@
             border-right: 1px solid var(--border-color);
             display: flex;
             flex-direction: column;
-            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            z-index: 1050;
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 2000;
             position: relative;
         }
 
         .sidebar.collapsed { width: 80px; }
+
+        /* Mobile Backdrop */
+        .sidebar-backdrop {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1999;
+            backdrop-filter: blur(2px);
+        }
+        .sidebar-backdrop.active { display: block; }
 
         .sidebar-header {
             padding: 24px;
@@ -293,11 +307,19 @@
 
         /* Responsive Sidebar */
         @media (max-width: 991px) {
-            .sidebar { position: fixed; left: -100%; top: 0; bottom: 0; }
+            .sidebar {
+                position: fixed;
+                left: -280px; /* Slightly more than sidebar-width */
+                top: 0;
+                bottom: 0;
+                box-shadow: 10px 0 30px rgba(0,0,0,0.1);
+                width: 260px !important; /* Force width on mobile */
+            }
             .sidebar.open { left: 0; }
             .top-header { padding: 0 16px; }
             .search-container { display: none; }
             .content-scroll { padding: 16px; }
+            .sidebar.collapsed { width: 260px; } /* Disable collapse on mobile */
         }
 
         /* Modal Close Button Custom */
@@ -363,6 +385,8 @@
     </style>
 </head>
 <body>
+
+    <div class="sidebar-backdrop" id="sidebar-backdrop" onclick="toggleSidebar()"></div>
 
     <div class="wrapper">
         <!-- Sidebar -->
@@ -1014,8 +1038,12 @@
         window.addEventListener('load', initAutocomplete);
 
         function toggleSidebar() {
+            const sb = document.getElementById('sidebar');
+            const backdrop = document.getElementById('sidebar-backdrop');
+
             if (window.innerWidth <= 991) {
-                document.getElementById('sidebar').classList.toggle('open');
+                sb.classList.toggle('open');
+                backdrop.classList.toggle('active');
             } else {
                 toggleCollapse();
             }
@@ -1046,7 +1074,9 @@
                 if(navLink) navLink.classList.add('active');
             }
 
+            // Close sidebar and backdrop on mobile after selection
             document.getElementById('sidebar').classList.remove('open');
+            document.getElementById('sidebar-backdrop').classList.remove('active');
 
             // Force map resize
             setTimeout(() => {
