@@ -452,14 +452,14 @@
                         <div class="col-6 col-md-4 col-xl-2">
                             <div class="stat-card">
                                 <div class="stat-label">On-Time Rate</div>
-                                <div class="stat-value">100%</div>
+                                <div class="stat-value" id="stat-ontime">100%</div>
                                 <div class="stat-trend trend-up"><i class="bi bi-arrow-up-short"></i> +0%</div>
                             </div>
                         </div>
                         <div class="col-6 col-md-4 col-xl-2">
                             <div class="stat-card">
                                 <div class="stat-label">Delayed</div>
-                                <div class="stat-value">0</div>
+                                <div class="stat-value" id="stat-delayed">0</div>
                                 <div class="stat-trend text-muted">Stable</div>
                             </div>
                         </div>
@@ -1070,14 +1070,40 @@
 
         db.collection('trips').onSnapshot(snap => {
             let active = 0;
+            let doneToday = 0;
+            let delayedCount = 0;
+            let totalCompletedTrips = 0;
+            let onTimeTrips = 0;
+
             allCurrentTrips = [];
             snap.forEach(doc => {
                 const t = doc.data();
                 t.id = doc.id;
                 allCurrentTrips.push(t);
-                if(t.status !== 'completed') active++;
+
+                if(t.status !== 'completed') {
+                    active++;
+                    // Check for delay (>30m no update)
+                    const lastUpdate = t.destinations.filter(d => d.status === 'done' || d.status === 'arrived').reduce((max, d) => {
+                        const time = (d.completedTime || d.arrivalTime)?.seconds * 1000 || 0;
+                        return time > max ? time : max;
+                    }, t.date.seconds * 1000);
+                    if(Date.now() - lastUpdate > 30 * 60 * 1000 && t.status === 'in_progress') {
+                        delayedCount++;
+                    }
+                } else {
+                    totalCompletedTrips++;
+                    doneToday++; // Simplified for current session data
+                    onTimeTrips++; // Placeholder logic for now
+                }
             });
+
             document.getElementById('stat-active').innerText = active;
+            document.getElementById('stat-done').innerText = doneToday;
+            document.getElementById('stat-delayed').innerText = delayedCount;
+
+            const onTimeRate = totalCompletedTrips > 0 ? Math.round((onTimeTrips / totalCompletedTrips) * 100) : 100;
+            document.getElementById('stat-ontime').innerText = onTimeRate + "%";
 
             // Calculate and show Grand Total KM on main dashboard
             let grandTotalKM = 0;
