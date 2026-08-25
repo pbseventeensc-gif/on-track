@@ -526,6 +526,7 @@
                                                 <th>Status</th>
                                                 <th>Carrier</th>
                                                 <th>ETA / Completed</th>
+                                                <th>Action</th>
                                             </tr>
                                         </thead>
                                         <tbody id="recent-shipments-table">
@@ -1035,6 +1036,11 @@
                     <td><span class="badge-pill badge-${statusClass}">${t.status}</span></td>
                     <td>${cName}</td>
                     <td>${eta}</td>
+                    <td>
+                        <button class="btn btn-sm btn-light border text-danger" onclick="deleteTrip('${t.id}')">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
                 </tr>`;
             });
         }
@@ -1146,10 +1152,13 @@
 
             lastLoadedHistory.forEach(t => {
                 const hEl = document.createElement('div');
-                hEl.className = "border rounded-3 p-3 mb-3 bg-light";
+                hEl.className = "border rounded-3 p-3 mb-3 bg-light shadow-sm";
                 hEl.innerHTML = `<div class="d-flex justify-content-between align-items-center mb-3">
-                    <span class="fw-bold">#${t.id.substring(5,11)} - ${registeredUsers[t.courierId]}</span>
-                    <span class="badge-pill badge-delivered">${t.status}</span>
+                    <span class="fw-bold">#${t.id.substring(5,11)} - ${registeredUsers[t.courierId] || t.courierId.substring(0,8)}</span>
+                    <div class="d-flex gap-2 align-items-center">
+                        <span class="badge-pill badge-delivered">${t.status}</span>
+                        <button class="btn btn-sm btn-white border text-danger py-0 px-2" onclick="deleteTrip('${t.id}')"><i class="bi bi-x-lg"></i></button>
+                    </div>
                 </div>
                 <div class="d-flex flex-column gap-2">${t.destinations.map(d => `<div class="extra-small d-flex justify-content-between border-bottom pb-1"><span>${d.locationName}</span><span>${d.status}</span></div>`).join('')}</div>`;
                 container.appendChild(hEl);
@@ -1168,6 +1177,17 @@
             const snap = await db.collection('trips').get(); const batch = db.batch();
             snap.forEach(doc => batch.delete(doc.ref)); await batch.commit();
             showToast("All history cleared."); loadFullHistory();
+        }
+
+        async function deleteTrip(tripId) {
+            if (!confirm("Hapus pengantaran #" + tripId.substring(5,11) + "? Tindakan ini tidak bisa dibatalkan.")) return;
+            try {
+                await db.collection('trips').document(tripId).delete();
+                showToast("Pengantaran berhasil dihapus.");
+                if(document.getElementById('view-reports').classList.contains('active')) loadFullHistory();
+            } catch (e) {
+                alert("Gagal menghapus: " + e.message);
+            }
         }
 
         function showToast(msg) {
