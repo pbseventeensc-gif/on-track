@@ -440,9 +440,9 @@
                         </div>
                         <div class="col-6 col-md-4 col-xl-2">
                             <div class="stat-card">
-                                <div class="stat-label">Total Earning</div>
-                                <div class="stat-value">Rp 0</div>
-                                <div class="stat-trend text-muted">Stable</div>
+                                <div class="stat-label">Total Distance</div>
+                                <div class="stat-value" id="stat-total-km">0 km</div>
+                                <div class="stat-trend text-muted">Real-time</div>
                             </div>
                         </div>
                     </div>
@@ -970,6 +970,21 @@
                 if(t.status !== 'completed') active++;
             });
             document.getElementById('stat-active').innerText = active;
+
+            // Calculate and show Grand Total KM on main dashboard
+            let grandTotalKM = 0;
+            allCurrentTrips.forEach(t => {
+                if(t.destinations) {
+                    t.destinations.forEach((d, i) => {
+                        if(d.status === 'done') {
+                            const start = i === 0 ? { lat: -6.2, lng: 106.81 } : { lat: t.destinations[i-1].latitude, lng: t.destinations[i-1].longitude };
+                            grandTotalKM += calculateDistance(start.lat, start.lng, d.latitude, d.longitude);
+                        }
+                    });
+                }
+            });
+            document.getElementById('stat-total-km').innerText = grandTotalKM.toFixed(1) + " km";
+
             refreshAllMonitorData();
             renderRecentShipments();
         });
