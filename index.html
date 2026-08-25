@@ -14,6 +14,7 @@
     <!-- Libraries -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
 
     <script>
         // Helper: Individual Courier Colors
@@ -316,6 +317,33 @@
         .bubble { max-width: 85%; padding: 10px 14px; border-radius: 12px; font-size: 0.85rem; margin-bottom: 8px; }
         .bubble.admin { align-self: flex-end; background: var(--primary); color: #fff; border-bottom-right-radius: 2px; }
         .bubble.courier { align-self: flex-start; background: #F3F4F6; color: var(--text-main); border-bottom-left-radius: 2px; }
+
+        /* Dark Mode Theme */
+        body.dark-theme {
+            --bg-body: #0f172a;
+            --primary: #f8fafc;
+            --border-color: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+        .dark-theme .sidebar, .dark-theme .top-header, .dark-theme .bg-white, .dark-theme .tracking-card, .dark-theme .modal-content {
+            background-color: #1e293b !important;
+            color: #f8fafc !important;
+        }
+        .dark-theme .stat-card, .dark-theme .table-container, .dark-theme .border, .dark-theme .card, .dark-theme .view-section > div {
+            background-color: #1e293b !important;
+            border-color: #334155 !important;
+        }
+        .dark-theme .nav-link-custom:hover { background: #334155; color: #38bdf8; }
+        .dark-theme .nav-link-custom.active { background: #334155; color: #38bdf8; font-weight: 600; }
+        .dark-theme .table thead { background: #0f172a; }
+        .dark-theme .search-input, .dark-theme .form-select, .dark-theme .form-control { background: #0f172a; color: #f8fafc; border-color: #334155; }
+        .dark-theme .btn-light { background: #334155; border-color: #475569; color: #f8fafc; }
+        .dark-theme .nav-category { color: #475569; }
+        .dark-theme .sidebar-header, .dark-theme .sidebar-footer { border-color: #334155; }
+        .dark-theme .table tbody td { color: #e2e8f0; border-bottom-color: #334155; }
+        .dark-theme .bubble.courier { background: #334155; color: #f8fafc; }
+        .dark-theme #map, .dark-theme #map-monitor, .dark-theme #map-dispatch { filter: brightness(0.9) contrast(1.1); }
     </style>
 </head>
 <body>
@@ -360,13 +388,20 @@
                 </a>
             </nav>
 
-            <div class="sidebar-footer">
-                <img src="https://ui-avatars.com/api/?name=Admin+W&background=111827&color=fff" class="profile-img" alt="Profile">
-                <div class="profile-info">
-                    <p class="profile-name">Admin Wtrack</p>
-                    <p class="profile-role">Fleet Operations</p>
+            <div class="sidebar-footer flex-column align-items-start" style="padding: 10px 20px;">
+                <div class="d-flex align-items-center w-100 mb-3 pt-2" style="font-size: 0.8rem; border-top: 1px solid var(--border-color);">
+                    <i class="bi bi-moon-stars me-2"></i> <span class="dark-mode-text">Dark Mode</span>
+                    <div class="form-check form-switch ms-auto">
+                        <input class="form-check-input cursor-pointer" type="checkbox" id="dark-mode-toggle" onchange="toggleDarkMode()">
+                    </div>
                 </div>
-                <i class="bi bi-three-dots-vertical ms-auto text-muted cursor-pointer"></i>
+                <div class="d-flex align-items-center gap-12 w-100">
+                    <img src="https://ui-avatars.com/api/?name=Admin+W&background=111827&color=fff" class="profile-img" alt="Profile">
+                    <div class="profile-info">
+                        <p class="profile-name mb-0 fw-bold">Admin WellenGO</p>
+                        <p class="profile-role mb-0 extra-small text-muted">Fleet Manager</p>
+                    </div>
+                </div>
             </div>
         </aside>
 
@@ -453,7 +488,10 @@
                             <div class="border rounded-4 overflow-hidden">
                                 <div class="p-3 bg-white border-bottom d-flex justify-content-between align-items-center">
                                     <span class="fw-bold"><i class="bi bi-map me-2"></i>Live Fleet Tracking</span>
-                                    <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">LIVE</span>
+                                    <div class="d-flex gap-2">
+                                        <button class="btn btn-sm btn-outline-primary fw-bold" style="border-radius: 8px;" onclick="toggleHeatmap()"><i class="bi bi-fire me-1"></i> Heatmap</button>
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">LIVE</span>
+                                    </div>
                                 </div>
                                 <div id="map"></div>
                             </div>
@@ -630,6 +668,7 @@
                                         <th>Trips</th>
                                         <th>Rating</th>
                                         <th>Distance</th>
+                                        <th>Fuel & Cost</th>
                                         <th>Duration</th>
                                         <th>Score</th>
                                     </tr>
@@ -822,43 +861,81 @@
         let allCurrentTrips = [];
         let currentOnlineCouriers = {};
         let activeFilter = "";
+        let heatmapLayer, isDarkMode = false;
+
+        const googleTiles = { url: 'https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', options: { maxZoom: 20, subdomains: ['mt0', 'mt1', 'mt2', 'mt3'], attribution: '&copy; Google Maps' } };
+        const cartoDark = { url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', options: { attribution: '&copy; OpenStreetMap contributors &copy; CARTO' } };
 
         function initMaps() {
             try {
-                const googleTiles = {
-                    url: 'https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
-                    options: {
-                        maxZoom: 20,
-                        subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-                        attribution: '&copy; Google Maps'
-                    }
-                };
-
-                // Dashboard Map
+                const tileCfg = isDarkMode ? cartoDark : googleTiles;
                 if (document.getElementById('map')) {
                     map = L.map('map', { zoomControl: false }).setView([-6.2, 106.81], 12);
                     L.control.zoom({ position: 'bottomright' }).addTo(map);
-                    L.tileLayer(googleTiles.url, googleTiles.options).addTo(map);
+                    L.tileLayer(tileCfg.url, tileCfg.options).addTo(map);
                     tripMarkersLayer.addTo(map);
                 }
-
-                // Monitor Map
                 if (document.getElementById('map-monitor')) {
                     mapMonitor = L.map('map-monitor', { zoomControl: false }).setView([-6.2, 106.81], 12);
                     L.control.zoom({ position: 'bottomright' }).addTo(mapMonitor);
-                    L.tileLayer(googleTiles.url, googleTiles.options).addTo(mapMonitor);
+                    L.tileLayer(tileCfg.url, tileCfg.options).addTo(mapMonitor);
                     monitorMarkersLayer.addTo(mapMonitor);
                     monitorCouriersLayer.addTo(mapMonitor);
                 }
-
-                // Dispatch Map
                 if (document.getElementById('map-dispatch')) {
                     mapDispatch = L.map('map-dispatch', { zoomControl: false }).setView([-6.2, 106.81], 12);
                     L.control.zoom({ position: 'bottomright' }).addTo(mapDispatch);
-                    L.tileLayer(googleTiles.url, googleTiles.options).addTo(mapDispatch);
+                    L.tileLayer(tileCfg.url, tileCfg.options).addTo(mapDispatch);
                     draftMarkersLayer.addTo(mapDispatch);
                 }
             } catch (e) { console.error("Leaflet Init Error:", e); }
+        }
+
+        function toggleDarkMode() {
+            isDarkMode = document.getElementById('dark-mode-toggle').checked;
+            document.body.classList.toggle('dark-theme', isDarkMode);
+            const tileCfg = isDarkMode ? cartoDark : googleTiles;
+            [map, mapMonitor, mapDispatch].forEach(m => {
+                if (m) {
+                    m.eachLayer(l => { if (l instanceof L.TileLayer) m.removeLayer(l); });
+                    L.tileLayer(tileCfg.url, tileCfg.options).addTo(m);
+                }
+            });
+        }
+
+        function toggleHeatmap() {
+            if (heatmapLayer) { map.removeLayer(heatmapLayer); heatmapLayer = null; return; }
+            const points = [];
+            allCurrentTrips.forEach(t => { t.destinations.forEach(d => { if (d.status === 'done') points.push([d.latitude, d.longitude, 0.5]); }); });
+            if (points.length === 0) return showToast("No delivery data for heatmap.");
+            heatmapLayer = L.heatLayer(points, { radius: 25, blur: 15 }).addTo(map);
+            showToast("Heatmap Analytics Active");
+        }
+
+        function openPoDModal(url) {
+            document.getElementById('modalImg').src = url;
+            document.getElementById('downloadBtn').href = url;
+            new bootstrap.Modal(document.getElementById('imageModal')).show();
+        }
+
+        function updateDynamicAlerts() {
+            const container = document.getElementById('priority-alerts'); if(!container) return;
+            container.innerHTML = ''; const now = Date.now();
+            allCurrentTrips.forEach(t => {
+                if(t.status === 'in_progress') {
+                    const lastUpdate = t.destinations.filter(d => d.status === 'done' || d.status === 'arrived').reduce((max, d) => {
+                        const time = (d.completedTime || d.arrivalTime)?.seconds * 1000 || 0;
+                        return time > max ? time : max;
+                    }, t.date.seconds * 1000);
+                    if(now - lastUpdate > 30 * 60 * 1000) {
+                        container.innerHTML += `<div class="d-flex gap-3 p-3 rounded-3" style="background: #FEF2F2;"><div class="text-danger fs-4"><i class="bi bi-clock-history"></i></div><div><div class="fw-bold small text-dark">DELAY WARNING: ${t.id.substring(5,11)}</div><div class="extra-small text-danger">No update for >30 mins</div></div></div>`;
+                    }
+                }
+                if(!currentOnlineCouriers[t.courierId] && t.status !== 'completed') {
+                    container.innerHTML += `<div class="d-flex gap-3 p-3 rounded-3" style="background: #FFFBEB;"><div class="text-warning fs-4"><i class="bi bi-person-x"></i></div><div><div class="fw-bold small text-dark">COURIER OFFLINE</div><div class="extra-small text-warning">${registeredUsers[t.courierId] || 'Driver'} has active trip</div></div></div>`;
+                }
+            });
+            if(container.innerHTML === '') container.innerHTML = '<div class="text-center py-4 text-muted extra-small">No priority alerts.</div>';
         }
         window.addEventListener('load', initMaps);
 
@@ -958,6 +1035,7 @@
             for (const id in currentOnlineCouriers) { count++; }
             document.getElementById('stat-transit-count').innerText = count;
             refreshAllMonitorData();
+            updateDynamicAlerts();
         });
 
         db.collection('trips').onSnapshot(snap => {
@@ -987,6 +1065,7 @@
 
             refreshAllMonitorData();
             renderRecentShipments();
+            updateDynamicAlerts();
         });
 
         function refreshAllMonitorData() {
@@ -1060,30 +1139,45 @@
 
             // Table with Manual Rating Logic
             sortedCouriers.forEach(c => {
-                const isOnline = currentOnlineCouriers[Object.keys(registeredUsers).find(key => registeredUsers[key] === c.name)];
+                const courierId = Object.keys(registeredUsers).find(key => registeredUsers[key] === c.name);
+                const isOnline = currentOnlineCouriers[courierId];
+
+                // Fuel & Cost Calculation
+                const fuelUsed = c.totalKM / 40;
+                const fuelCost = fuelUsed * 10000;
+
+                // PoD Check
+                const podTrip = allCurrentTrips.find(t => t.courierId === courierId && t.destinations.some(d => d.proofPhotoUrl));
+                const podIcon = podTrip ? `<i class="bi bi-camera text-primary ms-1 cursor-pointer" onclick="openPoDModal('${podTrip.destinations.find(d => d.proofPhotoUrl).proofPhotoUrl}')"></i>` : '';
 
                 // MANUAL RATING FORMULA (Suggestion):
-                // 80% weight on successful completion, 20% on time/speed efficiency
                 const completionRate = (c.completed / c.total) * 100 || 0;
                 const efficiencyBonus = c.totalTime > 0 ? Math.min(20, 100 / (c.totalTime / c.completed)) : 10;
                 const finalScore = Math.round((completionRate * 0.8) + efficiencyBonus);
                 const stars = (finalScore / 20).toFixed(1);
 
-                // Format Duration (Travel Time)
                 const hours = Math.floor(c.totalTime / 60);
                 const mins = Math.round(c.totalTime % 60);
                 const durationStr = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
 
                 tbody.innerHTML += `<tr>
-                    <td class="fw-bold">${c.name}</td>
+                    <td class="fw-bold">${c.name} ${podIcon}</td>
                     <td><span class="badge-pill ${isOnline ? 'badge-delivered' : 'badge-delayed'}">${isOnline ? 'Active' : 'Offline'}</span></td>
                     <td>${c.completed}</td>
                     <td><i class="bi bi-star-fill text-warning me-1"></i> ${stars}</td>
                     <td>${c.totalKM.toFixed(1)} km</td>
+                    <td><div class="fw-bold">${fuelUsed.toFixed(1)}L</div><div class="extra-small text-muted">Rp ${Math.round(fuelCost).toLocaleString()}</div></td>
                     <td>${durationStr}</td>
                     <td class="fw-bold text-primary">${finalScore}</td>
                 </tr>`;
             });
+
+            // Update KPI cards with extra info
+            const kpiCards = document.querySelectorAll('#view-fleet .stat-card');
+            if(kpiCards[2]) {
+                const totalFuel = grandTotalKM / 40;
+                kpiCards[2].innerHTML += `<div class="extra-small text-muted mt-2">Est. Fuel: ${totalFuel.toFixed(1)}L (Rp ${Math.round(totalFuel*10000).toLocaleString()})</div>`;
+            }
 
             updateKPICharts(sortedCouriers);
         }
@@ -1321,8 +1415,11 @@
                 const statusClass = t.status === 'completed' ? 'delivered' : (t.status === 'assigned' ? 'pending' : 'transit');
                 const eta = t.status === 'completed' ? 'Finished' : (t.destinations[0]?.arrivalTime ? new Date(t.destinations[0].arrivalTime.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : 'TBD');
 
+                const podTrip = t.destinations.find(d => d.proofPhotoUrl);
+                const podIcon = podTrip ? `<i class="bi bi-camera text-primary ms-2 cursor-pointer" onclick="openPoDModal('${podTrip.proofPhotoUrl}')"></i>` : '';
+
                 table.innerHTML += `<tr>
-                    <td class="fw-bold">#${t.id.substring(5,11)}</td>
+                    <td class="fw-bold">#${t.id.substring(5,11)} ${podIcon}</td>
                     <td>Warehouse</td>
                     <td>${t.destinations[0]?.locationName || 'TBD'}</td>
                     <td><span class="badge-pill badge-${statusClass}">${t.status}</span></td>
