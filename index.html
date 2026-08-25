@@ -432,8 +432,8 @@
                     <!-- Row 3: Status & Performance -->
                     <div class="row g-4 mb-4 align-items-start">
                         <div class="col-lg-4">
-                            <div class="border rounded-4 p-4 bg-white">
-                                <div class="card-title">Shipment Status</div>
+                            <div class="border rounded-4 p-4 bg-white shadow-sm">
+                                <div class="card-title mb-4">Shipment Status</div>
                                 <div class="mb-4">
                                     <div class="d-flex justify-content-between mb-2 small fw-bold"><span>In Transit</span><span>0%</span></div>
                                     <div class="progress-custom"><div class="progress-bar-custom bg-primary" style="width: 0%"></div></div>
@@ -449,9 +449,11 @@
                             </div>
                         </div>
                         <div class="col-lg-8">
-                            <div class="border rounded-4 p-4 bg-white">
-                                <div class="card-title">Delivery Performance</div>
-                                <canvas id="performanceChart" style="height: 180px; width: 100%;"></canvas>
+                            <div class="border rounded-4 p-4 bg-white shadow-sm">
+                                <div class="card-title mb-4">Delivery Performance</div>
+                                <div style="height: 220px; width: 100%;">
+                                    <canvas id="performanceChart"></canvas>
+                                </div>
                             </div>
                         </div>
                     </div>
