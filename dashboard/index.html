@@ -300,6 +300,19 @@
             .content-scroll { padding: 16px; }
         }
 
+        /* Modal Close Button Custom */
+        .btn-close-custom {
+            background: #000 url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23fff'%3e%3cpath d='M.293.293a1 1 0 0 1 1.414 0L8 6.586 14.293.293a1 1 0 1 1 1.414 1.414L9.414 8l6.293 6.293a1 1 0 0 1-1.414 1.414L8 9.414l-6.293 6.293a1 1 0 0 1-1.414-1.414L6.586 8 .293 1.707a1 1 0 0 1 0-1.414z'/%3e%3c/svg%3e") center/1em auto no-repeat !important;
+            opacity: 1 !important;
+            border: 2px solid #fff !important;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            transition: 0.2s;
+        }
+        .btn-close-custom:hover { transform: scale(1.1); background-color: #333 !important; }
+
         /* Helpers & Misc */
         .view-section { display: none; animation: fadeIn 0.3s; }
         .view-section.active { display: block; }
@@ -842,7 +855,7 @@
         <div class="modal-dialog modal-sm modal-dialog-centered" style="max-width: 400px;">
             <div class="modal-content border-0 shadow-lg" style="border-radius:24px; overflow:hidden">
                 <div class="position-absolute top-0 end-0 p-3" style="z-index: 10">
-                    <button type="button" class="btn-close btn-close-white bg-black rounded-circle p-2 shadow-sm border border-2 border-white" data-bs-dismiss="modal" aria-label="Close" style="opacity: 1; width: 32px; height: 32px;"></button>
+                    <button type="button" class="btn-close-custom" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body p-0 text-center bg-black d-flex align-items-center justify-content-center" style="min-height: 300px;">
                     <img id="modalImg" src="" style="max-width:100%; max-height: 70vh; width: auto; height: auto; object-fit: contain; image-rendering: high-quality;">
