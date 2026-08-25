@@ -345,7 +345,7 @@
                     <i class="bi bi-plus-square"></i> <span>Shipments</span>
                 </a>
                 <a class="nav-link-custom" onclick="switchTab('fleet', this)">
-                    <i class="bi bi-truck"></i> <span>Fleet</span>
+                    <i class="bi bi-graph-up-arrow"></i> <span>KPI Kurir</span>
                 </a>
                 <a class="nav-link-custom" onclick="switchTab('chat', this)">
                     <i class="bi bi-chat-dots"></i> <span>Drivers Chat</span>
@@ -541,7 +541,7 @@
 
                 <!-- DISPATCH VIEW -->
                 <div id="view-dispatch" class="view-section">
-                    <div class="border rounded-4 p-4 bg-white mb-4">
+                    <div class="border rounded-4 p-4 bg-white mb-4 shadow-sm">
                         <h6 class="fw-bold mb-4">Create New Shipment</h6>
                         <div class="row g-3 mb-4">
                             <div class="col-md-4">
@@ -564,6 +564,80 @@
                         <div id="map-dispatch" class="mb-4"></div>
 
                         <div id="dispatch-queue" class="d-flex flex-wrap gap-2"></div>
+                    </div>
+                </div>
+
+                <!-- KPI KURIR VIEW -->
+                <div id="view-fleet" class="view-section">
+                    <div class="row g-4 mb-4">
+                        <div class="col-md-3">
+                            <div class="stat-card shadow-sm">
+                                <div class="stat-label text-uppercase">Top Performer</div>
+                                <div class="stat-value" id="kpi-top-courier">-</div>
+                                <div class="stat-trend trend-up"><i class="bi bi-star-fill"></i> MVP of the Week</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="stat-card shadow-sm">
+                                <div class="stat-label text-uppercase">Avg. Trip Time</div>
+                                <div class="stat-value">1.4h</div>
+                                <div class="stat-trend trend-up"><i class="bi bi-caret-down-fill"></i> 12% faster</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="stat-card shadow-sm">
+                                <div class="stat-label text-uppercase">Total Completed</div>
+                                <div class="stat-value" id="kpi-total-done">0</div>
+                                <div class="stat-trend trend-up"><i class="bi bi-check-all"></i> This month</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="stat-card shadow-sm">
+                                <div class="stat-label text-uppercase">CSAT Rating</div>
+                                <div class="stat-value">4.9/5</div>
+                                <div class="stat-trend trend-up"><i class="bi bi-heart-fill"></i> High Satisfaction</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row g-4 mb-4">
+                        <div class="col-lg-8">
+                            <div class="border rounded-4 p-4 bg-white shadow-sm">
+                                <div class="card-title mb-4">Courier Efficiency Ranking</div>
+                                <div style="height: 350px;">
+                                    <canvas id="kpiRankingChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-4">
+                            <div class="border rounded-4 p-4 bg-white shadow-sm">
+                                <div class="card-title mb-4">Task Distribution</div>
+                                <div style="height: 350px;">
+                                    <canvas id="kpiDistributionChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="border rounded-4 p-4 bg-white shadow-sm">
+                        <div class="card-title mb-4">Detailed Performance Stats</div>
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Courier Name</th>
+                                        <th>Status</th>
+                                        <th>Completed Trips</th>
+                                        <th>On-Time Rate</th>
+                                        <th>Avg. Speed</th>
+                                        <th>Score</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="kpi-table-body">
+                                    <!-- Dynamic Data -->
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
 
@@ -736,6 +810,7 @@
 
         // Map & Data Variables
         let map, mapMonitor, mapDispatch;
+        let rankingChart, distributionChart;
         const registeredUsers = {};
         const tripMarkersLayer = L.layerGroup();
         const monitorMarkersLayer = L.layerGroup();
@@ -902,6 +977,86 @@
             renderMonitorUI(activeFilter);
             updateMapMarkers(activeFilter);
             updateMonitorSuggestions();
+            renderKPIView();
+        }
+
+        function renderKPIView() {
+            const tbody = document.getElementById('kpi-table-body');
+            if(!tbody) return;
+            tbody.innerHTML = '';
+
+            const courierStats = {};
+            let totalCompleted = 0;
+
+            allCurrentTrips.forEach(t => {
+                const cId = t.courierId;
+                if(!courierStats[cId]) courierStats[cId] = { name: registeredUsers[cId] || cId.substring(0,8), completed: 0, total: 0, score: 0 };
+                courierStats[cId].total++;
+                if(t.status === 'completed') {
+                    courierStats[cId].completed++;
+                    totalCompleted++;
+                }
+            });
+
+            const sortedCouriers = Object.values(courierStats).sort((a,b) => b.completed - a.completed);
+
+            // Cards
+            document.getElementById('kpi-total-done').innerText = totalCompleted;
+            if(sortedCouriers.length > 0) document.getElementById('kpi-top-courier').innerText = sortedCouriers[0].name;
+
+            // Table
+            sortedCouriers.forEach(c => {
+                const isOnline = currentOnlineCouriers[Object.keys(registeredUsers).find(key => registeredUsers[key] === c.name)];
+                tbody.innerHTML += `<tr>
+                    <td class="fw-bold">${c.name}</td>
+                    <td><span class="badge-pill ${isOnline ? 'badge-delivered' : 'badge-delayed'}">${isOnline ? 'Active' : 'Offline'}</span></td>
+                    <td>${c.completed}</td>
+                    <td>${Math.round((c.completed/c.total)*100 || 0)}%</td>
+                    <td>~45km/h</td>
+                    <td class="fw-bold text-primary">${Math.round((c.completed/c.total)*100 || 0)}</td>
+                </tr>`;
+            });
+
+            updateKPICharts(sortedCouriers);
+        }
+
+        function updateKPICharts(data) {
+            const ctx1 = document.getElementById('kpiRankingChart')?.getContext('2d');
+            const ctx2 = document.getElementById('kpiDistributionChart')?.getContext('2d');
+            if(!ctx1 || !ctx2) return;
+
+            if(rankingChart) rankingChart.destroy();
+            if(distributionChart) distributionChart.destroy();
+
+            rankingChart = new Chart(ctx1, {
+                type: 'bar',
+                data: {
+                    labels: data.slice(0,10).map(c => c.name),
+                    datasets: [{
+                        label: 'Trips Completed',
+                        data: data.slice(0,10).map(c => c.completed),
+                        backgroundColor: '#111827',
+                        borderRadius: 6
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+            });
+
+            distributionChart = new Chart(ctx2, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Completed', 'Pending', 'In Transit'],
+                    datasets: [{
+                        data: [
+                            allCurrentTrips.filter(t => t.status === 'completed').length,
+                            allCurrentTrips.filter(t => t.status === 'assigned').length,
+                            allCurrentTrips.filter(t => t.status === 'in_progress').length
+                        ],
+                        backgroundColor: ['#10B981', '#F59E0B', '#3B82F6']
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+            });
         }
 
         function updateMonitorSuggestions() {
