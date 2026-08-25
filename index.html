@@ -395,7 +395,7 @@
                 <i class="bi bi-chevron-left" style="font-size: 12px;"></i>
             </div>
             <div class="sidebar-header">
-                <img src="wellen_logo.jpg" style="height:35px; min-width: 35px; border-radius:6px;">
+                <img src="wellen_logo.jpeg" style="height:35px; min-width: 35px; border-radius:6px;">
                 <div class="sidebar-brand">Wellen Print</div>
             </div>
 
@@ -1103,53 +1103,52 @@
 
         rtdb.ref('courier_live_location').on('value', snap => {
             currentOnlineCouriers = snap.val() || {};
-            let count = 0;
-            for (const id in currentOnlineCouriers) { count++; }
-            document.getElementById('stat-transit-count').innerText = count;
-            refreshAllMonitorData();
-            updateDynamicAlerts();
+            updateGlobalStats();
         });
 
         db.collection('trips').onSnapshot(snap => {
-            let active = 0;
-            let doneToday = 0;
-            let delayedCount = 0;
-            let totalCompletedTrips = 0;
-            let onTimeTrips = 0;
-
             allCurrentTrips = [];
             snap.forEach(doc => {
                 const t = doc.data();
                 t.id = doc.id;
                 allCurrentTrips.push(t);
+            });
+            updateGlobalStats();
+            renderRecentShipments();
+        });
 
+        function updateGlobalStats() {
+            let activeTrips = 0;
+            let doneToday = 0;
+            let delayedCount = 0;
+            let inTransitCouriers = 0;
+            let totalCompletedTrips = 0;
+            let onTimeTrips = 0;
+            let grandTotalKM = 0;
+
+            const couriersWithActiveTrip = new Set();
+
+            allCurrentTrips.forEach(t => {
                 if(t.status !== 'completed') {
-                    active++;
-                    // Check for delay (>30m no update)
+                    activeTrips++;
+                    couriersWithActiveTrip.add(t.courierId);
+
+                    // Delay Check (>30m)
                     const lastUpdate = t.destinations.filter(d => d.status === 'done' || d.status === 'arrived').reduce((max, d) => {
                         const time = (d.completedTime || d.arrivalTime)?.seconds * 1000 || 0;
                         return time > max ? time : max;
                     }, t.date.seconds * 1000);
+
                     if(Date.now() - lastUpdate > 30 * 60 * 1000 && t.status === 'in_progress') {
                         delayedCount++;
                     }
                 } else {
                     totalCompletedTrips++;
-                    doneToday++; // Simplified for current session data
-                    onTimeTrips++; // Placeholder logic for now
+                    doneToday++;
+                    onTimeTrips++;
                 }
-            });
 
-            document.getElementById('stat-active').innerText = active;
-            document.getElementById('stat-done').innerText = doneToday;
-            document.getElementById('stat-delayed').innerText = delayedCount;
-
-            const onTimeRate = totalCompletedTrips > 0 ? Math.round((onTimeTrips / totalCompletedTrips) * 100) : 100;
-            document.getElementById('stat-ontime').innerText = onTimeRate + "%";
-
-            // Calculate and show Grand Total KM on main dashboard
-            let grandTotalKM = 0;
-            allCurrentTrips.forEach(t => {
+                // Distance Calculation
                 if(t.destinations) {
                     t.destinations.forEach((d, i) => {
                         if(d.status === 'done') {
@@ -1159,12 +1158,27 @@
                     });
                 }
             });
-            document.getElementById('stat-total-km').innerText = grandTotalKM.toFixed(1) + " km";
+
+            // "In Transit" only counts online couriers WHO HAVE an active trip
+            for (const id in currentOnlineCouriers) {
+                if (couriersWithActiveTrip.has(id)) {
+                    inTransitCouriers++;
+                }
+            }
+
+            // Update UI
+            if(document.getElementById('stat-active')) document.getElementById('stat-active').innerText = activeTrips;
+            if(document.getElementById('stat-done')) document.getElementById('stat-done').innerText = doneToday;
+            if(document.getElementById('stat-delayed')) document.getElementById('stat-delayed').innerText = delayedCount;
+            if(document.getElementById('stat-transit-count')) document.getElementById('stat-transit-count').innerText = inTransitCouriers;
+            if(document.getElementById('stat-total-km')) document.getElementById('stat-total-km').innerText = grandTotalKM.toFixed(1) + " km";
+
+            const onTimeRate = totalCompletedTrips > 0 ? Math.round((onTimeTrips / totalCompletedTrips) * 100) : 100;
+            if(document.getElementById('stat-ontime')) document.getElementById('stat-ontime').innerText = onTimeRate + "%";
 
             refreshAllMonitorData();
-            renderRecentShipments();
             updateDynamicAlerts();
-        });
+        }
 
         function refreshAllMonitorData() {
             renderMonitorUI(activeFilter);
