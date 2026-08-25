@@ -1028,18 +1028,29 @@
             if(rankingChart) rankingChart.destroy();
             if(distributionChart) distributionChart.destroy();
 
+            // Ranking Chart - Using Horizontal Bar for many couriers
             rankingChart = new Chart(ctx1, {
                 type: 'bar',
                 data: {
-                    labels: data.slice(0,10).map(c => c.name),
+                    labels: data.slice(0,15).map(c => c.name),
                     datasets: [{
                         label: 'Trips Completed',
-                        data: data.slice(0,10).map(c => c.completed),
+                        data: data.slice(0,15).map(c => c.completed),
                         backgroundColor: '#111827',
-                        borderRadius: 6
+                        borderRadius: 4,
+                        barThickness: 15
                     }]
                 },
-                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
+                options: {
+                    indexAxis: 'y', // Makes it horizontal
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { beginAtZero: true, grid: { display: false } },
+                        y: { grid: { display: false } }
+                    }
+                }
             });
 
             distributionChart = new Chart(ctx2, {
@@ -1052,10 +1063,16 @@
                             allCurrentTrips.filter(t => t.status === 'assigned').length,
                             allCurrentTrips.filter(t => t.status === 'in_progress').length
                         ],
-                        backgroundColor: ['#10B981', '#F59E0B', '#3B82F6']
+                        backgroundColor: ['#10B981', '#F59E0B', '#3B82F6'],
+                        borderWidth: 0
                     }]
                 },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '70%',
+                    plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, padding: 20 } } }
+                }
             });
         }
 
