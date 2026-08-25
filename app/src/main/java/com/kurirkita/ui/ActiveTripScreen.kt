@@ -223,8 +223,11 @@ fun DestinationItem(dest: Destination, client: com.google.android.gms.location.F
 }
 
 private fun uploadPhotoAndUpdate(storage: FirebaseStorage, db: FirebaseFirestore, trip: Trip, dest: Destination, bitmap: Bitmap, status: String) {
-    val scaled = scaleBitmap(bitmap, 2000)
-    val baos = ByteArrayOutputStream(); scaled.compress(Bitmap.CompressFormat.JPEG, 90, baos)
+    // Only scale if absolutely necessary, but keep high resolution
+    val scaled = scaleBitmap(bitmap, 2500)
+    val baos = ByteArrayOutputStream()
+    // Use maximum JPEG quality (100) to prevent blurriness
+    scaled.compress(Bitmap.CompressFormat.JPEG, 100, baos)
     try {
         MediaManager.get().upload(baos.toByteArray()).unsigned("KurirTrack").option("folder", "wellen_proofs").callback(object : UploadCallback {
             override fun onStart(id: String?) {}
@@ -241,7 +244,9 @@ private fun uploadPhotoAndUpdate(storage: FirebaseStorage, db: FirebaseFirestore
 
 private fun uploadToFirebase(storage: FirebaseStorage, db: FirebaseFirestore, trip: Trip, dest: Destination, bitmap: Bitmap, status: String) {
     val ref = storage.reference.child("proofs/${UUID.randomUUID()}.jpg")
-    val baos = ByteArrayOutputStream(); bitmap.compress(Bitmap.CompressFormat.JPEG, 90, baos)
+    val baos = ByteArrayOutputStream()
+    // Use 100% quality for Firebase as well
+    bitmap.compress(Bitmap.CompressFormat.JPEG, 100, baos)
     ref.putBytes(baos.toByteArray()).addOnSuccessListener { ref.downloadUrl.addOnSuccessListener { uri -> updateDestinationStatus(db, trip, dest, status, uri.toString()) } }
 }
 
@@ -254,7 +259,14 @@ private fun updateDestinationStatus(db: FirebaseFirestore, trip: Trip, dest: Des
 }
 
 private fun scaleBitmap(source: Bitmap, maxSize: Int): Bitmap {
-    var w = source.width; var h = source.height; val ratio = w.toFloat() / h.toFloat()
-    if (ratio > 1) { w = maxSize; h = (w / ratio).toInt() } else { h = maxSize; w = (h * ratio).toInt() }
-    return Bitmap.createScaledBitmap(source, w, h, true)
+    val w = source.width
+    val h = source.height
+    // Only downscale if original is larger than maxSize, don't upscale (which causes blur)
+    if (w <= maxSize && h <= maxSize) return source
+    
+    var finalW = w
+    var finalH = h
+    val ratio = w.toFloat() / h.toFloat()
+    if (ratio > 1) { finalW = maxSize; finalH = (maxSize / ratio).toInt() } else { finalH = maxSize; finalW = (maxSize * ratio).toInt() }
+    return Bitmap.createScaledBitmap(source, finalW, finalH, true)
 }

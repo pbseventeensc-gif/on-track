@@ -841,10 +841,12 @@
                 <div class="position-absolute top-0 end-0 p-3" style="z-index: 10">
                     <button type="button" class="btn-close btn-close-white bg-dark rounded-circle p-2 shadow" data-bs-dismiss="modal" aria-label="Close" style="opacity: 1"></button>
                 </div>
-                <div class="modal-body p-0 text-center bg-black">
-                    <img id="modalImg" src="" style="max-width:100%; max-height: 80vh; object-fit: contain;">
-                    <div class="p-4 bg-white">
-                        <a id="downloadBtn" href="#" download class="btn btn-dark w-100 fw-bold py-3" style="border-radius: 12px">Download Proof Photo</a>
+                <div class="modal-body p-0 text-center bg-black d-flex align-items-center justify-content-center" style="min-height: 400px;">
+                    <img id="modalImg" src="" style="max-width:100%; max-height: 85vh; width: auto; height: auto; object-fit: contain; image-rendering: high-quality;">
+                    <div class="position-absolute bottom-0 start-0 end-0 p-4" style="background: linear-gradient(transparent, rgba(0,0,0,0.8))">
+                        <a id="downloadBtn" href="#" download class="btn btn-light w-100 fw-bold py-3" style="border-radius: 12px">
+                            <i class="bi bi-download me-2"></i>Download Original HD Photo
+                        </a>
                     </div>
                 </div>
             </div>
