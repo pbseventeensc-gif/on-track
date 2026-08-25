@@ -907,24 +907,68 @@
             mList.innerHTML = '';
 
             const search = filter.toLowerCase();
-            const filtered = allCurrentTrips.filter(t => {
-                if(t.status === 'completed') return false;
-                const cName = (registeredUsers[t.courierId] || "").toLowerCase();
-                const tripId = t.id.toLowerCase();
+
+            // Group trips by courier
+            const courierGroups = {};
+            allCurrentTrips.forEach(t => {
+                if(t.status === 'completed') return;
+                const cId = t.courierId;
+                const cName = registeredUsers[cId] || cId.substring(0,8);
                 const clients = t.destinations.map(d => d.locationName.toLowerCase()).join(" ");
-                return cName.includes(search) || tripId.includes(search) || clients.includes(search);
+
+                if (cName.toLowerCase().includes(search) || t.id.toLowerCase().includes(search) || clients.includes(search)) {
+                    if (!courierGroups[cId]) {
+                        courierGroups[cId] = { id: cId, name: cName, trips: [], totalStops: 0, doneStops: 0 };
+                    }
+                    courierGroups[cId].trips.push(t);
+                    courierGroups[cId].totalStops += t.destinations.length;
+                    courierGroups[cId].doneStops += t.destinations.filter(d => d.status === 'done').length;
+                }
             });
 
-            filtered.forEach(t => {
-                const cName = registeredUsers[t.courierId] || t.courierId.substring(0,8);
-                const cColor = getCourierColor(t.courierId);
-                const statusClass = t.status === 'assigned' ? 'pending' : 'transit';
+            const courierIds = Object.keys(courierGroups);
+            if(courierIds.length === 0) {
+                mList.innerHTML = '<div class="col-12 text-center p-5 text-muted">No active couriers matching filter.</div>';
+                return;
+            }
 
-                mList.innerHTML += `<div class="col-md-6 col-xl-4"><div class="border rounded-4 p-4 bg-white shadow-sm" style="border-top: 4px solid ${cColor} !important">
-                    <div class="d-flex justify-content-between mb-3"><span class="fw-bold">${cName}</span><span class="badge-pill badge-${statusClass}">${t.status}</span></div>
-                    <div class="extra-small text-muted mb-1">ID: ${t.id}</div>
-                    <div class="extra-small text-muted mb-3">${t.destinations.length} Stops</div>
-                    <button class="btn btn-sm btn-outline-dark w-100" onclick="focusOnCourier('${t.courierId}', true)">Focus Track</button></div></div>`;
+            courierIds.forEach(cId => {
+                const c = courierGroups[cId];
+                const cColor = getCourierColor(c.id);
+                const progress = Math.round((c.doneStops / c.totalStops) * 100) || 0;
+                const isOnline = currentOnlineCouriers[c.id];
+
+                mList.innerHTML += `
+                    <div class="col-md-6 col-xl-4">
+                        <div class="border rounded-4 p-4 bg-white shadow-sm h-100" style="border-top: 4px solid ${cColor} !important">
+                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                <div class="d-flex align-items-center gap-3">
+                                    <img src="https://ui-avatars.com/api/?name=${c.name}&background=${cColor.replace('#','')}&color=fff" style="width:40px;height:40px;border-radius:12px;">
+                                    <div>
+                                        <div class="fw-bold mb-0" style="font-size:1rem">${c.name}</div>
+                                        <small class="${isOnline ? 'text-success' : 'text-muted'} fw-bold" style="font-size:0.7rem">
+                                            <i class="bi bi-circle-fill me-1" style="font-size: 6px"></i> ${isOnline ? 'ONLINE' : 'OFFLINE'}
+                                        </small>
+                                    </div>
+                                </div>
+                                <span class="badge rounded-pill bg-light text-dark border small" style="font-size:0.65rem">${c.trips.length} Active Trips</span>
+                            </div>
+
+                            <div class="mb-4">
+                                <div class="d-flex justify-content-between small mb-2">
+                                    <span class="text-muted fw-bold">Overall Progress</span>
+                                    <span class="fw-bold text-dark">${c.doneStops}/${c.totalStops} Stops</span>
+                                </div>
+                                <div class="progress" style="height: 8px; border-radius: 10px; background: #F1F5F9">
+                                    <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: ${progress}%; background: ${cColor}; border-radius: 10px;"></div>
+                                </div>
+                            </div>
+
+                            <button class="btn btn-sm btn-dark w-100 py-2 fw-bold" style="border-radius: 10px; font-size:0.85rem" onclick="focusOnCourier('${c.id}', true)">
+                                <i class="bi bi-geo-alt-fill me-1"></i> FOCUS TRACKING
+                            </button>
+                        </div>
+                    </div>`;
             });
         }
 
