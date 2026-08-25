@@ -679,13 +679,14 @@
         firebase.initializeApp(firebaseConfig);
         const rtdb = firebase.database(), db = firebase.firestore(), storage = firebase.storage();
 
-        let map, mapMonitor, mapDispatch;
-        const courierMarkers = {}, monitorMarkers = {}, registeredUsers = {};
         const tripMarkersLayer = L.layerGroup();
         const monitorMarkersLayer = L.layerGroup();
+        const monitorCouriersLayer = L.layerGroup();
         const draftMarkersLayer = L.layerGroup();
         let tripQueue = [], currentChatId = null, chatUnsub = null, lastLoadedHistory = [];
-        let allCurrentTrips = []; // Store for filtering
+        let allCurrentTrips = [];
+        let currentOnlineCouriers = {};
+        let activeFilter = "";
 
         function initMaps() {
             try {
@@ -712,6 +713,7 @@
                     L.control.zoom({ position: 'bottomright' }).addTo(mapMonitor);
                     L.tileLayer(googleTiles.url, googleTiles.options).addTo(mapMonitor);
                     monitorMarkersLayer.addTo(mapMonitor);
+                    monitorCouriersLayer.addTo(mapMonitor);
                 }
 
                 // Dispatch Map
@@ -733,7 +735,7 @@
                 labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
                 datasets: [{
                     label: 'Deliveries',
-                    data: [65, 59, 80, 81, 56, 55, 40],
+                    data: [0, 0, 0, 0, 0, 0, 0],
                     backgroundColor: '#111827',
                     borderRadius: 8
                 }]
@@ -788,6 +790,7 @@
             snap.forEach(doc => { registeredUsers[doc.id] = doc.data().name || doc.id.substring(0,8); });
             renderCourierOptions();
             if(document.getElementById('view-chat').classList.contains('active')) loadChatList();
+            refreshAllMonitorData();
         });
 
         function renderCourierOptions() {
@@ -797,51 +800,31 @@
         }
 
         rtdb.ref('courier_live_location').on('value', snap => {
-            const data = snap.val() || {}; let count = 0;
-            for (const id in data) {
-                const c = data[id]; count++;
-                const color = getCourierColor(id);
-                const pos = [c.lat, c.lng];
-
-                // Dashboard Map Marker
-                if (courierMarkers[id]) courierMarkers[id].setLatLng(pos);
-                else courierMarkers[id] = L.circleMarker(pos, { radius: 10, fillColor: color, color: "#fff", weight: 3, fillOpacity: 0.9 }).addTo(map).bindPopup(`<b>${registeredUsers[id] || 'Carrier'}</b>`);
-
-                // Monitor Map Marker
-                if (monitorMarkers[id]) monitorMarkers[id].setLatLng(pos);
-                else monitorMarkers[id] = L.circleMarker(pos, { radius: 10, fillColor: color, color: "#fff", weight: 3, fillOpacity: 0.9 }).addTo(mapMonitor).bindPopup(`<b>${registeredUsers[id] || 'Carrier'}</b>`);
-            }
+            currentOnlineCouriers = snap.val() || {};
+            let count = 0;
+            for (const id in currentOnlineCouriers) { count++; }
             document.getElementById('stat-transit-count').innerText = count;
+            refreshAllMonitorData();
         });
 
         db.collection('trips').onSnapshot(snap => {
             let active = 0;
             allCurrentTrips = [];
-            tripMarkersLayer.clearLayers();
-            monitorMarkersLayer.clearLayers();
-
             snap.forEach(doc => {
                 const t = doc.data();
                 t.id = doc.id;
                 allCurrentTrips.push(t);
                 if(t.status !== 'completed') active++;
-
-                const cName = registeredUsers[t.courierId] || t.courierId.substring(0,8);
-                const cColor = getCourierColor(t.courierId);
-
-                t.destinations.forEach(d => {
-                    const isDone = d.status === 'done';
-                    const icon = L.divIcon({ className: 'custom-div-icon', html: `<div class='marker-pin' style='background:${isDone ? '#10B981' : cColor}'></div><div class='marker-num' style='color:#fff'>${d.stopIndex}</div>`, iconSize:[30,42], iconAnchor:[15,42] });
-                    const marker = L.marker([d.latitude, d.longitude], {icon}).bindPopup(`<b>${d.locationName}</b><br>ID: ${t.id}<br>Driver: ${cName}`);
-
-                    marker.addTo(tripMarkersLayer);
-                    L.marker([d.latitude, d.longitude], {icon}).bindPopup(`<b>${d.locationName}</b><br>ID: ${t.id}<br>Driver: ${cName}`).addTo(monitorMarkersLayer);
-                });
             });
             document.getElementById('stat-active').innerText = active;
-            renderMonitorUI();
+            refreshAllMonitorData();
             renderRecentShipments();
         });
+
+        function refreshAllMonitorData() {
+            renderMonitorUI(activeFilter);
+            updateMapMarkers(activeFilter);
+        }
 
         function renderMonitorUI(filter = "") {
             const mList = document.getElementById('monitor-list');
@@ -862,11 +845,43 @@
                 const cColor = getCourierColor(t.courierId);
                 const statusClass = t.status === 'assigned' ? 'pending' : 'transit';
 
-                mList.innerHTML += `<div class="col-md-6 col-xl-4"><div class="border rounded-4 p-4 h-100 bg-white" style="border-top: 4px solid ${cColor} !important">
+                mList.innerHTML += `<div class="col-md-6 col-xl-4"><div class="border rounded-4 p-4 bg-white shadow-sm" style="border-top: 4px solid ${cColor} !important">
                     <div class="d-flex justify-content-between mb-3"><span class="fw-bold">${cName}</span><span class="badge-pill badge-${statusClass}">${t.status}</span></div>
                     <div class="extra-small text-muted mb-1">ID: ${t.id}</div>
                     <div class="extra-small text-muted mb-3">${t.destinations.length} Stops</div>
                     <button class="btn btn-sm btn-outline-dark w-100" onclick="focusOnCourier('${t.courierId}', true)">Focus Track</button></div></div>`;
+            });
+        }
+
+        function updateMapMarkers(filter = "") {
+            const search = filter.toLowerCase();
+            tripMarkersLayer.clearLayers();
+            monitorMarkersLayer.clearLayers();
+            monitorCouriersLayer.clearLayers();
+
+            for (const id in currentOnlineCouriers) {
+                const c = currentOnlineCouriers[id];
+                const color = getCourierColor(id);
+                const name = registeredUsers[id] || 'Carrier';
+                const pos = [c.lat, c.lng];
+                L.circleMarker(pos, { radius: 10, fillColor: color, color: "#fff", weight: 3, fillOpacity: 0.9 }).addTo(tripMarkersLayer).bindPopup(`<b>${name}</b>`);
+                if (!filter || name.toLowerCase().includes(search) || id.toLowerCase().includes(search)) {
+                    L.circleMarker(pos, { radius: 10, fillColor: color, color: "#fff", weight: 3, fillOpacity: 0.9 }).addTo(monitorCouriersLayer).bindPopup(`<b>${name}</b><br><small>ID: ${id}</small>`);
+                }
+            }
+
+            allCurrentTrips.forEach(t => {
+                const cName = registeredUsers[t.courierId] || t.courierId.substring(0,8);
+                const cColor = getCourierColor(t.courierId);
+                t.destinations.forEach(d => {
+                    const isDone = d.status === 'done';
+                    const icon = L.divIcon({ className: 'custom-div-icon', html: `<div class='marker-pin' style='background:${isDone ? '#10B981' : cColor}'></div><div class='marker-num' style='color:#fff'>${d.stopIndex}</div>`, iconSize:[30,42], iconAnchor:[15,42] });
+                    L.marker([d.latitude, d.longitude], {icon}).bindPopup(`<b>${d.locationName}</b><br>Driver: ${cName}`).addTo(tripMarkersLayer);
+                    const matches = d.locationName.toLowerCase().includes(search) || cName.toLowerCase().includes(search) || t.id.toLowerCase().includes(search);
+                    if (!filter || matches) {
+                        L.marker([d.latitude, d.longitude], {icon}).bindPopup(`<b>${d.locationName}</b><br>ID: ${t.id}<br>Driver: ${cName}`).addTo(monitorMarkersLayer);
+                    }
+                });
             });
         }
 
@@ -891,21 +906,23 @@
         }
 
         function filterMonitorAll(val) {
-            renderMonitorUI(val);
+            activeFilter = val;
+            refreshAllMonitorData();
         }
 
         function focusOnCourier(id, isMonitor = false) {
             const targetMap = isMonitor ? mapMonitor : map;
-            const targetMarkers = isMonitor ? monitorMarkers : courierMarkers;
-            if(targetMarkers[id]) {
-                targetMap.flyTo(targetMarkers[id].getLatLng(), 16);
-                targetMarkers[id].openPopup();
+            let foundMarker = null;
+            const searchLayer = isMonitor ? monitorCouriersLayer : tripMarkersLayer;
+            searchLayer.eachLayer(l => {
+                if (l.getPopup() && l.getPopup().getContent().toLowerCase().includes(id.toLowerCase())) foundMarker = l;
+            });
 
-                if(isMonitor) {
-                    showDetailedTracking(id);
-                } else {
-                    switchTab('dashboard');
-                }
+            if(foundMarker) {
+                targetMap.flyTo(foundMarker.getLatLng(), 16);
+                foundMarker.openPopup();
+                if(isMonitor) showDetailedTracking(id);
+                else switchTab('dashboard');
             }
         }
 
@@ -923,17 +940,12 @@
 
             const stepper = document.getElementById('track-stepper');
             stepper.innerHTML = '';
-
-            // Add Start Step
             const steps = [{ name: 'Start', status: 'done' }, ...trip.destinations];
 
             steps.forEach((s, i) => {
                 const isCompleted = s.status === 'done' || s.status === 'arrived';
                 const isActive = !isCompleted && (i === 0 || steps[i-1].status === 'done');
-                const isLast = i === steps.length - 1;
-
-                let iconHtml = i === 0 ? '<i class="bi bi-check"></i>' : (s.status === 'done' ? '<i class="bi bi-check"></i>' : (s.status === 'arrived' ? '🚚' : i+1));
-                if (s.status === 'arrived') iconHtml = '<i class="bi bi-truck"></i>';
+                let iconHtml = i === 0 ? '<i class="bi bi-check"></i>' : (s.status === 'done' ? '<i class="bi bi-check"></i>' : (s.status === 'arrived' ? '<i class="bi bi-truck"></i>' : i));
 
                 stepper.innerHTML += `
                     <div class="step-item">
