@@ -32,7 +32,7 @@
     <style>
         :root {
             --primary: #111827; /* Dark Green / Black */
-            --bg-body: #FFFFFF;
+            --bg-body: #F9FAFB;
             --border-color: #E5E7EB;
             --text-main: #111827;
             --text-muted: #6B7280;
@@ -165,7 +165,7 @@
         }
         .btn-new-shipment:hover { opacity: 0.9; }
 
-        .content-scroll { flex: 1; overflow-y: auto; padding: 32px; background: #fff; }
+        .content-scroll { flex: 1; overflow-y: auto; padding: 32px; background: transparent; }
 
         /* Grid & Cards */
         .stat-card {
@@ -173,7 +173,6 @@
             border-radius: 12px;
             padding: 20px;
             background: #fff;
-            height: 100%;
         }
         .stat-label { font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 8px; }
         .stat-value { font-size: 1.5rem; font-weight: 800; color: var(--text-main); margin-bottom: 4px; }
@@ -396,7 +395,7 @@
                     </div>
 
                     <!-- Row 2: Map & Alerts -->
-                    <div class="row g-4 mb-4">
+                    <div class="row g-4 mb-4 align-items-start">
                         <div class="col-lg-8">
                             <div class="border rounded-4 overflow-hidden">
                                 <div class="p-3 bg-white border-bottom d-flex justify-content-between align-items-center">
@@ -407,7 +406,7 @@
                             </div>
                         </div>
                         <div class="col-lg-4">
-                            <div class="border rounded-4 p-4 h-100 bg-white">
+                            <div class="border rounded-4 p-4 bg-white">
                                 <div class="card-title">Priority Alerts <span class="text-primary cursor-pointer fs-6 fw-normal">View all</span></div>
                                 <div id="priority-alerts" class="d-flex flex-column gap-3">
                                     <!-- Dynamic Alerts -->
@@ -431,7 +430,7 @@
                     </div>
 
                     <!-- Row 3: Status & Performance -->
-                    <div class="row g-4 mb-4">
+                    <div class="row g-4 mb-4 align-items-start">
                         <div class="col-lg-4">
                             <div class="border rounded-4 p-4 bg-white">
                                 <div class="card-title">Shipment Status</div>
