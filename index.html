@@ -1564,9 +1564,49 @@
 
         function exportToExcel() {
             if(lastLoadedHistory.length === 0) return alert("No data to export!");
-            const data = lastLoadedHistory.flatMap(t => t.destinations.map(d => ({ "Date": new Date(t.date.seconds * 1000).toLocaleDateString(), "Carrier": registeredUsers[t.courierId], "Location": d.locationName, "Status": d.status })));
-            const ws = XLSX.utils.json_to_sheet(data); const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Reports"); XLSX.writeFile(wb, `LogiTrack_Report_${Date.now()}.xlsx`);
+
+            const exportData = [];
+
+            lastLoadedHistory.forEach(t => {
+                const cName = registeredUsers[t.courierId] || t.courierId.substring(0,8);
+
+                t.destinations.forEach((d, i) => {
+                    // Calculate arrival/completed time
+                    const arrival = d.arrivalTime ? new Date(d.arrivalTime.seconds * 1000).toLocaleString() : '-';
+                    const completed = d.completedTime ? new Date(d.completedTime.seconds * 1000).toLocaleString() : '-';
+
+                    // Calculate duration in minutes
+                    let duration = '-';
+                    if (d.arrivalTime && d.completedTime) {
+                        duration = Math.round((d.completedTime.seconds - d.arrivalTime.seconds) / 60) + " mins";
+                    }
+
+                    // Calculate distance from previous point or warehouse
+                    const start = i === 0 ? { lat: -6.2, lng: 106.81 } : { lat: t.destinations[i-1].latitude, lng: t.destinations[i-1].longitude };
+                    const dist = calculateDistance(start.lat, start.lng, d.latitude, d.longitude).toFixed(2);
+
+                    exportData.push({
+                        "Trip ID": t.id,
+                        "Date": new Date(t.date.seconds * 1000).toLocaleDateString(),
+                        "Courier": cName,
+                        "Trip Status": t.status,
+                        "Stop #": i + 1,
+                        "Location Name": d.locationName,
+                        "Full Address": d.address || '-',
+                        "Stop Status": d.status,
+                        "Arrival Time": arrival,
+                        "Completion Time": completed,
+                        "Duration": duration,
+                        "Distance (km)": dist,
+                        "Proof Photo URL": d.proofPhotoUrl || '-'
+                    });
+                });
+            });
+
+            const ws = XLSX.utils.json_to_sheet(exportData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "WellenGO Report");
+            XLSX.writeFile(wb, `WellenGO_Full_Report_${new Date().toISOString().slice(0,10)}.xlsx`);
         }
 
         async function clearAllHistory() {
