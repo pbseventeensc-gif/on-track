@@ -627,9 +627,10 @@
                                     <tr>
                                         <th>Courier Name</th>
                                         <th>Status</th>
-                                        <th>Completed Trips</th>
-                                        <th>On-Time Rate</th>
-                                        <th>Avg. Speed</th>
+                                        <th>Trips</th>
+                                        <th>Rating</th>
+                                        <th>Distance</th>
+                                        <th>Duration</th>
                                         <th>Score</th>
                                     </tr>
                                 </thead>
@@ -1053,12 +1054,18 @@
                 const finalScore = Math.round((completionRate * 0.8) + efficiencyBonus);
                 const stars = (finalScore / 20).toFixed(1);
 
+                // Format Duration (Travel Time)
+                const hours = Math.floor(c.totalTime / 60);
+                const mins = Math.round(c.totalTime % 60);
+                const durationStr = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+
                 tbody.innerHTML += `<tr>
                     <td class="fw-bold">${c.name}</td>
                     <td><span class="badge-pill ${isOnline ? 'badge-delivered' : 'badge-delayed'}">${isOnline ? 'Active' : 'Offline'}</span></td>
-                    <td>${c.completed} Trips</td>
+                    <td>${c.completed}</td>
                     <td><i class="bi bi-star-fill text-warning me-1"></i> ${stars}</td>
                     <td>${c.totalKM.toFixed(1)} km</td>
+                    <td>${durationStr}</td>
                     <td class="fw-bold text-primary">${finalScore}</td>
                 </tr>`;
             });
