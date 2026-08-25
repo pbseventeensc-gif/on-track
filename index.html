@@ -617,23 +617,23 @@
                         </div>
                         <div class="col-md-3">
                             <div class="stat-card shadow-sm">
-                                <div class="stat-label text-uppercase">Avg. Trip Time</div>
-                                <div class="stat-value">1.4h</div>
-                                <div class="stat-trend trend-up"><i class="bi bi-caret-down-fill"></i> 12% faster</div>
+                                <div class="stat-label text-uppercase">Total Distance</div>
+                                <div class="stat-value" id="kpi-total-km">0 km</div>
+                                <div class="stat-trend text-muted">Actual history</div>
                             </div>
                         </div>
                         <div class="col-md-3">
                             <div class="stat-card shadow-sm">
                                 <div class="stat-label text-uppercase">Total Completed</div>
                                 <div class="stat-value" id="kpi-total-done">0</div>
-                                <div class="stat-trend trend-up"><i class="bi bi-check-all"></i> This month</div>
+                                <div class="stat-trend trend-up"><i class="bi bi-check-all"></i> Real-time trips</div>
                             </div>
                         </div>
                         <div class="col-md-3">
-                            <div class="stat-card shadow-sm">
-                                <div class="stat-label text-uppercase">CSAT Rating</div>
-                                <div class="stat-value">4.9/5</div>
-                                <div class="stat-trend trend-up"><i class="bi bi-heart-fill"></i> High Satisfaction</div>
+                            <div class="stat-card shadow-sm" style="background: #FFFBEB; border-color: #FDE68A;">
+                                <div class="stat-label text-uppercase text-warning-emphasis">Est. Fuel Cost</div>
+                                <div class="stat-value text-warning-emphasis" id="kpi-total-fuel">Rp 0</div>
+                                <div class="stat-trend text-muted" id="kpi-fuel-liters">0.0 Liters used</div>
                             </div>
                         </div>
                     </div>
@@ -672,6 +672,7 @@
                                         <th>Duration</th>
                                         <th>Score</th>
                                     </tr>
+                                </thead>
                                 </thead>
                                 <tbody id="kpi-table-body">
                                     <!-- Dynamic Data -->
@@ -1127,15 +1128,22 @@
 
             const sortedCouriers = Object.values(courierStats).sort((a,b) => b.completed - a.completed);
 
-            // Cards
+            // Cards Update
             document.getElementById('kpi-total-done').innerText = totalCompleted;
             if(sortedCouriers.length > 0) document.getElementById('kpi-top-courier').innerText = sortedCouriers[0].name;
 
-            // Update Card 2 to show Total Distance (Real History)
-            const kmCard = document.querySelector('#view-fleet .col-md-3:nth-child(2) .stat-value');
-            if(kmCard) kmCard.innerText = grandTotalKM.toFixed(1) + " km";
-            const kmLabel = document.querySelector('#view-fleet .col-md-3:nth-child(2) .stat-label');
-            if(kmLabel) kmLabel.innerText = "TOTAL DISTANCE";
+            // Show Grand Total Distance
+            if(document.getElementById('kpi-total-km')) {
+                document.getElementById('kpi-total-km').innerText = grandTotalKM.toFixed(1) + " km";
+            }
+
+            // CLEAN FUEL CALCULATION CARD (Independent)
+            const totalLiters = grandTotalKM / 40;
+            const totalCost = totalLiters * 10000;
+            if(document.getElementById('kpi-total-fuel')) {
+                document.getElementById('kpi-total-fuel').innerText = "Rp " + totalCost.toLocaleString();
+                document.getElementById('kpi-fuel-liters').innerText = totalLiters.toFixed(1) + " Liters used";
+            }
 
             // Table with Manual Rating Logic
             sortedCouriers.forEach(c => {
@@ -1171,13 +1179,6 @@
                     <td class="fw-bold text-primary">${finalScore}</td>
                 </tr>`;
             });
-
-            // Update KPI cards with extra info
-            const kpiCards = document.querySelectorAll('#view-fleet .stat-card');
-            if(kpiCards[2]) {
-                const totalFuel = grandTotalKM / 40;
-                kpiCards[2].innerHTML += `<div class="extra-small text-muted mt-2">Est. Fuel: ${totalFuel.toFixed(1)}L (Rp ${Math.round(totalFuel*10000).toLocaleString()})</div>`;
-            }
 
             updateKPICharts(sortedCouriers);
         }
