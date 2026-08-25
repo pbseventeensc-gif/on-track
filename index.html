@@ -631,9 +631,19 @@
                         </div>
                         <div class="col-md-3">
                             <div class="stat-card shadow-sm" style="background: #FFFBEB; border-color: #FDE68A;">
-                                <div class="stat-label text-uppercase text-warning-emphasis">Est. Operational Cost</div>
-                                <div class="stat-value text-warning-emphasis" id="kpi-total-fuel">Rp 0</div>
-                                <div class="stat-trend text-muted" id="kpi-fuel-liters">Based on distance</div>
+                                <div class="stat-label text-uppercase text-warning-emphasis mb-3">Cost Calculator</div>
+                                <div class="d-flex gap-2 mb-2">
+                                    <div class="flex-fill">
+                                        <label class="extra-small fw-bold text-muted">KM / LITER</label>
+                                        <input type="number" id="calc-efficiency" class="form-control form-control-sm border-warning-subtle" value="40" oninput="renderKPIView()">
+                                    </div>
+                                    <div class="flex-fill">
+                                        <label class="extra-small fw-bold text-muted">PRICE / L</label>
+                                        <input type="number" id="calc-price" class="form-control form-control-sm border-warning-subtle" value="10000" oninput="renderKPIView()">
+                                    </div>
+                                </div>
+                                <div class="stat-value text-warning-emphasis" style="font-size: 1.2rem;" id="kpi-total-fuel">Rp 0</div>
+                                <div class="stat-trend text-muted" id="kpi-fuel-liters">Ready to calculate</div>
                             </div>
                         </div>
                     </div>
@@ -1141,12 +1151,16 @@
                 document.getElementById('kpi-total-km').innerText = grandTotalKM.toFixed(1) + " km";
             }
 
-            // CLEAN COST CALCULATION CARD (Independent)
-            const ratePerKm = document.getElementById('cfg-cost-km')?.value || 1000;
-            const totalCost = grandTotalKM * ratePerKm;
+            // ADVANCED COST CALCULATOR (Manual Input Based)
+            const kmPerLiter = parseFloat(document.getElementById('calc-efficiency')?.value) || 40;
+            const pricePerLiter = parseFloat(document.getElementById('calc-price')?.value) || 10000;
+
+            const totalLitersUsed = grandTotalKM / kmPerLiter;
+            const totalCost = totalLitersUsed * pricePerLiter;
+
             if(document.getElementById('kpi-total-fuel')) {
                 document.getElementById('kpi-total-fuel').innerText = "Rp " + Math.round(totalCost).toLocaleString();
-                document.getElementById('kpi-fuel-liters').innerText = "Rate: Rp " + ratePerKm + "/km";
+                document.getElementById('kpi-fuel-liters').innerText = totalLitersUsed.toFixed(2) + " Liters expected";
             }
 
             // Table with Manual Rating Logic
@@ -1154,8 +1168,9 @@
                 const courierId = Object.keys(registeredUsers).find(key => registeredUsers[key] === c.name);
                 const isOnline = currentOnlineCouriers[courierId];
 
-                // Simple KM x Rate Calculation
-                const costPerCourier = c.totalKM * ratePerKm;
+                // Courier specific fuel calculation
+                const cLiters = c.totalKM / kmPerLiter;
+                const cCost = cLiters * pricePerLiter;
 
                 // PoD Check
                 const podTrip = allCurrentTrips.find(t => t.courierId === courierId && t.destinations.some(d => d.proofPhotoUrl));
@@ -1177,7 +1192,7 @@
                     <td>${c.completed}</td>
                     <td><i class="bi bi-star-fill text-warning me-1"></i> ${stars}</td>
                     <td>${c.totalKM.toFixed(1)} km</td>
-                    <td><div class="fw-bold">Rp ${Math.round(costPerCourier).toLocaleString()}</div><div class="extra-small text-muted">Total Cost</div></td>
+                    <td><div class="fw-bold">Rp ${Math.round(cCost).toLocaleString()}</div><div class="extra-small text-muted">${cLiters.toFixed(2)}L</div></td>
                     <td>${durationStr}</td>
                     <td class="fw-bold text-primary">${finalScore}</td>
                 </tr>`;
