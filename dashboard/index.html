@@ -987,14 +987,36 @@
 
             const courierStats = {};
             let totalCompleted = 0;
+            let grandTotalKM = 0;
 
             allCurrentTrips.forEach(t => {
                 const cId = t.courierId;
-                if(!courierStats[cId]) courierStats[cId] = { name: registeredUsers[cId] || cId.substring(0,8), completed: 0, total: 0, score: 0 };
+                if(!courierStats[cId]) {
+                    courierStats[cId] = {
+                        name: registeredUsers[cId] || cId.substring(0,8),
+                        completed: 0,
+                        total: 0,
+                        totalKM: 0
+                    };
+                }
+
                 courierStats[cId].total++;
+
+                // Calculate KM for this trip (Haversine formula between stops)
+                let tripKM = 0;
+                if (t.destinations && t.destinations.length > 0) {
+                    for (let i = 0; i < t.destinations.length; i++) {
+                        const start = i === 0 ? { lat: -6.2, lng: 106.81 } : { lat: t.destinations[i-1].latitude, lng: t.destinations[i-1].longitude };
+                        const end = { lat: t.destinations[i].latitude, lng: t.destinations[i].longitude };
+                        tripKM += calculateDistance(start.lat, start.lng, end.lat, end.lng);
+                    }
+                }
+                courierStats[cId].totalKM += tripKM;
+
                 if(t.status === 'completed') {
                     courierStats[cId].completed++;
                     totalCompleted++;
+                    grandTotalKM += tripKM;
                 }
             });
 
@@ -1004,20 +1026,39 @@
             document.getElementById('kpi-total-done').innerText = totalCompleted;
             if(sortedCouriers.length > 0) document.getElementById('kpi-top-courier').innerText = sortedCouriers[0].name;
 
+            // Update Card 2 to show Total Distance
+            const kmCard = document.querySelector('#view-fleet .col-md-3:nth-child(2) .stat-value');
+            if(kmCard) kmCard.innerText = grandTotalKM.toFixed(1) + " km";
+            const kmLabel = document.querySelector('#view-fleet .col-md-3:nth-child(2) .stat-label');
+            if(kmLabel) kmLabel.innerText = "TOTAL DISTANCE";
+
             // Table
             sortedCouriers.forEach(c => {
                 const isOnline = currentOnlineCouriers[Object.keys(registeredUsers).find(key => registeredUsers[key] === c.name)];
+                const score = Math.round((c.completed/c.total)*100 || 0);
                 tbody.innerHTML += `<tr>
                     <td class="fw-bold">${c.name}</td>
                     <td><span class="badge-pill ${isOnline ? 'badge-delivered' : 'badge-delayed'}">${isOnline ? 'Active' : 'Offline'}</span></td>
                     <td>${c.completed}</td>
-                    <td>${Math.round((c.completed/c.total)*100 || 0)}%</td>
-                    <td>~45km/h</td>
-                    <td class="fw-bold text-primary">${Math.round((c.completed/c.total)*100 || 0)}</td>
+                    <td>${score}%</td>
+                    <td>${c.totalKM.toFixed(1)} km</td>
+                    <td class="fw-bold text-primary">${score}</td>
                 </tr>`;
             });
 
             updateKPICharts(sortedCouriers);
+        }
+
+        // Helper: Calculate distance in KM using Haversine formula
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371; // Earth's radius in km
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
         }
 
         function updateKPICharts(data) {
