@@ -38,6 +38,9 @@ import com.google.android.gms.tasks.CancellationTokenSource
 import com.cloudinary.android.MediaManager
 import com.cloudinary.android.callback.ErrorInfo
 import com.cloudinary.android.callback.UploadCallback
+import androidx.core.content.FileProvider
+import java.io.File
+import android.net.Uri
 import java.io.ByteArrayOutputStream
 import java.util.UUID
 
@@ -135,8 +138,28 @@ fun DestinationItem(dest: Destination, client: com.google.android.gms.location.F
     val context = androidx.compose.ui.platform.LocalContext.current
     var isUploading by remember { mutableStateOf(false) }
     var showPhoto by remember { mutableStateOf(false) }
-    val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicturePreview()) { bmp ->
-        if (bmp != null) { isUploading = true; validateSecurityAndLocation(context, client, dest.latitude, dest.longitude, radius) { onUpdate("done", bmp) } }
+    
+    // Better photo quality implementation
+    var photoUri by remember { mutableStateOf<Uri?>(null) }
+    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
+        if (success && photoUri != null) {
+            isUploading = true
+            // Load high quality bitmap from URI
+            try {
+                val bitmap = android.graphics.BitmapFactory.decodeStream(context.contentResolver.openInputStream(photoUri!!))
+                onUpdate("done", bitmap)
+            } catch (e: Exception) {
+                isUploading = false
+                Toast.makeText(context, "Gagal memproses foto", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    fun launchCamera() {
+        val file = File(context.cacheDir, "temp_proof_${System.currentTimeMillis()}.jpg")
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+        photoUri = uri
+        cameraLauncher.launch(uri)
     }
 
     if (showPhoto && dest.proofPhotoUrl.isNotEmpty()) {
@@ -186,7 +209,7 @@ fun DestinationItem(dest: Destination, client: com.google.android.gms.location.F
                     if (dest.status == "pending") Button(onClick = { validateSecurityAndLocation(context, client, dest.latitude, dest.longitude, radius) { onUpdate("arrived", null) } }, colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer)) { Text("SAYA TIBA") }
                     else if (dest.status == "arrived") {
                         Column(horizontalAlignment = Alignment.End) {
-                            Button(onClick = { validateSecurityAndLocation(context, client, dest.latitude, dest.longitude, radius) { camera.launch(null) } }, enabled = !isUploading, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF1C40F), contentColor = Color.Black), shape = RoundedCornerShape(12.dp)) {
+                            Button(onClick = { validateSecurityAndLocation(context, client, dest.latitude, dest.longitude, radius) { launchCamera() } }, enabled = !isUploading, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF1C40F), contentColor = Color.Black), shape = RoundedCornerShape(12.dp)) {
                                 if (isUploading) CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.Black, strokeWidth = 2.dp)
                                 else Text("FOTO & SELESAI", fontWeight = FontWeight.Black)
                             }

@@ -837,10 +837,15 @@
 
     <div class="modal fade" id="imageModal" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content border-0" style="border-radius:20px; overflow:hidden">
-                <div class="modal-body p-0 text-center">
-                    <img id="modalImg" src="" style="max-width:100%">
-                    <div class="p-4"><a id="downloadBtn" href="#" download class="btn btn-dark w-100 fw-bold py-3">Download Photo</a></div>
+            <div class="modal-content border-0 shadow-lg" style="border-radius:24px; overflow:hidden">
+                <div class="position-absolute top-0 end-0 p-3" style="z-index: 10">
+                    <button type="button" class="btn-close btn-close-white bg-dark rounded-circle p-2 shadow" data-bs-dismiss="modal" aria-label="Close" style="opacity: 1"></button>
+                </div>
+                <div class="modal-body p-0 text-center bg-black">
+                    <img id="modalImg" src="" style="max-width:100%; max-height: 80vh; object-fit: contain;">
+                    <div class="p-4 bg-white">
+                        <a id="downloadBtn" href="#" download class="btn btn-dark w-100 fw-bold py-3" style="border-radius: 12px">Download Proof Photo</a>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1209,18 +1214,6 @@
             });
 
             updateKPICharts(sortedCouriers);
-        }
-
-        // Helper: Calculate distance in KM using Haversine formula
-        function calculateDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371;
-            const dLat = (lat2 - lat1) * Math.PI / 180;
-            const dLon = (lon2 - lon1) * Math.PI / 180;
-            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                      Math.sin(dLon/2) * Math.sin(dLon/2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            return R * c;
         }
 
         // Helper: Calculate distance in KM using Haversine formula
