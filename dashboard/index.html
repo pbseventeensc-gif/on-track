@@ -732,10 +732,14 @@
         firebase.initializeApp(firebaseConfig);
         const rtdb = firebase.database(), db = firebase.firestore(), storage = firebase.storage();
 
+        // Map & Data Variables
+        let map, mapMonitor, mapDispatch;
+        const registeredUsers = {};
         const tripMarkersLayer = L.layerGroup();
         const monitorMarkersLayer = L.layerGroup();
         const monitorCouriersLayer = L.layerGroup();
         const draftMarkersLayer = L.layerGroup();
+
         let tripQueue = [], currentChatId = null, chatUnsub = null, lastLoadedHistory = [];
         let allCurrentTrips = [];
         let currentOnlineCouriers = {};
