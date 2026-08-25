@@ -1,5 +1,6 @@
 package com.KurirKita.ui
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -11,9 +12,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.KurirKita.R
 import com.KurirKita.ui.theme.*
 
 data class DashboardState(
@@ -42,13 +45,20 @@ fun DashboardScreen(
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
-                    Text(
-                        "Dashboard",
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = TextPrimary
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Image(
+                            painter = painterResource(id = R.drawable.wellen_logo),
+                            contentDescription = null,
+                            modifier = Modifier.size(32.dp).padding(end = 8.dp)
                         )
-                    )
+                        Text(
+                            "Wellen Print",
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimary
+                            )
+                        )
+                    }
                 },
                 navigationIcon = {
                     IconButton(onClick = onMenuClick) {

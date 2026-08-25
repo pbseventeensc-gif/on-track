@@ -36,7 +36,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
             modifier = Modifier.size(200.dp)
         )
         Spacer(modifier = Modifier.height(16.dp))
-        Text("KurirKita", style = MaterialTheme.typography.headlineLarge)
+        Text("Wellen Print", style = MaterialTheme.typography.headlineLarge)
         Spacer(modifier = Modifier.height(32.dp))
 
         OutlinedTextField(

@@ -395,7 +395,7 @@ fun ServiceControlBar(onStart: () -> Unit, onStop: () -> Unit, onLogout: () -> U
                     )
                     Column {
                         Text(
-                            text = "Wellen Logistics",
+                            text = "Wellen Print",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.ExtraBold,
                             color = MaterialTheme.colorScheme.onSurface
