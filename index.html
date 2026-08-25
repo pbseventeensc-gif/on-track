@@ -1076,6 +1076,14 @@
         function filterMonitorAll(val) {
             activeFilter = val;
             refreshAllMonitorData();
+
+            // Auto-focus if the typed/selected value exactly matches a courier name
+            for (const id in registeredUsers) {
+                if (registeredUsers[id].toLowerCase() === val.toLowerCase()) {
+                    focusOnCourier(id, true);
+                    break;
+                }
+            }
         }
 
         function focusOnCourier(id, isMonitor = false) {
