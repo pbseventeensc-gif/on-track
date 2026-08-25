@@ -578,7 +578,8 @@
                         <!-- Search Bar for Monitor -->
                         <div class="position-relative mb-4">
                             <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"></i>
-                            <input type="text" id="monitor-search" class="form-control ps-5 py-2" style="border-radius: 12px; background: #F9FAFB;" placeholder="Search by Order ID, Client, Courier..." oninput="filterMonitorAll(this.value)">
+                            <input type="text" id="monitor-search" class="form-control ps-5 py-2" style="border-radius: 12px; background: #F9FAFB;" placeholder="Search by Order ID, Client, Courier..." oninput="filterMonitorAll(this.value)" list="monitor-datalist">
+                            <datalist id="monitor-datalist"></datalist>
                         </div>
 
                         <!-- Monitor Map -->
@@ -900,6 +901,33 @@
         function refreshAllMonitorData() {
             renderMonitorUI(activeFilter);
             updateMapMarkers(activeFilter);
+            updateMonitorSuggestions();
+        }
+
+        function updateMonitorSuggestions() {
+            const dl = document.getElementById('monitor-datalist');
+            if(!dl) return;
+            const items = new Set();
+
+            // 1. Add active courier names
+            for (const id in registeredUsers) {
+                const name = registeredUsers[id];
+                // Check if courier has active trip
+                const hasActive = allCurrentTrips.some(t => t.courierId === id && t.status !== 'completed');
+                if (hasActive || currentOnlineCouriers[id]) {
+                    items.add(name);
+                }
+            }
+
+            // 2. Add active trip IDs and destinations
+            allCurrentTrips.forEach(t => {
+                if(t.status !== 'completed') {
+                    items.add(t.id);
+                    t.destinations.forEach(d => items.add(d.locationName));
+                }
+            });
+
+            dl.innerHTML = Array.from(items).map(i => `<option value="${i}">`).join('');
         }
 
         function renderMonitorUI(filter = "") {
