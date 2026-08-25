@@ -843,7 +843,7 @@
         <div class="modal-dialog modal-sm modal-dialog-centered" style="max-width: 400px;">
             <div class="modal-content border-0 shadow-lg" style="border-radius:24px; overflow:hidden">
                 <div class="position-absolute top-0 end-0 p-3" style="z-index: 10">
-                    <button type="button" class="btn-close btn-close-white bg-dark rounded-circle p-2 shadow" data-bs-dismiss="modal" aria-label="Close" style="opacity: 1"></button>
+                    <button type="button" class="btn-close btn-close-white bg-black rounded-circle p-2 shadow-sm border border-2 border-white" data-bs-dismiss="modal" aria-label="Close" style="opacity: 1; width: 32px; height: 32px;"></button>
                 </div>
                 <div class="modal-body p-0 text-center bg-black d-flex align-items-center justify-content-center" style="min-height: 300px;">
                     <img id="modalImg" src="" style="max-width:100%; max-height: 70vh; width: auto; height: auto; object-fit: contain; image-rendering: high-quality;">
@@ -1592,66 +1592,88 @@
                 return;
             }
 
+            // Group by Courier
+            const courierGroups = {};
             lastLoadedHistory.forEach(t => {
-                const statusClass = t.status === 'completed' ? 'delivered' : (t.status === 'assigned' ? 'pending' : 'transit');
-                const cName = registeredUsers[t.courierId] || t.courierId.substring(0,8);
-                const hEl = document.createElement('div');
-                hEl.className = "card border rounded-4 mb-3 shadow-sm overflow-hidden";
-                hEl.innerHTML = `
-                    <div class="card-header bg-white border-0 p-3 d-flex justify-content-between align-items-center cursor-pointer hover-bg-light" onclick="toggleReportDetail('${t.id}')">
-                        <div class="d-flex align-items-center gap-3">
-                            <div class="bg-light rounded-circle d-flex align-items-center justify-content-center" style="width:40px; height:40px">
-                                <i class="bi bi-truck text-primary"></i>
+                if (!courierGroups[t.courierId]) {
+                    courierGroups[t.courierId] = {
+                        name: registeredUsers[t.courierId] || t.courierId.substring(0,8),
+                        trips: []
+                    };
+                }
+                courierGroups[t.courierId].trips.push(t);
+            });
+
+            Object.keys(courierGroups).forEach(cid => {
+                const group = courierGroups[cid];
+                const cEl = document.createElement('div');
+                cEl.className = "card border rounded-4 mb-4 shadow-sm overflow-hidden";
+
+                let tripsHtml = '';
+                group.trips.forEach(t => {
+                    const statusClass = t.status === 'completed' ? 'delivered' : (t.status === 'assigned' ? 'pending' : 'transit');
+                    tripsHtml += `
+                        <div class="border-top">
+                            <div class="p-3 d-flex justify-content-between align-items-center cursor-pointer hover-bg-light" onclick="toggleReportDetail('${t.id}')">
+                                <div>
+                                    <span class="fw-bold d-block" style="font-size:0.9rem">#${t.id.substring(5,11)}</span>
+                                    <small class="text-muted" style="font-size:0.7rem">${t.destinations.length} Stops • ${new Date(t.date.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</small>
+                                </div>
+                                <div class="d-flex gap-2 align-items-center">
+                                    <span class="badge-pill badge-${statusClass}">${t.status}</span>
+                                    <button class="btn btn-sm btn-light border text-danger py-1" onclick="event.stopPropagation(); deleteTrip('${t.id}')"><i class="bi bi-trash"></i></button>
+                                    <i class="bi bi-chevron-down ms-2 text-muted" id="icon-${t.id}"></i>
+                                </div>
                             </div>
-                            <div>
-                                <span class="fw-bold d-block">#${t.id.substring(5,11)} — ${cName}</span>
-                                <small class="text-muted" style="font-size:0.7rem">${t.destinations.length} Stops • ${new Date(t.date.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</small>
-                            </div>
-                        </div>
-                        <div class="d-flex gap-2 align-items-center">
-                            <span class="badge-pill badge-${statusClass}">${t.status}</span>
-                            <button class="btn btn-sm btn-light border text-danger py-1" onclick="event.stopPropagation(); deleteTrip('${t.id}')"><i class="bi bi-trash"></i></button>
-                            <i class="bi bi-chevron-down ms-2 text-muted" id="icon-${t.id}"></i>
-                        </div>
-                    </div>
-                    <div class="card-body p-0 d-none bg-light" id="detail-${t.id}">
-                        <div class="p-3 border-top">
-                            <div class="table-responsive">
-                                <table class="table table-sm table-borderless m-0" style="font-size: 0.75rem">
-                                    <thead>
-                                        <tr class="text-muted text-uppercase" style="font-size: 0.65rem">
-                                            <th>Stop</th>
-                                            <th>Location / Address</th>
-                                            <th class="text-center">Arrival</th>
-                                            <th class="text-center">Done</th>
-                                            <th class="text-center">Proof</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="align-middle">
-                                        ${t.destinations.map(d => {
-                                            const arrTime = d.arrivalTime ? new Date(d.arrivalTime.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '-';
-                                            const doneTime = d.completedTime ? new Date(d.completedTime.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '-';
-                                            const photoHtml = d.proofPhotoUrl ? `<img src="${d.proofPhotoUrl}" class="proof-img-thumb shadow-sm" onclick="openPoDModal('${d.proofPhotoUrl}')">` : '<span class="text-muted">-</span>';
-                                            return `
-                                                <tr class="border-bottom">
-                                                    <td class="fw-bold text-center" style="width:50px">${d.stopIndex}</td>
-                                                    <td>
-                                                        <div class="fw-bold text-dark">${d.locationName}</div>
-                                                        <div class="text-muted text-truncate" style="max-width:250px">${d.address || ''}</div>
-                                                    </td>
-                                                    <td class="text-center">${arrTime}</td>
-                                                    <td class="text-center">${doneTime}</td>
-                                                    <td class="text-center">${photoHtml}</td>
+                            <div class="card-body p-0 d-none bg-light" id="detail-${t.id}">
+                                <div class="p-3">
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-borderless m-0" style="font-size: 0.75rem">
+                                            <thead>
+                                                <tr class="text-muted text-uppercase" style="font-size: 0.65rem">
+                                                    <th>Stop</th>
+                                                    <th>Location</th>
+                                                    <th class="text-center">Arrival</th>
+                                                    <th class="text-center">Done</th>
+                                                    <th class="text-center">Proof</th>
                                                 </tr>
-                                            `;
-                                        }).join('')}
-                                    </tbody>
-                                </table>
+                                            </thead>
+                                            <tbody class="align-middle">
+                                                ${t.destinations.map(d => {
+                                                    const arrTime = d.arrivalTime ? new Date(d.arrivalTime.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '-';
+                                                    const doneTime = d.completedTime ? new Date(d.completedTime.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '-';
+                                                    const photoHtml = d.proofPhotoUrl ? `<img src="${d.proofPhotoUrl}" class="proof-img-thumb shadow-sm" onclick="openPoDModal('${d.proofPhotoUrl}')">` : '<span class="text-muted">-</span>';
+                                                    return `
+                                                        <tr class="border-bottom">
+                                                            <td class="fw-bold text-center" style="width:40px">${d.stopIndex}</td>
+                                                            <td>
+                                                                <div class="fw-bold text-dark">${d.locationName}</div>
+                                                                <div class="text-muted text-truncate" style="max-width:200px">${d.address || ''}</div>
+                                                            </td>
+                                                            <td class="text-center">${arrTime}</td>
+                                                            <td class="text-center">${doneTime}</td>
+                                                            <td class="text-center">${photoHtml}</td>
+                                                        </tr>
+                                                    `;
+                                                }).join('')}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
                             </div>
                         </div>
+                    `;
+                });
+
+                cEl.innerHTML = `
+                    <div class="card-header bg-white border-0 p-3 d-flex align-items-center gap-3">
+                        <img src="https://ui-avatars.com/api/?name=${group.name}&background=111827&color=fff" style="width:32px;height:32px;border-radius:8px;">
+                        <span class="fw-bold" style="font-size:1.1rem">${group.name}</span>
+                        <span class="badge bg-light text-dark border ms-auto">${group.trips.length} Trips Today</span>
                     </div>
+                    ${tripsHtml}
                 `;
-                container.appendChild(hEl);
+                container.appendChild(cEl);
             });
         }
 
