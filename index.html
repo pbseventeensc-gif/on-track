@@ -930,24 +930,39 @@
             monitorMarkersLayer.clearLayers();
             monitorCouriersLayer.clearLayers();
 
+            // 1. Render Online Couriers
             for (const id in currentOnlineCouriers) {
                 const c = currentOnlineCouriers[id];
                 const color = getCourierColor(id);
                 const name = registeredUsers[id] || 'Carrier';
                 const pos = [c.lat, c.lng];
-                L.circleMarker(pos, { radius: 10, fillColor: color, color: "#fff", weight: 3, fillOpacity: 0.9 }).addTo(tripMarkersLayer).bindPopup(`<b>${name}</b>`);
+
+                // Dashboard Map: Always show all online couriers
+                L.circleMarker(pos, { radius: 10, fillColor: color, color: "#fff", weight: 3, fillOpacity: 0.9 })
+                    .addTo(tripMarkersLayer).bindPopup(`<b>${name}</b><br>ID: ${id}`);
+
+                // Monitor Map: Apply Search Filter
                 if (!filter || name.toLowerCase().includes(search) || id.toLowerCase().includes(search)) {
-                    L.circleMarker(pos, { radius: 10, fillColor: color, color: "#fff", weight: 3, fillOpacity: 0.9 }).addTo(monitorCouriersLayer).bindPopup(`<b>${name}</b><br><small>ID: ${id}</small>`);
+                    L.circleMarker(pos, { radius: 10, fillColor: color, color: "#fff", weight: 3, fillOpacity: 0.9 })
+                        .addTo(monitorCouriersLayer).bindPopup(`<b>${name}</b><br><small>ID: ${id}</small>`);
                 }
             }
 
+            // 2. Render Trip Destinations
             allCurrentTrips.forEach(t => {
                 const cName = registeredUsers[t.courierId] || t.courierId.substring(0,8);
                 const cColor = getCourierColor(t.courierId);
+
                 t.destinations.forEach(d => {
                     const isDone = d.status === 'done';
                     const icon = L.divIcon({ className: 'custom-div-icon', html: `<div class='marker-pin' style='background:${isDone ? '#10B981' : cColor}'></div><div class='marker-num' style='color:#fff'>${d.stopIndex}</div>`, iconSize:[30,42], iconAnchor:[15,42] });
-                    L.marker([d.latitude, d.longitude], {icon}).bindPopup(`<b>${d.locationName}</b><br>Driver: ${cName}`).addTo(tripMarkersLayer);
+
+                    // Dashboard Map: Show all destinations for active trips
+                    if (t.status !== 'completed') {
+                        L.marker([d.latitude, d.longitude], {icon}).bindPopup(`<b>${d.locationName}</b><br>ID: ${t.id}<br>Driver: ${cName}`).addTo(tripMarkersLayer);
+                    }
+
+                    // Monitor Map: Apply Search Filter
                     const matches = d.locationName.toLowerCase().includes(search) || cName.toLowerCase().includes(search) || t.id.toLowerCase().includes(search);
                     if (!filter || matches) {
                         L.marker([d.latitude, d.longitude], {icon}).bindPopup(`<b>${d.locationName}</b><br>ID: ${t.id}<br>Driver: ${cName}`).addTo(monitorMarkersLayer);
