@@ -77,6 +77,13 @@
             white-space: nowrap;
             overflow: hidden;
         }
+        .sidebar.collapsed .sidebar-header {
+            background: #F9FAFB;
+            margin: 12px;
+            border-radius: 12px;
+            padding: 12px;
+            justify-content: center;
+        }
         .sidebar-brand { font-weight: 800; font-size: 1.25rem; letter-spacing: -0.5px; transition: 0.2s; }
         .sidebar.collapsed .sidebar-brand { opacity: 0; visibility: hidden; width: 0; }
 
@@ -138,7 +145,8 @@
             top: 30px;
             width: 24px;
             height: 24px;
-            background: #fff;
+            background: #F3F4F6;
+            color: var(--primary);
             border: 1px solid var(--border-color);
             border-radius: 50%;
             display: flex;
@@ -146,8 +154,10 @@
             justify-content: center;
             cursor: pointer;
             z-index: 100;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
             transition: 0.3s;
+        }
+        .collapse-toggle:hover { background: var(--primary); color: #fff; }
         }
         .sidebar.collapsed .collapse-toggle { transform: rotate(180deg); }
         @media (max-width: 991px) { .collapse-toggle { display: none; } }
