@@ -139,28 +139,32 @@
         .sidebar.collapsed .sidebar-footer { justify-content: center; padding: 20px 0; }
         .sidebar.collapsed .sidebar-footer i.ms-auto { display: none; }
 
-        /* Collapse Toggle Button */
+        /* Collapse Toggle Button - Improved Visibility */
         .collapse-toggle {
             position: absolute;
             right: -12px;
-            top: 30px;
+            top: 50%;
+            transform: translateY(-50%);
             width: 24px;
-            height: 24px;
-            background: #F3F4F6;
+            height: 50px;
+            background: #fff;
             color: var(--primary);
             border: 1px solid var(--border-color);
-            border-radius: 50%;
+            border-radius: 6px;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            z-index: 100;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            transition: 0.3s;
+            z-index: 1100;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transition: all 0.2s ease;
         }
-        .collapse-toggle:hover { background: var(--primary); color: #fff; }
+        .collapse-toggle:hover {
+            background: #000 !important;
+            color: #fff !important;
+            border-color: #000 !important;
         }
-        .sidebar.collapsed .collapse-toggle { transform: rotate(180deg); }
+        .sidebar.collapsed .collapse-toggle { transform: translateY(-50%) rotate(180deg); }
         @media (max-width: 991px) { .collapse-toggle { display: none; } }
 
         /* Main Panel Styling */
@@ -1189,9 +1193,15 @@
                 const cLiters = c.totalKM / kmPerLiter;
                 const cCost = cLiters * pricePerLiter;
 
-                // PoD Check
-                const podTrip = allCurrentTrips.find(t => t.courierId === courierId && t.destinations.some(d => d.proofPhotoUrl));
-                const podIcon = podTrip ? `<i class="bi bi-camera text-primary ms-1 cursor-pointer" onclick="openPoDModal('${podTrip.destinations.find(d => d.proofPhotoUrl).proofPhotoUrl}')"></i>` : '';
+                // PoD Check - Fix: Find ALL photos from ALL trips for this courier
+                let podIconsHtml = '';
+                allCurrentTrips.filter(t => t.courierId === courierId).forEach(trip => {
+                    trip.destinations.forEach(d => {
+                        if (d.proofPhotoUrl) {
+                            podIconsHtml += `<i class="bi bi-camera text-primary ms-1 cursor-pointer" onclick="openPoDModal('${d.proofPhotoUrl}')" title="Stop ${d.stopIndex}"></i> `;
+                        }
+                    });
+                });
 
                 // MANUAL RATING FORMULA (Suggestion):
                 const completionRate = (c.completed / c.total) * 100 || 0;
@@ -1204,7 +1214,7 @@
                 const durationStr = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
 
                 tbody.innerHTML += `<tr>
-                    <td class="fw-bold">${c.name} ${podIcon}</td>
+                    <td class="fw-bold">${c.name} <div class="mt-1">${podIconsHtml}</div></td>
                     <td><span class="badge-pill ${isOnline ? 'badge-delivered' : 'badge-delayed'}">${isOnline ? 'Active' : 'Offline'}</span></td>
                     <td>${c.completed}</td>
                     <td><i class="bi bi-star-fill text-warning me-1"></i> ${stars}</td>
