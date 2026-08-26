@@ -635,29 +635,58 @@
 
                 <!-- DISPATCH VIEW -->
                 <div id="view-dispatch" class="view-section">
-                    <div class="border rounded-4 p-4 bg-white mb-4 shadow-sm">
-                        <h6 class="fw-bold mb-4">Create New Shipment</h6>
-                        <div class="row g-3 mb-4">
-                            <div class="col-md-4">
-                                <label class="extra-small fw-bold text-muted text-uppercase mb-2">Select Carrier</label>
-                                <select id="sel-courier" class="form-select border-1 py-2" style="border-radius: 10px;"></select>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="extra-small fw-bold text-muted text-uppercase mb-2">Search Destination</label>
-                                <div class="position-relative">
-                                    <i class="bi bi-geo-alt position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"></i>
-                                    <input type="text" id="places-search" class="form-control ps-5 py-2" style="border-radius: 10px;" placeholder="Company Name or Address...">
+                    <div class="row g-4 mb-4">
+                        <!-- Left Panel: Dispatch Controls -->
+                        <div class="col-lg-5">
+                            <div class="border rounded-4 p-4 bg-white shadow-sm h-100">
+                                <h6 class="fw-bold mb-4">Assign Shipment</h6>
+
+                                <div class="mb-4">
+                                    <label class="extra-small fw-bold text-muted text-uppercase mb-2">1. Select Courier</label>
+                                    <select id="sel-courier" class="form-select border-1 py-2" style="border-radius: 10px;"></select>
                                 </div>
-                            </div>
-                            <div class="col-md-2 d-flex align-items-end">
-                                <button class="btn btn-dark w-100 py-2 fw-bold" style="border-radius:10px;" onclick="submitTrip()"><i class="bi bi-send-plus me-2"></i> DISPATCH</button>
+
+                                <div class="mb-4">
+                                    <label class="extra-small fw-bold text-muted text-uppercase mb-2">2. Add Destinations</label>
+                                    <div class="position-relative mb-3">
+                                        <i class="bi bi-geo-alt position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"></i>
+                                        <input type="text" id="places-search" class="form-control ps-5 py-2" style="border-radius: 10px;" placeholder="Search Address manually...">
+                                    </div>
+
+                                    <!-- Region Filter & Batch Select -->
+                                    <div class="border rounded-3 p-3 bg-light">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <label class="extra-small fw-bold text-muted text-uppercase mb-0">Quick Pick by Region</label>
+                                            <select id="region-filter" class="form-select form-select-sm w-auto border-0 bg-transparent fw-bold text-primary" onchange="loadClientsByRegion(this.value)">
+                                                <option value="">All Regions</option>
+                                                <option value="Jakarta Selatan">Jakarta Selatan</option>
+                                                <option value="Jakarta Barat">Jakarta Barat</option>
+                                                <option value="Jakarta Timur">Jakarta Timur</option>
+                                                <option value="Jakarta Pusat">Jakarta Pusat</option>
+                                                <option value="Jakarta Utara">Jakarta Utara</option>
+                                            </select>
+                                        </div>
+                                        <div id="client-list-container" class="overflow-y-auto mb-3" style="max-height: 200px;">
+                                            <p class="text-center py-3 text-muted extra-small">Loading clients...</p>
+                                        </div>
+                                        <button class="btn btn-sm btn-outline-dark w-100 fw-bold" onclick="addSelectedClients()">ADD SELECTED TO ROUTE</button>
+                                    </div>
+                                </div>
+
+                                <div id="dispatch-queue" class="d-flex flex-wrap gap-2 mb-4"></div>
+
+                                <button class="btn btn-dark w-100 py-3 fw-bold shadow-sm" style="border-radius:12px;" onclick="submitTrip()">
+                                    <i class="bi bi-send-plus-fill me-2"></i> CONFIRM & DISPATCH
+                                </button>
                             </div>
                         </div>
 
-                        <!-- Dispatch Map -->
-                        <div id="map-dispatch" class="mb-4"></div>
-
-                        <div id="dispatch-queue" class="d-flex flex-wrap gap-2"></div>
+                        <!-- Right Panel: Dispatch Map -->
+                        <div class="col-lg-7">
+                            <div class="border rounded-4 overflow-hidden shadow-sm h-100" style="min-height: 500px;">
+                                <div id="map-dispatch" style="height: 100%; width: 100%;"></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -944,6 +973,7 @@
         let currentOnlineCouriers = {};
         let activeFilter = "";
         let heatmapLayer, isDarkMode = false;
+        let allClients = []; // Store master data clients
 
         const googleTiles = { url: 'https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', options: { maxZoom: 20, subdomains: ['mt0', 'mt1', 'mt2', 'mt3'], attribution: '&copy; Google Maps' } };
         const cartoDark = { url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', options: { attribution: '&copy; OpenStreetMap contributors &copy; CARTO' } };
@@ -1102,6 +1132,68 @@
             }, 400);
 
             if(viewId === 'chat') loadChatList();
+            if(viewId === 'dispatch') loadClientsByRegion("");
+        }
+
+        async function loadClientsByRegion(region) {
+            const container = document.getElementById('client-list-container');
+            if(!container) return;
+            container.innerHTML = '<p class="text-center py-3 text-muted extra-small">Fetching clients...</p>';
+
+            try {
+                let query = db.collection('clients');
+                if(region) query = query.where('region', '==', region);
+
+                const snap = await query.get();
+                allClients = [];
+                container.innerHTML = '';
+
+                if(snap.empty) {
+                    container.innerHTML = '<p class="text-center py-3 text-muted extra-small">No clients found in this region.</p>';
+                    return;
+                }
+
+                snap.forEach(doc => {
+                    const c = doc.data();
+                    c.id = doc.id;
+                    allClients.push(c);
+                    container.innerHTML += `
+                        <div class="d-flex align-items-center gap-2 mb-2 p-2 bg-white rounded border">
+                            <input type="checkbox" class="client-checkbox" value="${c.id}">
+                            <div class="overflow-hidden">
+                                <div class="fw-bold extra-small text-dark text-truncate">${c.name}</div>
+                                <div class="text-muted" style="font-size: 0.6rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${c.address}</div>
+                            </div>
+                        </div>
+                    `;
+                });
+            } catch (e) {
+                container.innerHTML = '<p class="text-center py-3 text-danger extra-small">Error loading clients.</p>';
+            }
+        }
+
+        function addSelectedClients() {
+            const checked = document.querySelectorAll('.client-checkbox:checked');
+            if(checked.length === 0) return alert("Please select at least one client!");
+
+            checked.forEach(cb => {
+                const client = allClients.find(c => c.id === cb.value);
+                if(client) {
+                    // Check if already in queue to avoid duplicates
+                    if(!tripQueue.some(q => q.name === client.name)) {
+                        tripQueue.push({
+                            name: client.name,
+                            address: client.address,
+                            lat: client.latitude,
+                            lng: client.longitude
+                        });
+                    }
+                }
+                cb.checked = false; // Reset checkbox
+            });
+
+            renderQueue();
+            showToast(checked.length + " destinations added to route.");
         }
 
         db.collection('users').onSnapshot(snap => {
