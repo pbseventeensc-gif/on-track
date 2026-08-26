@@ -868,7 +868,20 @@
                 <div id="view-settings" class="view-section">
                     <div class="row g-4">
                         <div class="col-lg-6">
-                            <div class="border rounded-4 p-4 bg-white">
+                            <div class="border rounded-4 p-4 bg-white shadow-sm mb-4">
+                                <h6 class="fw-bold mb-4"><i class="bi bi-file-earmark-excel me-2"></i>Import Clients Database</h6>
+                                <p class="extra-small text-muted mb-4">Upload Excel (.xlsx) containing columns: <b>Name, Region, Address</b></p>
+                                <div class="mb-3">
+                                    <input type="file" id="client-excel-file" class="form-control border" accept=".xlsx, .xls" style="border-radius: 10px;">
+                                </div>
+                                <div id="import-progress" class="progress d-none mb-3" style="height:8px"><div class="progress-bar progress-bar-striped progress-bar-animated bg-success"></div></div>
+                                <button class="btn btn-outline-dark w-100 py-3 fw-bold" style="border-radius:12px" onclick="importClientsFromExcel()">
+                                    <i class="bi bi-cloud-upload me-2"></i>UPLOAD & SYNC CLIENTS
+                                </button>
+                                <div id="import-status" class="mt-3 extra-small fw-bold"></div>
+                            </div>
+
+                            <div class="border rounded-4 p-4 bg-white shadow-sm">
                                 <h6 class="fw-bold mb-4">App Release Management</h6>
                                 <div class="mb-3">
                                     <label class="extra-small fw-bold text-muted mb-2">VERSION CODE</label>
@@ -1948,6 +1961,75 @@
             const toastEl = document.getElementById('myToast');
             toastEl.querySelector('.toast-body').innerText = msg;
             new bootstrap.Toast(toastEl).show();
+        }
+
+        async function importClientsFromExcel() {
+            const file = document.getElementById('client-excel-file').files[0];
+            if(!file) return alert("Please select an Excel file first!");
+
+            const progress = document.getElementById('import-progress');
+            const status = document.getElementById('import-status');
+            progress.classList.remove('d-none');
+            status.innerText = "Reading file...";
+
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, {type: 'array'});
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json(sheet);
+
+                if(rows.length === 0) {
+                    alert("Excel file is empty!");
+                    progress.classList.add('d-none');
+                    return;
+                }
+
+                status.innerText = `Processing ${rows.length} clients...`;
+                const batch = db.batch();
+                const geocoder = new google.maps.Geocoder();
+
+                for (let i = 0; i < rows.length; i++) {
+                    const row = rows[i];
+                    const address = row.Address || row.address;
+                    const name = row.Name || row.name;
+                    const region = row.Region || row.region;
+
+                    if(!address || !name) continue;
+
+                    try {
+                        // Geocoding: Convert Address to Coordinates
+                        const geoResult = await new Promise((resolve) => {
+                            geocoder.geocode({ address: address + ", Indonesia" }, (results, status) => {
+                                if (status === 'OK') resolve(results[0].geometry.location);
+                                else resolve(null);
+                            });
+                        });
+
+                        if(geoResult) {
+                            const ref = db.collection('clients').doc();
+                            batch.set(ref, {
+                                name: name,
+                                region: region || "General",
+                                address: address,
+                                latitude: geoResult.lat(),
+                                longitude: geoResult.lng(),
+                                createdAt: firebase.firestore.Timestamp.now()
+                            });
+                        }
+                    } catch (err) { console.error("Geocoding failed for:", name); }
+
+                    const pct = Math.round(((i + 1) / rows.length) * 100);
+                    progress.querySelector('.progress-bar').style.width = pct + '%';
+                    status.innerText = `Importing: ${pct}% (${i+1}/${rows.length})`;
+                }
+
+                await batch.commit();
+                status.innerHTML = `<span class="text-success">SUCCESS! ${rows.length} Clients synced to database.</span>`;
+                setTimeout(() => progress.classList.add('d-none'), 2000);
+                showToast("Clients Database Updated!");
+            };
+            reader.readAsArrayBuffer(file);
         }
 
         async function updateConfig() {
