@@ -870,7 +870,7 @@
                         <div class="col-lg-6">
                             <div class="border rounded-4 p-4 bg-white shadow-sm mb-4">
                                 <h6 class="fw-bold mb-4"><i class="bi bi-file-earmark-excel me-2"></i>Import Clients Database</h6>
-                                <p class="extra-small text-muted mb-4">Upload Excel (.xlsx) containing columns: <b>Name, Region, Address</b></p>
+                                <p class="extra-small text-muted mb-4">Upload Excel (.xlsx) containing columns: <b>Customer, Alamat SJ, Region</b></p>
                                 <div class="mb-3">
                                     <input type="file" id="client-excel-file" class="form-control border" accept=".xlsx, .xls" style="border-radius: 10px;">
                                 </div>
@@ -1991,9 +1991,9 @@
 
                 for (let i = 0; i < rows.length; i++) {
                     const row = rows[i];
-                    const address = row.Address || row.address;
-                    const name = row.Name || row.name;
-                    const region = row.Region || row.region;
+                    const name = row.Customer || row.Name || row.name || row.CUSTOMER;
+                    const address = row['Alamat SJ'] || row.Address || row.address || row.ALAMAT;
+                    const region = row.Region || row.region || row.REGION;
 
                     if(!address || !name) continue;
 
