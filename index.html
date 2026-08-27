@@ -1192,9 +1192,19 @@
                     const storeName = addressParts[0].trim();
                     const remainingAddress = addressParts.slice(1).join(',').trim();
 
+                    // Escape strings for data attributes
+                    const escName = c.name.replace(/"/g, '&quot;');
+                    const escStore = storeName.replace(/"/g, '&quot;');
+                    const escAddr = c.address.replace(/"/g, '&quot;');
+
                     container.innerHTML += `
                         <div class="d-flex align-items-start gap-2 mb-2 p-2 bg-white rounded border shadow-sm">
-                            <input type="checkbox" class="client-checkbox mt-1" value="${c.id}">
+                            <input type="checkbox" class="client-checkbox mt-1"
+                                data-name="${escStore}"
+                                data-pt="${escName}"
+                                data-address="${escAddr}"
+                                data-lat="${c.latitude}"
+                                data-lng="${c.longitude}">
                             <div class="overflow-hidden">
                                 <div class="fw-bold text-dark" style="font-size: 0.75rem; line-height: 1.2;">${storeName}</div>
                                 <div class="text-muted mt-1" style="font-size: 0.65rem; font-weight: 600;">${c.name}</div>
@@ -1214,17 +1224,15 @@
 
             let addedCount = 0;
             checked.forEach(cb => {
-                // Ensure we find by ID string comparison
-                const client = allClients.find(c => c.id === cb.value);
-                if(client) {
+                const name = cb.getAttribute('data-name');
+                const address = cb.getAttribute('data-address');
+                const lat = parseFloat(cb.getAttribute('data-lat'));
+                const lng = parseFloat(cb.getAttribute('data-lng'));
+
+                if(name && address) {
                     // Check if already in queue to avoid duplicates
-                    if(!tripQueue.some(q => q.name === client.name && q.address === client.address)) {
-                        tripQueue.push({
-                            name: client.name,
-                            address: client.address,
-                            lat: client.latitude,
-                            lng: client.longitude
-                        });
+                    if(!tripQueue.some(q => q.name === name && q.address === address)) {
+                        tripQueue.push({ name, address, lat, lng });
                         addedCount++;
                     }
                 }
