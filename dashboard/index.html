@@ -1225,16 +1225,20 @@
             let addedCount = 0;
             checked.forEach(cb => {
                 const name = cb.getAttribute('data-name');
+                const pt = cb.getAttribute('data-pt');
                 const address = cb.getAttribute('data-address');
                 const lat = parseFloat(cb.getAttribute('data-lat'));
                 const lng = parseFloat(cb.getAttribute('data-lng'));
 
                 if(name && address) {
-                    // Check if already in queue to avoid duplicates
-                    if(!tripQueue.some(q => q.name === name && q.address === address)) {
-                        tripQueue.push({ name, address, lat, lng });
-                        addedCount++;
-                    }
+                    // Allow all selected items, even if same location (different tasks)
+                    tripQueue.push({
+                        name: name + (pt ? " (" + pt + ")" : ""),
+                        address,
+                        lat,
+                        lng
+                    });
+                    addedCount++;
                 }
                 cb.checked = false; // Reset checkbox after adding
             });
@@ -1245,9 +1249,7 @@
 
             if(addedCount > 0) {
                 renderQueue();
-                showToast(addedCount + " destinations added to route successfully!");
-            } else {
-                showToast("Selected destinations were already in the queue.");
+                showToast(addedCount + " destinations added to route!");
             }
         }
 
