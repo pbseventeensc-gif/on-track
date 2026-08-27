@@ -2007,33 +2007,41 @@
 
                 for (let i = 0; i < rows.length; i++) {
                     const row = rows[i];
-                    const name = row.Customer || row.Name || row.name || row.CUSTOMER;
-                    const address = row['Alamat SJ'] || row.Address || row.address || row.ALAMAT;
-                    const region = row.Region || row.region || row.REGION;
+                    // Normalize keys and values
+                    const name = (row.Customer || row.Name || row.name || row.CUSTOMER || "").toString().trim();
+                    const address = (row['Alamat SJ'] || row.Address || row.address || row.ALAMAT || "").toString().trim();
+                    const region = (row.Region || row.region || row.REGION || "General").toString().trim();
 
-                    if(!address || !name) continue;
+                    if(!address || !name) {
+                        console.warn("Skipping empty row at index", i);
+                        continue;
+                    }
 
                     try {
                         // Geocoding: Convert Address to Coordinates
                         const geoResult = await new Promise((resolve) => {
                             geocoder.geocode({ address: address + ", Indonesia" }, (results, status) => {
                                 if (status === 'OK') resolve(results[0].geometry.location);
-                                else resolve(null);
+                                else {
+                                    console.warn("Geocode failed for:", address, "Status:", status);
+                                    resolve(null);
+                                }
                             });
                         });
 
-                        if(geoResult) {
-                            const ref = db.collection('clients').doc();
-                            batch.set(ref, {
-                                name: name,
-                                region: region || "General",
-                                address: address,
-                                latitude: geoResult.lat(),
-                                longitude: geoResult.lng(),
-                                createdAt: firebase.firestore.Timestamp.now()
-                            });
-                        }
-                    } catch (err) { console.error("Geocoding failed for:", name); }
+                        const ref = db.collection('clients').doc();
+                        batch.set(ref, {
+                            name: name,
+                            region: region,
+                            address: address,
+                            latitude: geoResult ? geoResult.lat() : 0,
+                            longitude: geoResult ? geoResult.lng() : 0,
+                            createdAt: firebase.firestore.Timestamp.now()
+                        });
+
+                    } catch (err) {
+                        console.error("Critical error at row:", i, err);
+                    }
 
                     const pct = Math.round(((i + 1) / rows.length) * 100);
                     progress.querySelector('.progress-bar').style.width = pct + '%';
