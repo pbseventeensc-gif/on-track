@@ -1187,12 +1187,16 @@
                 allClients = [];
                 container.innerHTML = '';
 
+                // Show raw DB count first
+                document.getElementById('client-qty').innerText = snap.size;
+
                 if(snap.empty) {
                     container.innerHTML = '<p class="text-center py-3 text-muted extra-small">No clients found in this region.</p>';
                     return;
                 }
 
                 const seenAddresses = new Set();
+                let uiCount = 0;
                 snap.forEach(doc => {
                     const c = doc.data();
                     c.id = doc.id;
@@ -1200,6 +1204,7 @@
                     // Filter UI duplicates based on address
                     if (seenAddresses.has(c.address)) return;
                     seenAddresses.add(c.address);
+                    uiCount++;
 
                     allClients.push(c);
 
@@ -1232,7 +1237,15 @@
                         </div>
                     `;
                 });
-                document.getElementById('client-qty').innerText = snap.size;
+
+                // If there are UI duplicates, show the breakdown (e.g., "75 of 103")
+                if (uiCount < snap.size) {
+                    document.getElementById('client-qty').innerText = `${uiCount} of ${snap.size}`;
+                    document.getElementById('client-qty').title = "Some items are hidden because they have identical addresses";
+                } else {
+                    document.getElementById('client-qty').innerText = uiCount;
+                    document.getElementById('client-qty').title = "";
+                }
             } catch (e) {
                 container.innerHTML = '<p class="text-center py-3 text-danger extra-small">Error loading clients.</p>';
             }
