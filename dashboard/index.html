@@ -1187,7 +1187,7 @@
                 allClients = [];
                 container.innerHTML = '';
 
-                // Show raw DB count first
+                // Show absolute total from database
                 document.getElementById('client-qty').innerText = snap.size;
 
                 if(snap.empty) {
@@ -1195,18 +1195,11 @@
                     return;
                 }
 
-                const seenIdentifiers = new Set();
-                let uiCount = 0;
+                // Removed strict filtering to ensure all branches (like AZKO) are visible
                 snap.forEach(doc => {
                     const c = doc.data();
                     c.id = doc.id;
-
-                    // Filter UI duplicates based on Name AND Address together
-                    // This ensures multiple stores in the same mall (like different Ace Hardware branches) show up
-                    const identifier = `${c.name}|${c.address}`;
-                    if (seenIdentifiers.has(identifier)) return;
-                    seenIdentifiers.add(identifier);
-                    uiCount++;
+                    allClients.push(c);
 
                     allClients.push(c);
 
@@ -1239,16 +1232,8 @@
                         </div>
                     `;
                 });
-
-                // If there are UI duplicates, show the breakdown (e.g., "75 of 103")
-                if (uiCount < snap.size) {
-                    document.getElementById('client-qty').innerText = `${uiCount} of ${snap.size}`;
-                    document.getElementById('client-qty').title = "Some items are hidden because they have identical addresses";
-                } else {
-                    document.getElementById('client-qty').innerText = uiCount;
-                    document.getElementById('client-qty').title = "";
-                }
             } catch (e) {
+                console.error("Error loading clients:", e);
                 container.innerHTML = '<p class="text-center py-3 text-danger extra-small">Error loading clients.</p>';
             }
         }
