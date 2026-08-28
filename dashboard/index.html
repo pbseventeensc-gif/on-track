@@ -1182,12 +1182,18 @@
                     return;
                 }
 
+                const seenAddresses = new Set();
                 snap.forEach(doc => {
                     const c = doc.data();
                     c.id = doc.id;
+
+                    // Filter UI duplicates based on address
+                    if (seenAddresses.has(c.address)) return;
+                    seenAddresses.add(c.address);
+
                     allClients.push(c);
 
-                    // Try to split address to find the "Store Name" (usually the first part before comma)
+                    // Try to split address to find the "Store Name"
                     const addressParts = c.address.split(',');
                     const storeName = addressParts[0].trim();
                     const remainingAddress = addressParts.slice(1).join(',').trim();
@@ -1198,23 +1204,37 @@
                     const escAddr = c.address.replace(/"/g, '&quot;');
 
                     container.innerHTML += `
-                        <div class="d-flex align-items-start gap-2 mb-2 p-2 bg-white rounded border shadow-sm">
-                            <input type="checkbox" class="client-checkbox mt-1"
+                        <div class="d-flex align-items-center gap-2 mb-2 p-2 bg-white rounded border shadow-sm position-relative group-hover">
+                            <input type="checkbox" class="client-checkbox"
                                 data-name="${escStore}"
                                 data-pt="${escName}"
                                 data-address="${escAddr}"
                                 data-lat="${c.latitude}"
                                 data-lng="${c.longitude}">
-                            <div class="overflow-hidden">
+                            <div class="overflow-hidden flex-grow-1">
                                 <div class="fw-bold text-dark" style="font-size: 0.75rem; line-height: 1.2;">${storeName}</div>
                                 <div class="text-muted mt-1" style="font-size: 0.65rem; font-weight: 600;">${c.name}</div>
-                                <div class="text-muted text-truncate" style="font-size: 0.6rem; max-width: 200px;">${remainingAddress || c.address}</div>
+                                <div class="text-muted text-truncate" style="font-size: 0.6rem; max-width: 180px;">${remainingAddress || c.address}</div>
                             </div>
+                            <button class="btn btn-link text-danger p-1" onclick="deleteClient('${c.id}', '${escStore}')">
+                                <i class="bi bi-trash" style="font-size: 0.8rem;"></i>
+                            </button>
                         </div>
                     `;
                 });
             } catch (e) {
                 container.innerHTML = '<p class="text-center py-3 text-danger extra-small">Error loading clients.</p>';
+            }
+        }
+
+        async function deleteClient(id, name) {
+            if(!confirm(`Hapus client "${name}" dari database?`)) return;
+            try {
+                await db.collection('clients').doc(id).delete();
+                showToast("Client berhasil dihapus.");
+                loadClientsByRegion(document.getElementById('region-filter').value);
+            } catch (e) {
+                alert("Gagal menghapus client: " + e.message);
             }
         }
 
