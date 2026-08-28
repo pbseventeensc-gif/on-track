@@ -2070,15 +2070,17 @@
                     // Normalize keys and values
                     const name = (row.Customer || row.Name || row.name || row.CUSTOMER || "").toString().trim();
                     let address = (row['Alamat SJ'] || row.Address || row.address || row.ALAMAT || "").toString().trim();
-                    const region = (row.Region || row.region || row.REGION || "General").toString().trim();
+                    const region = (row.Region || row.region || row.REGION || "").toString().trim();
 
                     if(!name) {
                         console.warn("Skipping empty row (no name) at index", i);
                         continue;
                     }
 
-                    // If address is empty, use Name + Region for searching
-                    const searchQuery = address ? `${address}, ${region}, Indonesia` : `${name}, ${region}, Indonesia`;
+                    // Build search query: Priority 1: Address, Priority 2: Name.
+                    // Add "Jabodetabek" as fallback region to narrow results to Indonesia
+                    const regionSuffix = region ? `, ${region}` : ", Jabodetabek";
+                    const searchQuery = address ? `${address}${regionSuffix}, Indonesia` : `${name}${regionSuffix}, Indonesia`;
 
                     try {
                         // Geocoding: Convert Search Query to Coordinates and Full Address
@@ -2102,7 +2104,7 @@
                         const ref = db.collection('clients').doc();
                         batch.set(ref, {
                             name: name,
-                            region: region,
+                            region: region || (geoResult ? "Auto-detected" : "General"),
                             address: finalAddress,
                             latitude: geoResult ? geoResult.location.lat() : 0,
                             longitude: geoResult ? geoResult.location.lng() : 0,
