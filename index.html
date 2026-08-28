@@ -1984,10 +1984,22 @@
         }
 
         async function clearAllHistory() {
-            if (!confirm("Delete ALL shipment history? This cannot be undone.")) return;
-            const snap = await db.collection('trips').get(); const batch = db.batch();
-            snap.forEach(doc => batch.delete(doc.ref)); await batch.commit();
-            showToast("All history cleared."); loadFullHistory();
+            if (!confirm("Hapus SELURUH riwayat pengantaran? Tindakan ini tidak bisa dibatalkan.")) return;
+            if (!confirm("APAKAH ANDA YAKIN? Semua data pengantaran akan hilang selamanya.")) return;
+
+            try {
+                const snap = await db.collection('trips').get();
+                if (snap.empty) return showToast("Tidak ada riwayat untuk dihapus.");
+
+                const batch = db.batch();
+                snap.forEach(doc => batch.delete(doc.ref));
+                await batch.commit();
+
+                showToast("Semua riwayat berhasil dikosongkan.");
+                loadFullHistory();
+            } catch (e) {
+                alert("Gagal menghapus riwayat: " + e.message);
+            }
         }
 
         async function deleteTrip(tripId) {
