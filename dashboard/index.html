@@ -1993,7 +1993,7 @@
         async function deleteTrip(tripId) {
             if (!confirm("Hapus pengantaran #" + tripId.substring(5,11) + "? Tindakan ini tidak bisa dibatalkan.")) return;
             try {
-                await db.collection('trips').document(tripId).delete();
+                await db.collection('trips').doc(tripId).delete();
                 showToast("Pengantaran berhasil dihapus.");
                 if(document.getElementById('view-reports').classList.contains('active')) loadFullHistory();
             } catch (e) {
