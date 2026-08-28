@@ -2069,33 +2069,43 @@
                     const row = rows[i];
                     // Normalize keys and values
                     const name = (row.Customer || row.Name || row.name || row.CUSTOMER || "").toString().trim();
-                    const address = (row['Alamat SJ'] || row.Address || row.address || row.ALAMAT || "").toString().trim();
+                    let address = (row['Alamat SJ'] || row.Address || row.address || row.ALAMAT || "").toString().trim();
                     const region = (row.Region || row.region || row.REGION || "General").toString().trim();
 
-                    if(!address || !name) {
-                        console.warn("Skipping empty row at index", i);
+                    if(!name) {
+                        console.warn("Skipping empty row (no name) at index", i);
                         continue;
                     }
 
+                    // If address is empty, use Name + Region for searching
+                    const searchQuery = address ? `${address}, ${region}, Indonesia` : `${name}, ${region}, Indonesia`;
+
                     try {
-                        // Geocoding: Convert Address to Coordinates
+                        // Geocoding: Convert Search Query to Coordinates and Full Address
                         const geoResult = await new Promise((resolve) => {
-                            geocoder.geocode({ address: address + ", Indonesia" }, (results, status) => {
-                                if (status === 'OK') resolve(results[0].geometry.location);
-                                else {
-                                    console.warn("Geocode failed for:", address, "Status:", status);
+                            geocoder.geocode({ address: searchQuery }, (results, status) => {
+                                if (status === 'OK') {
+                                    resolve({
+                                        location: results[0].geometry.location,
+                                        fullAddress: results[0].formatted_address
+                                    });
+                                } else {
+                                    console.warn("Geocode failed for:", searchQuery, "Status:", status);
                                     resolve(null);
                                 }
                             });
                         });
 
+                        // Use the full address from Google if original address was empty or too short
+                        const finalAddress = (address.length < 5 && geoResult) ? geoResult.fullAddress : (address || (geoResult ? geoResult.fullAddress : "Alamat tidak ditemukan"));
+
                         const ref = db.collection('clients').doc();
                         batch.set(ref, {
                             name: name,
                             region: region,
-                            address: address,
-                            latitude: geoResult ? geoResult.lat() : 0,
-                            longitude: geoResult ? geoResult.lng() : 0,
+                            address: finalAddress,
+                            latitude: geoResult ? geoResult.location.lat() : 0,
+                            longitude: geoResult ? geoResult.location.lng() : 0,
                             createdAt: firebase.firestore.Timestamp.now()
                         });
 
