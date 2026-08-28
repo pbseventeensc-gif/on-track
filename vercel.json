@@ -1,4 +1,22 @@
 {
   "cleanUrls": true,
-  "trailingSlash": false
+  "trailingSlash": false,
+  "rewrites": [
+    {
+      "source": "/logistik",
+      "destination": "/logistik/index.html"
+    },
+    {
+      "source": "/kawanlama",
+      "destination": "https://web-track-phi-gilt.vercel.app"
+    },
+    {
+      "source": "/cabang",
+      "destination": "https://web-track-phi-gilt.vercel.app/?mode=cabang"
+    },
+    {
+      "source": "/inventory",
+      "destination": "https://inventory-wellen.vercel.app"
+    }
+  ]
 }

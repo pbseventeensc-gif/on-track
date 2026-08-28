@@ -1,0 +1,2201 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <title>Wellen Print - Professional Logistics Dashboard</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+    <!-- Stylesheets -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Libraries -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+
+    <script>
+        // Helper: Individual Courier Colors
+        function getCourierColor(id) {
+            const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#6366f1'];
+            let hash = 0; for (let i = 0; i < id.length; i++) hash = id.charCodeAt(i) + ((hash << 5) - hash);
+            return colors[Math.abs(hash) % colors.length];
+        }
+
+        (g=>{var h,a,k,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("callback",c+".maps."+q);a.src=`https://maps.${c}apis.com/maps/api/js?`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=m.querySelector("script[nonce]")?.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Re-referencing library name."):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})({
+            key: "AIzaSyCpVOcvJgCCpfwfAFIIOwMMYcuuW7WkNNM",
+            v: "weekly"
+        });
+    </script>
+
+    <style>
+        :root {
+            --primary: #111827; /* Dark Green / Black */
+            --bg-body: #F9FAFB;
+            --border-color: #E5E7EB;
+            --text-main: #111827;
+            --text-muted: #6B7280;
+            --sidebar-width: 260px;
+
+            /* Status Colors */
+            --status-transit: #3B82F6;
+            --status-delivered: #10B981;
+            --status-pending: #F59E0B;
+            --status-delayed: #EF4444;
+        }
+
+        body {
+            background-color: var(--bg-body);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            color: var(--text-main);
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        .wrapper { display: flex; height: 100vh; width: 100vw; overflow: hidden; }
+
+        /* Sidebar Styling */
+        .sidebar {
+            width: var(--sidebar-width);
+            background: #fff;
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 2000;
+            position: relative;
+        }
+
+        .sidebar.collapsed { width: 80px; }
+
+        /* Mobile Backdrop */
+        .sidebar-backdrop {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1999;
+            backdrop-filter: blur(2px);
+        }
+        .sidebar-backdrop.active { display: block; }
+
+        .sidebar-header {
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-height: 120px;
+        }
+        .sidebar.collapsed .sidebar-header {
+            background: #F9FAFB;
+            margin: 12px;
+            border-radius: 12px;
+            padding: 10px;
+            min-height: 60px;
+            justify-content: center;
+        }
+        .main-logo {
+            height: 70px;
+            max-width: 100%;
+            object-fit: contain;
+            transition: 0.3s;
+        }
+        .sidebar.collapsed .main-logo {
+            height: 32px;
+        }
+        .sidebar-brand {
+            font-weight: 800;
+            font-size: 1.1rem;
+            letter-spacing: -0.5px;
+            line-height: 1.2;
+            color: var(--primary);
+            transition: 0.2s;
+        }
+        .sidebar.collapsed .sidebar-brand { opacity: 0; visibility: hidden; width: 0; display: none; }
+
+        .nav-category {
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            padding: 24px 24px 8px;
+            letter-spacing: 0.05em;
+            white-space: nowrap;
+            overflow: hidden;
+            transition: 0.2s;
+        }
+        .sidebar.collapsed .nav-category { opacity: 0; visibility: hidden; padding: 12px 0; height: 0; }
+
+        .nav-menu { flex: 1; overflow-y: auto; padding: 0 12px; overflow-x: hidden; }
+        .nav-link-custom {
+            display: flex;
+            align-items: center;
+            padding: 10px 12px;
+            color: var(--text-muted);
+            font-weight: 500;
+            text-decoration: none !important;
+            border-radius: 8px;
+            transition: 0.2s;
+            cursor: pointer;
+            margin-bottom: 2px;
+            font-size: 0.9rem;
+            white-space: nowrap;
+        }
+        .nav-link-custom:hover { background: #F9FAFB; color: var(--primary); }
+        .nav-link-custom.active { background: #F3F4F6; color: var(--primary); font-weight: 600; }
+        .nav-link-custom i { font-size: 1.2rem; margin-right: 12px; min-width: 24px; text-align: center; }
+
+        .sidebar.collapsed .nav-link-custom { padding: 10px 0; justify-content: center; }
+        .sidebar.collapsed .nav-link-custom i { margin-right: 0; }
+        .sidebar.collapsed .nav-link-custom span { display: none; }
+
+        .sidebar-footer {
+            padding: 20px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+        .profile-img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+        .profile-info { overflow: hidden; transition: 0.2s; }
+        .sidebar.collapsed .profile-info { opacity: 0; visibility: hidden; width: 0; }
+        .sidebar.collapsed .sidebar-footer { justify-content: center; padding: 20px 0; }
+        .sidebar.collapsed .sidebar-footer i.ms-auto { display: none; }
+
+        /* Sidebar Toggle - Back to Original Arrow Style (Black Theme) */
+        .collapse-toggle {
+            position: absolute;
+            right: -12px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 24px;
+            height: 48px;
+            background: #000;
+            color: #fff;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 1100;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            transition: 0.3s ease;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .collapse-toggle:hover {
+            scale: 1.1;
+            background: #222;
+        }
+        .sidebar.collapsed .collapse-toggle { transform: translateY(-50%) rotate(180deg); }
+        @media (max-width: 991px) { .collapse-toggle { display: none; } }
+
+        /* Main Panel Styling */
+        .main-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+        .top-header {
+            height: 70px;
+            background: #fff;
+            border-bottom: 1px solid var(--border-color);
+            padding: 0 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .search-container { position: relative; width: 300px; }
+        .search-container i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
+        .search-input {
+            padding-left: 36px;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+            background: #F9FAFB;
+            font-size: 0.9rem;
+            width: 100%;
+            height: 40px;
+        }
+        .search-input:focus { outline: none; border-color: #D1D5DB; background: #fff; }
+
+        .header-actions { display: flex; align-items: center; gap: 16px; }
+        .action-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            cursor: pointer;
+            position: relative;
+        }
+        .btn-new-shipment {
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-new-shipment:hover { opacity: 0.9; }
+
+        .content-scroll { flex: 1; overflow-y: auto; padding: 32px; background: transparent; }
+
+        /* Grid & Cards */
+        .stat-card {
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            background: #fff;
+        }
+        .stat-label { font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 8px; }
+        .stat-value { font-size: 1.5rem; font-weight: 800; color: var(--text-main); margin-bottom: 4px; }
+        .stat-trend { font-size: 0.75rem; font-weight: 700; display: flex; align-items: center; gap: 4px; }
+        .trend-up { color: #10B981; }
+        .trend-down { color: #EF4444; }
+
+        .card-title { font-weight: 700; font-size: 1.1rem; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+
+        #map, #map-monitor, #map-dispatch { height: 450px; width: 100%; border-radius: 12px; border: 1px solid var(--border-color); }
+        #map-monitor, #map-dispatch { min-height: 500px; background: #f8fafc; }
+
+        /* Current Shipment Tracking Component */
+        .tracking-card { border: 1px solid var(--border-color); border-radius: 16px; padding: 24px; background: #fff; margin-bottom: 24px; }
+        .tracking-header { font-size: 0.9rem; font-weight: 600; color: var(--text-muted); margin-bottom: 20px; }
+        .shipment-info { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; }
+        .shipment-img { width: 56px; height: 56px; border-radius: 50%; background: #f3f4f6; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; }
+        .shipment-id { font-weight: 700; font-size: 1.1rem; margin-bottom: 2px; }
+        .shipment-desc { font-size: 0.85rem; color: var(--text-muted); }
+
+        .stepper { display: flex; align-items: center; justify-content: space-between; position: relative; padding: 0 10px; }
+        .step-item { display: flex; flex-direction: column; align-items: center; position: relative; z-index: 1; flex: 1; }
+        .step-icon { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: bold; border: 2px solid var(--border-color); background: #fff; transition: 0.3s; }
+        .step-icon.completed { background: #F97316; border-color: #F97316; color: #fff; }
+        .step-icon.active { background: #fff; border-color: #F97316; color: #F97316; }
+        .step-icon.pending { background: #f3f4f6; color: #9ca3af; }
+        .step-line { position: absolute; top: 12px; height: 2px; background: var(--border-color); z-index: 0; left: 50%; width: 100%; border-top: 2px dotted #d1d5db; }
+        .step-line.filled { border-top: 2px dotted #F97316; }
+        .step-item:last-child .step-line { display: none; }
+        .step-label { font-size: 0.7rem; font-weight: 600; color: #F97316; margin-bottom: 4px; position: absolute; top: -20px; width: 100px; text-align: center; }
+
+        /* Table Styling */
+        .table-container { border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; }
+        .table thead { background: #F9FAFB; }
+        .table thead th {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+            font-weight: 700;
+            color: var(--text-muted);
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .table tbody td { padding: 16px; font-size: 0.85rem; vertical-align: middle; border-bottom: 1px solid var(--border-color); }
+
+        /* Status Badges */
+        .badge-pill {
+            padding: 6px 12px;
+            border-radius: 9999px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .badge-transit { background: #EFF6FF; color: #3B82F6; }
+        .badge-delivered { background: #ECFDF5; color: #10B981; }
+        .badge-pending { background: #FFFBEB; color: #F59E0B; }
+        .badge-delayed { background: #FEF2F2; color: #EF4444; }
+
+        /* Progress Bars */
+        .progress-custom { height: 8px; border-radius: 4px; background: #F3F4F6; overflow: hidden; margin-bottom: 12px; }
+        .progress-bar-custom { height: 100%; border-radius: 4px; }
+
+        /* Responsive Sidebar */
+        @media (max-width: 991px) {
+            .sidebar {
+                position: fixed;
+                left: -280px; /* Slightly more than sidebar-width */
+                top: 0;
+                bottom: 0;
+                box-shadow: 10px 0 30px rgba(0,0,0,0.1);
+                width: 260px !important; /* Force width on mobile */
+            }
+            .sidebar.open { left: 0; }
+            .top-header { padding: 0 16px; }
+            .search-container { display: none; }
+            .content-scroll { padding: 16px; }
+            .sidebar.collapsed { width: 260px; } /* Disable collapse on mobile */
+        }
+
+        /* Modal Close Button Custom */
+        .btn-close-custom {
+            background: #000 url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23fff'%3e%3cpath d='M.293.293a1 1 0 0 1 1.414 0L8 6.586 14.293.293a1 1 0 1 1 1.414 1.414L9.414 8l6.293 6.293a1 1 0 0 1-1.414 1.414L8 9.414l-6.293 6.293a1 1 0 0 1-1.414-1.414L6.586 8 .293 1.707a1 1 0 0 1 0-1.414z'/%3e%3c/svg%3e") center/1em auto no-repeat !important;
+            opacity: 1 !important;
+            border: 2px solid #fff !important;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            transition: 0.2s;
+        }
+        .btn-close-custom:hover { transform: scale(1.1); background-color: #333 !important; }
+
+        /* Helpers & Misc */
+        .view-section { display: none; animation: fadeIn 0.3s; }
+        .view-section.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .extra-small { font-size: 0.7rem; }
+        .cursor-pointer { cursor: pointer; }
+
+        /* Markers */
+        .custom-div-icon { background: none; border: none; }
+        .marker-pin { width: 32px; height: 32px; border-radius: 50% 50% 50% 0; background: var(--status-transit); position: absolute; transform: rotate(-45deg); left: 50%; top: 50%; margin: -15px 0 0 -15px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.2); border: 2px solid #fff; }
+        .marker-pin::after { content: ''; width: 22px; height: 22px; background: #fff; position: absolute; border-radius: 50%; }
+        .marker-num { position: absolute; width: 32px; height: 32px; line-height: 32px; text-align: center; font-weight: 800; font-size: 13px; color: #000; z-index: 10; }
+
+        /* Proof Photo */
+        .proof-img-thumb { width: 40px; height: 40px; border-radius: 8px; object-fit: cover; cursor: pointer; border: 1px solid var(--border-color); }
+
+        .bubble { max-width: 85%; padding: 10px 14px; border-radius: 12px; font-size: 0.85rem; margin-bottom: 8px; }
+        .bubble.admin { align-self: flex-end; background: var(--primary); color: #fff; border-bottom-right-radius: 2px; }
+        .bubble.courier { align-self: flex-start; background: #F3F4F6; color: var(--text-main); border-bottom-left-radius: 2px; }
+
+        /* Dark Mode Theme */
+        body.dark-theme {
+            --bg-body: #0f172a;
+            --primary: #f8fafc;
+            --border-color: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+        .dark-theme .sidebar, .dark-theme .top-header, .dark-theme .bg-white, .dark-theme .tracking-card, .dark-theme .modal-content {
+            background-color: #1e293b !important;
+            color: #f8fafc !important;
+        }
+        .dark-theme .stat-card, .dark-theme .table-container, .dark-theme .border, .dark-theme .card, .dark-theme .view-section > div {
+            background-color: #1e293b !important;
+            border-color: #334155 !important;
+        }
+        .dark-theme .nav-link-custom:hover { background: #334155; color: #38bdf8; }
+        .dark-theme .nav-link-custom.active { background: #334155; color: #38bdf8; font-weight: 600; }
+        .dark-theme .table thead { background: #0f172a; }
+        .dark-theme .search-input, .dark-theme .form-select, .dark-theme .form-control { background: #0f172a; color: #f8fafc; border-color: #334155; }
+        .dark-theme .btn-light { background: #334155; border-color: #475569; color: #f8fafc; }
+        .dark-theme .nav-category { color: #475569; }
+        .dark-theme .sidebar-header, .dark-theme .sidebar-footer { border-color: #334155; }
+        .dark-theme .table tbody td { color: #e2e8f0; border-bottom-color: #334155; }
+        .dark-theme .bubble.courier { background: #334155; color: #f8fafc; }
+        .dark-theme #map, .dark-theme #map-monitor, .dark-theme #map-dispatch { filter: brightness(0.9) contrast(1.1); }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar-backdrop" id="sidebar-backdrop" onclick="toggleSidebar()"></div>
+
+    <div class="wrapper">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="collapse-toggle" onclick="toggleCollapse()">
+                <i class="bi bi-chevron-left" style="font-size: 12px;"></i>
+            </div>
+            <div class="sidebar-header">
+                <img src="wellen_logo.jpeg" class="main-logo" alt="Wellen Print">
+                <div class="sidebar-brand">Wellen Print</div>
+            </div>
+
+            <nav class="nav-menu">
+                <div class="nav-category">Overview</div>
+                <a class="nav-link-custom active" onclick="switchTab('dashboard', this)">
+                    <i class="bi bi-grid-1x2"></i> <span>Dashboard</span>
+                </a>
+                <a class="nav-link-custom" onclick="switchTab('monitor', this)">
+                    <i class="bi bi-geo-alt"></i> <span>Live Tracking</span>
+                </a>
+
+                <div class="nav-category">Operations</div>
+                <a class="nav-link-custom" onclick="switchTab('dispatch', this)">
+                    <i class="bi bi-plus-square"></i> <span>Shipments</span>
+                </a>
+                <a class="nav-link-custom" onclick="switchTab('fleet', this)">
+                    <i class="bi bi-graph-up-arrow"></i> <span>KPI Kurir</span>
+                </a>
+                <a class="nav-link-custom" onclick="switchTab('chat', this)">
+                    <i class="bi bi-chat-dots"></i> <span>Drivers Chat</span>
+                </a>
+
+                <div class="nav-category">System</div>
+                <a class="nav-link-custom" onclick="switchTab('reports', this)">
+                    <i class="bi bi-bar-chart"></i> <span>Reports</span>
+                </a>
+                <a class="nav-link-custom" onclick="switchTab('settings', this)">
+                    <i class="bi bi-gear"></i> <span>Settings</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer flex-column align-items-start" style="padding: 10px 20px;">
+                <div class="d-flex align-items-center w-100 mb-3 pt-2" style="font-size: 0.8rem; border-top: 1px solid var(--border-color);">
+                    <i class="bi bi-moon-stars me-2"></i> <span class="dark-mode-text">Dark Mode</span>
+                    <div class="form-check form-switch ms-auto">
+                        <input class="form-check-input cursor-pointer" type="checkbox" id="dark-mode-toggle" onchange="toggleDarkMode()">
+                    </div>
+                </div>
+                <div class="d-flex align-items-center gap-12 w-100">
+                    <img src="https://ui-avatars.com/api/?name=Admin+W&background=111827&color=fff" class="profile-img" alt="Profile">
+                    <div class="profile-info">
+                        <p class="profile-name mb-0 fw-bold">Admin WellenGO</p>
+                        <p class="profile-role mb-0 extra-small text-muted">Fleet Manager</p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Panel -->
+        <div class="main-panel">
+            <header class="top-header">
+                <div class="d-flex align-items-center gap-3">
+                    <button class="btn btn-light d-lg-none" onclick="toggleSidebar()">
+                        <i class="bi bi-list fs-4"></i>
+                    </button>
+                    <div class="search-container">
+                        <i class="bi bi-search"></i>
+                        <input type="text" class="search-input" placeholder="Search shipments...">
+                    </div>
+                </div>
+
+                <div class="header-actions">
+                    <div class="action-btn">
+                        <i class="bi bi-bell"></i>
+                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="padding: 4px; border: 2px solid #fff;">
+                            <span class="visually-hidden">notifications</span>
+                        </span>
+                    </div>
+                    <img src="https://ui-avatars.com/api/?name=Admin+W&background=F3F4F6&color=111827" style="width:36px; height:36px; border-radius:10px; border: 1px solid var(--border-color);">
+                    <button class="btn-new-shipment" onclick="switchTab('dispatch', document.querySelector('[onclick*=\'dispatch\']'))">
+                        <i class="bi bi-plus-lg"></i> New Shipment
+                    </button>
+                </div>
+            </header>
+
+            <div class="content-scroll">
+
+                <!-- DASHBOARD VIEW -->
+                <div id="view-dashboard" class="view-section active">
+                    <!-- Stats Cards Row 1 -->
+                    <div class="row g-4 mb-4">
+                        <div class="col-6 col-md-4 col-xl-2">
+                            <div class="stat-card">
+                                <div class="stat-label">Active Shipments</div>
+                                <div class="stat-value" id="stat-active">0</div>
+                                <div class="stat-trend trend-up"><i class="bi bi-arrow-up-short"></i> +0% vs lw</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4 col-xl-2">
+                            <div class="stat-card">
+                                <div class="stat-label">On-Time Rate</div>
+                                <div class="stat-value" id="stat-ontime">100%</div>
+                                <div class="stat-trend trend-up"><i class="bi bi-arrow-up-short"></i> +0%</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4 col-xl-2">
+                            <div class="stat-card">
+                                <div class="stat-label">Delayed</div>
+                                <div class="stat-value" id="stat-delayed">0</div>
+                                <div class="stat-trend text-muted">Stable</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4 col-xl-2">
+                            <div class="stat-card">
+                                <div class="stat-label">In Transit</div>
+                                <div class="stat-value" id="stat-transit-count">0</div>
+                                <div class="stat-trend trend-up"><i class="bi bi-arrow-up-short"></i> +0%</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4 col-xl-2">
+                            <div class="stat-card">
+                                <div class="stat-label">Orders Today</div>
+                                <div class="stat-value" id="stat-done">0</div>
+                                <div class="stat-trend trend-up"><i class="bi bi-arrow-up-short"></i> +0%</div>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4 col-xl-2">
+                            <div class="stat-card">
+                                <div class="stat-label">Total Distance</div>
+                                <div class="stat-value" id="stat-total-km">0 km</div>
+                                <div class="stat-trend text-muted">Real-time</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Row 2: Map & Alerts -->
+                    <div class="row g-4 mb-4 align-items-start">
+                        <div class="col-lg-8">
+                            <div class="border rounded-4 overflow-hidden">
+                                <div class="p-3 bg-white border-bottom d-flex justify-content-between align-items-center">
+                                    <span class="fw-bold"><i class="bi bi-map me-2"></i>Live Fleet Tracking</span>
+                                    <div class="d-flex gap-2">
+                                        <button class="btn btn-sm btn-outline-primary fw-bold" style="border-radius: 8px;" onclick="toggleHeatmap()"><i class="bi bi-fire me-1"></i> Heatmap</button>
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">LIVE</span>
+                                    </div>
+                                </div>
+                                <div id="map"></div>
+                            </div>
+                        </div>
+                        <div class="col-lg-4">
+                            <div class="border rounded-4 p-4 bg-white">
+                                <div class="card-title">Priority Alerts <span class="text-primary cursor-pointer fs-6 fw-normal">View all</span></div>
+                                <div id="priority-alerts" class="d-flex flex-column gap-3">
+                                    <!-- Dynamic Alerts -->
+                                    <div class="d-flex gap-3 p-3 rounded-3" style="background: #FEF2F2;">
+                                        <div class="text-danger fs-4"><i class="bi bi-exclamation-triangle"></i></div>
+                                        <div>
+                                            <div class="fw-bold small">Delay: SHIP-9021</div>
+                                            <div class="extra-small text-muted">Vehicle breakdown at Gatot Subroto</div>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex gap-3 p-3 rounded-3" style="background: #FFFBEB;">
+                                        <div class="text-warning fs-4"><i class="bi bi-clock"></i></div>
+                                        <div>
+                                            <div class="fw-bold small">ETA Warning: SHIP-8812</div>
+                                            <div class="extra-small text-muted">Predicted 15m delay due to traffic</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Row 3: Status & Performance -->
+                    <div class="row g-4 mb-4 align-items-start">
+                        <div class="col-lg-4">
+                            <div class="border rounded-4 p-4 bg-white shadow-sm">
+                                <div class="card-title mb-4">Shipment Status</div>
+                                <div class="mb-4">
+                                    <div class="d-flex justify-content-between mb-2 small fw-bold"><span>In Transit</span><span>0%</span></div>
+                                    <div class="progress-custom"><div class="progress-bar-custom bg-primary" style="width: 0%"></div></div>
+                                </div>
+                                <div class="mb-4">
+                                    <div class="d-flex justify-content-between mb-2 small fw-bold"><span>Delivered</span><span>0%</span></div>
+                                    <div class="progress-custom"><div class="progress-bar-custom" style="width: 0%; background: #10B981;"></div></div>
+                                </div>
+                                <div>
+                                    <div class="d-flex justify-content-between mb-2 small fw-bold"><span>Pending</span><span>0%</span></div>
+                                    <div class="progress-custom"><div class="progress-bar-custom" style="width: 0%; background: #F59E0B;"></div></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-8">
+                            <div class="border rounded-4 p-4 bg-white shadow-sm">
+                                <div class="card-title mb-4">Delivery Performance</div>
+                                <div style="height: 220px; width: 100%;">
+                                    <canvas id="performanceChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Row 4: Recent Shipments -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="border rounded-4 p-4 bg-white">
+                                <div class="card-title">Recent Shipments <button class="btn btn-sm btn-light border" onclick="loadFullHistory()"><i class="bi bi-arrow-clockwise"></i></button></div>
+                                <div class="table-responsive">
+                                    <table class="table table-borderless m-0">
+                                        <thead>
+                                            <tr>
+                                                <th>Shipment ID</th>
+                                                <th>Origin</th>
+                                                <th>Destination</th>
+                                                <th>Status</th>
+                                                <th>Carrier</th>
+                                                <th>ETA / Completed</th>
+                                                <th>Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="recent-shipments-table">
+                                            <!-- Dynamic Rows -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- DISPATCH VIEW -->
+                <div id="view-dispatch" class="view-section">
+                    <div class="row g-4 mb-4">
+                        <!-- Left Panel: Dispatch Controls -->
+                        <div class="col-lg-5">
+                            <div class="border rounded-4 p-4 bg-white shadow-sm h-100">
+                                <h6 class="fw-bold mb-4">Assign Shipment</h6>
+
+                                <div class="mb-4">
+                                    <label class="extra-small fw-bold text-muted text-uppercase mb-2">1. Select Courier</label>
+                                    <select id="sel-courier" class="form-select border-1 py-2" style="border-radius: 10px;"></select>
+                                </div>
+
+                                <div class="mb-4">
+                                    <label class="extra-small fw-bold text-muted text-uppercase mb-2">2. Add Destinations</label>
+                                    <div class="position-relative mb-3">
+                                        <i class="bi bi-geo-alt position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"></i>
+                                        <input type="text" id="places-search" class="form-control ps-5 py-2" style="border-radius: 10px;" placeholder="Search Address manually...">
+                                    </div>
+
+                                    <!-- Region Filter & Batch Select -->
+                                    <div class="border rounded-3 p-3 bg-light">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <div class="d-flex align-items-center">
+                                                <label class="extra-small fw-bold text-muted text-uppercase mb-0">Quick Pick by Region</label>
+                                                <span id="client-qty" class="badge bg-dark ms-2" style="font-size: 0.6rem; border-radius: 6px;">0</span>
+                                            </div>
+                                            <div class="d-flex align-items-center gap-2">
+                                                <div class="form-check p-0 m-0" style="min-height: auto;">
+                                                    <input type="checkbox" class="form-check-input ms-0" id="select-all-clients" onchange="toggleAllClients(this.checked)" style="width: 14px; height: 14px; margin-top: 0;">
+                                                    <label class="form-check-label extra-small fw-bold text-muted ms-1" for="select-all-clients">ALL</label>
+                                                </div>
+                                                <select id="region-filter" class="form-select form-select-sm w-auto border-0 bg-transparent fw-bold text-primary" onchange="loadClientsByRegion(this.value)">
+                                                    <option value="">All Regions</option>
+                                                    <option value="Auto-detected">Auto-detected</option>
+                                                    <option value="Bogor">Bogor</option>
+                                                    <option value="Cikarang">Cikarang</option>
+                                                    <option value="Jakarta Barat">Jakarta Barat</option>
+                                                    <option value="Jakarta Pusat">Jakarta Pusat</option>
+                                                    <option value="Jakarta Selatan">Jakarta Selatan</option>
+                                                    <option value="Jakarta Timur">Jakarta Timur</option>
+                                                    <option value="Tangerang">Tangerang</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div class="position-relative mb-2">
+                                            <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-2 text-muted" style="font-size: 0.7rem;"></i>
+                                            <input type="text" id="client-search-input" class="form-control form-control-sm ps-4" style="border-radius: 8px; font-size: 0.7rem;" placeholder="Search by Store or PT..." oninput="filterClients(this.value)">
+                                        </div>
+
+                                        <div id="client-list-container" class="overflow-y-auto mb-3" style="max-height: 250px;">
+                                            <p class="text-center py-3 text-muted extra-small">Loading clients...</p>
+                                        </div>
+                                        <div class="d-flex gap-2">
+                                            <button class="btn btn-sm btn-outline-dark flex-grow-1 fw-bold" onclick="addSelectedClients()">ADD SELECTED TO ROUTE</button>
+                                            <button class="btn btn-sm btn-outline-danger px-3" onclick="clearAllClients()" title="Hapus Semua Client dari Database">
+                                                <i class="bi bi-trash3-fill"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div id="dispatch-queue" class="d-flex flex-wrap gap-2 mb-4"></div>
+
+                                <button class="btn btn-dark w-100 py-3 fw-bold shadow-sm" style="border-radius:12px;" onclick="submitTrip()">
+                                    <i class="bi bi-send-plus-fill me-2"></i> CONFIRM & DISPATCH
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Right Panel: Dispatch Map -->
+                        <div class="col-lg-7">
+                            <div class="border rounded-4 overflow-hidden shadow-sm h-100" style="min-height: 500px;">
+                                <div id="map-dispatch" style="height: 100%; width: 100%;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- KPI KURIR VIEW -->
+                <div id="view-fleet" class="view-section">
+                    <div class="row g-4 mb-4">
+                        <div class="col-md-3">
+                            <div class="stat-card shadow-sm">
+                                <div class="stat-label text-uppercase">Top Performer</div>
+                                <div class="stat-value" id="kpi-top-courier">-</div>
+                                <div class="stat-trend trend-up"><i class="bi bi-star-fill"></i> MVP of the Week</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="stat-card shadow-sm">
+                                <div class="stat-label text-uppercase">Total Distance</div>
+                                <div class="stat-value" id="kpi-total-km">0 km</div>
+                                <div class="stat-trend text-muted">Actual history</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="stat-card shadow-sm">
+                                <div class="stat-label text-uppercase">Total Completed</div>
+                                <div class="stat-value" id="kpi-total-done">0</div>
+                                <div class="stat-trend trend-up"><i class="bi bi-check-all"></i> Real-time trips</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="stat-card shadow-sm" style="background: #FFFBEB; border-color: #FDE68A;">
+                                <div class="stat-label text-uppercase text-warning-emphasis mb-3">Cost Calculator</div>
+                                <div class="row g-2 mb-2">
+                                    <div class="col-12">
+                                        <label class="extra-small fw-bold text-muted">INPUT KM (MANUAL)</label>
+                                        <input type="number" id="calc-km" class="form-control form-control-sm border-warning-subtle" placeholder="Use system if empty" oninput="renderKPIView()">
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="extra-small fw-bold text-muted">KM / LITER</label>
+                                        <input type="number" id="calc-efficiency" class="form-control form-control-sm border-warning-subtle" value="40" oninput="renderKPIView()">
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="extra-small fw-bold text-muted">PRICE / L</label>
+                                        <input type="number" id="calc-price" class="form-control form-control-sm border-warning-subtle" value="10000" oninput="renderKPIView()">
+                                    </div>
+                                </div>
+                                <div class="stat-value text-warning-emphasis" style="font-size: 1.2rem;" id="kpi-total-fuel">Rp 0</div>
+                                <div class="stat-trend text-muted" id="kpi-fuel-liters">Ready to calculate</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row g-4 mb-4">
+                        <div class="col-lg-8">
+                            <div class="border rounded-4 p-4 bg-white shadow-sm">
+                                <div class="card-title mb-4">Courier Efficiency Ranking</div>
+                                <div style="height: 350px;">
+                                    <canvas id="kpiRankingChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-4">
+                            <div class="border rounded-4 p-4 bg-white shadow-sm">
+                                <div class="card-title mb-4">Task Distribution</div>
+                                <div style="height: 350px;">
+                                    <canvas id="kpiDistributionChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="border rounded-4 p-4 bg-white shadow-sm">
+                        <div class="card-title mb-4">Detailed Performance Stats</div>
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Courier Name</th>
+                                        <th>Status</th>
+                                        <th>Trips</th>
+                                        <th>Rating</th>
+                                        <th>Distance</th>
+                                        <th>Fuel & Cost</th>
+                                        <th>Duration</th>
+                                        <th>Score</th>
+                                    </tr>
+                                </thead>
+                                </thead>
+                                <tbody id="kpi-table-body">
+                                    <!-- Dynamic Data -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- MONITOR VIEW -->
+                <div id="view-monitor" class="view-section">
+                    <div class="border rounded-4 p-4 bg-white mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h6 class="fw-bold m-0"><i class="bi bi-geo-alt-fill me-2"></i>Live Fleet Tracking</h6>
+                            <span class="badge bg-success-subtle text-success px-3 py-2 border border-success-subtle">LIVE</span>
+                        </div>
+
+                        <!-- Search Bar for Monitor -->
+                        <div class="position-relative mb-4">
+                            <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"></i>
+                            <input type="text" id="monitor-search" class="form-control ps-5 py-2" style="border-radius: 12px; background: #F9FAFB;" placeholder="Search by Order ID, Client, Courier..." oninput="filterMonitorAll(this.value)" list="monitor-datalist">
+                            <datalist id="monitor-datalist"></datalist>
+                        </div>
+
+                        <!-- Monitor Map -->
+                        <div id="map-monitor" style="height: 500px; width: 100%; border-radius: 16px; border: 1px solid var(--border-color);" class="mb-4"></div>
+
+                        <!-- Current Shipment Detail (New) -->
+                        <div id="current-shipment-detail" class="tracking-card d-none">
+                            <div class="tracking-header text-uppercase">Current Shipment</div>
+                            <div class="shipment-info">
+                                <div class="shipment-img"><i class="bi bi-box-seam"></i></div>
+                                <div>
+                                    <div class="shipment-id" id="track-shipment-id">ID: -</div>
+                                    <div class="shipment-desc" id="track-client-name">Loading...</div>
+                                </div>
+                            </div>
+                            <div class="stepper" id="track-stepper">
+                                <!-- Steps will be injected here -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="monitor-list" class="row g-4"></div>
+                </div>
+
+                <!-- REPORTS VIEW -->
+                <div id="view-reports" class="view-section">
+                    <div class="border rounded-4 p-4 bg-white mb-4">
+                        <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+                            <div>
+                                <h6 class="fw-bold m-0">Daily Reports</h6>
+                                <p class="extra-small text-primary fw-bold mb-0" id="current-report-date"></p>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <input type="date" id="rep-date" class="form-control border" style="border-radius: 10px;" onchange="loadFullHistory()">
+                                <button class="btn btn-outline-dark fw-bold px-3 btn-sm" style="border-radius: 8px;" onclick="exportToExcel()"><i class="bi bi-download me-1"></i> Excel</button>
+                                <button class="btn btn-danger fw-bold px-3 btn-sm" style="border-radius: 8px;" onclick="clearAllHistory()"><i class="bi bi-trash me-1"></i> Hapus Semua</button>
+                            </div>
+                        </div>
+                        <div id="history-list"></div>
+                    </div>
+                </div>
+
+                <!-- CHAT VIEW -->
+                <div id="view-chat" class="view-section">
+                    <div class="row g-4">
+                        <div class="col-lg-4">
+                            <div class="border rounded-4 p-4 bg-white">
+                                <h6 class="fw-bold mb-4">Drivers</h6>
+                                <input type="text" class="form-control border mb-3" style="border-radius: 10px;" placeholder="Search..." oninput="filterCourierChat(this.value)">
+                                <div id="chat-list-container" class="d-flex flex-column gap-2" style="max-height:500px; overflow-y:auto"></div>
+                            </div>
+                        </div>
+                        <div class="col-lg-8">
+                            <div class="border rounded-4 bg-white overflow-hidden d-flex flex-column" style="height:620px">
+                                <div class="p-3 border-bottom d-flex align-items-center justify-content-between">
+                                    <span class="fw-bold" id="chat-header-main">Select a driver</span>
+                                    <span class="extra-small text-success fw-bold"><i class="bi bi-circle-fill me-1" style="font-size: 6px;"></i> Online</span>
+                                </div>
+                                <div id="chat-messages-main" class="flex-grow-1 p-4 overflow-y-auto d-flex flex-column"></div>
+                                <div class="p-3 border-top bg-light">
+                                    <div class="input-group">
+                                        <input type="text" id="chat-input-main" class="form-control border-0 bg-white p-3 shadow-none" style="border-radius: 12px 0 0 12px;" placeholder="Type a message..." onkeypress="if(event.key==='Enter') sendChatMain()">
+                                        <button class="btn btn-dark px-4" style="border-radius: 0 12px 12px 0;" onclick="sendChatMain()"><i class="bi bi-send"></i></button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SETTINGS VIEW -->
+                <div id="view-settings" class="view-section">
+                    <div class="row g-4">
+                        <div class="col-lg-6">
+                            <div class="border rounded-4 p-4 bg-white shadow-sm mb-4">
+                                <h6 class="fw-bold mb-4"><i class="bi bi-file-earmark-excel me-2"></i>Import Clients Database</h6>
+                                <p class="extra-small text-muted mb-4">Upload Excel (.xlsx) containing columns: <b>Customer, Alamat SJ, Region</b></p>
+                                <div class="mb-3">
+                                    <input type="file" id="client-excel-file" class="form-control border" accept=".xlsx, .xls" style="border-radius: 10px;">
+                                </div>
+                                <div id="import-progress" class="progress d-none mb-3" style="height:8px"><div class="progress-bar progress-bar-striped progress-bar-animated bg-success"></div></div>
+                                <button class="btn btn-outline-dark w-100 py-3 fw-bold" style="border-radius:12px" onclick="importClientsFromExcel()">
+                                    <i class="bi bi-cloud-upload me-2"></i>UPLOAD & SYNC CLIENTS
+                                </button>
+                                <div id="import-status" class="mt-3 extra-small fw-bold"></div>
+                            </div>
+
+                            <div class="border rounded-4 p-4 bg-white shadow-sm">
+                                <h6 class="fw-bold mb-4">App Release Management</h6>
+                                <div class="mb-3">
+                                    <label class="extra-small fw-bold text-muted mb-2">VERSION CODE</label>
+                                    <input type="number" id="upd-version" class="form-control border" style="border-radius: 10px;">
+                                </div>
+                                <div class="mb-4">
+                                    <label class="extra-small fw-bold text-muted mb-2">APK FILE</label>
+                                    <input type="file" id="upd-file" class="form-control border" style="border-radius: 10px;">
+                                </div>
+                                <div id="upd-progress" class="progress mt-3 d-none mb-3" style="height:8px"><div class="progress-bar bg-primary"></div></div>
+                                <button class="btn btn-dark w-100 py-3 fw-bold" style="border-radius:12px" onclick="publishUpdateAuto()">PUBLISH & UPDATE</button>
+                            </div>
+                        </div>
+                        <div class="col-lg-6">
+                            <div class="border rounded-4 p-4 bg-white">
+                                <h6 class="fw-bold mb-4">System Configuration</h6>
+                                <div class="mb-4">
+                                    <label class="extra-small fw-bold text-muted mb-2">SYNC INTERVAL</label>
+                                    <div class="input-group">
+                                        <input type="number" id="cfg-interval" class="form-control border" value="10" style="border-radius: 10px 0 0 10px;">
+                                        <select id="cfg-time-unit" class="form-select border" style="border-radius: 0 10px 10px 0;">
+                                            <option value="1000">Seconds</option>
+                                            <option value="60000">Minutes</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="mb-4">
+                                    <label class="extra-small fw-bold text-muted mb-2">GEOFENCE RADIUS (METERS)</label>
+                                    <input type="number" id="cfg-geofence" class="form-control border" value="20" style="border-radius: 10px;">
+                                </div>
+                                <div class="mb-4">
+                                    <label class="extra-small fw-bold text-muted mb-2">OPERATIONAL COST (RP PER KM)</label>
+                                    <input type="number" id="cfg-cost-km" class="form-control border" value="1000" style="border-radius: 10px;">
+                                </div>
+                                <button class="btn btn-dark w-100 py-3 fw-bold" style="border-radius:12px" onclick="updateConfig()">SAVE CHANGES</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals & Toasts -->
+    <div class="toast-container position-fixed top-0 start-50 translate-middle-x p-3" style="z-index:99999">
+        <div id="myToast" class="toast align-items-center text-white bg-dark border-0 shadow-lg" role="alert" style="border-radius:12px">
+            <div class="d-flex p-3"><div class="toast-body fw-bold"></div></div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="imageModal" tabindex="-1">
+        <div class="modal-dialog modal-sm modal-dialog-centered" style="max-width: 400px;">
+            <div class="modal-content border-0 shadow-lg" style="border-radius:24px; overflow:hidden">
+                <div class="position-absolute top-0 end-0 p-3" style="z-index: 10">
+                    <button type="button" class="btn-close-custom" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-0 text-center bg-black d-flex align-items-center justify-content-center" style="min-height: 300px;">
+                    <img id="modalImg" src="" style="max-width:100%; max-height: 70vh; width: auto; height: auto; object-fit: contain; image-rendering: high-quality;">
+                    <div class="position-absolute bottom-0 start-0 end-0 p-3" style="background: linear-gradient(transparent, rgba(0,0,0,0.8))">
+                        <a id="downloadBtn" href="#" download class="btn btn-light btn-sm w-100 fw-bold py-2" style="border-radius: 8px">
+                            <i class="bi bi-download me-2"></i>Download HD
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyCpVOcvJgCCpfwfAFIIOwMMYcuuW7WkNNM",
+            authDomain: "ontrack-fccb8.firebaseapp.com",
+            databaseURL: "https://ontrack-fccb8-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "ontrack-fccb8",
+            storageBucket: "ontrack-fccb8.firebasestorage.app",
+            messagingSenderId: "180144218738",
+            appId: "1:180144218738:android:b0b991a7575ae7693ed8eb"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const rtdb = firebase.database(), db = firebase.firestore(), storage = firebase.storage();
+
+        // Map & Data Variables
+        let map, mapMonitor, mapDispatch;
+        let rankingChart, distributionChart;
+        const registeredUsers = {};
+        const tripMarkersLayer = L.layerGroup();
+        const monitorMarkersLayer = L.layerGroup();
+        const monitorCouriersLayer = L.layerGroup();
+        const draftMarkersLayer = L.layerGroup();
+
+        let tripQueue = [], currentChatId = null, chatUnsub = null, lastLoadedHistory = [];
+        let allCurrentTrips = [];
+        let currentOnlineCouriers = {};
+        let activeFilter = "";
+        let heatmapLayer, isDarkMode = false;
+        let allClients = []; // Store master data clients
+
+        const googleTiles = { url: 'https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', options: { maxZoom: 20, subdomains: ['mt0', 'mt1', 'mt2', 'mt3'], attribution: '&copy; Google Maps' } };
+        const cartoDark = { url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', options: { attribution: '&copy; OpenStreetMap contributors &copy; CARTO' } };
+
+        function initMaps() {
+            try {
+                const tileCfg = isDarkMode ? cartoDark : googleTiles;
+                if (document.getElementById('map')) {
+                    map = L.map('map', { zoomControl: false }).setView([-6.2, 106.81], 12);
+                    L.control.zoom({ position: 'bottomright' }).addTo(map);
+                    L.tileLayer(tileCfg.url, tileCfg.options).addTo(map);
+                    tripMarkersLayer.addTo(map);
+                }
+                if (document.getElementById('map-monitor')) {
+                    mapMonitor = L.map('map-monitor', { zoomControl: false }).setView([-6.2, 106.81], 12);
+                    L.control.zoom({ position: 'bottomright' }).addTo(mapMonitor);
+                    L.tileLayer(tileCfg.url, tileCfg.options).addTo(mapMonitor);
+                    monitorMarkersLayer.addTo(mapMonitor);
+                    monitorCouriersLayer.addTo(mapMonitor);
+                }
+                if (document.getElementById('map-dispatch')) {
+                    mapDispatch = L.map('map-dispatch', { zoomControl: false }).setView([-6.2, 106.81], 12);
+                    L.control.zoom({ position: 'bottomright' }).addTo(mapDispatch);
+                    L.tileLayer(tileCfg.url, tileCfg.options).addTo(mapDispatch);
+                    draftMarkersLayer.addTo(mapDispatch);
+                }
+            } catch (e) { console.error("Leaflet Init Error:", e); }
+        }
+
+        function toggleDarkMode() {
+            isDarkMode = document.getElementById('dark-mode-toggle').checked;
+            document.body.classList.toggle('dark-theme', isDarkMode);
+            const tileCfg = isDarkMode ? cartoDark : googleTiles;
+            [map, mapMonitor, mapDispatch].forEach(m => {
+                if (m) {
+                    m.eachLayer(l => { if (l instanceof L.TileLayer) m.removeLayer(l); });
+                    L.tileLayer(tileCfg.url, tileCfg.options).addTo(m);
+                }
+            });
+        }
+
+        function toggleHeatmap() {
+            if (heatmapLayer) { map.removeLayer(heatmapLayer); heatmapLayer = null; return; }
+            const points = [];
+            allCurrentTrips.forEach(t => { t.destinations.forEach(d => { if (d.status === 'done') points.push([d.latitude, d.longitude, 0.5]); }); });
+            if (points.length === 0) return showToast("No delivery data for heatmap.");
+            heatmapLayer = L.heatLayer(points, { radius: 25, blur: 15 }).addTo(map);
+            showToast("Heatmap Analytics Active");
+        }
+
+        function openPoDModal(url) {
+            document.getElementById('modalImg').src = url;
+            document.getElementById('downloadBtn').href = url;
+            new bootstrap.Modal(document.getElementById('imageModal')).show();
+        }
+
+        function updateDynamicAlerts() {
+            const container = document.getElementById('priority-alerts'); if(!container) return;
+            container.innerHTML = ''; const now = Date.now();
+            allCurrentTrips.forEach(t => {
+                if(t.status === 'in_progress') {
+                    const lastUpdate = t.destinations.filter(d => d.status === 'done' || d.status === 'arrived').reduce((max, d) => {
+                        const time = (d.completedTime || d.arrivalTime)?.seconds * 1000 || 0;
+                        return time > max ? time : max;
+                    }, t.date.seconds * 1000);
+                    if(now - lastUpdate > 30 * 60 * 1000) {
+                        container.innerHTML += `<div class="d-flex gap-3 p-3 rounded-3" style="background: #FEF2F2;"><div class="text-danger fs-4"><i class="bi bi-clock-history"></i></div><div><div class="fw-bold small text-dark">DELAY WARNING: ${t.id.substring(5,11)}</div><div class="extra-small text-danger">No update for >30 mins</div></div></div>`;
+                    }
+                }
+                if(!currentOnlineCouriers[t.courierId] && t.status !== 'completed') {
+                    container.innerHTML += `<div class="d-flex gap-3 p-3 rounded-3" style="background: #FFFBEB;"><div class="text-warning fs-4"><i class="bi bi-person-x"></i></div><div><div class="fw-bold small text-dark">COURIER OFFLINE</div><div class="extra-small text-warning">${registeredUsers[t.courierId] || 'Driver'} has active trip</div></div></div>`;
+                }
+            });
+            if(container.innerHTML === '') container.innerHTML = '<div class="text-center py-4 text-muted extra-small">No priority alerts.</div>';
+        }
+        window.addEventListener('load', initMaps);
+
+        // Performance Chart Init
+        const ctx = document.getElementById('performanceChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                datasets: [{
+                    label: 'Deliveries',
+                    data: [0, 0, 0, 0, 0, 0, 0],
+                    backgroundColor: '#111827',
+                    borderRadius: 8
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, border: { display: false } }, x: { grid: { display: false } } } }
+        });
+
+        async function initAutocomplete() {
+            try {
+                const { Autocomplete } = await google.maps.importLibrary("places");
+                const input = document.getElementById('places-search');
+                const autocomplete = new Autocomplete(input, { componentRestrictions: { country: "id" }, fields: ["geometry", "name", "formatted_address"] });
+                autocomplete.addListener("place_changed", () => {
+                    const place = autocomplete.getPlace(); if (!place.geometry) return;
+                    const lat = place.geometry.location.lat(), lng = place.geometry.location.lng();
+                    tripQueue.push({ name: place.name || "Tujuan", address: place.formatted_address || "", lat, lng });
+                    renderQueue(); input.value = "";
+                    if(mapDispatch) mapDispatch.flyTo([lat, lng], 16);
+                });
+            } catch (e) { console.error("Maps Error", e); }
+        }
+        window.addEventListener('load', initAutocomplete);
+
+        function toggleSidebar() {
+            const sb = document.getElementById('sidebar');
+            const backdrop = document.getElementById('sidebar-backdrop');
+
+            if (window.innerWidth <= 991) {
+                sb.classList.toggle('open');
+                backdrop.classList.toggle('active');
+            } else {
+                toggleCollapse();
+            }
+        }
+
+        function toggleCollapse() {
+            const sb = document.getElementById('sidebar');
+            sb.classList.toggle('collapsed');
+
+            // Re-invalidate maps after transition
+            setTimeout(() => {
+                if(map) map.invalidateSize();
+                if(mapMonitor) mapMonitor.invalidateSize();
+                if(mapDispatch) mapDispatch.invalidateSize();
+            }, 350);
+        }
+
+        function switchTab(viewId, el) {
+            document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
+            const target = document.getElementById('view-'+viewId);
+            if(target) target.classList.add('active');
+
+            document.querySelectorAll('.nav-link-custom').forEach(l => l.classList.remove('active'));
+
+            if(el) el.classList.add('active');
+            else {
+                const navLink = document.querySelector(`[onclick*="'${viewId}'"]`);
+                if(navLink) navLink.classList.add('active');
+            }
+
+            // Close sidebar and backdrop on mobile after selection
+            document.getElementById('sidebar').classList.remove('open');
+            document.getElementById('sidebar-backdrop').classList.remove('active');
+
+            // Force map resize
+            setTimeout(() => {
+                if(map) map.invalidateSize();
+                if(mapMonitor) mapMonitor.invalidateSize();
+                if(mapDispatch) mapDispatch.invalidateSize();
+            }, 400);
+
+            if(viewId === 'chat') loadChatList();
+            if(viewId === 'dispatch') loadClientsByRegion("");
+        }
+
+        function toggleAllClients(checked) {
+            document.querySelectorAll('.client-checkbox').forEach(cb => cb.checked = checked);
+        }
+
+        async function loadClientsByRegion(region) {
+            const container = document.getElementById('client-list-container');
+            if(!container) return;
+            // Reset Select All checkbox
+            const sa = document.getElementById('select-all-clients');
+            if(sa) sa.checked = false;
+
+            container.innerHTML = '<p class="text-center py-3 text-muted extra-small">Fetching clients...</p>';
+
+            try {
+                let query = db.collection('clients');
+                if(region) query = query.where('region', '==', region);
+
+                const snap = await query.get();
+                allClients = [];
+                container.innerHTML = '';
+
+                // Show absolute total from database
+                document.getElementById('client-qty').innerText = snap.size;
+
+                if(snap.empty) {
+                    container.innerHTML = '<p class="text-center py-3 text-muted extra-small">No clients found in this region.</p>';
+                    return;
+                }
+
+                // Removed strict filtering to ensure all branches (like AZKO) are visible
+                snap.forEach(doc => {
+                    const c = doc.data();
+                    c.id = doc.id;
+                    allClients.push(c);
+
+                    allClients.push(c);
+
+                    // Try to split address to find the "Store Name"
+                    const addressParts = c.address.split(',');
+                    const storeName = addressParts[0].trim();
+                    const remainingAddress = addressParts.slice(1).join(',').trim();
+
+                    // Escape strings for data attributes
+                    const escName = c.name.replace(/"/g, '&quot;');
+                    const escStore = storeName.replace(/"/g, '&quot;');
+                    const escAddr = c.address.replace(/"/g, '&quot;');
+
+                    container.innerHTML += `
+                        <div class="d-flex align-items-center gap-2 mb-2 p-2 bg-white rounded border shadow-sm position-relative group-hover">
+                            <input type="checkbox" class="client-checkbox"
+                                data-name="${escStore}"
+                                data-pt="${escName}"
+                                data-address="${escAddr}"
+                                data-lat="${c.latitude}"
+                                data-lng="${c.longitude}">
+                            <div class="overflow-hidden flex-grow-1">
+                                <div class="fw-bold text-dark" style="font-size: 0.75rem; line-height: 1.2;">${storeName}</div>
+                                <div class="text-muted mt-1" style="font-size: 0.65rem; font-weight: 600;">${c.name}</div>
+                                <div class="text-muted text-truncate" style="font-size: 0.6rem; max-width: 180px;">${remainingAddress || c.address}</div>
+                            </div>
+                            <button class="btn btn-link text-danger p-1" onclick="deleteClient('${c.id}', '${escStore}')">
+                                <i class="bi bi-trash" style="font-size: 0.8rem;"></i>
+                            </button>
+                        </div>
+                    `;
+                });
+            } catch (e) {
+                console.error("Error loading clients:", e);
+                container.innerHTML = '<p class="text-center py-3 text-danger extra-small">Error loading clients.</p>';
+            }
+        }
+
+        function filterClients(query) {
+            const q = query.toLowerCase();
+            const items = document.querySelectorAll('#client-list-container > div');
+            let visibleCount = 0;
+            items.forEach(item => {
+                const text = item.innerText.toLowerCase();
+                if (text.includes(q)) {
+                    item.classList.remove('d-none');
+                    visibleCount++;
+                } else {
+                    item.classList.add('d-none');
+                }
+            });
+            document.getElementById('client-qty').innerText = visibleCount;
+        }
+
+        async function deleteClient(id, name) {
+            if(!confirm(`Hapus client "${name}" dari database?`)) return;
+            try {
+                await db.collection('clients').doc(id).delete();
+                showToast("Client berhasil dihapus.");
+                loadClientsByRegion(document.getElementById('region-filter').value);
+            } catch (e) {
+                alert("Gagal menghapus client: " + e.message);
+            }
+        }
+
+        async function clearAllClients() {
+            if (!confirm("Hapus SELURUH database client? Semua data toko akan hilang.")) return;
+            if (!confirm("APAKAH ANDA YAKIN? Tindakan ini tidak bisa dibatalkan.")) return;
+
+            try {
+                const snap = await db.collection('clients').get();
+                if (snap.empty) return showToast("Database client sudah kosong.");
+
+                const batch = db.batch();
+                snap.forEach(doc => batch.delete(doc.ref));
+                await batch.commit();
+
+                showToast("Seluruh database client telah dikosongkan.");
+                loadClientsByRegion(document.getElementById('region-filter').value);
+            } catch (e) {
+                alert("Gagal mengosongkan database client: " + e.message);
+            }
+        }
+
+        function addSelectedClients() {
+            const checked = document.querySelectorAll('.client-checkbox:checked');
+            if(checked.length === 0) return alert("Please select at least one client!");
+
+            let addedCount = 0;
+            checked.forEach(cb => {
+                const name = cb.getAttribute('data-name');
+                const pt = cb.getAttribute('data-pt');
+                const address = cb.getAttribute('data-address');
+                const lat = parseFloat(cb.getAttribute('data-lat'));
+                const lng = parseFloat(cb.getAttribute('data-lng'));
+
+                if(name && address) {
+                    // Allow all selected items, even if same location (different tasks)
+                    tripQueue.push({
+                        name: name + (pt ? " (" + pt + ")" : ""),
+                        address,
+                        lat,
+                        lng
+                    });
+                    addedCount++;
+                }
+                cb.checked = false; // Reset checkbox after adding
+            });
+
+            // Reset "Select All" checkbox
+            const sa = document.getElementById('select-all-clients');
+            if(sa) sa.checked = false;
+
+            if(addedCount > 0) {
+                renderQueue();
+                showToast(addedCount + " destinations added to route!");
+            }
+        }
+
+        db.collection('users').onSnapshot(snap => {
+            snap.forEach(doc => { registeredUsers[doc.id] = doc.data().name || doc.id.substring(0,8); });
+            renderCourierOptions();
+            if(document.getElementById('view-chat').classList.contains('active')) loadChatList();
+            refreshAllMonitorData();
+        });
+
+        function renderCourierOptions() {
+            const sel = document.getElementById('sel-courier'); if(!sel) return;
+            sel.innerHTML = '<option value="">Select Carrier...</option>';
+            for (const id in registeredUsers) { sel.innerHTML += `<option value="${id}">${registeredUsers[id]}</option>`; }
+        }
+
+        rtdb.ref('courier_live_location').on('value', snap => {
+            currentOnlineCouriers = snap.val() || {};
+            updateGlobalStats();
+        });
+
+        db.collection('trips').onSnapshot(snap => {
+            allCurrentTrips = [];
+            snap.forEach(doc => {
+                const t = doc.data();
+                t.id = doc.id;
+                allCurrentTrips.push(t);
+            });
+            updateGlobalStats();
+            renderRecentShipments();
+        });
+
+        function updateGlobalStats() {
+            let activeTrips = 0;
+            let doneToday = 0;
+            let delayedCount = 0;
+            let inTransitCouriers = 0;
+            let totalCompletedTrips = 0;
+            let onTimeTrips = 0;
+            let grandTotalKM = 0;
+
+            const couriersWithActiveTrip = new Set();
+
+            allCurrentTrips.forEach(t => {
+                if(t.status !== 'completed') {
+                    activeTrips++;
+                    couriersWithActiveTrip.add(t.courierId);
+
+                    // Delay Check (>30m)
+                    const lastUpdate = t.destinations.filter(d => d.status === 'done' || d.status === 'arrived').reduce((max, d) => {
+                        const time = (d.completedTime || d.arrivalTime)?.seconds * 1000 || 0;
+                        return time > max ? time : max;
+                    }, t.date.seconds * 1000);
+
+                    if(Date.now() - lastUpdate > 30 * 60 * 1000 && t.status === 'in_progress') {
+                        delayedCount++;
+                    }
+                } else {
+                    totalCompletedTrips++;
+                    doneToday++;
+                    onTimeTrips++;
+                }
+
+                // Distance Calculation
+                if(t.destinations) {
+                    t.destinations.forEach((d, i) => {
+                        if(d.status === 'done') {
+                            const start = i === 0 ? { lat: -6.2, lng: 106.81 } : { lat: t.destinations[i-1].latitude, lng: t.destinations[i-1].longitude };
+                            grandTotalKM += calculateDistance(start.lat, start.lng, d.latitude, d.longitude);
+                        }
+                    });
+                }
+            });
+
+            // "In Transit" only counts online couriers WHO HAVE an active trip
+            for (const id in currentOnlineCouriers) {
+                if (couriersWithActiveTrip.has(id)) {
+                    inTransitCouriers++;
+                }
+            }
+
+            // Update UI
+            if(document.getElementById('stat-active')) document.getElementById('stat-active').innerText = activeTrips;
+            if(document.getElementById('stat-done')) document.getElementById('stat-done').innerText = doneToday;
+            if(document.getElementById('stat-delayed')) document.getElementById('stat-delayed').innerText = delayedCount;
+            if(document.getElementById('stat-transit-count')) document.getElementById('stat-transit-count').innerText = inTransitCouriers;
+            if(document.getElementById('stat-total-km')) document.getElementById('stat-total-km').innerText = grandTotalKM.toFixed(1) + " km";
+
+            const onTimeRate = totalCompletedTrips > 0 ? Math.round((onTimeTrips / totalCompletedTrips) * 100) : 100;
+            if(document.getElementById('stat-ontime')) document.getElementById('stat-ontime').innerText = onTimeRate + "%";
+
+            refreshAllMonitorData();
+            updateDynamicAlerts();
+        }
+
+        function refreshAllMonitorData() {
+            renderMonitorUI(activeFilter);
+            updateMapMarkers(activeFilter);
+            updateMonitorSuggestions();
+            renderKPIView();
+        }
+
+        function renderKPIView() {
+            const tbody = document.getElementById('kpi-table-body');
+            if(!tbody) return;
+            tbody.innerHTML = '';
+
+            const courierStats = {};
+            let totalCompleted = 0;
+            let grandTotalKM = 0;
+
+            allCurrentTrips.forEach(t => {
+                const cId = t.courierId;
+                if(!courierStats[cId]) {
+                    courierStats[cId] = {
+                        name: registeredUsers[cId] || cId.substring(0,8),
+                        completed: 0,
+                        total: 0,
+                        totalKM: 0,
+                        totalTime: 0
+                    };
+                }
+
+                courierStats[cId].total++;
+
+                // KM Calculation: Only from actual completed points (Trip History)
+                let actualTripKM = 0;
+                if (t.destinations && t.destinations.length > 0) {
+                    for (let i = 0; i < t.destinations.length; i++) {
+                        const d = t.destinations[i];
+                        if (d.status === 'done') {
+                            const start = i === 0 ? { lat: -6.2, lng: 106.81 } : { lat: t.destinations[i-1].latitude, lng: t.destinations[i-1].longitude };
+                            const end = { lat: d.latitude, lng: d.longitude };
+                            const dist = calculateDistance(start.lat, start.lng, end.lat, end.lng);
+                            actualTripKM += dist;
+
+                            if (d.completedTime && d.arrivalTime) {
+                                const diff = (d.completedTime.seconds - d.arrivalTime.seconds) / 60;
+                                courierStats[cId].totalTime += diff;
+                            }
+                        }
+                    }
+                }
+                courierStats[cId].totalKM += actualTripKM;
+                grandTotalKM += actualTripKM; // Add to grand total regardless of trip status
+
+                if(t.status === 'completed') {
+                    courierStats[cId].completed++;
+                    totalCompleted++;
+                }
+            });
+
+            const sortedCouriers = Object.values(courierStats).sort((a,b) => b.completed - a.completed);
+
+            // Cards Update
+            document.getElementById('kpi-total-done').innerText = totalCompleted;
+            if(sortedCouriers.length > 0) document.getElementById('kpi-top-courier').innerText = sortedCouriers[0].name;
+
+            // Show Grand Total Distance
+            if(document.getElementById('kpi-total-km')) {
+                document.getElementById('kpi-total-km').innerText = grandTotalKM.toFixed(1) + " km";
+            }
+
+            // ADVANCED COST CALCULATOR (Manual Input Based)
+            const kmInput = document.getElementById('calc-km');
+            const effInput = document.getElementById('calc-efficiency');
+            const priceInput = document.getElementById('calc-price');
+
+            // If manual KM is entered, use it. Otherwise use grandTotalKM from system.
+            const targetKM = (kmInput && kmInput.value > 0) ? parseFloat(kmInput.value) : grandTotalKM;
+            const kmPerLiter = (effInput && effInput.value > 0) ? parseFloat(effInput.value) : 40;
+            const pricePerLiter = (priceInput && priceInput.value >= 0) ? parseFloat(priceInput.value) : 10000;
+
+            const totalLitersUsed = targetKM / kmPerLiter;
+            const totalCost = totalLitersUsed * pricePerLiter;
+
+            if(document.getElementById('kpi-total-fuel')) {
+                document.getElementById('kpi-total-fuel').innerText = "Rp " + Math.round(totalCost || 0).toLocaleString();
+                document.getElementById('kpi-fuel-liters').innerText = (totalLitersUsed || 0).toFixed(2) + " Liters (" + (targetKM === grandTotalKM ? 'System KM' : 'Manual KM') + ")";
+            }
+
+            // Table with Manual Rating Logic
+            sortedCouriers.forEach(c => {
+                const courierId = Object.keys(registeredUsers).find(key => registeredUsers[key] === c.name);
+                const isOnline = currentOnlineCouriers[courierId];
+
+                // Courier specific fuel calculation
+                const cLiters = c.totalKM / kmPerLiter;
+                const cCost = cLiters * pricePerLiter;
+
+                // PoD Check - Fix: Find ALL photos from ALL trips for this courier
+                let podIconsHtml = '';
+                allCurrentTrips.filter(t => t.courierId === courierId).forEach(trip => {
+                    trip.destinations.forEach(d => {
+                        if (d.proofPhotoUrl) {
+                            podIconsHtml += `<i class="bi bi-camera text-primary ms-1 cursor-pointer" onclick="openPoDModal('${d.proofPhotoUrl}')" title="Stop ${d.stopIndex}"></i> `;
+                        }
+                    });
+                });
+
+                // MANUAL RATING FORMULA (Suggestion):
+                const completionRate = (c.completed / c.total) * 100 || 0;
+                const efficiencyBonus = c.totalTime > 0 ? Math.min(20, 100 / (c.totalTime / c.completed)) : 10;
+                const finalScore = Math.round((completionRate * 0.8) + efficiencyBonus);
+                const stars = (finalScore / 20).toFixed(1);
+
+                const hours = Math.floor(c.totalTime / 60);
+                const mins = Math.round(c.totalTime % 60);
+                const durationStr = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+
+                tbody.innerHTML += `<tr>
+                    <td class="fw-bold">${c.name} <div class="mt-1">${podIconsHtml}</div></td>
+                    <td><span class="badge-pill ${isOnline ? 'badge-delivered' : 'badge-delayed'}">${isOnline ? 'Active' : 'Offline'}</span></td>
+                    <td>${c.completed}</td>
+                    <td><i class="bi bi-star-fill text-warning me-1"></i> ${stars}</td>
+                    <td>${c.totalKM.toFixed(1)} km</td>
+                    <td><div class="fw-bold">Rp ${Math.round(cCost).toLocaleString()}</div><div class="extra-small text-muted">${cLiters.toFixed(2)}L</div></td>
+                    <td>${durationStr}</td>
+                    <td class="fw-bold text-primary">${finalScore}</td>
+                </tr>`;
+            });
+
+            updateKPICharts(sortedCouriers);
+        }
+
+        // Helper: Calculate distance in KM using Haversine formula
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371; // Earth's radius in km
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        function updateKPICharts(data) {
+            const ctx1 = document.getElementById('kpiRankingChart')?.getContext('2d');
+            const ctx2 = document.getElementById('kpiDistributionChart')?.getContext('2d');
+            if(!ctx1 || !ctx2) return;
+
+            if(rankingChart) rankingChart.destroy();
+            if(distributionChart) distributionChart.destroy();
+
+            // Ranking Chart - Using Horizontal Bar for many couriers
+            rankingChart = new Chart(ctx1, {
+                type: 'bar',
+                data: {
+                    labels: data.slice(0,15).map(c => c.name),
+                    datasets: [{
+                        label: 'Trips Completed',
+                        data: data.slice(0,15).map(c => c.completed),
+                        backgroundColor: '#111827',
+                        borderRadius: 4,
+                        barThickness: 15
+                    }]
+                },
+                options: {
+                    indexAxis: 'y', // Makes it horizontal
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { beginAtZero: true, grid: { display: false } },
+                        y: { grid: { display: false } }
+                    }
+                }
+            });
+
+            distributionChart = new Chart(ctx2, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Completed', 'Pending', 'In Transit'],
+                    datasets: [{
+                        data: [
+                            allCurrentTrips.filter(t => t.status === 'completed').length,
+                            allCurrentTrips.filter(t => t.status === 'assigned').length,
+                            allCurrentTrips.filter(t => t.status === 'in_progress').length
+                        ],
+                        backgroundColor: ['#10B981', '#F59E0B', '#3B82F6'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '70%',
+                    plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, padding: 20 } } }
+                }
+            });
+        }
+
+        function updateMonitorSuggestions() {
+            const dl = document.getElementById('monitor-datalist');
+            if(!dl) return;
+            const items = new Set();
+
+            // 1. Add active courier names
+            for (const id in registeredUsers) {
+                const name = registeredUsers[id];
+                // Check if courier has active trip
+                const hasActive = allCurrentTrips.some(t => t.courierId === id && t.status !== 'completed');
+                if (hasActive || currentOnlineCouriers[id]) {
+                    items.add(name);
+                }
+            }
+
+            // 2. Add active trip IDs and destinations
+            allCurrentTrips.forEach(t => {
+                if(t.status !== 'completed') {
+                    items.add(t.id);
+                    t.destinations.forEach(d => items.add(d.locationName));
+                }
+            });
+
+            dl.innerHTML = Array.from(items).map(i => `<option value="${i}">`).join('');
+        }
+
+        function renderMonitorUI(filter = "") {
+            const mList = document.getElementById('monitor-list');
+            if(!mList) return;
+            mList.innerHTML = '';
+
+            const search = filter.toLowerCase();
+
+            // Group trips by courier
+            const courierGroups = {};
+            allCurrentTrips.forEach(t => {
+                if(t.status === 'completed') return;
+                const cId = t.courierId;
+                const cName = registeredUsers[cId] || cId.substring(0,8);
+                const clients = t.destinations.map(d => d.locationName.toLowerCase()).join(" ");
+
+                if (cName.toLowerCase().includes(search) || t.id.toLowerCase().includes(search) || clients.includes(search)) {
+                    if (!courierGroups[cId]) {
+                        courierGroups[cId] = { id: cId, name: cName, trips: [], totalStops: 0, doneStops: 0 };
+                    }
+                    courierGroups[cId].trips.push(t);
+                    courierGroups[cId].totalStops += t.destinations.length;
+                    courierGroups[cId].doneStops += t.destinations.filter(d => d.status === 'done').length;
+                }
+            });
+
+            const courierIds = Object.keys(courierGroups);
+            if(courierIds.length === 0) {
+                mList.innerHTML = '<div class="col-12 text-center p-5 text-muted">No active couriers matching filter.</div>';
+                return;
+            }
+
+            courierIds.forEach(cId => {
+                const c = courierGroups[cId];
+                const cColor = getCourierColor(c.id);
+                const progress = Math.round((c.doneStops / c.totalStops) * 100) || 0;
+                const isOnline = currentOnlineCouriers[c.id];
+
+                mList.innerHTML += `
+                    <div class="col-md-6 col-xl-4">
+                        <div class="border rounded-4 p-4 bg-white shadow-sm h-100" style="border-top: 4px solid ${cColor} !important">
+                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                <div class="d-flex align-items-center gap-3">
+                                    <img src="https://ui-avatars.com/api/?name=${c.name}&background=${cColor.replace('#','')}&color=fff" style="width:40px;height:40px;border-radius:12px;">
+                                    <div>
+                                        <div class="fw-bold mb-0" style="font-size:1rem">${c.name}</div>
+                                        <small class="${isOnline ? 'text-success' : 'text-muted'} fw-bold" style="font-size:0.7rem">
+                                            <i class="bi bi-circle-fill me-1" style="font-size: 6px"></i> ${isOnline ? 'ONLINE' : 'OFFLINE'}
+                                        </small>
+                                    </div>
+                                </div>
+                                <span class="badge rounded-pill bg-light text-dark border small" style="font-size:0.65rem">${c.trips.length} Active Trips</span>
+                            </div>
+
+                            <div class="mb-4">
+                                <div class="d-flex justify-content-between small mb-2">
+                                    <span class="text-muted fw-bold">Overall Progress</span>
+                                    <span class="fw-bold text-dark">${c.doneStops}/${c.totalStops} Stops</span>
+                                </div>
+                                <div class="progress" style="height: 8px; border-radius: 10px; background: #F1F5F9">
+                                    <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: ${progress}%; background: ${cColor}; border-radius: 10px;"></div>
+                                </div>
+                            </div>
+
+                            <button class="btn btn-sm btn-dark w-100 py-2 fw-bold" style="border-radius: 10px; font-size:0.85rem" onclick="focusOnCourier('${c.id}', true)">
+                                <i class="bi bi-geo-alt-fill me-1"></i> FOCUS TRACKING
+                            </button>
+                        </div>
+                    </div>`;
+            });
+        }
+
+        function updateMapMarkers(filter = "") {
+            const search = filter.toLowerCase();
+            tripMarkersLayer.clearLayers();
+            monitorMarkersLayer.clearLayers();
+            monitorCouriersLayer.clearLayers();
+
+            // 1. Render Online Couriers
+            for (const id in currentOnlineCouriers) {
+                const c = currentOnlineCouriers[id];
+                const color = getCourierColor(id);
+                const name = registeredUsers[id] || 'Carrier';
+                const pos = [c.lat, c.lng];
+
+                // Dashboard Map: Always show all online couriers
+                L.circleMarker(pos, { radius: 10, fillColor: color, color: "#fff", weight: 3, fillOpacity: 0.9 })
+                    .addTo(tripMarkersLayer).bindPopup(`<b>${name}</b><br>ID: ${id}`);
+
+                // Monitor Map: Apply Search Filter
+                if (!filter || name.toLowerCase().includes(search) || id.toLowerCase().includes(search)) {
+                    L.circleMarker(pos, { radius: 10, fillColor: color, color: "#fff", weight: 3, fillOpacity: 0.9 })
+                        .addTo(monitorCouriersLayer).bindPopup(`<b>${name}</b><br><small>ID: ${id}</small>`);
+                }
+            }
+
+            // 2. Render Trip Destinations
+            allCurrentTrips.forEach(t => {
+                const cName = registeredUsers[t.courierId] || t.courierId.substring(0,8);
+                const cColor = getCourierColor(t.courierId);
+
+                t.destinations.forEach(d => {
+                    const isDone = d.status === 'done';
+                    const icon = L.divIcon({ className: 'custom-div-icon', html: `<div class='marker-pin' style='background:${isDone ? '#10B981' : cColor}'></div><div class='marker-num' style='color:#fff'>${d.stopIndex}</div>`, iconSize:[30,42], iconAnchor:[15,42] });
+
+                    // Dashboard Map: Show all destinations for active trips
+                    if (t.status !== 'completed') {
+                        L.marker([d.latitude, d.longitude], {icon}).bindPopup(`<b>${d.locationName}</b><br>ID: ${t.id}<br>Driver: ${cName}`).addTo(tripMarkersLayer);
+                    }
+
+                    // Monitor Map: Apply Search Filter
+                    const matches = d.locationName.toLowerCase().includes(search) || cName.toLowerCase().includes(search) || t.id.toLowerCase().includes(search);
+                    if (!filter || matches) {
+                        L.marker([d.latitude, d.longitude], {icon}).bindPopup(`<b>${d.locationName}</b><br>ID: ${t.id}<br>Driver: ${cName}`).addTo(monitorMarkersLayer);
+                    }
+                });
+            });
+        }
+
+        function renderRecentShipments() {
+            const table = document.getElementById('recent-shipments-table');
+            if(!table) return;
+            table.innerHTML = '';
+            allCurrentTrips.slice(-10).reverse().forEach(t => {
+                const cName = registeredUsers[t.courierId] || t.courierId.substring(0,8);
+                const statusClass = t.status === 'completed' ? 'delivered' : (t.status === 'assigned' ? 'pending' : 'transit');
+                const eta = t.status === 'completed' ? 'Finished' : (t.destinations[0]?.arrivalTime ? new Date(t.destinations[0].arrivalTime.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : 'TBD');
+
+                const podTrip = t.destinations.find(d => d.proofPhotoUrl);
+                const podIcon = podTrip ? `<i class="bi bi-camera text-primary ms-2 cursor-pointer" onclick="openPoDModal('${podTrip.proofPhotoUrl}')"></i>` : '';
+
+                table.innerHTML += `<tr>
+                    <td class="fw-bold">#${t.id.substring(5,11)} ${podIcon}</td>
+                    <td>Warehouse</td>
+                    <td>${t.destinations[0]?.locationName || 'TBD'}</td>
+                    <td><span class="badge-pill badge-${statusClass}">${t.status}</span></td>
+                    <td>${cName}</td>
+                    <td>${eta}</td>
+                    <td>
+                        <button class="btn btn-sm btn-light border text-danger" onclick="deleteTrip('${t.id}')">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
+                </tr>`;
+            });
+        }
+
+        function filterMonitorAll(val) {
+            activeFilter = val;
+            refreshAllMonitorData();
+
+            // Auto-focus if the typed/selected value exactly matches a courier name
+            for (const id in registeredUsers) {
+                if (registeredUsers[id].toLowerCase() === val.toLowerCase()) {
+                    focusOnCourier(id, true);
+                    break;
+                }
+            }
+        }
+
+        function focusOnCourier(id, isMonitor = false) {
+            const targetMap = isMonitor ? mapMonitor : map;
+            let foundMarker = null;
+            const searchLayer = isMonitor ? monitorCouriersLayer : tripMarkersLayer;
+            searchLayer.eachLayer(l => {
+                if (l.getPopup() && l.getPopup().getContent().toLowerCase().includes(id.toLowerCase())) foundMarker = l;
+            });
+
+            if(foundMarker) {
+                targetMap.flyTo(foundMarker.getLatLng(), 16);
+                foundMarker.openPopup();
+                if(isMonitor) showDetailedTracking(id);
+                else switchTab('dashboard');
+            }
+        }
+
+        function showDetailedTracking(courierId) {
+            const trip = allCurrentTrips.find(t => t.courierId === courierId && t.status !== 'completed');
+            const container = document.getElementById('current-shipment-detail');
+            if(!trip) {
+                container.classList.add('d-none');
+                return;
+            }
+
+            container.classList.remove('d-none');
+            document.getElementById('track-shipment-id').innerText = "ID: " + trip.id.substring(5,15);
+            document.getElementById('track-client-name').innerText = trip.destinations[0]?.locationName || "New Task";
+
+            const stepper = document.getElementById('track-stepper');
+            stepper.innerHTML = '';
+            const steps = [{ name: 'Start', status: 'done' }, ...trip.destinations];
+
+            steps.forEach((s, i) => {
+                const isCompleted = s.status === 'done' || s.status === 'arrived';
+                const isActive = !isCompleted && (i === 0 || steps[i-1].status === 'done');
+                let iconHtml = i === 0 ? '<i class="bi bi-check"></i>' : (s.status === 'done' ? '<i class="bi bi-check"></i>' : (s.status === 'arrived' ? '<i class="bi bi-truck"></i>' : i));
+
+                stepper.innerHTML += `
+                    <div class="step-item">
+                        ${s.status === 'arrived' ? '<div class="step-label">Arrived</div>' : ''}
+                        <div class="step-icon ${isCompleted ? 'completed' : (isActive ? 'active' : 'pending')}">${iconHtml}</div>
+                        <div class="step-line ${isCompleted ? 'filled' : ''}"></div>
+                    </div>
+                `;
+            });
+        }
+
+        function renderQueue() {
+            document.getElementById('dispatch-queue').innerHTML = tripQueue.map((d,i) => `<div class="badge-pill bg-light border text-dark p-2">${i+1}. ${d.name} <i class="bi bi-x-circle ms-2 cursor-pointer text-danger" onclick="tripQueue.splice(${i},1);renderQueue()"></i></div>`).join('');
+            draftMarkersLayer.clearLayers();
+            tripQueue.forEach((d,i) => {
+                const icon = L.divIcon({ className:'custom-div-icon', html:`<div class='marker-pin' style='background:#F59E0B'></div><div class='marker-num'>${i+1}</div>`, iconSize:[30,42], iconAnchor:[15,42] });
+                L.marker([d.lat,d.lng], {icon}).addTo(draftMarkersLayer);
+            });
+        }
+
+        async function submitTrip() {
+            const cid = document.getElementById('sel-courier').value; if(!cid || tripQueue.length===0) return alert("Select carrier and destination!");
+            const id = "TRIP_" + Date.now();
+            await db.collection('trips').doc(id).set({ tripId: id, courierId: cid, status: "assigned", date: firebase.firestore.Timestamp.now(), destinations: tripQueue.map((d,i) => ({ stopIndex: i+1, locationName: d.name, address: d.address, latitude: d.lat, longitude: d.lng, status: "pending", proofPhotoUrl: "" })) });
+            showToast("Shipment Dispatched!"); tripQueue = []; renderQueue();
+        }
+
+        function loadChatList(filter = "") {
+            const el = document.getElementById('chat-list-container'); if(!el) return; el.innerHTML = '';
+            for (const id in registeredUsers) {
+                const name = registeredUsers[id];
+                if (name.toLowerCase().includes(filter.toLowerCase())) {
+                    el.innerHTML += `<div class="p-3 border rounded-3 cursor-pointer d-flex justify-content-between align-items-center bg-white" onclick="openChat('${id}', '${name}')">
+                        <div class="d-flex align-items-center gap-2"><img src="https://ui-avatars.com/api/?name=${name}" style="width:32px; border-radius:50%"><span>${name}</span></div>
+                        <i class="bi bi-chevron-right text-muted"></i></div>`;
+                }
+            }
+        }
+
+        function openChat(id, name) {
+            currentChatId = id; document.getElementById('chat-header-main').innerText = name;
+            if(chatUnsub) chatUnsub();
+            const col = db.collection('chats').doc(id).collection('messages');
+            chatUnsub = col.orderBy('timestamp','asc').onSnapshot(snap => {
+                let html = ''; snap.forEach(d => { const m = d.data(); html += `<div class="bubble ${m.senderId==='admin'?'admin':'courier'}">${m.text}</div>`; });
+                const mbox = document.getElementById('chat-messages-main'); mbox.innerHTML = html; mbox.scrollTop = mbox.scrollHeight;
+            });
+        }
+        async function sendChatMain() {
+            const txt = document.getElementById('chat-input-main').value; if(!txt || !currentChatId) return;
+            await db.collection('chats').doc(currentChatId).collection('messages').add({ senderId: 'admin', text: txt, timestamp: firebase.firestore.Timestamp.now() });
+            document.getElementById('chat-input-main').value = '';
+        }
+
+        async function loadFullHistory() {
+            const date = document.getElementById('rep-date').value; if(!date) return;
+            const container = document.getElementById('history-list'); container.innerHTML = '<p class="p-5 text-center text-muted">Loading daily reports...</p>';
+            document.getElementById('current-report-date').innerText = "REPORT DATE: " + date;
+
+            const start = new Date(date); start.setHours(0,0,0,0);
+            const end = new Date(date); end.setHours(23,59,59,999);
+
+            const snap = await db.collection('trips')
+                .where('date', '>=', firebase.firestore.Timestamp.fromDate(start))
+                .where('date', '<=', firebase.firestore.Timestamp.fromDate(end))
+                .get();
+
+            container.innerHTML = ''; lastLoadedHistory = [];
+            snap.forEach(doc => { lastLoadedHistory.push({id: doc.id, ...doc.data()}); });
+
+            if(lastLoadedHistory.length === 0) {
+                container.innerHTML = "<div class='text-center py-5'><i class='bi bi-inbox fs-1 text-muted d-block mb-2'></i><p class='text-muted'>No data found for this date.</p></div>";
+                return;
+            }
+
+            // Group by Courier
+            const courierGroups = {};
+            lastLoadedHistory.forEach(t => {
+                if (!courierGroups[t.courierId]) {
+                    courierGroups[t.courierId] = {
+                        name: registeredUsers[t.courierId] || t.courierId.substring(0,8),
+                        trips: []
+                    };
+                }
+                courierGroups[t.courierId].trips.push(t);
+            });
+
+            Object.keys(courierGroups).forEach(cid => {
+                const group = courierGroups[cid];
+                const cEl = document.createElement('div');
+                cEl.className = "card border rounded-4 mb-4 shadow-sm overflow-hidden";
+
+                let tripsHtml = '';
+                group.trips.forEach(t => {
+                    const statusClass = t.status === 'completed' ? 'delivered' : (t.status === 'assigned' ? 'pending' : 'transit');
+                    tripsHtml += `
+                        <div class="border-top">
+                            <div class="p-3 d-flex justify-content-between align-items-center cursor-pointer hover-bg-light" onclick="toggleReportDetail('${t.id}')">
+                                <div>
+                                    <span class="fw-bold d-block" style="font-size:0.9rem">#${t.id.substring(5,11)}</span>
+                                    <small class="text-muted" style="font-size:0.7rem">${t.destinations.length} Stops • ${new Date(t.date.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</small>
+                                </div>
+                                <div class="d-flex gap-2 align-items-center">
+                                    <span class="badge-pill badge-${statusClass}">${t.status}</span>
+                                    <button class="btn btn-sm btn-light border text-danger py-1" onclick="event.stopPropagation(); deleteTrip('${t.id}')"><i class="bi bi-trash"></i></button>
+                                    <i class="bi bi-chevron-down ms-2 text-muted" id="icon-${t.id}"></i>
+                                </div>
+                            </div>
+                            <div class="card-body p-0 d-none bg-light" id="detail-${t.id}">
+                                <div class="p-3">
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-borderless m-0" style="font-size: 0.75rem">
+                                            <thead>
+                                                <tr class="text-muted text-uppercase" style="font-size: 0.65rem">
+                                                    <th>Stop</th>
+                                                    <th>Location</th>
+                                                    <th class="text-center">Arrival</th>
+                                                    <th class="text-center">Done</th>
+                                                    <th class="text-center">Proof</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="align-middle">
+                                                ${t.destinations.map(d => {
+                                                    const arrTime = d.arrivalTime ? new Date(d.arrivalTime.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '-';
+                                                    const doneTime = d.completedTime ? new Date(d.completedTime.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '-';
+                                                    const photoHtml = d.proofPhotoUrl ? `<img src="${d.proofPhotoUrl}" class="proof-img-thumb shadow-sm" onclick="openPoDModal('${d.proofPhotoUrl}')">` : '<span class="text-muted">-</span>';
+                                                    return `
+                                                        <tr class="border-bottom">
+                                                            <td class="fw-bold text-center" style="width:40px">${d.stopIndex}</td>
+                                                            <td>
+                                                                <div class="fw-bold text-dark">${d.locationName}</div>
+                                                                <div class="text-muted text-truncate" style="max-width:200px">${d.address || ''}</div>
+                                                            </td>
+                                                            <td class="text-center">${arrTime}</td>
+                                                            <td class="text-center">${doneTime}</td>
+                                                            <td class="text-center">${photoHtml}</td>
+                                                        </tr>
+                                                    `;
+                                                }).join('')}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                cEl.innerHTML = `
+                    <div class="card-header bg-white border-0 p-3 d-flex align-items-center gap-3">
+                        <img src="https://ui-avatars.com/api/?name=${group.name}&background=111827&color=fff" style="width:32px;height:32px;border-radius:8px;">
+                        <span class="fw-bold" style="font-size:1.1rem">${group.name}</span>
+                        <span class="badge bg-light text-dark border ms-auto">${group.trips.length} Trips Today</span>
+                    </div>
+                    ${tripsHtml}
+                `;
+                container.appendChild(cEl);
+            });
+        }
+
+        function toggleReportDetail(id) {
+            const el = document.getElementById('detail-' + id);
+            const icon = document.getElementById('icon-' + id);
+            if(el.classList.contains('d-none')) {
+                el.classList.remove('d-none');
+                icon.classList.replace('bi-chevron-down', 'bi-chevron-up');
+            } else {
+                el.classList.add('d-none');
+                icon.classList.replace('bi-chevron-up', 'bi-chevron-down');
+            }
+        }
+
+        function exportToExcel() {
+            if(lastLoadedHistory.length === 0) return alert("No data to export!");
+
+            const exportData = [];
+
+            lastLoadedHistory.forEach(t => {
+                const cName = registeredUsers[t.courierId] || t.courierId.substring(0,8);
+
+                t.destinations.forEach((d, i) => {
+                    // Calculate arrival/completed time
+                    const arrival = d.arrivalTime ? new Date(d.arrivalTime.seconds * 1000).toLocaleString() : '-';
+                    const completed = d.completedTime ? new Date(d.completedTime.seconds * 1000).toLocaleString() : '-';
+
+                    // Calculate duration in minutes
+                    let duration = '-';
+                    if (d.arrivalTime && d.completedTime) {
+                        duration = Math.round((d.completedTime.seconds - d.arrivalTime.seconds) / 60) + " mins";
+                    }
+
+                    // Calculate distance from previous point or warehouse
+                    const start = i === 0 ? { lat: -6.2, lng: 106.81 } : { lat: t.destinations[i-1].latitude, lng: t.destinations[i-1].longitude };
+                    const dist = calculateDistance(start.lat, start.lng, d.latitude, d.longitude).toFixed(2);
+
+                    exportData.push({
+                        "Trip ID": t.id,
+                        "Date": new Date(t.date.seconds * 1000).toLocaleDateString(),
+                        "Courier": cName,
+                        "Trip Status": t.status,
+                        "Stop #": i + 1,
+                        "Location Name": d.locationName,
+                        "Full Address": d.address || '-',
+                        "Stop Status": d.status,
+                        "Arrival Time": arrival,
+                        "Completion Time": completed,
+                        "Duration": duration,
+                        "Distance (km)": dist,
+                        "Proof Photo URL": d.proofPhotoUrl || '-'
+                    });
+                });
+            });
+
+            const ws = XLSX.utils.json_to_sheet(exportData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "WellenGO Report");
+            XLSX.writeFile(wb, `WellenGO_Full_Report_${new Date().toISOString().slice(0,10)}.xlsx`);
+        }
+
+        async function clearAllHistory() {
+            if (!confirm("Hapus SELURUH riwayat pengantaran? Tindakan ini tidak bisa dibatalkan.")) return;
+            if (!confirm("APAKAH ANDA YAKIN? Semua data pengantaran akan hilang selamanya.")) return;
+
+            try {
+                const snap = await db.collection('trips').get();
+                if (snap.empty) return showToast("Tidak ada riwayat untuk dihapus.");
+
+                const batch = db.batch();
+                snap.forEach(doc => batch.delete(doc.ref));
+                await batch.commit();
+
+                showToast("Semua riwayat berhasil dikosongkan.");
+                loadFullHistory();
+            } catch (e) {
+                alert("Gagal menghapus riwayat: " + e.message);
+            }
+        }
+
+        async function deleteTrip(tripId) {
+            if (!confirm("Hapus pengantaran #" + tripId.substring(5,11) + "? Tindakan ini tidak bisa dibatalkan.")) return;
+            try {
+                await db.collection('trips').doc(tripId).delete();
+                showToast("Pengantaran berhasil dihapus.");
+                if(document.getElementById('view-reports').classList.contains('active')) loadFullHistory();
+            } catch (e) {
+                alert("Gagal menghapus: " + e.message);
+            }
+        }
+
+        function showToast(msg) {
+            const toastEl = document.getElementById('myToast');
+            toastEl.querySelector('.toast-body').innerText = msg;
+            new bootstrap.Toast(toastEl).show();
+        }
+
+        async function importClientsFromExcel() {
+            const file = document.getElementById('client-excel-file').files[0];
+            if(!file) return alert("Please select an Excel file first!");
+
+            const progress = document.getElementById('import-progress');
+            const status = document.getElementById('import-status');
+            progress.classList.remove('d-none');
+            status.innerText = "Reading file...";
+
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, {type: 'array'});
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json(sheet);
+
+                if(rows.length === 0) {
+                    alert("Excel file is empty!");
+                    progress.classList.add('d-none');
+                    return;
+                }
+
+                status.innerText = `Processing ${rows.length} clients...`;
+                const batch = db.batch();
+                const geocoder = new google.maps.Geocoder();
+
+                for (let i = 0; i < rows.length; i++) {
+                    const row = rows[i];
+                    // Normalize keys and values
+                    const name = (row.Customer || row.Name || row.name || row.CUSTOMER || "").toString().trim();
+                    let address = (row['Alamat SJ'] || row.Address || row.address || row.ALAMAT || "").toString().trim();
+                    const region = (row.Region || row.region || row.REGION || "").toString().trim();
+
+                    if(!name) {
+                        console.warn("Skipping empty row (no name) at index", i);
+                        continue;
+                    }
+
+                    // Build search query: Priority 1: Address, Priority 2: Name.
+                    // Add "Jabodetabek" as fallback region to narrow results to Indonesia
+                    const regionSuffix = region ? `, ${region}` : ", Jabodetabek";
+                    const searchQuery = address ? `${address}${regionSuffix}, Indonesia` : `${name}${regionSuffix}, Indonesia`;
+
+                    try {
+                        // Geocoding: Convert Search Query to Coordinates and Full Address
+                        const geoResult = await new Promise((resolve) => {
+                            geocoder.geocode({ address: searchQuery }, (results, status) => {
+                                if (status === 'OK') {
+                                    resolve({
+                                        location: results[0].geometry.location,
+                                        fullAddress: results[0].formatted_address
+                                    });
+                                } else {
+                                    console.warn("Geocode failed for:", searchQuery, "Status:", status);
+                                    resolve(null);
+                                }
+                            });
+                        });
+
+                        // Use the full address from Google if original address was empty or too short
+                        const finalAddress = (address.length < 5 && geoResult) ? geoResult.fullAddress : (address || (geoResult ? geoResult.fullAddress : "Alamat tidak ditemukan"));
+
+                        const ref = db.collection('clients').doc();
+                        batch.set(ref, {
+                            name: name,
+                            region: region || (geoResult ? "Auto-detected" : "General"),
+                            address: finalAddress,
+                            latitude: geoResult ? geoResult.location.lat() : 0,
+                            longitude: geoResult ? geoResult.location.lng() : 0,
+                            createdAt: firebase.firestore.Timestamp.now()
+                        });
+
+                    } catch (err) {
+                        console.error("Critical error at row:", i, err);
+                    }
+
+                    const pct = Math.round(((i + 1) / rows.length) * 100);
+                    progress.querySelector('.progress-bar').style.width = pct + '%';
+                    status.innerText = `Importing: ${pct}% (${i+1}/${rows.length})`;
+                }
+
+                await batch.commit();
+                status.innerHTML = `<span class="text-success">SUCCESS! ${rows.length} Clients synced to database.</span>`;
+                setTimeout(() => progress.classList.add('d-none'), 2000);
+                showToast("Clients Database Updated!");
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        async function updateConfig() {
+            const v = document.getElementById('cfg-interval').value, u = document.getElementById('cfg-time-unit').value, g = document.getElementById('cfg-geofence').value;
+            await db.collection('config').doc('tracking').set({ intervalMs: v * u, geofenceRadius: parseFloat(g), updatedAt: firebase.firestore.Timestamp.now() }, { merge: true });
+            showToast("System updated.");
+        }
+
+        async function publishUpdateAuto() {
+            const v = document.getElementById('upd-version').value, f = document.getElementById('upd-file').files[0];
+            if (!v || !f) return alert("Select version and file!");
+            const prog = document.getElementById('upd-progress'); prog.classList.remove('d-none');
+            const task = storage.ref('updates/' + f.name).put(f);
+            task.on('state_changed', s => { prog.querySelector('.progress-bar').style.width = (s.bytesTransferred/s.totalBytes)*100 + '%'; }, e => alert(e.message), async () => {
+                const url = await task.snapshot.ref.getDownloadURL();
+                await db.collection('config').doc('app_status').set({ versionCode: parseInt(v), downloadUrl: url, updatedAt: firebase.firestore.Timestamp.now() }, { merge: true });
+                showToast("Update published!"); prog.classList.add('d-none');
+            });
+        }
+    </script>
+</body>
+</html>
