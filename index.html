@@ -687,7 +687,12 @@
                                         <div id="client-list-container" class="overflow-y-auto mb-3" style="max-height: 250px;">
                                             <p class="text-center py-3 text-muted extra-small">Loading clients...</p>
                                         </div>
-                                        <button class="btn btn-sm btn-outline-dark w-100 fw-bold" onclick="addSelectedClients()">ADD SELECTED TO ROUTE</button>
+                                        <div class="d-flex gap-2">
+                                            <button class="btn btn-sm btn-outline-dark flex-grow-1 fw-bold" onclick="addSelectedClients()">ADD SELECTED TO ROUTE</button>
+                                            <button class="btn btn-sm btn-outline-danger px-3" onclick="clearAllClients()" title="Hapus Semua Client dari Database">
+                                                <i class="bi bi-trash3-fill"></i>
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -1262,6 +1267,25 @@
                 loadClientsByRegion(document.getElementById('region-filter').value);
             } catch (e) {
                 alert("Gagal menghapus client: " + e.message);
+            }
+        }
+
+        async function clearAllClients() {
+            if (!confirm("Hapus SELURUH database client? Semua data toko akan hilang.")) return;
+            if (!confirm("APAKAH ANDA YAKIN? Tindakan ini tidak bisa dibatalkan.")) return;
+
+            try {
+                const snap = await db.collection('clients').get();
+                if (snap.empty) return showToast("Database client sudah kosong.");
+
+                const batch = db.batch();
+                snap.forEach(doc => batch.delete(doc.ref));
+                await batch.commit();
+
+                showToast("Seluruh database client telah dikosongkan.");
+                loadClientsByRegion(document.getElementById('region-filter').value);
+            } catch (e) {
+                alert("Gagal mengosongkan database client: " + e.message);
             }
         }
 
