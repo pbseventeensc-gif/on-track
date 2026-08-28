@@ -664,6 +664,7 @@
                                                 </div>
                                                 <select id="region-filter" class="form-select form-select-sm w-auto border-0 bg-transparent fw-bold text-primary" onchange="loadClientsByRegion(this.value)">
                                                     <option value="">All Regions</option>
+                                                    <option value="Auto-detected">Auto-detected</option>
                                                     <option value="Bogor">Bogor</option>
                                                     <option value="Cikarang">Cikarang</option>
                                                     <option value="Jakarta Barat">Jakarta Barat</option>
@@ -674,7 +675,13 @@
                                                 </select>
                                             </div>
                                         </div>
-                                        <div id="client-list-container" class="overflow-y-auto mb-3" style="max-height: 200px;">
+
+                                        <div class="position-relative mb-2">
+                                            <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-2 text-muted" style="font-size: 0.7rem;"></i>
+                                            <input type="text" id="client-search-input" class="form-control form-control-sm ps-4" style="border-radius: 8px; font-size: 0.7rem;" placeholder="Search by Store or PT..." oninput="filterClients(this.value)">
+                                        </div>
+
+                                        <div id="client-list-container" class="overflow-y-auto mb-3" style="max-height: 250px;">
                                             <p class="text-center py-3 text-muted extra-small">Loading clients...</p>
                                         </div>
                                         <button class="btn btn-sm btn-outline-dark w-100 fw-bold" onclick="addSelectedClients()">ADD SELECTED TO ROUTE</button>
@@ -1225,6 +1232,19 @@
             } catch (e) {
                 container.innerHTML = '<p class="text-center py-3 text-danger extra-small">Error loading clients.</p>';
             }
+        }
+
+        function filterClients(query) {
+            const q = query.toLowerCase();
+            const items = document.querySelectorAll('#client-list-container > div');
+            items.forEach(item => {
+                const text = item.innerText.toLowerCase();
+                if (text.includes(q)) {
+                    item.classList.remove('d-none');
+                } else {
+                    item.classList.add('d-none');
+                }
+            });
         }
 
         async function deleteClient(id, name) {
