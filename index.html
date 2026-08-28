@@ -656,7 +656,10 @@
                                     <!-- Region Filter & Batch Select -->
                                     <div class="border rounded-3 p-3 bg-light">
                                         <div class="d-flex justify-content-between align-items-center mb-2">
-                                            <label class="extra-small fw-bold text-muted text-uppercase mb-0">Quick Pick by Region</label>
+                                            <div class="d-flex align-items-center">
+                                                <label class="extra-small fw-bold text-muted text-uppercase mb-0">Quick Pick by Region</label>
+                                                <span id="client-qty" class="badge bg-dark ms-2" style="font-size: 0.6rem; border-radius: 6px;">0</span>
+                                            </div>
                                             <div class="d-flex align-items-center gap-2">
                                                 <div class="form-check p-0 m-0" style="min-height: auto;">
                                                     <input type="checkbox" class="form-check-input ms-0" id="select-all-clients" onchange="toggleAllClients(this.checked)" style="width: 14px; height: 14px; margin-top: 0;">
@@ -1229,6 +1232,7 @@
                         </div>
                     `;
                 });
+                document.getElementById('client-qty').innerText = snap.size;
             } catch (e) {
                 container.innerHTML = '<p class="text-center py-3 text-danger extra-small">Error loading clients.</p>';
             }
@@ -1237,14 +1241,17 @@
         function filterClients(query) {
             const q = query.toLowerCase();
             const items = document.querySelectorAll('#client-list-container > div');
+            let visibleCount = 0;
             items.forEach(item => {
                 const text = item.innerText.toLowerCase();
                 if (text.includes(q)) {
                     item.classList.remove('d-none');
+                    visibleCount++;
                 } else {
                     item.classList.add('d-none');
                 }
             });
+            document.getElementById('client-qty').innerText = visibleCount;
         }
 
         async function deleteClient(id, name) {
