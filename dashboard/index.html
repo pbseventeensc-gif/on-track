@@ -1195,15 +1195,17 @@
                     return;
                 }
 
-                const seenAddresses = new Set();
+                const seenIdentifiers = new Set();
                 let uiCount = 0;
                 snap.forEach(doc => {
                     const c = doc.data();
                     c.id = doc.id;
 
-                    // Filter UI duplicates based on address
-                    if (seenAddresses.has(c.address)) return;
-                    seenAddresses.add(c.address);
+                    // Filter UI duplicates based on Name AND Address together
+                    // This ensures multiple stores in the same mall (like different Ace Hardware branches) show up
+                    const identifier = `${c.name}|${c.address}`;
+                    if (seenIdentifiers.has(identifier)) return;
+                    seenIdentifiers.add(identifier);
                     uiCount++;
 
                     allClients.push(c);
