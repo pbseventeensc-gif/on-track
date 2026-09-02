@@ -92,42 +92,41 @@
         .portal-item h6 { font-weight: 800; margin-bottom: 8px; font-size: 1rem; }
         .portal-item p { font-size: 0.8rem; color: #6b7280; margin: 0; line-height: 1.4; }
 
-        /* Machine Card Enhanced */
+        /* Machine Card Enhanced - CLEAN VERSION */
         .machine-card {
-            border: 1px solid #eee;
-            background: white;
-            border-radius: 15px;
-            overflow: hidden;
-            height: 100%;
+            border: none;
+            background: transparent;
+            text-align: center;
             transition: 0.3s;
         }
         .machine-card:hover {
-            border-color: var(--wellen-orange);
-            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
             transform: translateY(-5px);
         }
         .machine-img {
-            height: 180px;
+            height: 220px;
             width: 100%;
-            background-color: #f3f4f6;
+            background-color: transparent;
             display: flex;
             align-items: center;
             justify-content: center;
             overflow: hidden;
-            border-bottom: 1px solid #eee;
         }
         .machine-img img {
-            max-width: 90%;
-            max-height: 90%;
+            max-width: 100%;
+            max-height: 100%;
             object-fit: contain;
-            filter: grayscale(10%);
-            transition: 0.3s;
         }
-        .machine-card:hover img { filter: grayscale(0%); transform: scale(1.05); }
-        .machine-body { padding: 20px; }
-        .machine-name { font-weight: 800; font-size: 0.95rem; margin-bottom: 8px; text-transform: uppercase; color: var(--wellen-black); }
-        .machine-desc { font-size: 0.75rem; color: #6b7280; line-height: 1.5; margin: 0; }
-        .machine-tag { font-size: 0.65rem; font-weight: 700; color: var(--wellen-orange); text-transform: uppercase; margin-bottom: 5px; display: block; }
+        .machine-body { padding: 15px 0; }
+        .machine-name {
+            font-weight: 800;
+            font-size: 0.75rem;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            color: var(--wellen-black);
+            margin: 0;
+        }
+        .machine-tag { display: none; }
+        .machine-desc { display: none; }
 
         /* Article Card */
         .article-card {
@@ -178,8 +177,8 @@
     <!-- Navbar -->
     <nav class="navbar navbar-expand-lg sticky-top">
         <div class="container">
-            <a class="navbar-brand" href="#">
-                <img src="logistik/wellen_logo.jpeg" alt="Wellen Print Logo">
+            <a class="navbar-brand" href="/">
+                <img src="wellen_logo.jpeg" alt="Wellen Print Logo">
             </a>
             <button class="navbar-toggler border-0 shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <i class="bi bi-list text-white fs-1"></i>
@@ -190,6 +189,11 @@
                     <li class="nav-item"><a class="nav-link" href="#mesin">Mesin</a></li>
                     <li class="nav-item"><a class="nav-link" href="#artikel">Artikel</a></li>
                     <li class="nav-item"><a class="nav-link" href="#layanan">Layanan Korporat</a></li>
+                    <li class="nav-item">
+                        <a href="https://www.wellenprint.com" target="_blank" class="nav-link" title="Belanja di Wellen Print">
+                            <i class="bi bi-cart3 fs-5"></i>
+                        </a>
+                    </li>
                     <li class="nav-item">
                         <a href="https://wa.me/628119690809" class="btn btn-warning ms-lg-3 fw-800 px-4 py-2" style="border-radius: 8px; font-size: 0.8rem;">CONTACT US</a>
                     </li>
@@ -214,44 +218,6 @@
         </div>
     </header>
 
-    <!-- Portal Section (Minimalist) -->
-    <section id="portals" class="section-padding bg-light">
-        <div class="container">
-            <div class="mb-5 text-center">
-                <h2 class="section-title">Akses Portal & Sistem</h2>
-                <p class="text-muted">Manajemen operasional dan kemitraan internal Wellen Print.</p>
-            </div>
-            <div class="row g-4 justify-content-center">
-                <div class="col-md-3">
-                    <a href="/logistik" class="portal-item">
-                        <i class="bi bi-truck-flatbed"></i>
-                        <h6>Logistik</h6>
-                        <p>Manajemen Kurir & Pelacakan Delivery.</p>
-                    </a>
-                </div>
-                <div class="col-md-3">
-                    <a href="/inventory" class="portal-item">
-                        <i class="bi bi-box-seam-fill"></i>
-                        <h6>Inventory</h6>
-                        <p>Manajemen Stok Material & Produk.</p>
-                    </a>
-                </div>
-                <div class="col-md-6">
-                    <div class="portal-item bg-white">
-                        <div class="d-flex align-items-center gap-2 mb-3">
-                            <i class="bi bi-building-check text-warning fs-3 m-0"></i>
-                            <h6 class="m-0">PORTAL KAWAN LAMA</h6>
-                        </div>
-                        <div class="row g-2">
-                            <div class="col-4"><a href="/kawanlama" class="btn btn-sm btn-dark w-100 py-3 fw-bold" style="font-size: 0.65rem; border-radius: 10px;">ADMIN PUSAT</a></div>
-                            <div class="col-4"><a href="/kawanlama" class="btn btn-sm btn-outline-dark w-100 py-3 fw-bold" style="font-size: 0.65rem; border-radius: 10px;">ADMIN 3 TAB</a></div>
-                            <div class="col-4"><a href="/cabang" class="btn btn-sm btn-outline-dark w-100 py-3 fw-bold" style="font-size: 0.65rem; border-radius: 10px;">MODE CABANG</a></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
 
     <!-- About Section -->
     <section id="about" class="section-padding">
@@ -298,54 +264,46 @@
                 <p class="text-muted">Kami menggunakan armada mesin cetak dan pendukung terbaik di kelasnya untuk menjamin kualitas output maksimal.</p>
             </div>
 
-            <h5 class="fw-800 mb-4 text-muted">MESIN UTAMA (PRINTING)</h5>
+            <h5 class="fw-800 mb-4 text-muted text-center" style="font-size: 0.7rem; letter-spacing: 2px;">MESIN UTAMA (PRINTING)</h5>
             <div class="row g-4 mb-5">
                 <!-- Row 1 -->
                 <div class="col-lg-3 col-md-6">
                     <div class="machine-card">
                         <div class="machine-img">
-                            <img src="https://wellenprint.com/wp-content/uploads/2021/04/Efi-Matan-8Q.png" alt="EFI Matan 8Q" onerror="this.src='https://placehold.co/400x300?text=EFI+Matan+8Q'">
+                            <img src="assets/mesin/matan.webp" alt="EFI Matan 8Q">
                         </div>
                         <div class="machine-body">
-                            <span class="machine-tag">UV Print</span>
                             <h6 class="machine-name">EFI Matan 8Q (5M)</h6>
-                            <p class="machine-desc">Industrial UV printer skala besar hingga lebar 5 meter.</p>
                         </div>
                     </div>
                 </div>
                 <div class="col-lg-3 col-md-6">
                     <div class="machine-card">
                         <div class="machine-img">
-                            <img src="https://wellenprint.com/wp-content/uploads/2021/04/HP-Indigo-7R.png" alt="HP Indigo 7R" onerror="this.src='https://placehold.co/400x300?text=HP+Indigo+7R'">
+                            <img src="assets/mesin/HP-Indigo-7R.webp" alt="HP Indigo 7R">
                         </div>
                         <div class="machine-body">
-                            <span class="machine-tag">Digital Offset</span>
                             <h6 class="machine-name">HP Indigo 7R</h6>
-                            <p class="machine-desc">Kualitas cetak offset dengan fleksibilitas digital A3+.</p>
                         </div>
                     </div>
                 </div>
                 <div class="col-lg-3 col-md-6">
                     <div class="machine-card">
                         <div class="machine-img">
-                            <img src="https://wellenprint.com/wp-content/uploads/2021/04/HP-Latex-3600.png" alt="HP Latex 3600" onerror="this.src='https://placehold.co/400x300?text=HP+Latex+3600'">
+                            <img src="assets/mesin/HP-Latex-3600.webp" alt="HP Latex 3600">
                         </div>
                         <div class="machine-body">
-                            <span class="machine-tag">Eco-Friendly</span>
                             <h6 class="machine-name">HP Latex 3600</h6>
-                            <p class="machine-desc">Tinta water-based ramah lingkungan untuk interior.</p>
                         </div>
                     </div>
                 </div>
                 <div class="col-lg-3 col-md-6">
                     <div class="machine-card">
                         <div class="machine-img">
-                            <img src="https://wellenprint.com/wp-content/uploads/2021/04/Swissqprint-Impala-3.png" alt="swissQprint" onerror="this.src='https://placehold.co/400x300?text=swissQprint+Impala'">
+                            <img src="assets/mesin/SwissQPrint-Impala-5.webp" alt="swissQprint">
                         </div>
                         <div class="machine-body">
-                            <span class="machine-tag">Flatbed UV</span>
                             <h6 class="machine-name">SwissQPrint Impala 5</h6>
-                            <p class="machine-desc">Cetak presisi tinggi pada berbagai media kaku/rigid.</p>
                         </div>
                     </div>
                 </div>
@@ -353,100 +311,84 @@
                 <div class="col-lg-3 col-md-6">
                     <div class="machine-card">
                         <div class="machine-img">
-                            <img src="https://wellenprint.com/wp-content/uploads/2021/04/Kornit-Storm-Hexa.png" alt="DTG Kornit" onerror="this.src='https://placehold.co/400x300?text=Kornit+Storm+Hexa'">
+                            <img src="assets/mesin/DTG-Kornit-Storm-Hexa.webp" alt="DTG Kornit">
                         </div>
                         <div class="machine-body">
-                            <span class="machine-tag">Apparel</span>
                             <h6 class="machine-name">DTG Kornit Storm Hexa</h6>
-                            <p class="machine-desc">Teknologi cetak kaos satuan kualitas industri.</p>
                         </div>
                     </div>
                 </div>
                 <div class="col-lg-3 col-md-6">
                     <div class="machine-card">
                         <div class="machine-img">
-                            <img src="https://wellenprint.com/wp-content/uploads/2021/04/Ricoh-Andromeda.png" alt="Ricoh" onerror="this.src='https://placehold.co/400x300?text=Ricoh+Andromeda'">
+                            <img src="assets/mesin/Ricoh-Andromeda-Pro.webp" alt="Ricoh">
                         </div>
                         <div class="machine-body">
-                            <span class="machine-tag">Digital Press</span>
                             <h6 class="machine-name">Ricoh Andromeda C9200</h6>
-                            <p class="machine-desc">Produksi dokumen volume tinggi dengan warna akurat.</p>
                         </div>
                     </div>
                 </div>
                 <div class="col-lg-3 col-md-6">
                     <div class="machine-card">
                         <div class="machine-img">
-                            <img src="https://wellenprint.com/wp-content/uploads/2021/04/Roland-VSI.png" alt="Roland" onerror="this.src='https://placehold.co/400x300?text=Roland+Eco-Solvent'">
+                            <img src="assets/mesin/Roland-Ecosolvent.webp" alt="Roland">
                         </div>
                         <div class="machine-body">
-                            <span class="machine-tag">Signage</span>
                             <h6 class="machine-name">Roland Eco-Solvent</h6>
-                            <p class="machine-desc">Cetak stiker dan outdoor signage resolusi tinggi.</p>
                         </div>
                     </div>
                 </div>
                 <div class="col-lg-3 col-md-6">
                     <div class="machine-card">
                         <div class="machine-img">
-                            <img src="https://wellenprint.com/wp-content/uploads/2021/04/UV-Printer-White-Ink.png" alt="UV White Ink" onerror="this.src='https://placehold.co/400x300?text=UV+Printer+White+Ink'">
+                            <img src="assets/mesin/UV-Printer-White-Ink.webp" alt="UV White Ink">
                         </div>
                         <div class="machine-body">
-                            <span class="machine-tag">Specialty</span>
                             <h6 class="machine-name">UV Printer White Ink</h6>
-                            <p class="machine-desc">Mendukung cetak tinta putih untuk efek premium.</p>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <h5 class="fw-800 mb-4 text-muted">MESIN PENDUKUNG (FINISHING)</h5>
+            <h5 class="fw-800 mb-4 text-muted text-center" style="font-size: 0.7rem; letter-spacing: 2px;">MESIN PENDUKUNG (FINISHING)</h5>
             <div class="row g-4">
                 <div class="col-lg-3 col-md-6">
                     <div class="machine-card">
                         <div class="machine-img">
-                            <img src="https://wellenprint.com/wp-content/uploads/2021/04/Esko-Kongsberg.png" alt="Esko" onerror="this.src='https://placehold.co/400x300?text=Esko+Kongsberg'">
+                            <img src="assets/mesin/Esko-Kosnberg-Cutting.webp" alt="Esko Kongsberg">
                         </div>
                         <div class="machine-body">
-                            <span class="machine-tag">Cutting</span>
                             <h6 class="machine-name">Esko Kongsberg Table</h6>
-                            <p class="machine-desc">Digital cutting & routing presisi tinggi otomatis.</p>
                         </div>
                     </div>
                 </div>
                 <div class="col-lg-3 col-md-6">
                     <div class="machine-card">
                         <div class="machine-img">
-                            <img src="https://wellenprint.com/wp-content/uploads/2021/04/Horizon-Perfect-Binder.png" alt="Horizon" onerror="this.src='https://placehold.co/400x300?text=Horizon+Binder'">
+                            <img src="assets/mesin/Horiznon-Perfect-Binder.webp" alt="Horizon Binder">
                         </div>
                         <div class="machine-body">
-                            <span class="machine-tag">Binding</span>
                             <h6 class="machine-name">Horizon Perfect Binder</h6>
-                            <p class="machine-desc">Finishing penjilidan buku profesional kualitas tinggi.</p>
                         </div>
                     </div>
                 </div>
                 <div class="col-lg-3 col-md-6">
                     <div class="machine-card">
                         <div class="machine-img">
-                            <img src="https://wellenprint.com/wp-content/uploads/2021/04/CNC-Laser-Cutting.png" alt="CNC Laser" onerror="this.src='https://placehold.co/400x300?text=CNC+Laser+Cutting'">
+                            <img src="assets/mesin/CNC-Laser-Cutting.webp" alt="CNC Laser">
                         </div>
                         <div class="machine-body">
-                            <span class="machine-tag">Engraving</span>
                             <h6 class="machine-name">CNC Laser Cutting</h6>
-                            <p class="machine-desc">Pemotongan akrilik dan kayu dengan laser canggih.</p>
                         </div>
                     </div>
                 </div>
                 <div class="col-lg-3 col-md-6">
                     <div class="machine-card">
                         <div class="machine-img">
-                            <img src="https://wellenprint.com/wp-content/uploads/2021/04/Polar-Cutting-Machine.png" alt="Polar" onerror="this.src='https://placehold.co/400x300?text=Polar+Cutter'">
+                            <img src="assets/mesin/Polar-115PF-Cutting-Machine.webp" alt="Polar Cutter">
                         </div>
                         <div class="machine-body">
-                            <span class="machine-tag">Trimming</span>
                             <h6 class="machine-name">Polar Cutting Machine</h6>
-                            <p class="machine-desc">Pemotongan kertas kertas presisi volume tinggi.</p>
                         </div>
                     </div>
                 </div>
@@ -499,40 +441,93 @@
         </div>
     </section>
 
-    <!-- Layanan Summary -->
-    <section id="layanan" class="section-padding bg-dark text-white text-center">
+    <!-- Portal Section (Updated to use /dashboard path) -->
+    <section id="portals" class="section-padding bg-light">
         <div class="container">
-            <h2 class="section-title text-white">Layanan Korporat</h2>
-            <p class="lead opacity-75 mb-5">Siap melayani kebutuhan cetak volume besar dengan harga kompetitif.</p>
+            <div class="mb-5 text-center">
+                <h2 class="section-title">Akses Portal & Sistem</h2>
+                <p class="text-muted">Manajemen operasional dan kemitraan internal Wellen Print.</p>
+            </div>
             <div class="row g-4 justify-content-center">
-                <div class="col-md-2 col-6">
-                    <div class="p-3">
-                        <i class="bi bi-aspect-ratio fs-1 text-warning mb-2 d-block"></i>
-                        <span class="fw-bold small">Large Format</span>
+                <div class="col-md-3">
+                    <a href="/logistik" class="portal-item">
+                        <i class="bi bi-truck-flatbed"></i>
+                        <h6>Logistik</h6>
+                        <p>Manajemen Kurir & Pelacakan Delivery.</p>
+                    </a>
+                </div>
+                <div class="col-md-3">
+                    <a href="https://inventory.wellen.id" class="portal-item">
+                        <i class="bi bi-box-seam-fill"></i>
+                        <h6>Inventory</h6>
+                        <p>Manajemen Stok Material & Produk.</p>
+                    </a>
+                </div>
+                <div class="col-md-6">
+                    <div class="portal-item bg-white">
+                        <div class="d-flex align-items-center gap-2 mb-3">
+                            <i class="bi bi-building-check text-warning fs-3 m-0"></i>
+                            <h6 class="m-0">PORTAL KAWAN LAMA</h6>
+                        </div>
+                        <div class="row g-2">
+                            <div class="col-4"><a href="/kawanlama" class="btn btn-sm btn-dark w-100 py-3 fw-bold" style="font-size: 0.65rem; border-radius: 10px;">ADMIN PUSAT</a></div>
+                            <div class="col-4"><a href="/adminkawanlama" class="btn btn-sm btn-outline-dark w-100 py-3 fw-bold" style="font-size: 0.65rem; border-radius: 10px;">ADMIN 3 TAB</a></div>
+                            <div class="col-4"><a href="/cabang" class="btn btn-sm btn-outline-dark w-100 py-3 fw-bold" style="font-size: 0.65rem; border-radius: 10px;">MODE CABANG</a></div>
+                        </div>
                     </div>
                 </div>
-                <div class="col-md-2 col-6">
-                    <div class="p-3">
-                        <i class="bi bi-file-earmark-pdf fs-1 text-warning mb-2 d-block"></i>
-                        <span class="fw-bold small">Digital A3+</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Layanan Korporat (Corporate Section) -->
+    <section id="layanan" class="section-padding bg-light">
+        <div class="container">
+            <div class="text-center mb-5">
+                <h2 class="section-title">Solusi Cetak Korporat</h2>
+                <p class="text-muted lead">Dukungan penuh untuk kebutuhan branding dan operasional bisnis Anda dengan standar profesional.</p>
+            </div>
+
+            <div class="row g-4">
+                <div class="col-lg-4 col-md-6">
+                    <div class="portal-item border-0 shadow-sm p-4 bg-white">
+                        <i class="bi bi-tags-fill text-warning fs-1 mb-3"></i>
+                        <h5 class="fw-800">Harga Spesial B2B</h5>
+                        <p class="text-muted small">Skema harga khusus dan diskon volume untuk pesanan rutin perusahaan. Hemat budget branding Anda tanpa kompromi kualitas.</p>
                     </div>
                 </div>
-                <div class="col-md-2 col-6">
-                    <div class="p-3">
-                        <i class="bi bi-gift fs-1 text-warning mb-2 d-block"></i>
-                        <span class="fw-bold small">Merchandise</span>
+                <div class="col-lg-4 col-md-6">
+                    <div class="portal-item border-0 shadow-sm p-4 bg-white">
+                        <i class="bi bi-file-earmark-check text-warning fs-1 mb-3"></i>
+                        <h5 class="fw-800">Sistem Invoice & TOP</h5>
+                        <p class="text-muted small">Fleksibilitas pembayaran dengan sistem invoice dan Term of Payment (TOP) yang memudahkan administrasi keuangan perusahaan Anda.</p>
                     </div>
                 </div>
-                <div class="col-md-2 col-6">
-                    <div class="p-3">
-                        <i class="bi bi-postcard fs-1 text-warning mb-2 d-block"></i>
-                        <span class="fw-bold small">Apparel</span>
+                <div class="col-lg-4 col-md-6">
+                    <div class="portal-item border-0 shadow-sm p-4 bg-white">
+                        <i class="bi bi-lightning-charge-fill text-warning fs-1 mb-3"></i>
+                        <h5 class="fw-800">Prioritas Produksi</h5>
+                        <p class="text-muted small">Pesanan korporat mendapatkan jalur hijau dalam antrean produksi untuk memastikan setiap deadline event dan promosi Anda terpenuhi.</p>
                     </div>
                 </div>
-                <div class="col-md-2 col-6">
-                    <div class="p-3">
-                        <i class="bi bi-award fs-1 text-warning mb-2 d-block"></i>
-                        <span class="fw-bold small">Certificates</span>
+                <div class="col-lg-4 col-md-6">
+                    <div class="portal-item border-0 shadow-sm p-4 bg-white">
+                        <i class="bi bi-shield-check text-warning fs-1 mb-3"></i>
+                        <h5 class="fw-800">Kualitas Konsisten</h5>
+                        <p class="text-muted small">Dukungan mesin teknologi terbaru memastikan akurasi warna logo perusahaan Anda tetap konsisten di setiap media cetak.</p>
+                    </div>
+                </div>
+                <div class="col-lg-4 col-md-6">
+                    <div class="portal-item border-0 shadow-sm p-4 bg-white">
+                        <i class="bi bi-truck text-warning fs-1 mb-3"></i>
+                        <h5 class="fw-800">Logistik Terintegrasi</h5>
+                        <p class="text-muted small">Layanan pengiriman langsung ke kantor atau distribusi ke berbagai cabang perusahaan Anda di seluruh Jabodetabek.</p>
+                    </div>
+                </div>
+                <div class="col-lg-4 col-md-6">
+                    <div class="portal-item border-0 shadow-sm p-4 bg-white text-center d-flex flex-column justify-content-center align-items-center">
+                        <h6 class="fw-bold mb-3">Siap Bermitra dengan Kami?</h6>
+                        <a href="https://wa.me/628119690809" class="btn btn-dark fw-bold px-4 py-3 w-100" style="border-radius: 12px;">HUBUNGI ACCOUNT MANAGER</a>
                     </div>
                 </div>
             </div>

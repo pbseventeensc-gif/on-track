@@ -1,22 +1,40 @@
 {
   "cleanUrls": true,
   "trailingSlash": false,
+  "redirects": [
+    {
+      "source": "/inventory",
+      "destination": "https://inventory.wellen.id",
+      "permanent": true
+    },
+    {
+      "source": "/kawanlama",
+      "destination": "https://web-track-phi-gilt.vercel.app",
+      "permanent": true
+    },
+    {
+      "source": "/adminkawanlama",
+      "destination": "https://web-track-phi-gilt.vercel.app",
+      "permanent": true
+    },
+    {
+      "source": "/cabang",
+      "destination": "https://web-track-phi-gilt.vercel.app?mode=cabang",
+      "permanent": true
+    }
+  ],
   "rewrites": [
     {
       "source": "/logistik",
       "destination": "/logistik/index.html"
     },
     {
-      "source": "/kawanlama",
-      "destination": "https://web-track-phi-gilt.vercel.app"
+      "source": "/dashboard",
+      "destination": "/logistik/index.html"
     },
     {
-      "source": "/cabang",
-      "destination": "https://web-track-phi-gilt.vercel.app/?mode=cabang"
-    },
-    {
-      "source": "/inventory",
-      "destination": "https://inventory-wellen.vercel.app"
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }
