@@ -1812,15 +1812,17 @@
                 });
 
                 // Dashboard Map: Always show all online couriers
-                L.marker(pos, { icon: courierIcon })
-                    .addTo(tripMarkersLayer)
-                    .bindPopup(`<div style="min-width:140px;"><b>${name}</b><br><small style="color:${color}; font-weight:800;">LIVE GPS ON-TRACK</small></div>`);
+                const mDash = L.marker(pos, { icon: courierIcon }).addTo(tripMarkersLayer);
+                mDash.courierId = id;
+                mDash.courierName = name;
+                mDash.bindPopup(`<div style="min-width:140px;"><b>${name}</b><br><small style="color:${color}; font-weight:800;">LIVE GPS ON-TRACK</small></div>`);
 
                 // Monitor Map: Apply Search Filter
                 if (!filter || name.toLowerCase().includes(search) || id.toLowerCase().includes(search)) {
-                    L.marker(pos, { icon: courierIcon })
-                        .addTo(monitorCouriersLayer)
-                        .bindPopup(`<div style="min-width:140px;"><b>${name}</b><br><small style="color:${color}; font-weight:800;">LIVE GPS ON-TRACK</small></div>`);
+                    const mMon = L.marker(pos, { icon: courierIcon }).addTo(monitorCouriersLayer);
+                    mMon.courierId = id;
+                    mMon.courierName = name;
+                    mMon.bindPopup(`<div style="min-width:140px;"><b>${name}</b><br><small style="color:${color}; font-weight:800;">LIVE GPS ON-TRACK</small></div>`);
                 }
             }
 
@@ -1978,24 +1980,77 @@
 
         function focusOnCourier(id, isMonitor = false) {
             const targetMap = isMonitor ? mapMonitor : map;
-            let foundMarker = null;
-            const searchLayer = isMonitor ? monitorCouriersLayer : tripMarkersLayer;
-            searchLayer.eachLayer(l => {
-                if (l.getPopup() && l.getPopup().getContent().toLowerCase().includes(id.toLowerCase())) foundMarker = l;
-            });
+            if (!targetMap) return;
 
-            if(foundMarker) {
-                targetMap.flyTo(foundMarker.getLatLng(), 16);
+            const courierName = registeredUsers[id] || id;
+            let foundMarker = null;
+
+            // 1. Search in courier markers layer
+            const searchLayer = isMonitor ? monitorCouriersLayer : tripMarkersLayer;
+            if (searchLayer) {
+                searchLayer.eachLayer(l => {
+                    if (l.courierId === id || l.courierName === courierName) {
+                        foundMarker = l;
+                    } else if (l.getPopup() && l.getPopup().getContent()) {
+                        const content = l.getPopup().getContent().toLowerCase();
+                        if (content.includes(id.toLowerCase()) || content.includes(courierName.toLowerCase())) {
+                            foundMarker = l;
+                        }
+                    }
+                });
+            }
+
+            // 2. If no marker on courier layer, search in trip destination markers layer
+            if (!foundMarker && isMonitor && monitorMarkersLayer) {
+                monitorMarkersLayer.eachLayer(l => {
+                    if (l.getPopup() && l.getPopup().getContent()) {
+                        const content = l.getPopup().getContent().toLowerCase();
+                        if (content.includes(courierName.toLowerCase()) || content.includes(id.toLowerCase())) {
+                            foundMarker = l;
+                        }
+                    }
+                });
+            }
+
+            // 3. Fly to marker position if found
+            if (foundMarker) {
+                targetMap.flyTo(foundMarker.getLatLng(), 15);
                 foundMarker.openPopup();
-                if(isMonitor) showDetailedTracking(id);
-                else switchTab('dashboard');
+            } else {
+                // Fallback A: Check live online coordinates
+                const livePos = currentOnlineCouriers[id];
+                if (livePos && livePos.lat && livePos.lng) {
+                    targetMap.flyTo([livePos.lat, livePos.lng], 15);
+                } else {
+                    // Fallback B: Check active trip first destination
+                    const trip = allCurrentTrips.find(t => (t.courierId === id || t.courierId === courierName) && t.status !== 'completed');
+                    if (trip && trip.destinations && trip.destinations.length > 0) {
+                        const dest = trip.destinations.find(d => d.latitude && d.longitude) || trip.destinations[0];
+                        let lat = parseFloat(dest.latitude || dest.lat || -6.2088);
+                        let lng = parseFloat(dest.longitude || dest.lng || 106.8456);
+                        targetMap.flyTo([lat, lng], 14);
+                    }
+                }
+            }
+
+            // 4. Always trigger detailed tracking view & scroll into view
+            if (isMonitor) {
+                showDetailedTracking(id);
+                const detailEl = document.getElementById('current-shipment-detail');
+                if (detailEl && !detailEl.classList.contains('d-none')) {
+                    detailEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+            } else {
+                switchTab('dashboard');
             }
         }
 
         function showDetailedTracking(courierId) {
-            const trip = allCurrentTrips.find(t => t.courierId === courierId && t.status !== 'completed');
+            const courierName = registeredUsers[courierId] || courierId;
+            const trip = allCurrentTrips.find(t => (t.courierId === courierId || t.courierId === courierName) && t.status !== 'completed');
             const container = document.getElementById('current-shipment-detail');
-            if(!trip) {
+            if (!container) return;
+            if (!trip) {
                 container.classList.add('d-none');
                 return;
             }
