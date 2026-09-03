@@ -14,6 +14,7 @@
     <!-- Libraries -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
 
     <script>
@@ -431,7 +432,7 @@
     <!-- Login Screen -->
     <div id="login-screen">
         <div class="login-box text-center">
-            <img src="wellen_logo.jpeg" alt="Logo" class="login-logo mb-4">
+            <img src="wellen_logo.jpeg" alt="Logo" class="login-logo mb-4" onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name=Wellen+Print&background=111827&color=ffffff&bold=true';">
             <h5 class="fw-800 mb-2">Admin Logistik</h5>
             <p class="text-muted small mb-4">Silakan login untuk mengakses dashboard.</p>
 
@@ -461,7 +462,7 @@
                 <i class="bi bi-chevron-left" style="font-size: 12px;"></i>
             </div>
             <div class="sidebar-header">
-                <img src="wellen_logo.jpeg" class="main-logo" alt="Wellen Print">
+                <img src="wellen_logo.jpeg" class="main-logo" alt="Wellen Print" onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name=Wellen+Print&background=111827&color=ffffff&bold=true';">
                 <div class="sidebar-brand">Wellen Print</div>
             </div>
 
@@ -1030,7 +1031,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <script>
         const firebaseConfig = {
@@ -1067,6 +1067,10 @@
         function initMaps() {
             try {
                 if (document.getElementById('map')) {
+                    if (map) { map.remove(); map = null; }
+                    const containerMap = document.getElementById('map');
+                    if (containerMap && containerMap._leaflet_id) containerMap._leaflet_id = null;
+
                     map = L.map('map', { zoomControl: false }).setView([-6.2088, 106.8456], 12);
                     L.control.zoom({ position: 'bottomright' }).addTo(map);
                     L.tileLayer(googleTiles.url, googleTiles.options).addTo(map);
@@ -1074,6 +1078,10 @@
                     tripRoutesLayer.addTo(map);
                 }
                 if (document.getElementById('map-monitor')) {
+                    if (mapMonitor) { mapMonitor.remove(); mapMonitor = null; }
+                    const containerMon = document.getElementById('map-monitor');
+                    if (containerMon && containerMon._leaflet_id) containerMon._leaflet_id = null;
+
                     mapMonitor = L.map('map-monitor', { zoomControl: false }).setView([-6.2088, 106.8456], 12);
                     L.control.zoom({ position: 'bottomright' }).addTo(mapMonitor);
                     L.tileLayer(googleTiles.url, googleTiles.options).addTo(mapMonitor);
@@ -1082,6 +1090,10 @@
                     tripRoutesLayer.addTo(mapMonitor);
                 }
                 if (document.getElementById('map-dispatch')) {
+                    if (mapDispatch) { mapDispatch.remove(); mapDispatch = null; }
+                    const containerDisp = document.getElementById('map-dispatch');
+                    if (containerDisp && containerDisp._leaflet_id) containerDisp._leaflet_id = null;
+
                     mapDispatch = L.map('map-dispatch', { zoomControl: false }).setView([-6.2088, 106.8456], 12);
                     L.control.zoom({ position: 'bottomright' }).addTo(mapDispatch);
                     L.tileLayer(googleTiles.url, googleTiles.options).addTo(mapDispatch);
