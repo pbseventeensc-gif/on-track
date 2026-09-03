@@ -2190,7 +2190,7 @@
         }
 
         async function deleteTrip(tripId) {
-            if (!confirm("Hapus pengantaran #" + tripId.substring(5,11) + "? Tindakan me-reset pengantaran ini.")) return;
+            if (!confirm("Hapus pengantaran #" + tripId.substring(5,11) + "? Tindakan ini tidak bisa dibatalkan.")) return;
             try {
                 await db.collection('trips').doc(tripId).delete();
                 showToast("Pengantaran berhasil dihapus.");

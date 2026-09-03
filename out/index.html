@@ -2119,7 +2119,7 @@
                 icon.classList.replace('bi-chevron-down', 'bi-chevron-up');
             } else {
                 el.classList.add('d-none');
-                icon.classList.replace('bi-chevron-up', 'bi-chevron-down');
+                icon.classList.replace('bi-chevron-down', 'bi-chevron-up');
             }
         }
 
@@ -2190,7 +2190,7 @@
         }
 
         async function deleteTrip(tripId) {
-            if (!confirm("Hapus pengantaran #" + tripId.substring(5,11) + "? Tindakan me-reset pengantaran ini.")) return;
+            if (!confirm("Hapus pengantaran #" + tripId.substring(5,11) + "? Tindakan ini tidak bisa dibatalkan.")) return;
             try {
                 await db.collection('trips').doc(tripId).delete();
                 showToast("Pengantaran berhasil dihapus.");

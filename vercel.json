@@ -8,6 +8,21 @@
       "permanent": true
     },
     {
+      "source": "/logistik",
+      "destination": "https://logistic.wellen.id",
+      "permanent": true
+    },
+    {
+      "source": "/logistic",
+      "destination": "https://logistic.wellen.id",
+      "permanent": true
+    },
+    {
+      "source": "/dashboard",
+      "destination": "https://logistic.wellen.id",
+      "permanent": true
+    },
+    {
       "source": "/kawanlama",
       "destination": "https://web-track-phi-gilt.vercel.app",
       "permanent": true
@@ -21,20 +36,6 @@
       "source": "/cabang",
       "destination": "https://web-track-phi-gilt.vercel.app?mode=cabang",
       "permanent": true
-    }
-  ],
-  "rewrites": [
-    {
-      "source": "/logistik",
-      "destination": "/logistik/index.html"
-    },
-    {
-      "source": "/dashboard",
-      "destination": "/logistik/index.html"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
     }
   ]
 }
