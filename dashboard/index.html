@@ -1060,6 +1060,11 @@
         };
         firebase.initializeApp(firebaseConfig);
         const rtdb = firebase.database(), db = firebase.firestore(), storage = firebase.storage(), auth = firebase.auth();
+        try {
+            db.settings({ experimentalAutoDetectLongPolling: true });
+        } catch (e) {
+            console.log("Firestore long polling settings info:", e);
+        }
 
         // Map & Data Variables
         let map, mapMonitor, mapDispatch;
@@ -1180,6 +1185,44 @@
                 const input = document.getElementById('places-search');
                 if (!input) return;
 
+                // 1. Try Modern PlaceAutocompleteElement
+                if (window.google && google.maps && google.maps.importLibrary) {
+                    try {
+                        const { PlaceAutocompleteElement } = await google.maps.importLibrary("places");
+                        if (PlaceAutocompleteElement) {
+                            const autocompleteElement = new PlaceAutocompleteElement({
+                                componentRestrictions: { country: "id" }
+                            });
+                            const container = input.parentElement;
+                            if (container) {
+                                input.style.display = 'none';
+                                autocompleteElement.style.width = '100%';
+                                container.appendChild(autocompleteElement);
+
+                                autocompleteElement.addEventListener("gmp-placeselect", async (event) => {
+                                    const place = event.place;
+                                    if (place) {
+                                        await place.fetchFields({ fields: ["location", "displayName", "formattedAddress"] });
+                                        if (place.location) {
+                                            const lat = place.location.lat();
+                                            const lng = place.location.lng();
+                                            const name = place.displayName || "Tujuan";
+                                            const address = place.formattedAddress || "";
+                                            tripQueue.push({ name, address, lat, lng });
+                                            renderQueue();
+                                            if (mapDispatch) mapDispatch.flyTo([lat, lng], 16);
+                                        }
+                                    }
+                                });
+                                return;
+                            }
+                        }
+                    } catch (err) {
+                        console.log("PlaceAutocompleteElement fallback to Autocomplete:", err);
+                    }
+                }
+
+                // 2. Fallback to google.maps.places.Autocomplete
                 let autocomplete;
                 if (window.google && google.maps && google.maps.places && google.maps.places.Autocomplete) {
                     autocomplete = new google.maps.places.Autocomplete(input, {
@@ -1188,10 +1231,12 @@
                     });
                 } else if (window.google && google.maps && google.maps.importLibrary) {
                     const { Autocomplete } = await google.maps.importLibrary("places");
-                    autocomplete = new Autocomplete(input, {
-                        componentRestrictions: { country: "id" },
-                        fields: ["geometry", "name", "formatted_address"]
-                    });
+                    if (Autocomplete) {
+                        autocomplete = new Autocomplete(input, {
+                            componentRestrictions: { country: "id" },
+                            fields: ["geometry", "name", "formatted_address"]
+                        });
+                    }
                 }
 
                 if (autocomplete) {
