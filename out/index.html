@@ -1792,10 +1792,14 @@
             }
 
             // 2. Render All Trip Destinations & Route Lines
+            const bounds = L.latLngBounds();
+            let hasActivePoints = false;
+
             allCurrentTrips.forEach(t => {
                 const cName = registeredUsers[t.courierId] || t.courierId.substring(0,8);
                 const cColor = getCourierColor(t.courierId);
 
+                // Render active trips (accepted, in_progress, assigned)
                 if (t.status !== 'completed' && t.destinations && t.destinations.length > 0) {
                     const routePoints = [];
 
@@ -1804,15 +1808,23 @@
                     const isLiveValid = livePos && livePos.lat >= -11.0 && livePos.lat <= 6.0 && livePos.lng >= 95.0 && livePos.lng <= 141.0;
                     const startPt = isLiveValid ? [livePos.lat, livePos.lng] : [-6.2088, 106.8456];
                     routePoints.push(startPt);
+                    bounds.extend(startPt);
+                    hasActivePoints = true;
 
                     t.destinations.forEach((d, idx) => {
-                        if (d.latitude && d.longitude) {
-                            routePoints.push([d.latitude, d.longitude]);
+                        const dLat = parseFloat(d.latitude !== undefined ? d.latitude : (d.lat !== undefined ? d.lat : 0));
+                        const dLng = parseFloat(d.longitude !== undefined ? d.longitude : (d.lng !== undefined ? d.lng : 0));
+
+                        if (dLat !== 0 && dLng !== 0 && !isNaN(dLat) && !isNaN(dLng)) {
+                            const pt = [dLat, dLng];
+                            routePoints.push(pt);
+                            bounds.extend(pt);
+                            hasActivePoints = true;
 
                             // Pewarnaan Status:
                             // Selesai -> Hijau (#10B981) dengan tanda centang ✓
                             // Tiba / In Progress -> Amber (#F59E0B)
-                            // Belum Selesai (Pending) -> Warna Unik Kurir (cColor)
+                            // Accepted / Pending -> Warna Unik Kurir (cColor)
                             let pinColor = cColor;
                             let statusText = 'Pending';
                             let numBadge = d.stopIndex || (idx + 1);
@@ -1824,7 +1836,13 @@
                             } else if (d.status === 'arrived') {
                                 pinColor = '#F59E0B';
                                 statusText = 'Tiba 🚚';
+                            } else if (t.status === 'accepted') {
+                                statusText = 'Diterima (Proses)';
+                            } else if (t.status === 'assigned') {
+                                statusText = 'Ditugaskan';
                             }
+
+                            const tripBadge = t.status === 'accepted' ? '<span style="background:#2563EB; color:#fff; padding:1px 6px; border-radius:8px; font-size:9px; font-weight:700; margin-left:4px;">ACCEPTED</span>' : '';
 
                             const icon = L.divIcon({
                                 className: 'custom-div-icon',
@@ -1836,25 +1854,25 @@
                             const popupHtml = `
                                 <div style="min-width:180px;">
                                     <div style="background:${pinColor}; color:#fff; padding:2px 8px; border-radius:10px; font-size:10px; font-weight:700; display:inline-block; margin-bottom:4px;">
-                                        Stop ${d.stopIndex || (idx+1)}: ${statusText}
+                                        Stop ${d.stopIndex || (idx+1)}: ${statusText} ${tripBadge}
                                     </div>
                                     <div style="font-weight:800; font-size:13px; color:#111827; margin-bottom:2px;">${d.locationName}</div>
                                     <div style="font-size:11px; color:#6B7280; margin-bottom:6px;">${d.address || 'Alamat tidak tersedia'}</div>
                                     <div style="font-size:11px; font-weight:700; border-top:1px solid #E5E7EB; padding-top:4px;">
-                                        Kurir: <span style="color:${cColor};">${cName}</span>
+                                        Kurir: <span style="color:${cColor};">${cName}</span> | Status: <b>${t.status.toUpperCase()}</b>
                                     </div>
                                 </div>
                             `;
 
                             // Add to Dashboard Map
-                            L.marker([d.latitude, d.longitude], { icon })
+                            L.marker(pt, { icon })
                                 .bindPopup(popupHtml)
                                 .addTo(tripMarkersLayer);
 
                             // Add to Monitor Map (Apply Filter)
                             const matches = d.locationName.toLowerCase().includes(search) || cName.toLowerCase().includes(search) || t.id.toLowerCase().includes(search);
                             if (!filter || matches) {
-                                L.marker([d.latitude, d.longitude], { icon })
+                                L.marker(pt, { icon })
                                     .bindPopup(popupHtml)
                                     .addTo(monitorMarkersLayer);
                             }
