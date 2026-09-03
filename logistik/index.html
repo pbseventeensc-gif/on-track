@@ -405,28 +405,38 @@
         /* Dark Mode Theme */
         body.dark-theme {
             --bg-body: #0f172a;
-            --primary: #f8fafc;
-            --border-color: #1e293b;
+            --primary: #38bdf8;
+            --border-color: #334155;
             --text-main: #f8fafc;
             --text-muted: #94a3b8;
         }
-        .dark-theme .sidebar, .dark-theme .top-header, .dark-theme .bg-white, .dark-theme .tracking-card, .dark-theme .modal-content {
+        .dark-theme .text-dark { color: #f8fafc !important; }
+        .dark-theme .text-muted { color: #94a3b8 !important; }
+        .dark-theme .sidebar, .dark-theme .top-header, .dark-theme .bg-white, .dark-theme .bg-light, .dark-theme .tracking-card, .dark-theme .modal-content {
             background-color: #1e293b !important;
             color: #f8fafc !important;
         }
         .dark-theme .stat-card, .dark-theme .table-container, .dark-theme .border, .dark-theme .card, .dark-theme .view-section > div {
             background-color: #1e293b !important;
             border-color: #334155 !important;
+            color: #f8fafc !important;
         }
         .dark-theme .nav-link-custom:hover { background: #334155; color: #38bdf8; }
         .dark-theme .nav-link-custom.active { background: #334155; color: #38bdf8; font-weight: 600; }
         .dark-theme .table thead { background: #0f172a; }
-        .dark-theme .search-input, .dark-theme .form-select, .dark-theme .form-control { background: #0f172a; color: #f8fafc; border-color: #334155; }
-        .dark-theme .btn-light { background: #334155; border-color: #475569; color: #f8fafc; }
+        .dark-theme .search-input, .dark-theme .form-select, .dark-theme .form-control { background: #0f172a !important; color: #f8fafc !important; border-color: #334155 !important; }
+        .dark-theme .search-input::placeholder, .dark-theme .form-control::placeholder { color: #64748B !important; }
+        .dark-theme .btn-light { background: #334155 !important; border-color: #475569 !important; color: #f8fafc !important; }
+        .dark-theme .btn-dark { background-color: #38bdf8 !important; color: #0f172a !important; border-color: #38bdf8 !important; }
+        .dark-theme .btn-dark:hover { background-color: #0284c7 !important; color: #ffffff !important; }
+        .dark-theme .btn-outline-dark { color: #38bdf8 !important; border-color: #38bdf8 !important; background-color: transparent !important; }
+        .dark-theme .btn-outline-dark:hover { color: #0f172a !important; background-color: #38bdf8 !important; }
         .dark-theme .nav-category { color: #475569; }
         .dark-theme .sidebar-header, .dark-theme .sidebar-footer { border-color: #334155; }
         .dark-theme .table tbody td { color: #e2e8f0; border-bottom-color: #334155; }
         .dark-theme .bubble.courier { background: #334155; color: #f8fafc; }
+        .dark-theme .form-check-input, .dark-theme .client-checkbox { background-color: #0f172a; border-color: #475569; }
+        .dark-theme .form-check-input:checked, .dark-theme .client-checkbox:checked { background-color: #38bdf8; border-color: #38bdf8; }
         .dark-theme #map, .dark-theme #map-monitor, .dark-theme #map-dispatch { filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%); }
         .dark-theme .leaflet-marker-pane, .dark-theme .leaflet-popup-pane { filter: invert(100%) hue-rotate(180deg) brightness(105%); }
     </style>
