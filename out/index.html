@@ -212,16 +212,20 @@
 
         .search-container { position: relative; width: 300px; }
         .search-container i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
-        .search-input {
+        .search-input, .form-control, .form-select {
             padding-left: 36px;
             border-radius: 10px;
             border: 1px solid var(--border-color);
-            background: #F9FAFB;
+            background: #ffffff;
+            color: #111827 !important;
             font-size: 0.9rem;
             width: 100%;
-            height: 40px;
         }
-        .search-input:focus { outline: none; border-color: #D1D5DB; background: #fff; }
+        .search-input::placeholder, .form-control::placeholder {
+            color: #9CA3AF !important;
+            opacity: 1;
+        }
+        .search-input:focus, .form-control:focus { outline: none; border-color: #111827; background: #ffffff; color: #111827 !important; }
 
         .header-actions { display: flex; align-items: center; gap: 16px; }
         .action-btn {
@@ -867,7 +871,7 @@
                         <!-- Search Bar for Monitor -->
                         <div class="position-relative mb-4">
                             <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"></i>
-                            <input type="text" id="monitor-search" class="form-control ps-5 py-2" style="border-radius: 12px; background: #F9FAFB;" placeholder="Search by Order ID, Client, Courier..." oninput="filterMonitorAll(this.value)" list="monitor-datalist">
+                            <input type="text" id="monitor-search" class="form-control ps-5 py-2 fw-semibold" style="border-radius: 12px; background: #ffffff; color: #111827 !important;" placeholder="Search by Order ID, Client, Courier..." oninput="filterMonitorAll(this.value)" list="monitor-datalist">
                             <datalist id="monitor-datalist"></datalist>
                         </div>
 
