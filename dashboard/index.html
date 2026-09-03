@@ -432,23 +432,25 @@
     <!-- Login Screen -->
     <div id="login-screen">
         <div class="login-box text-center">
-            <img src="wellen_logo.jpeg" alt="Logo" class="login-logo mb-4" onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name=Wellen+Print&background=111827&color=ffffff&bold=true';">
+            <img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 108 108'><rect width='108' height='108' rx='20' fill='%23111827'/><path fill='%23F59E0B' d='M30,30h16v48h-16zM50,45h16v33h-16zM70,25h16v53h-16z'/></svg>" alt="Wellen Print" class="login-logo mb-4" style="width:72px; height:72px; border-radius:16px;">
             <h5 class="fw-800 mb-2">Admin Logistik</h5>
             <p class="text-muted small mb-4">Silakan login untuk mengakses dashboard.</p>
 
-            <div class="text-start mb-3">
-                <label class="extra-small fw-bold text-muted text-uppercase mb-2 d-block">Email Address</label>
-                <input type="email" id="login-email" class="form-control py-2" style="border-radius: 10px;" placeholder="admin@wellenprint.com">
-            </div>
+            <form onsubmit="event.preventDefault(); handleLogin();">
+                <div class="text-start mb-3">
+                    <label class="extra-small fw-bold text-muted text-uppercase mb-2 d-block">Email Address</label>
+                    <input type="email" id="login-email" class="form-control py-2" style="border-radius: 10px;" placeholder="admin@wellenprint.com" required>
+                </div>
 
-            <div class="text-start mb-4">
-                <label class="extra-small fw-bold text-muted text-uppercase mb-2 d-block">Password</label>
-                <input type="password" id="login-password" class="form-control py-2" style="border-radius: 10px;" placeholder="••••••••">
-            </div>
+                <div class="text-start mb-4">
+                    <label class="extra-small fw-bold text-muted text-uppercase mb-2 d-block">Password</label>
+                    <input type="password" id="login-password" class="form-control py-2" style="border-radius: 10px;" placeholder="••••••••" required>
+                </div>
 
-            <button class="btn btn-dark w-100 py-3 fw-bold mb-3" style="border-radius: 12px;" onclick="handleLogin()">
-                SIGN IN
-            </button>
+                <button type="submit" class="btn btn-dark w-100 py-3 fw-bold mb-3" style="border-radius: 12px;">
+                    SIGN IN
+                </button>
+            </form>
             <p id="login-error" class="text-danger extra-small fw-bold d-none"></p>
         </div>
     </div>
@@ -462,7 +464,7 @@
                 <i class="bi bi-chevron-left" style="font-size: 12px;"></i>
             </div>
             <div class="sidebar-header">
-                <img src="wellen_logo.jpeg" class="main-logo" alt="Wellen Print" onerror="this.onerror=null; this.src='https://ui-avatars.com/api/?name=Wellen+Print&background=111827&color=ffffff&bold=true';">
+                <img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 108 108'><rect width='108' height='108' rx='20' fill='%23111827'/><path fill='%23F59E0B' d='M30,30h16v48h-16zM50,45h16v33h-16zM70,25h16v53h-16z'/></svg>" class="main-logo" alt="Wellen Print" style="width:36px; height:36px; border-radius:8px;">
                 <div class="sidebar-brand">Wellen Print</div>
             </div>
 
@@ -1304,7 +1306,7 @@
                                 <div class="text-muted mt-1" style="font-size: 0.65rem; font-weight: 600;">${c.name}</div>
                                 <div class="text-muted text-truncate" style="font-size: 0.6rem; max-width: 180px;">${remainingAddress || c.address}</div>
                             </div>
-                            <button class="btn btn-link text-danger p-1" onclick="deleteClient('${c.id}', '${escStore}')">
+                            <button class="btn btn-link text-danger p-1" data-id="${c.id}" data-store="${escStore}" onclick="deleteClient(this.dataset.id, this.dataset.store)">
                                 <i class="bi bi-trash" style="font-size: 0.8rem;"></i>
                             </button>
                         </div>
@@ -1589,7 +1591,7 @@
                 allCurrentTrips.filter(t => t.courierId === courierId).forEach(trip => {
                     trip.destinations.forEach(d => {
                         if (d.proofPhotoUrl) {
-                            podIconsHtml += `<i class="bi bi-camera text-primary ms-1 cursor-pointer" onclick="openPoDModal('${d.proofPhotoUrl}')" title="Stop ${d.stopIndex}"></i> `;
+                            podIconsHtml += `<i class="bi bi-camera text-primary ms-1 cursor-pointer" data-url="${d.proofPhotoUrl}" onclick="openPoDModal(this.dataset.url)" title="Stop ${d.stopIndex}"></i> `;
                         }
                     });
                 });
@@ -1776,7 +1778,7 @@
                                 </div>
                             </div>
 
-                            <button class="btn btn-sm btn-dark w-100 py-2 fw-bold" style="border-radius: 10px; font-size:0.85rem" onclick="focusOnCourier('${c.id}', true)">
+                            <button class="btn btn-sm btn-dark w-100 py-2 fw-bold" style="border-radius: 10px; font-size:0.85rem" data-id="${c.id}" onclick="focusOnCourier(this.dataset.id, true)">
                                 <i class="bi bi-geo-alt-fill me-1"></i> FOCUS TRACKING
                             </button>
                         </div>
@@ -1907,17 +1909,16 @@
                             `;
 
                             // Add to Dashboard Map
+                        L.marker(pt, { icon })
+                            .bindPopup(popupHtml)
+                            .addTo(tripMarkersLayer);
+
+                        // Add to Monitor Map (Apply Filter)
+                        const matches = d.locationName.toLowerCase().includes(search) || cName.toLowerCase().includes(search) || t.id.toLowerCase().includes(search);
+                        if (!filter || matches) {
                             L.marker(pt, { icon })
                                 .bindPopup(popupHtml)
-                                .addTo(tripMarkersLayer);
-
-                            // Add to Monitor Map (Apply Filter)
-                            const matches = d.locationName.toLowerCase().includes(search) || cName.toLowerCase().includes(search) || t.id.toLowerCase().includes(search);
-                            if (!filter || matches) {
-                                L.marker(pt, { icon })
-                                    .bindPopup(popupHtml)
-                                    .addTo(monitorMarkersLayer);
-                            }
+                                .addTo(monitorMarkersLayer);
                         }
                     });
 
@@ -1944,7 +1945,7 @@
                 const eta = t.status === 'completed' ? 'Finished' : (t.destinations[0]?.arrivalTime ? new Date(t.destinations[0].arrivalTime.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : 'TBD');
 
                 const podTrip = t.destinations.find(d => d.proofPhotoUrl);
-                const podIcon = podTrip ? `<i class="bi bi-camera text-primary ms-2 cursor-pointer" onclick="openPoDModal('${podTrip.proofPhotoUrl}')"></i>` : '';
+                const podIcon = podTrip ? `<i class="bi bi-camera text-primary ms-2 cursor-pointer" data-url="${podTrip.proofPhotoUrl}" onclick="openPoDModal(this.dataset.url)"></i>` : '';
 
                 table.innerHTML += `<tr>
                     <td class="fw-bold">#${t.id.substring(5,11)} ${podIcon}</td>
@@ -1954,7 +1955,7 @@
                     <td>${cName}</td>
                     <td>${eta}</td>
                     <td>
-                        <button class="btn btn-sm btn-light border text-danger" onclick="deleteTrip('${t.id}')">
+                        <button class="btn btn-sm btn-light border text-danger" data-id="${t.id}" onclick="deleteTrip(this.dataset.id)">
                             <i class="bi bi-trash"></i>
                         </button>
                     </td>
@@ -2043,11 +2044,15 @@
             for (const id in registeredUsers) {
                 const name = registeredUsers[id];
                 if (name.toLowerCase().includes(filter.toLowerCase())) {
-                    el.innerHTML += `<div class="p-3 border rounded-3 cursor-pointer d-flex justify-content-between align-items-center bg-white" onclick="openChat('${id}', '${name}')">
+                    el.innerHTML += `<div class="p-3 border rounded-3 cursor-pointer d-flex justify-content-between align-items-center bg-white" data-id="${id}" data-name="${name.replace(/"/g, '&quot;')}" onclick="openChat(this.dataset.id, this.dataset.name)">
                         <div class="d-flex align-items-center gap-2"><img src="https://ui-avatars.com/api/?name=${name}" style="width:32px; border-radius:50%"><span>${name}</span></div>
                         <i class="bi bi-chevron-right text-muted"></i></div>`;
                 }
             }
+        }
+
+        function filterCourierChat(val) {
+            loadChatList(val);
         }
 
         function openChat(id, name) {
@@ -2108,14 +2113,14 @@
                     const statusClass = t.status === 'completed' ? 'delivered' : (t.status === 'assigned' ? 'pending' : 'transit');
                     tripsHtml += `
                         <div class="border-top">
-                            <div class="p-3 d-flex justify-content-between align-items-center cursor-pointer hover-bg-light" onclick="toggleReportDetail('${t.id}')">
+                            <div class="p-3 d-flex justify-content-between align-items-center cursor-pointer hover-bg-light" data-id="${t.id}" onclick="toggleReportDetail(this.dataset.id)">
                                 <div>
                                     <span class="fw-bold d-block" style="font-size:0.9rem">#${t.id.substring(5,11)}</span>
                                     <small class="text-muted" style="font-size:0.7rem">${t.destinations.length} Stops • ${new Date(t.date.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</small>
                                 </div>
                                 <div class="d-flex gap-2 align-items-center">
                                     <span class="badge-pill badge-${statusClass}">${t.status}</span>
-                                    <button class="btn btn-sm btn-light border text-danger py-1" onclick="event.stopPropagation(); deleteTrip('${t.id}')"><i class="bi bi-trash"></i></button>
+                                    <button class="btn btn-sm btn-light border text-danger py-1" data-id="${t.id}" onclick="event.stopPropagation(); deleteTrip(this.dataset.id)"><i class="bi bi-trash"></i></button>
                                     <i class="bi bi-chevron-down ms-2 text-muted" id="icon-${t.id}"></i>
                                 </div>
                             </div>
@@ -2136,7 +2141,7 @@
                                                 ${t.destinations.map(d => {
                                                     const arrTime = d.arrivalTime ? new Date(d.arrivalTime.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '-';
                                                     const doneTime = d.completedTime ? new Date(d.completedTime.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '-';
-                                                    const photoHtml = d.proofPhotoUrl ? `<img src="${d.proofPhotoUrl}" class="proof-img-thumb shadow-sm" onclick="openPoDModal('${d.proofPhotoUrl}')">` : '<span class="text-muted">-</span>';
+                                                    const photoHtml = d.proofPhotoUrl ? `<img src="${d.proofPhotoUrl}" class="proof-img-thumb shadow-sm" data-url="${d.proofPhotoUrl}" onclick="openPoDModal(this.dataset.url)">` : '<span class="text-muted">-</span>';
                                                     return `
                                                         <tr class="border-bottom">
                                                             <td class="fw-bold text-center" style="width:40px">${d.stopIndex}</td>
@@ -2388,10 +2393,16 @@
         });
 
         async function handleLogin() {
-            const email = document.getElementById('login-email').value;
+            const email = document.getElementById('login-email').value.trim();
             const pass = document.getElementById('login-password').value;
             const err = document.getElementById('login-error');
             err.classList.add('d-none');
+
+            if (!email || !pass) {
+                err.innerText = "Email dan password wajib diisi.";
+                err.classList.remove('d-none');
+                return;
+            }
 
             try {
                 await auth.signInWithEmailAndPassword(email, pass);
