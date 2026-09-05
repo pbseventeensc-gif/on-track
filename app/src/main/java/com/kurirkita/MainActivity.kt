@@ -192,8 +192,13 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun registerUserInFirestore(uid: String, email: String) {
-        val user = User(userId = uid, name = email.split("@")[0], role = "courier")
-        FirebaseFirestore.getInstance().collection("users").document(uid).set(user)
+        val userRef = FirebaseFirestore.getInstance().collection("users").document(uid)
+        userRef.get().addOnSuccessListener { snapshot ->
+            if (!snapshot.exists()) {
+                val user = User(userId = uid, name = email.split("@")[0], role = "courier")
+                userRef.set(user)
+            }
+        }
     }
 
     override fun onDestroy() {

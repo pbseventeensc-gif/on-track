@@ -68,13 +68,22 @@ fun LoginScreen(onLoginSuccess: () -> Unit) {
                 auth.signInWithEmailAndPassword(email, password)
                     .addOnSuccessListener { result ->
                         val userId = result.user?.uid ?: ""
-                        // Save/Update user data in Firestore so they appear in dashboard
-                        val user = User(userId = userId, name = email.split("@")[0], role = "courier")
-                        FirebaseFirestore.getInstance().collection("users").document(userId).set(user)
-                            .addOnCompleteListener {
+                        val userRef = FirebaseFirestore.getInstance().collection("users").document(userId)
+                        userRef.get().addOnSuccessListener { snapshot ->
+                            if (!snapshot.exists()) {
+                                val user = User(userId = userId, name = email.split("@")[0], role = "courier")
+                                userRef.set(user).addOnCompleteListener {
+                                    isLoading = false
+                                    onLoginSuccess()
+                                }
+                            } else {
                                 isLoading = false
                                 onLoginSuccess()
                             }
+                        }.addOnFailureListener {
+                            isLoading = false
+                            onLoginSuccess()
+                        }
                     }
                     .addOnFailureListener {
                         isLoading = false

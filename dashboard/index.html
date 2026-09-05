@@ -1066,6 +1066,14 @@
                                 </div>
                                 <button class="btn btn-dark w-100 py-3 fw-bold" style="border-radius:12px" onclick="updateConfig()">SAVE CHANGES</button>
                             </div>
+
+                            <div class="border rounded-4 p-4 bg-white shadow-sm mt-4">
+                                <h6 class="fw-bold mb-3"><i class="bi bi-person-gear me-2"></i>Kelola Nama Kurir</h6>
+                                <p class="extra-small text-muted mb-3">Ubah nama tampilan kurir di bawah ini:</p>
+                                <div id="manage-couriers-container" class="overflow-y-auto" style="max-height: 250px;">
+                                    <p class="text-center py-3 text-muted extra-small">Loading daftar kurir...</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1713,9 +1721,52 @@
                 userRoles[doc.id] = (u.role || 'courier').toLowerCase();
             });
             renderCourierOptions();
+            renderManageCouriersList();
             if(document.getElementById('view-chat') && document.getElementById('view-chat').classList.contains('active')) loadChatList();
             refreshAllMonitorData();
         });
+
+        function renderManageCouriersList() {
+            const container = document.getElementById('manage-couriers-container');
+            if (!container) return;
+            container.innerHTML = '';
+
+            let hasCouriers = false;
+            for (const id in registeredUsers) {
+                if (!isCourierUser(id)) continue;
+                hasCouriers = true;
+                const name = registeredUsers[id];
+                container.innerHTML += `
+                    <div class="d-flex align-items-center justify-content-between p-3 border rounded-3 mb-2 bg-light">
+                        <div class="d-flex align-items-center gap-2">
+                            <img src="https://ui-avatars.com/api/?name=${encodeURIComponent(name)}" style="width:32px; border-radius:50%">
+                            <div>
+                                <div class="fw-bold extra-small text-dark">${name}</div>
+                                <div class="extra-small text-muted" style="font-size:0.65rem;">ID: ${id.substring(0,8)}...</div>
+                            </div>
+                        </div>
+                        <button class="btn btn-sm btn-outline-primary fw-semibold" data-id="${id}" data-name="${name.replace(/"/g, '&quot;')}" onclick="promptEditCourierName(this.dataset.id, this.dataset.name)">
+                            <i class="bi bi-pencil me-1"></i> Edit Nama
+                        </button>
+                    </div>
+                `;
+            }
+            if (!hasCouriers) {
+                container.innerHTML = '<p class="text-center py-3 text-muted extra-small">Belum ada kurir terdaftar.</p>';
+            }
+        }
+
+        async function promptEditCourierName(id, currentName) {
+            const newName = prompt(`Masukkan nama baru untuk kurir "${currentName}":`, currentName);
+            if (!newName || newName.trim() === "" || newName.trim() === currentName) return;
+
+            try {
+                await db.collection('users').doc(id).update({ name: newName.trim() });
+                showToast("Nama kurir berhasil diperbarui!");
+            } catch(e) {
+                alert("Gagal memperbarui nama kurir: " + e.message);
+            }
+        }
 
         function renderCourierOptions() {
             const sel = document.getElementById('sel-courier'); if(!sel) return;
