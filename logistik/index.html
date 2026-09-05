@@ -1827,6 +1827,11 @@
                 const t = doc.data();
                 t.id = doc.id;
                 allCurrentTrips.push(t);
+
+                // Auto-sync destinations from existing trips to Master Clients Database
+                if (t.destinations && t.destinations.length > 0) {
+                    syncDestinationsToMasterClients(t.destinations);
+                }
             });
             updateGlobalStats();
             renderRecentShipments();
@@ -2576,7 +2581,56 @@
             const cid = document.getElementById('sel-courier').value; if(!cid || tripQueue.length===0) return alert("Select carrier and destination!");
             const id = "TRIP_" + Date.now();
             await db.collection('trips').doc(id).set({ tripId: id, courierId: cid, status: "assigned", date: firebase.firestore.Timestamp.now(), destinations: tripQueue.map((d,i) => ({ stopIndex: i+1, locationName: d.name, address: d.address, latitude: d.lat, longitude: d.lng, status: "pending", proofPhotoUrl: "" })) });
+
+            // Auto-sync destinations to Master Clients Database
+            syncDestinationsToMasterClients(tripQueue);
+
             showToast("Shipment Dispatched!"); tripQueue = []; renderQueue();
+        }
+
+        async function syncDestinationsToMasterClients(destinations) {
+            if (!destinations || destinations.length === 0) return;
+            try {
+                const batch = db.batch();
+                destinations.forEach(d => {
+                    const name = d.name || d.locationName;
+                    const address = d.address;
+                    const lat = d.lat || d.latitude;
+                    const lng = d.lng || d.longitude;
+                    if (!name || !address) return;
+
+                    let region = "Auto-detected";
+                    const addrLower = address.toLowerCase();
+                    if (addrLower.includes("jakarta barat")) region = "Jakarta Barat";
+                    else if (addrLower.includes("jakarta pusat")) region = "Jakarta Pusat";
+                    else if (addrLower.includes("jakarta selatan")) region = "Jakarta Selatan";
+                    else if (addrLower.includes("jakarta timur")) region = "Jakarta Timur";
+                    else if (addrLower.includes("jakarta utara")) region = "Jakarta Utara";
+                    else if (addrLower.includes("bogor")) region = "Bogor";
+                    else if (addrLower.includes("cikarang")) region = "Cikarang";
+                    else if (addrLower.includes("tangerang")) region = "Tangerang";
+                    else if (addrLower.includes("bekasi")) region = "Bekasi";
+                    else if (addrLower.includes("depok")) region = "Depok";
+
+                    const docId = name.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+                    const ref = db.collection('clients').doc(docId);
+
+                    batch.set(ref, {
+                        name: name,
+                        address: address,
+                        latitude: lat || -6.2088,
+                        longitude: lng || 106.8456,
+                        region: region,
+                        updatedAt: firebase.firestore.Timestamp.now()
+                    }, { merge: true });
+                });
+                await batch.commit();
+                if (document.getElementById('view-dispatch') && document.getElementById('view-dispatch').classList.contains('active')) {
+                    loadClientsByRegion(document.getElementById('region-filter')?.value || "");
+                }
+            } catch (e) {
+                console.warn("Could not sync destinations to master clients:", e);
+            }
         }
 
         function loadChatList(filter = "") {
