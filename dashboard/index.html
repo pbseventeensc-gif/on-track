@@ -515,29 +515,29 @@
 
             <nav class="nav-menu">
                 <div class="nav-category">Overview</div>
-                <a class="nav-link-custom active" onclick="switchTab('dashboard', this)">
+                <a class="nav-link-custom active" id="nav-dashboard" onclick="switchTab('dashboard', this)">
                     <i class="bi bi-grid-1x2"></i> <span>Dashboard</span>
                 </a>
-                <a class="nav-link-custom" onclick="switchTab('monitor', this)">
+                <a class="nav-link-custom" id="nav-monitor" onclick="switchTab('monitor', this)">
                     <i class="bi bi-geo-alt"></i> <span>Live Tracking</span>
                 </a>
 
                 <div class="nav-category">Operations</div>
-                <a class="nav-link-custom" onclick="switchTab('dispatch', this)">
+                <a class="nav-link-custom" id="nav-dispatch" onclick="switchTab('dispatch', this)">
                     <i class="bi bi-plus-square"></i> <span>Shipments</span>
                 </a>
-                <a class="nav-link-custom" onclick="switchTab('fleet', this)">
+                <a class="nav-link-custom" id="nav-fleet" onclick="switchTab('fleet', this)">
                     <i class="bi bi-graph-up-arrow"></i> <span>KPI Kurir</span>
                 </a>
-                <a class="nav-link-custom" onclick="switchTab('chat', this)">
+                <a class="nav-link-custom" id="nav-chat" onclick="switchTab('chat', this)">
                     <i class="bi bi-chat-dots"></i> <span>Drivers Chat</span>
                 </a>
 
-                <div class="nav-category">System</div>
-                <a class="nav-link-custom" onclick="switchTab('reports', this)">
+                <div class="nav-category" id="cat-system">System</div>
+                <a class="nav-link-custom" id="nav-reports" onclick="switchTab('reports', this)">
                     <i class="bi bi-bar-chart"></i> <span>Reports</span>
                 </a>
-                <a class="nav-link-custom" onclick="switchTab('settings', this)">
+                <a class="nav-link-custom" id="nav-settings" onclick="switchTab('settings', this)">
                     <i class="bi bi-gear"></i> <span>Settings</span>
                 </a>
             </nav>
@@ -550,11 +550,14 @@
                     </div>
                 </div>
                 <div class="d-flex align-items-center gap-12 w-100">
-                    <img src="https://ui-avatars.com/api/?name=Admin+W&background=111827&color=fff" class="profile-img" alt="Profile">
-                    <div class="profile-info">
+                    <img src="https://ui-avatars.com/api/?name=Admin+W&background=111827&color=fff" class="profile-img" alt="Profile" id="profile-avatar">
+                    <div class="profile-info me-auto">
                         <p class="profile-name mb-0 fw-bold">Admin WellenGO</p>
                         <p class="profile-role mb-0 extra-small text-muted">Fleet Manager</p>
                     </div>
+                    <button class="btn btn-outline-danger btn-sm p-1 px-2 border-0" onclick="handleLogout()" title="Sign Out">
+                        <i class="bi bi-box-arrow-right fs-5"></i>
+                    </button>
                 </div>
             </div>
         </aside>
@@ -579,9 +582,12 @@
                             <span class="visually-hidden">notifications</span>
                         </span>
                     </div>
-                    <img src="https://ui-avatars.com/api/?name=Admin+W&background=F3F4F6&color=111827" style="width:36px; height:36px; border-radius:10px; border: 1px solid var(--border-color);">
+                    <img src="https://ui-avatars.com/api/?name=Admin+W&background=F3F4F6&color=111827" style="width:36px; height:36px; border-radius:10px; border: 1px solid var(--border-color);" id="header-avatar" alt="User Avatar">
                     <button class="btn-new-shipment" onclick="switchTab('dispatch', document.querySelector('[onclick*=\'dispatch\']'))">
                         <i class="bi bi-plus-lg"></i> New Shipment
+                    </button>
+                    <button class="btn btn-light border text-danger d-flex align-items-center gap-1 px-3 py-2 fw-semibold" style="border-radius: 10px; font-size: 0.85rem;" onclick="handleLogout()" title="Logout">
+                        <i class="bi bi-box-arrow-right"></i> <span>Logout</span>
                     </button>
                 </div>
             </header>
@@ -746,9 +752,14 @@
 
                                 <div class="mb-4">
                                     <label class="extra-small fw-bold text-muted text-uppercase mb-2">2. Add Destinations</label>
-                                    <div class="position-relative mb-3">
-                                        <i class="bi bi-geo-alt position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"></i>
-                                        <input type="text" id="places-search" class="form-control ps-5 py-2" style="border-radius: 10px;" placeholder="Search Address manually...">
+                                    <div class="d-flex gap-2 mb-3">
+                                        <div class="position-relative flex-grow-1">
+                                            <i class="bi bi-geo-alt position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"></i>
+                                            <input type="text" id="places-search" class="form-control ps-5 py-2" style="border-radius: 10px;" placeholder="Tulis / cari nama toko atau alamat..." onkeypress="if(event.key==='Enter'){ event.preventDefault(); addManualAddress(); }">
+                                        </div>
+                                        <button class="btn btn-dark px-3 fw-bold d-flex align-items-center gap-1" style="border-radius: 10px; font-size: 0.85rem;" onclick="addManualAddress()">
+                                            <i class="bi bi-plus-lg"></i> <span>ADD</span>
+                                        </button>
                                     </div>
 
                                     <!-- Region Filter & Batch Select -->
@@ -1216,44 +1227,6 @@
                 const input = document.getElementById('places-search');
                 if (!input) return;
 
-                // 1. Try Modern PlaceAutocompleteElement
-                if (window.google && google.maps && google.maps.importLibrary) {
-                    try {
-                        const { PlaceAutocompleteElement } = await google.maps.importLibrary("places");
-                        if (PlaceAutocompleteElement) {
-                            const autocompleteElement = new PlaceAutocompleteElement({
-                                componentRestrictions: { country: "id" }
-                            });
-                            const container = input.parentElement;
-                            if (container) {
-                                input.style.display = 'none';
-                                autocompleteElement.style.width = '100%';
-                                container.appendChild(autocompleteElement);
-
-                                autocompleteElement.addEventListener("gmp-placeselect", async (event) => {
-                                    const place = event.place;
-                                    if (place) {
-                                        await place.fetchFields({ fields: ["location", "displayName", "formattedAddress"] });
-                                        if (place.location) {
-                                            const lat = place.location.lat();
-                                            const lng = place.location.lng();
-                                            const name = place.displayName || "Tujuan";
-                                            const address = place.formattedAddress || "";
-                                            tripQueue.push({ name, address, lat, lng });
-                                            renderQueue();
-                                            if (mapDispatch) mapDispatch.flyTo([lat, lng], 16);
-                                        }
-                                    }
-                                });
-                                return;
-                            }
-                        }
-                    } catch (err) {
-                        console.log("PlaceAutocompleteElement fallback to Autocomplete:", err);
-                    }
-                }
-
-                // 2. Fallback to google.maps.places.Autocomplete
                 let autocomplete;
                 if (window.google && google.maps && google.maps.places && google.maps.places.Autocomplete) {
                     autocomplete = new google.maps.places.Autocomplete(input, {
@@ -1273,18 +1246,86 @@
                 if (autocomplete) {
                     autocomplete.addListener("place_changed", () => {
                         const place = autocomplete.getPlace();
-                        if (!place || !place.geometry || !place.geometry.location) return;
-                        const lat = place.geometry.location.lat();
-                        const lng = place.geometry.location.lng();
-                        tripQueue.push({ name: place.name || "Tujuan", address: place.formatted_address || "", lat, lng });
-                        renderQueue();
-                        input.value = "";
-                        if (mapDispatch) mapDispatch.flyTo([lat, lng], 16);
+                        if (place && place.geometry && place.geometry.location) {
+                            const lat = place.geometry.location.lat();
+                            const lng = place.geometry.location.lng();
+                            const name = place.name || input.value.split(',')[0] || "Tujuan";
+                            const address = place.formatted_address || input.value;
+                            tripQueue.push({ name, address, lat, lng });
+                            renderQueue();
+                            input.value = "";
+                            showToast("Lokasi ditambahkan ke rute!");
+                            if (mapDispatch) mapDispatch.flyTo([lat, lng], 16);
+                        }
                     });
                 }
             } catch (e) { console.error("Maps Autocomplete Error", e); }
         }
         window.addEventListener('load', initAutocomplete);
+
+        async function addManualAddress() {
+            const input = document.getElementById('places-search');
+            if (!input) return;
+            const addressText = input.value.trim();
+            if (!addressText) return alert("Masukkan nama toko atau alamat lokasi terlebih dahulu!");
+
+            showToast("Mencari koordinat lokasi...");
+
+            try {
+                if (window.google && google.maps && google.maps.Geocoder) {
+                    const geocoder = new google.maps.Geocoder();
+                    geocoder.geocode({ address: addressText, componentRestrictions: { country: "ID" } }, (results, status) => {
+                        if (status === "OK" && results && results[0]) {
+                            const loc = results[0].geometry.location;
+                            const lat = loc.lat();
+                            const lng = loc.lng();
+                            const formatted = results[0].formatted_address || addressText;
+                            const parts = addressText.split(',');
+                            const storeName = parts[0].trim();
+
+                            tripQueue.push({ name: storeName, address: formatted, lat, lng });
+                            renderQueue();
+                            input.value = "";
+                            showToast("Lokasi berhasil ditambahkan!");
+                            if (mapDispatch) mapDispatch.flyTo([lat, lng], 16);
+                        } else {
+                            geocodeWithNominatim(addressText);
+                        }
+                    });
+                } else {
+                    geocodeWithNominatim(addressText);
+                }
+            } catch(e) {
+                console.error("Geocoding error:", e);
+                geocodeWithNominatim(addressText);
+            }
+        }
+
+        async function geocodeWithNominatim(addressText) {
+            try {
+                const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addressText)}&countrycodes=id&limit=1`;
+                const res = await fetch(url);
+                const data = await res.json();
+                if (data && data.length > 0) {
+                    const lat = parseFloat(data[0].lat);
+                    const lng = parseFloat(data[0].lon);
+                    const formatted = data[0].display_name;
+                    const parts = addressText.split(',');
+                    const storeName = parts[0].trim();
+
+                    tripQueue.push({ name: storeName, address: formatted, lat, lng });
+                    renderQueue();
+                    const input = document.getElementById('places-search');
+                    if (input) input.value = "";
+                    showToast("Lokasi berhasil ditambahkan!");
+                    if (mapDispatch) mapDispatch.flyTo([lat, lng], 16);
+                } else {
+                    alert(`Lokasi "${addressText}" tidak ditemukan. Silakan perjelas nama toko / jalan / kota.`);
+                }
+            } catch(e) {
+                alert("Gagal mencari lokasi. Periksa koneksi internet Anda.");
+            }
+        }
 
         function toggleSidebar() {
             const sb = document.getElementById('sidebar');
@@ -1311,6 +1352,12 @@
         }
 
         function switchTab(viewId, el) {
+            const isTraffic = (currentUserRole === 'trafik' || currentUserRole === 'traffic');
+            if (isTraffic && (viewId === 'fleet' || viewId === 'reports' || viewId === 'settings')) {
+                showToast("Akses dibatasi untuk akun Trafik.");
+                return;
+            }
+
             document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
             const target = document.getElementById('view-'+viewId);
             if(target) target.classList.add('active');
@@ -1409,12 +1456,32 @@
         }
 
         function filterClients(query) {
-            const q = query.toLowerCase();
+            const q = query.toLowerCase().trim();
             const items = document.querySelectorAll('#client-list-container > div');
             let visibleCount = 0;
+
+            if (!q) {
+                items.forEach(item => {
+                    item.classList.remove('d-none');
+                    visibleCount++;
+                });
+                document.getElementById('client-qty').innerText = visibleCount;
+                return;
+            }
+
+            const terms = q.split(/[\s,]+/).filter(t => t.length > 0);
+
             items.forEach(item => {
                 const text = item.innerText.toLowerCase();
-                if (text.includes(q)) {
+                const checkbox = item.querySelector('.client-checkbox');
+                const nameAttr = checkbox ? (checkbox.getAttribute('data-name') || '').toLowerCase() : '';
+                const ptAttr = checkbox ? (checkbox.getAttribute('data-pt') || '').toLowerCase() : '';
+                const addressAttr = checkbox ? (checkbox.getAttribute('data-address') || '').toLowerCase() : '';
+
+                const fullText = `${text} ${nameAttr} ${ptAttr} ${addressAttr}`;
+                const isMatch = terms.every(term => fullText.includes(term));
+
+                if (isMatch) {
                     item.classList.remove('d-none');
                     visibleCount++;
                 } else {
@@ -2523,14 +2590,82 @@
             });
         }
 
-        // Auth Logic
-        auth.onAuthStateChanged(user => {
+        // Role & Auth Logic
+        let currentUserRole = 'admin';
+
+        function applyRolePermissions(role, email) {
+            currentUserRole = role;
+            const isTraffic = (role === 'trafik' || role === 'traffic' || (email && email.toLowerCase().includes('trafik')));
+
+            const navFleet = document.getElementById('nav-fleet');
+            const navReports = document.getElementById('nav-reports');
+            const navSettings = document.getElementById('nav-settings');
+            const catSystem = document.getElementById('cat-system');
+
+            const profileName = document.querySelector('.profile-name');
+            const profileRole = document.querySelector('.profile-role');
+            const profileAvatar = document.getElementById('profile-avatar');
+            const headerAvatar = document.getElementById('header-avatar');
+
+            const displayName = email ? email.split('@')[0] : 'User';
+            const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=111827&color=fff`;
+
+            if (profileAvatar) profileAvatar.src = avatarUrl;
+            if (headerAvatar) headerAvatar.src = avatarUrl;
+
+            if (isTraffic) {
+                if (navFleet) navFleet.style.display = 'none';
+                if (navReports) navReports.style.display = 'none';
+                if (navSettings) navSettings.style.display = 'none';
+                if (catSystem) catSystem.style.display = 'none';
+
+                if (profileName) profileName.innerText = displayName;
+                if (profileRole) profileRole.innerText = 'Traffic Operational';
+
+                // If currently on a hidden view, switch to dashboard
+                const activeView = document.querySelector('.view-section.active');
+                if (activeView && (activeView.id === 'view-fleet' || activeView.id === 'view-reports' || activeView.id === 'view-settings')) {
+                    switchTab('dashboard', document.getElementById('nav-dashboard'));
+                }
+            } else {
+                if (navFleet) navFleet.style.display = '';
+                if (navReports) navReports.style.display = '';
+                if (navSettings) navSettings.style.display = '';
+                if (catSystem) catSystem.style.display = '';
+
+                if (profileName) profileName.innerText = displayName || 'Admin WellenGO';
+                if (profileRole) profileRole.innerText = 'Fleet Manager';
+            }
+        }
+                if (catSystem) catSystem.style.display = '';
+
+                if (profileName) profileName.innerText = 'Admin WellenGO';
+                if (profileRole) profileRole.innerText = 'Fleet Manager';
+            }
+        }
+
+        auth.onAuthStateChanged(async user => {
             if (user) {
                 document.getElementById('login-screen').style.display = 'none';
                 document.getElementById('main-wrapper').style.display = 'flex';
+
+                let userRole = 'admin';
+                try {
+                    const userDoc = await db.collection('users').doc(user.uid).get();
+                    if (userDoc.exists && userDoc.data().role) {
+                        userRole = userDoc.data().role;
+                    } else if (user.email && user.email.toLowerCase().includes('trafik')) {
+                        userRole = 'trafik';
+                    }
+                } catch(e) {
+                    console.warn("Could not fetch user role, fallback to email check", e);
+                    if (user.email && user.email.toLowerCase().includes('trafik')) {
+                        userRole = 'trafik';
+                    }
+                }
+
+                applyRolePermissions(userRole, user.email);
                 initMaps();
-                // These functions were used in original script but missing implementation here,
-                // but the onSnapshot listeners cover most real-time data needs.
             } else {
                 document.getElementById('login-screen').style.display = 'flex';
                 document.getElementById('main-wrapper').style.display = 'none';
