@@ -576,11 +576,28 @@
                 </div>
 
                 <div class="header-actions">
-                    <div class="action-btn">
-                        <i class="bi bi-bell"></i>
-                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="padding: 4px; border: 2px solid #fff;">
-                            <span class="visually-hidden">notifications</span>
-                        </span>
+                    <div class="position-relative">
+                        <div class="action-btn" id="notif-bell-btn" onclick="toggleNotifDropdown(event)" title="Notifications">
+                            <i class="bi bi-bell"></i>
+                            <span id="notif-badge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none" style="padding: 3px 6px; font-size: 0.65rem; border: 2px solid #fff;">
+                                0
+                            </span>
+                        </div>
+                        <!-- Notification Dropdown Menu -->
+                        <div id="notif-dropdown" class="dropdown-menu dropdown-menu-end shadow-lg p-0 border-0 d-none" style="width: 320px; position: absolute; top: 50px; right: 0; z-index: 1050; border-radius: 16px; overflow: hidden; background: var(--bg-card);">
+                            <div class="p-3 border-bottom d-flex align-items-center justify-content-between bg-light">
+                                <div class="fw-bold small text-dark"><i class="bi bi-bell-fill me-2 text-warning"></i>Notifikasi System</div>
+                                <span id="notif-count-text" class="badge bg-danger rounded-pill extra-small">0 Baru</span>
+                            </div>
+                            <div id="notif-list-container" class="overflow-y-auto" style="max-height: 320px;">
+                                <div class="text-center py-4 text-muted extra-small">Tidak ada notifikasi baru.</div>
+                            </div>
+                            <div class="p-2 border-top text-center bg-light">
+                                <a class="extra-small fw-bold text-primary text-decoration-none cursor-pointer" onclick="switchTab('dashboard', document.querySelector('[onclick*=\'dashboard\']')); toggleNotifDropdown(event);">
+                                    Lihat Semua Alert di Dashboard <i class="bi bi-arrow-right ms-1"></i>
+                                </a>
+                            </div>
+                        </div>
                     </div>
                     <img src="https://ui-avatars.com/api/?name=Admin+W&background=F3F4F6&color=111827" style="width:36px; height:36px; border-radius:10px; border: 1px solid var(--border-color);" id="header-avatar" alt="User Avatar">
                     <button class="btn-new-shipment" onclick="switchTab('dispatch', document.querySelector('[onclick*=\'dispatch\']'))">
@@ -1201,17 +1218,122 @@
             new bootstrap.Modal(document.getElementById('imageModal')).show();
         }
 
+        let notificationItems = [];
+
+        function toggleNotifDropdown(e) {
+            if (e) e.stopPropagation();
+            const dropdown = document.getElementById('notif-dropdown');
+            if (!dropdown) return;
+            dropdown.classList.toggle('d-none');
+            updateNotificationBell();
+        }
+
+        document.addEventListener('click', (e) => {
+            const dropdown = document.getElementById('notif-dropdown');
+            const btn = document.getElementById('notif-bell-btn');
+            if (dropdown && !dropdown.classList.contains('d-none')) {
+                if (!dropdown.contains(e.target) && (!btn || !btn.contains(e.target))) {
+                    dropdown.classList.add('d-none');
+                }
+            }
+        });
+
+        function updateNotificationBell() {
+            const listEl = document.getElementById('notif-list-container');
+            const badgeEl = document.getElementById('notif-badge');
+            const countTextEl = document.getElementById('notif-count-text');
+
+            notificationItems = [];
+            const now = Date.now();
+
+            allCurrentTrips.forEach(t => {
+                if (t.status === 'in_progress') {
+                    const lastUpdate = t.destinations ? t.destinations.filter(d => d.status === 'done' || d.status === 'arrived').reduce((max, d) => {
+                        const time = (d.completedTime || d.arrivalTime)?.seconds * 1000 || 0;
+                        return time > max ? time : max;
+                    }, (t.date?.seconds || 0) * 1000) : 0;
+
+                    if (lastUpdate > 0 && (now - lastUpdate > 30 * 60 * 1000)) {
+                        notificationItems.push({
+                            type: 'danger',
+                            icon: 'bi-clock-history',
+                            title: `DELAY WARNING: ${t.id.substring(0,8)}`,
+                            desc: `Tidak ada update > 30 menit`,
+                            tab: 'monitor'
+                        });
+                    }
+                }
+
+                if (t.courierId && !currentOnlineCouriers[t.courierId] && t.status !== 'completed') {
+                    const courierName = registeredUsers[t.courierId] || 'Kurir';
+                    notificationItems.push({
+                        type: 'warning',
+                        icon: 'bi-person-x-fill',
+                        title: `KURIR OFFLINE`,
+                        desc: `${courierName} offline padahal ada tugas aktif`,
+                        tab: 'monitor'
+                    });
+                }
+            });
+
+            const activeCount = allCurrentTrips.filter(t => t.status === 'in_progress' || t.status === 'assigned').length;
+            if (activeCount > 0) {
+                notificationItems.push({
+                    type: 'info',
+                    icon: 'bi-truck',
+                    title: `${activeCount} Pengiriman Aktif`,
+                    desc: `Ada ${activeCount} tugas pengiriman berjalan`,
+                    tab: 'dispatch'
+                });
+            }
+
+            const totalCount = notificationItems.length;
+            if (badgeEl) {
+                if (totalCount > 0) {
+                    badgeEl.innerText = totalCount;
+                    badgeEl.classList.remove('d-none');
+                } else {
+                    badgeEl.classList.add('d-none');
+                }
+            }
+
+            if (countTextEl) {
+                countTextEl.innerText = `${totalCount} Peringatan`;
+            }
+
+            if (!listEl) return;
+            if (totalCount === 0) {
+                listEl.innerHTML = '<div class="text-center py-4 text-muted extra-small"><i class="bi bi-check-circle fs-4 d-block mb-1 text-success"></i>Tidak ada peringatan baru. Semua lancar!</div>';
+            } else {
+                listEl.innerHTML = notificationItems.map(item => {
+                    const bgClass = item.type === 'danger' ? '#FEF2F2' : item.type === 'warning' ? '#FFFBEB' : '#F0F9FF';
+                    const iconColor = item.type === 'danger' ? 'text-danger' : item.type === 'warning' ? 'text-warning' : 'text-primary';
+                    return `
+                        <div class="p-3 border-bottom d-flex align-items-start gap-3 cursor-pointer" style="background: ${bgClass}; transition: 0.2s;" onclick="switchTab('${item.tab}', document.querySelector('[onclick*=\\'${item.tab}\\'\\]')); toggleNotifDropdown(event);">
+                            <div class="${iconColor} fs-5 mt-1"><i class="bi ${item.icon}"></i></div>
+                            <div class="flex-grow-1">
+                                <div class="fw-bold extra-small text-dark">${item.title}</div>
+                                <div class="extra-small text-muted" style="font-size: 0.7rem;">${item.desc}</div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+
         function updateDynamicAlerts() {
-            const container = document.getElementById('priority-alerts'); if(!container) return;
+            const container = document.getElementById('priority-alerts');
+            updateNotificationBell();
+            if(!container) return;
             container.innerHTML = ''; const now = Date.now();
             allCurrentTrips.forEach(t => {
                 if(t.status === 'in_progress') {
-                    const lastUpdate = t.destinations.filter(d => d.status === 'done' || d.status === 'arrived').reduce((max, d) => {
+                    const lastUpdate = t.destinations ? t.destinations.filter(d => d.status === 'done' || d.status === 'arrived').reduce((max, d) => {
                         const time = (d.completedTime || d.arrivalTime)?.seconds * 1000 || 0;
                         return time > max ? time : max;
-                    }, t.date.seconds * 1000);
+                    }, (t.date?.seconds || 0) * 1000) : 0;
                     if(now - lastUpdate > 30 * 60 * 1000) {
-                        container.innerHTML += `<div class="d-flex gap-3 p-3 rounded-3" style="background: #FEF2F2;"><div class="text-danger fs-4"><i class="bi bi-clock-history"></i></div><div><div class="fw-bold small text-dark">DELAY WARNING: ${t.id.substring(5,11)}</div><div class="extra-small text-danger">No update for >30 mins</div></div></div>`;
+                        container.innerHTML += `<div class="d-flex gap-3 p-3 rounded-3" style="background: #FEF2F2;"><div class="text-danger fs-4"><i class="bi bi-clock-history"></i></div><div><div class="fw-bold small text-dark">DELAY WARNING: ${t.id.substring(0,8)}</div><div class="extra-small text-danger">No update for >30 mins</div></div></div>`;
                     }
                 }
                 if(!currentOnlineCouriers[t.courierId] && t.status !== 'completed') {
