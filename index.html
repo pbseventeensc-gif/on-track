@@ -1112,6 +1112,22 @@
         let map, mapMonitor, mapDispatch;
         let rankingChart, distributionChart;
         const registeredUsers = {};
+        const userRoles = {};
+
+        function isCourierUser(uid) {
+            if (!uid) return false;
+            const name = (registeredUsers[uid] || '').toLowerCase();
+            const role = (userRoles[uid] || '').toLowerCase();
+
+            if (role === 'trafik' || role === 'traffic' || role === 'admin' || role === 'staff') {
+                return false;
+            }
+            if (name.includes('trafik') || name.includes('traffic') || name.includes('admin') || name.includes('staff')) {
+                return false;
+            }
+            return true;
+        }
+
         const tripMarkersLayer = L.layerGroup();
         const monitorMarkersLayer = L.layerGroup();
         const monitorCouriersLayer = L.layerGroup();
@@ -1557,16 +1573,23 @@
         }
 
         db.collection('users').onSnapshot(snap => {
-            snap.forEach(doc => { registeredUsers[doc.id] = doc.data().name || doc.id.substring(0,8); });
+            snap.forEach(doc => {
+                const u = doc.data();
+                registeredUsers[doc.id] = u.name || doc.id.substring(0,8);
+                userRoles[doc.id] = (u.role || 'courier').toLowerCase();
+            });
             renderCourierOptions();
-            if(document.getElementById('view-chat').classList.contains('active')) loadChatList();
+            if(document.getElementById('view-chat') && document.getElementById('view-chat').classList.contains('active')) loadChatList();
             refreshAllMonitorData();
         });
 
         function renderCourierOptions() {
             const sel = document.getElementById('sel-courier'); if(!sel) return;
             sel.innerHTML = '<option value="">Select Carrier...</option>';
-            for (const id in registeredUsers) { sel.innerHTML += `<option value="${id}">${registeredUsers[id]}</option>`; }
+            for (const id in registeredUsers) {
+                if (!isCourierUser(id)) continue;
+                sel.innerHTML += `<option value="${id}">${registeredUsers[id]}</option>`;
+            }
         }
 
         rtdb.ref('courier_live_location').on('value', snap => {
@@ -1853,6 +1876,7 @@
 
             // 1. Add active courier names
             for (const id in registeredUsers) {
+                if (!isCourierUser(id)) continue;
                 const name = registeredUsers[id];
                 // Check if courier has active trip
                 const hasActive = allCurrentTrips.some(t => t.courierId === id && t.status !== 'completed');
@@ -2254,10 +2278,11 @@
         function loadChatList(filter = "") {
             const el = document.getElementById('chat-list-container'); if(!el) return; el.innerHTML = '';
             for (const id in registeredUsers) {
+                if (!isCourierUser(id)) continue;
                 const name = registeredUsers[id];
                 if (name.toLowerCase().includes(filter.toLowerCase())) {
-                    el.innerHTML += `<div class="p-3 border rounded-3 cursor-pointer d-flex justify-content-between align-items-center bg-white" data-id="${id}" data-name="${name.replace(/"/g, '&quot;')}" onclick="openChat(this.dataset.id, this.dataset.name)">
-                        <div class="d-flex align-items-center gap-2"><img src="https://ui-avatars.com/api/?name=${name}" style="width:32px; border-radius:50%"><span>${name}</span></div>
+                    el.innerHTML += `<div class="p-3 border rounded-3 cursor-pointer d-flex justify-content-between align-items-center bg-white mb-2" data-id="${id}" data-name="${name.replace(/"/g, '&quot;')}" onclick="openChat(this.dataset.id, this.dataset.name)">
+                        <div class="d-flex align-items-center gap-2"><img src="https://ui-avatars.com/api/?name=${encodeURIComponent(name)}" style="width:32px; border-radius:50%"><span class="fw-semibold">${name}</span></div>
                         <i class="bi bi-chevron-right text-muted"></i></div>`;
                 }
             }
