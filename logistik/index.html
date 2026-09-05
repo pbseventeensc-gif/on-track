@@ -393,7 +393,7 @@
         .custom-div-icon { background: none; border: none; }
         .marker-pin { width: 32px; height: 32px; border-radius: 50% 50% 50% 0; background: var(--status-transit); position: absolute; transform: rotate(-45deg); left: 50%; top: 50%; margin: -15px 0 0 -15px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.2); border: 2px solid #fff; }
         .marker-pin::after { content: ''; width: 22px; height: 22px; background: #fff; position: absolute; border-radius: 50%; }
-        .marker-num { position: absolute; width: 32px; height: 32px; line-height: 32px; text-align: center; font-weight: 800; font-size: 13px; color: #000; z-index: 10; }
+        .marker-num { position: absolute; width: 32px; height: 32px; line-height: 29px; text-align: center; font-weight: 800; font-size: 12px; color: #111827 !important; z-index: 10; top: 50%; left: 50%; margin: -15px 0 0 -15px; }
 
         /* Proof Photo */
         .proof-img-thumb { width: 40px; height: 40px; border-radius: 8px; object-fit: cover; cursor: pointer; border: 1px solid var(--border-color); }
@@ -2195,7 +2195,7 @@
 
                             const icon = L.divIcon({
                                 className: 'custom-div-icon',
-                                html: `<div class='marker-pin' style='background:${pinColor}'></div><div class='marker-num' style='color:#fff'>${numBadge}</div>`,
+                                html: `<div class='marker-pin' style='background:${pinColor}'></div><div class='marker-num'>${numBadge}</div>`,
                                 iconSize: [30, 42],
                                 iconAnchor: [15, 42]
                             });
