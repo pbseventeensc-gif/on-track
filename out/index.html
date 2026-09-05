@@ -841,6 +841,32 @@
 
                 <!-- KPI KURIR VIEW -->
                 <div id="view-fleet" class="view-section">
+                    <!-- Date Period Filter Bar -->
+                    <div class="border rounded-4 p-3 bg-white shadow-sm mb-4">
+                        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="bi bi-calendar3 fs-5 text-primary"></i>
+                                <span class="fw-bold extra-small text-uppercase text-muted">Filter Periode KPI:</span>
+                            </div>
+                            <div class="d-flex flex-wrap align-items-center gap-2">
+                                <div class="d-flex align-items-center gap-1">
+                                    <span class="extra-small text-muted fw-bold">Dari:</span>
+                                    <input type="date" id="kpi-start-date" class="form-control form-control-sm border" style="border-radius: 8px; width: 145px;" onchange="renderKPIView()">
+                                </div>
+                                <div class="d-flex align-items-center gap-1">
+                                    <span class="extra-small text-muted fw-bold">Sampai:</span>
+                                    <input type="date" id="kpi-end-date" class="form-control form-control-sm border" style="border-radius: 8px; width: 145px;" onchange="renderKPIView()">
+                                </div>
+                                <div class="btn-group btn-group-sm ms-md-2" role="group">
+                                    <button type="button" class="btn btn-outline-secondary fw-semibold" onclick="setKpiPeriod('today')">Hari Ini</button>
+                                    <button type="button" class="btn btn-outline-secondary fw-semibold" onclick="setKpiPeriod('this_week')">Minggu Ini</button>
+                                    <button type="button" class="btn btn-outline-secondary fw-semibold" onclick="setKpiPeriod('this_month')">Bulan Ini</button>
+                                    <button type="button" class="btn btn-outline-secondary fw-semibold" onclick="setKpiPeriod('all')">Semua</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="row g-4 mb-4">
                         <div class="col-md-3">
                             <div class="stat-card shadow-sm">
@@ -968,14 +994,27 @@
 
                 <!-- REPORTS VIEW -->
                 <div id="view-reports" class="view-section">
-                    <div class="border rounded-4 p-4 bg-white mb-4">
+                    <div class="border rounded-4 p-4 bg-white mb-4 shadow-sm">
                         <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
                             <div>
-                                <h6 class="fw-bold m-0">Daily Reports</h6>
-                                <p class="extra-small text-primary fw-bold mb-0" id="current-report-date"></p>
+                                <h6 class="fw-bold m-0"><i class="bi bi-file-earmark-bar-graph me-2"></i>Daily & Periodic Reports</h6>
+                                <p class="extra-small text-primary fw-bold mb-0" id="current-report-date">PERIODE LAPORAN: SEMUA HARI</p>
                             </div>
-                            <div class="d-flex gap-2">
-                                <input type="date" id="rep-date" class="form-control border" style="border-radius: 10px;" onchange="loadFullHistory()">
+                            <div class="d-flex flex-wrap align-items-center gap-2">
+                                <div class="d-flex align-items-center gap-1">
+                                    <span class="extra-small text-muted fw-bold">Dari:</span>
+                                    <input type="date" id="rep-start-date" class="form-control form-control-sm border" style="border-radius: 8px; width: 145px;" onchange="loadFullHistory()">
+                                </div>
+                                <div class="d-flex align-items-center gap-1">
+                                    <span class="extra-small text-muted fw-bold">Sampai:</span>
+                                    <input type="date" id="rep-end-date" class="form-control form-control-sm border" style="border-radius: 8px; width: 145px;" onchange="loadFullHistory()">
+                                </div>
+                                <div class="btn-group btn-group-sm me-md-2" role="group">
+                                    <button type="button" class="btn btn-outline-secondary fw-semibold" onclick="setRepPeriod('today')">Hari Ini</button>
+                                    <button type="button" class="btn btn-outline-secondary fw-semibold" onclick="setRepPeriod('this_week')">Minggu Ini</button>
+                                    <button type="button" class="btn btn-outline-secondary fw-semibold" onclick="setRepPeriod('this_month')">Bulan Ini</button>
+                                    <button type="button" class="btn btn-outline-secondary fw-semibold" onclick="setRepPeriod('all')">Semua</button>
+                                </div>
                                 <button class="btn btn-outline-dark fw-bold px-3 btn-sm" style="border-radius: 8px;" onclick="exportToExcel()"><i class="bi bi-download me-1"></i> Excel</button>
                                 <button class="btn btn-danger fw-bold px-3 btn-sm" style="border-radius: 8px;" onclick="clearAllHistory()"><i class="bi bi-trash me-1"></i> Hapus Semua</button>
                             </div>
@@ -1863,10 +1902,81 @@
             renderKPIView();
         }
 
+        function setKpiPeriod(type) {
+            const startInput = document.getElementById('kpi-start-date');
+            const endInput = document.getElementById('kpi-end-date');
+            if (!startInput || !endInput) return;
+
+            const today = new Date();
+            const todayStr = today.toISOString().split('T')[0];
+
+            if (type === 'today') {
+                startInput.value = todayStr;
+                endInput.value = todayStr;
+            } else if (type === 'this_week') {
+                const monday = new Date(today);
+                const day = today.getDay() || 7;
+                monday.setDate(today.getDate() - day + 1);
+                startInput.value = monday.toISOString().split('T')[0];
+                endInput.value = todayStr;
+            } else if (type === 'this_month') {
+                const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+                startInput.value = firstDay.toISOString().split('T')[0];
+                endInput.value = todayStr;
+            } else if (type === 'all') {
+                startInput.value = '';
+                endInput.value = '';
+            }
+            renderKPIView();
+        }
+
+        function setRepPeriod(type) {
+            const startInput = document.getElementById('rep-start-date');
+            const endInput = document.getElementById('rep-end-date');
+            if (!startInput || !endInput) return;
+
+            const today = new Date();
+            const todayStr = today.toISOString().split('T')[0];
+
+            if (type === 'today') {
+                startInput.value = todayStr;
+                endInput.value = todayStr;
+            } else if (type === 'this_week') {
+                const monday = new Date(today);
+                const day = today.getDay() || 7;
+                monday.setDate(today.getDate() - day + 1);
+                startInput.value = monday.toISOString().split('T')[0];
+                endInput.value = todayStr;
+            } else if (type === 'this_month') {
+                const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+                startInput.value = firstDay.toISOString().split('T')[0];
+                endInput.value = todayStr;
+            } else if (type === 'all') {
+                startInput.value = '';
+                endInput.value = '';
+            }
+            loadFullHistory();
+        }
+
         function renderKPIView() {
             const tbody = document.getElementById('kpi-table-body');
             if(!tbody) return;
             tbody.innerHTML = '';
+
+            const startDateVal = document.getElementById('kpi-start-date')?.value;
+            const endDateVal = document.getElementById('kpi-end-date')?.value;
+
+            let filteredTrips = allCurrentTrips;
+
+            if (startDateVal || endDateVal) {
+                const startMs = startDateVal ? new Date(startDateVal).setHours(0,0,0,0) : 0;
+                const endMs = endDateVal ? new Date(endDateVal).setHours(23,59,59,999) : Infinity;
+
+                filteredTrips = allCurrentTrips.filter(t => {
+                    const tripMs = t.date?.seconds ? t.date.seconds * 1000 : 0;
+                    return tripMs >= startMs && tripMs <= endMs;
+                });
+            }
 
             const courierStats = {};
             let totalCompleted = 0;
@@ -2502,23 +2612,43 @@
         }
 
         async function loadFullHistory() {
-            const date = document.getElementById('rep-date').value; if(!date) return;
-            const container = document.getElementById('history-list'); container.innerHTML = '<p class="p-5 text-center text-muted">Loading daily reports...</p>';
-            document.getElementById('current-report-date').innerText = "REPORT DATE: " + date;
+            const startDateVal = document.getElementById('rep-start-date')?.value;
+            const endDateVal = document.getElementById('rep-end-date')?.value || startDateVal;
 
-            const start = new Date(date); start.setHours(0,0,0,0);
-            const end = new Date(date); end.setHours(23,59,59,999);
+            const container = document.getElementById('history-list');
+            if(!container) return;
+            container.innerHTML = '<p class="p-5 text-center text-muted"><i class="bi bi-hourglass-split me-2"></i>Loading reports...</p>';
 
-            const snap = await db.collection('trips')
-                .where('date', '>=', firebase.firestore.Timestamp.fromDate(start))
-                .where('date', '<=', firebase.firestore.Timestamp.fromDate(end))
-                .get();
+            const labelDate = (startDateVal && endDateVal) ? (startDateVal === endDateVal ? startDateVal : `${startDateVal} s/d ${endDateVal}`) : "SEMUA HARI";
+            const reportLabelEl = document.getElementById('current-report-date');
+            if (reportLabelEl) reportLabelEl.innerText = "PERIODE LAPORAN: " + labelDate;
 
-            container.innerHTML = ''; lastLoadedHistory = [];
-            snap.forEach(doc => { lastLoadedHistory.push({id: doc.id, ...doc.data()}); });
+            try {
+                let query = db.collection('trips');
 
-            if(lastLoadedHistory.length === 0) {
-                container.innerHTML = "<div class='text-center py-5'><i class='bi bi-inbox fs-1 text-muted d-block mb-2'></i><p class='text-muted'>No data found for this date.</p></div>";
+                if (startDateVal) {
+                    const start = new Date(startDateVal); start.setHours(0,0,0,0);
+                    query = query.where('date', '>=', firebase.firestore.Timestamp.fromDate(start));
+                }
+                if (endDateVal) {
+                    const end = new Date(endDateVal); end.setHours(23,59,59,999);
+                    query = query.where('date', '<=', firebase.firestore.Timestamp.fromDate(end));
+                }
+
+                const snap = await query.get();
+
+                container.innerHTML = ''; lastLoadedHistory = [];
+                snap.forEach(doc => { lastLoadedHistory.push({id: doc.id, ...doc.data()}); });
+
+                lastLoadedHistory.sort((a,b) => (b.date?.seconds || 0) - (a.date?.seconds || 0));
+
+                if(lastLoadedHistory.length === 0) {
+                    container.innerHTML = "<div class='text-center py-5'><i class='bi bi-inbox fs-1 text-muted d-block mb-2'></i><p class='text-muted'>Tidak ada data laporan untuk periode ini.</p></div>";
+                    return;
+                }
+            } catch(e) {
+                console.error("Error loading history reports:", e);
+                container.innerHTML = "<div class='text-center py-5 text-danger'><i class='bi bi-exclamation-triangle fs-1 d-block mb-2'></i><p>Gagal memuat data laporan.</p></div>";
                 return;
             }
 
