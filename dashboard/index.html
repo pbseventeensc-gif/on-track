@@ -584,7 +584,7 @@
                             </span>
                         </div>
                         <!-- Notification Dropdown Menu -->
-                        <div id="notif-dropdown" class="dropdown-menu dropdown-menu-end shadow-lg p-0 border-0 d-none" style="width: 320px; position: absolute; top: 50px; right: 0; z-index: 1050; border-radius: 16px; overflow: hidden; background: var(--bg-card);">
+                        <div id="notif-dropdown" class="shadow-lg p-0 d-none" style="display: none; width: 320px; position: absolute; top: 50px; right: 0; z-index: 2000; border-radius: 16px; overflow: hidden; background: var(--bg-card, #ffffff); border: 1px solid var(--border-color, #e5e7eb) !important; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.2);">
                             <div class="p-3 border-bottom d-flex align-items-center justify-content-between bg-light">
                                 <div class="fw-bold small text-dark"><i class="bi bi-bell-fill me-2 text-warning"></i>Notifikasi System</div>
                                 <span id="notif-count-text" class="badge bg-danger rounded-pill extra-small">0 Baru</span>
@@ -1221,19 +1221,31 @@
         let notificationItems = [];
 
         function toggleNotifDropdown(e) {
-            if (e) e.stopPropagation();
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
             const dropdown = document.getElementById('notif-dropdown');
             if (!dropdown) return;
-            dropdown.classList.toggle('d-none');
-            updateNotificationBell();
+
+            const isHidden = dropdown.style.display === 'none' || dropdown.classList.contains('d-none');
+            if (isHidden) {
+                dropdown.classList.remove('d-none');
+                dropdown.style.display = 'block';
+                updateNotificationBell();
+            } else {
+                dropdown.classList.add('d-none');
+                dropdown.style.display = 'none';
+            }
         }
 
         document.addEventListener('click', (e) => {
             const dropdown = document.getElementById('notif-dropdown');
             const btn = document.getElementById('notif-bell-btn');
-            if (dropdown && !dropdown.classList.contains('d-none')) {
+            if (dropdown && (dropdown.style.display === 'block' || !dropdown.classList.contains('d-none'))) {
                 if (!dropdown.contains(e.target) && (!btn || !btn.contains(e.target))) {
                     dropdown.classList.add('d-none');
+                    dropdown.style.display = 'none';
                 }
             }
         });
