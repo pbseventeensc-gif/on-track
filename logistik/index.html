@@ -1961,11 +1961,20 @@
                     });
                 });
 
-                // MANUAL RATING FORMULA (Suggestion):
-                const completionRate = (c.completed / c.total) * 100 || 0;
-                const efficiencyBonus = c.totalTime > 0 ? Math.min(20, 100 / (c.totalTime / c.completed)) : 10;
-                const finalScore = Math.round((completionRate * 0.8) + efficiencyBonus);
-                const stars = (finalScore / 20).toFixed(1);
+                // KPI & Rating Formula: If all deliveries are completed (c.completed >= c.total), give 5.0 Stars & 100 Score!
+                const completionRate = c.total > 0 ? (c.completed / c.total) * 100 : 100;
+                let stars = 5.0;
+                let finalScore = 100;
+
+                if (c.total > 0) {
+                    if (c.completed >= c.total) {
+                        stars = 5.0;
+                        finalScore = 100;
+                    } else {
+                        stars = parseFloat(((completionRate / 100) * 5.0).toFixed(1));
+                        finalScore = Math.round(completionRate);
+                    }
+                }
 
                 const hours = Math.floor(c.totalTime / 60);
                 const mins = Math.round(c.totalTime % 60);
@@ -1974,12 +1983,12 @@
                 tbody.innerHTML += `<tr>
                     <td class="fw-bold">${c.name} <div class="mt-1">${podIconsHtml}</div></td>
                     <td><span class="badge-pill ${isOnline ? 'badge-delivered' : 'badge-delayed'}">${isOnline ? 'Active' : 'Offline'}</span></td>
-                    <td>${c.completed}</td>
-                    <td><i class="bi bi-star-fill text-warning me-1"></i> ${stars}</td>
+                    <td><span class="fw-bold">${c.completed}</span> / <span class="text-muted">${c.total}</span></td>
+                    <td><i class="bi bi-star-fill text-warning me-1"></i> <strong>${stars.toFixed(1)}</strong></td>
                     <td>${c.totalKM.toFixed(1)} km</td>
                     <td><div class="fw-bold">Rp ${Math.round(cCost).toLocaleString()}</div><div class="extra-small text-muted">${cLiters.toFixed(2)}L</div></td>
                     <td>${durationStr}</td>
-                    <td class="fw-bold text-primary">${finalScore}</td>
+                    <td><span class="badge bg-dark px-2 py-1">${finalScore}</span></td>
                 </tr>`;
             });
 
