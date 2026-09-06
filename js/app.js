@@ -1407,6 +1407,16 @@ auth.onAuthStateChanged(user => {
     }
 });
 
+function handleLogout() {
+    if (confirm("Sign out dari dashboard?")) {
+        auth.signOut().then(() => {
+            window.location.reload();
+        }).catch(err => {
+            alert("Logout error: " + err.message);
+        });
+    }
+}
+
 function logout() {
-    auth.signOut();
+    handleLogout();
 }
