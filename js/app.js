@@ -1257,46 +1257,57 @@ async function publishUpdateAuto() {
     });
 }
 
-function loadChatList() {
-    const container = document.getElementById('chat-courier-list');
+function loadChatList(filter = "") {
+    const container = document.getElementById('chat-list-container') || document.getElementById('chat-courier-list');
     if (!container) return;
     container.innerHTML = '';
 
     for (const id in registeredUsers) {
         if (!isCourierUser(id)) continue;
         const name = registeredUsers[id];
+        if (filter && !name.toLowerCase().includes(filter.toLowerCase())) continue;
+
         const isOnline = currentOnlineCouriers[id];
 
         container.innerHTML += `
-            <div class="p-3 border-bottom d-flex align-items-center gap-3 cursor-pointer hover-bg" onclick="selectChatCourier('${id}', '${name.replace(/'/g, "\\'")}')">
-                <div class="position-relative">
-                    <img src="https://ui-avatars.com/api/?name=${encodeURIComponent(name)}" style="width:38px; border-radius:50%">
-                    <span class="position-absolute bottom-0 end-0 p-1 ${isOnline ? 'bg-success' : 'bg-secondary'} border border-light rounded-circle"></span>
+            <div class="p-3 border rounded-3 cursor-pointer d-flex justify-content-between align-items-center bg-white mb-2 shadow-2fs" onclick="openChat('${id}', '${name.replace(/'/g, "\\'")}')">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="position-relative">
+                        <img src="https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=111827&color=fff" style="width:32px; border-radius:50%">
+                        <span class="position-absolute bottom-0 end-0 p-1 ${isOnline ? 'bg-success' : 'bg-secondary'} border border-light rounded-circle" style="width:8px; height:8px;"></span>
+                    </div>
+                    <div>
+                        <span class="fw-semibold text-dark extra-small">${name}</span>
+                        <small class="d-block text-muted" style="font-size:0.65rem;">${isOnline ? 'Online' : 'Offline'}</small>
+                    </div>
                 </div>
-                <div class="overflow-hidden">
-                    <div class="fw-bold extra-small text-dark text-truncate">${name}</div>
-                    <div class="extra-small text-muted" style="font-size:0.65rem;">${isOnline ? 'Online' : 'Offline'}</div>
-                </div>
+                <i class="bi bi-chevron-right text-muted"></i>
             </div>
         `;
     }
 }
 
-function selectChatCourier(id, name) {
+function filterCourierChat(val) {
+    loadChatList(val);
+}
+
+function openChat(id, name) {
     currentChatId = id;
-    document.getElementById('chat-header-name').innerText = name;
-    document.getElementById('chat-header-status').innerText = currentOnlineCouriers[id] ? "Online" : "Offline";
+    const headerEl = document.getElementById('chat-header-main') || document.getElementById('chat-header-name');
+    if (headerEl) headerEl.innerText = name;
 
     if (chatUnsub) chatUnsub();
 
-    const box = document.getElementById('chat-messages-box');
+    const box = document.getElementById('chat-messages-main') || document.getElementById('chat-messages-box');
+    if (!box) return;
     box.innerHTML = '<p class="text-center py-4 text-muted extra-small">Loading messages...</p>';
 
-    chatUnsub = db.collection('chats').doc(id).collection('messages').orderBy('timestamp', 'asc').onSnapshot(snap => {
+    const col = db.collection('chats').doc(id).collection('messages');
+    chatUnsub = col.orderBy('timestamp', 'asc').onSnapshot(snap => {
         box.innerHTML = '';
         snap.forEach(doc => {
             const m = doc.data();
-            const isAdmin = m.senderRole === 'admin';
+            const isAdmin = m.senderRole === 'admin' || m.senderId === 'admin';
             box.innerHTML += `
                 <div class="bubble ${isAdmin ? 'admin' : 'courier'}">
                     ${m.text}
@@ -1307,13 +1318,14 @@ function selectChatCourier(id, name) {
     });
 }
 
-function sendChatMessage() {
-    const input = document.getElementById('chat-input-text');
+function sendChatMain() {
+    const input = document.getElementById('chat-input-main') || document.getElementById('chat-input-text');
     if (!input || !currentChatId) return;
     const text = input.value.trim();
     if (!text) return;
 
     db.collection('chats').doc(currentChatId).collection('messages').add({
+        senderId: 'admin',
         senderRole: 'admin',
         text: text,
         timestamp: firebase.firestore.Timestamp.now()
