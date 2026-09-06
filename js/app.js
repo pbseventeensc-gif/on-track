@@ -921,6 +921,7 @@ function renderRecentShipments(filter = "") {
     allCurrentTrips.forEach(t => {
         const cName = registeredUsers[t.courierId] || t.courierId.substring(0,8);
         const tripIdShort = '#' + t.id.substring(Math.max(0, t.id.length - 6));
+        const tripDateStr = t.date ? new Date(t.date.seconds * 1000).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) : '-';
 
         if (t.destinations && t.destinations.length > 0) {
             t.destinations.forEach((d, idx) => {
@@ -944,7 +945,8 @@ function renderRecentShipments(filter = "") {
                                    locName.toLowerCase().includes(search) ||
                                    fullAddress.toLowerCase().includes(search) ||
                                    cName.toLowerCase().includes(search) ||
-                                   status.toLowerCase().includes(search);
+                                   status.toLowerCase().includes(search) ||
+                                   tripDateStr.toLowerCase().includes(search);
 
                 const matchStatus = (selectedStatus === 'all') || (status === selectedStatus);
 
@@ -952,6 +954,7 @@ function renderRecentShipments(filter = "") {
                     shipmentRows.push({
                         tripId: t.id,
                         displayId: tripIdShort,
+                        dateStr: tripDateStr,
                         stopIndex: d.stopIndex || (idx + 1),
                         destinationName: locName,
                         fullAddress: fullAddress,
@@ -964,12 +967,13 @@ function renderRecentShipments(filter = "") {
                 }
             });
         } else {
-            const matchSearch = tripIdShort.toLowerCase().includes(search) || cName.toLowerCase().includes(search);
+            const matchSearch = tripIdShort.toLowerCase().includes(search) || cName.toLowerCase().includes(search) || tripDateStr.toLowerCase().includes(search);
             const matchStatus = (selectedStatus === 'all') || (t.status === selectedStatus);
             if (matchSearch && matchStatus) {
                 shipmentRows.push({
                     tripId: t.id,
                     displayId: tripIdShort,
+                    dateStr: tripDateStr,
                     stopIndex: 1,
                     destinationName: 'TBD',
                     fullAddress: '',
@@ -989,13 +993,14 @@ function renderRecentShipments(filter = "") {
     }
 
     if (shipmentRows.length === 0) {
-        table.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-muted extra-small">Tidak ada data pengantaran matching filter.</td></tr>`;
+        table.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted extra-small">Tidak ada data pengantaran matching filter.</td></tr>`;
         return;
     }
 
     shipmentRows.reverse().slice(0, 50).forEach(s => {
         const podIcon = s.proofUrl ? `<i class="bi bi-camera text-primary ms-2 cursor-pointer" data-url="${s.proofUrl}" onclick="openPoDModal(this.dataset.url)" title="Lihat Foto PoD"></i>` : '';
         table.innerHTML += `<tr>
+            <td class="fw-normal text-muted extra-small">${s.dateStr}</td>
             <td class="fw-normal text-dark">${s.displayId} ${podIcon}</td>
             <td>
                 <div class="fw-normal text-dark">${s.destinationName}</div>
