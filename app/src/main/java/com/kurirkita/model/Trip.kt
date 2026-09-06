@@ -8,6 +8,8 @@ data class Trip(
     val date: Timestamp = Timestamp.now(),
     val status: String = "assigned", // "assigned" | "accepted" | "in_progress" | "completed"
     val totalDistanceKm: Double = 0.0,
+    val acceptLatitude: Double? = null,
+    val acceptLongitude: Double? = null,
     val destinations: List<Destination> = emptyList()
 )
 

@@ -26,7 +26,7 @@
         }
 
         (g=>{var h,a,k,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("callback",c+".maps."+q);a.src=`https://maps.${c}apis.com/maps/api/js?`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=m.querySelector("script[nonce]")?.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Re-referencing library name."):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})({
-            key: "AIzaSyCpVOcvJgCCpfwfAFIIOwMMYcuuW7WkNNM",
+            key: "AIzaSyCAR9bhj6u72OpTqYLEuBvBGvCaaFSPUGQ",
             v: "weekly"
         });
     </script>
@@ -509,8 +509,7 @@
                 <i class="bi bi-chevron-left" style="font-size: 12px;"></i>
             </div>
             <div class="sidebar-header">
-                <img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 108 108'><rect width='108' height='108' rx='20' fill='%23111827'/><path fill='%23F59E0B' d='M30,30h16v48h-16zM50,45h16v33h-16zM70,25h16v53h-16z'/></svg>" class="main-logo" alt="Wellen Print" style="width:36px; height:36px; border-radius:8px;">
-                <div class="sidebar-brand">Wellen Print</div>
+                <img src="assets/logo.svg" class="main-logo" alt="Wellen Print" style="height:48px; width:auto; object-fit:contain;">
             </div>
 
             <nav class="nav-menu">
@@ -549,15 +548,22 @@
                         <input class="form-check-input cursor-pointer" type="checkbox" id="dark-mode-toggle" onchange="toggleDarkMode()">
                     </div>
                 </div>
-                <div class="d-flex align-items-center gap-12 w-100">
-                    <img src="https://ui-avatars.com/api/?name=Admin+W&background=111827&color=fff" class="profile-img" alt="Profile" id="profile-avatar">
-                    <div class="profile-info me-auto">
-                        <p class="profile-name mb-0 fw-bold">Admin WellenGO</p>
-                        <p class="profile-role mb-0 extra-small text-muted">Fleet Manager</p>
+                <div class="d-flex align-items-center justify-content-between w-100 p-2 px-3 rounded-pill bg-white border shadow-sm" style="border-color: #e2e8f0 !important;">
+                    <div class="profile-info me-auto overflow-hidden">
+                        <p class="profile-name mb-0 fw-bold text-dark text-truncate" style="font-size: 0.85rem;" id="profile-name">admin</p>
+                        <p class="profile-role mb-0 extra-small text-success fw-bold d-flex align-items-center" style="font-size: 0.7rem;" id="profile-role">
+                            <span class="d-inline-block rounded-circle bg-success me-1" style="width: 7px; height: 7px;"></span>Online
+                        </p>
                     </div>
-                    <button class="btn btn-outline-danger btn-sm p-1 px-2 border-0" onclick="handleLogout()" title="Sign Out">
-                        <i class="bi bi-box-arrow-right fs-5"></i>
-                    </button>
+                    <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                        <div class="position-relative">
+                            <img src="https://cdn-icons-png.flaticon.com/512/4140/4140048.png" class="profile-img" style="width: 34px; height: 34px; border-radius: 50%; object-fit: cover;" alt="Profile" id="profile-avatar">
+                            <span class="position-absolute bottom-0 end-0 bg-success border border-white rounded-circle" style="width: 8px; height: 8px;"></span>
+                        </div>
+                        <button class="btn btn-link text-danger p-0 ms-1 border-0" onclick="handleLogout()" title="Sign Out">
+                            <i class="bi bi-box-arrow-right fs-5"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
         </aside>
@@ -599,7 +605,6 @@
                             </div>
                         </div>
                     </div>
-                    <img src="https://ui-avatars.com/api/?name=Admin+W&background=F3F4F6&color=111827" style="width:36px; height:36px; border-radius:10px; border: 1px solid var(--border-color);" id="header-avatar" alt="User Avatar">
                     <button class="btn-new-shipment" onclick="switchTab('dispatch', document.querySelector('[onclick*=\'dispatch\']'))">
                         <i class="bi bi-plus-lg"></i> New Shipment
                     </button>
@@ -674,53 +679,44 @@
                             </div>
                         </div>
                         <div class="col-lg-4">
-                            <div class="border rounded-4 p-4 bg-white">
+                            <div class="border rounded-4 p-4 bg-white shadow-sm mb-4">
                                 <div class="card-title">Priority Alerts <span class="text-primary cursor-pointer fs-6 fw-normal">View all</span></div>
                                 <div id="priority-alerts" class="d-flex flex-column gap-3">
                                     <!-- Dynamic Alerts -->
                                     <div class="d-flex gap-3 p-3 rounded-3" style="background: #FEF2F2;">
                                         <div class="text-danger fs-4"><i class="bi bi-exclamation-triangle"></i></div>
                                         <div>
-                                            <div class="fw-bold small">Delay: SHIP-9021</div>
+                                            <div class="fw-bold small">Delay: SHIP-9021 (andiwijaya)</div>
                                             <div class="extra-small text-muted">Vehicle breakdown at Gatot Subroto</div>
                                         </div>
                                     </div>
                                     <div class="d-flex gap-3 p-3 rounded-3" style="background: #FFFBEB;">
                                         <div class="text-warning fs-4"><i class="bi bi-clock"></i></div>
                                         <div>
-                                            <div class="fw-bold small">ETA Warning: SHIP-8812</div>
+                                            <div class="fw-bold small">ETA Warning: SHIP-8812 (bayhaqi)</div>
                                             <div class="extra-small text-muted">Predicted 15m delay due to traffic</div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    </div>
 
-                    <!-- Row 3: Status & Performance -->
-                    <div class="row g-4 mb-4 align-items-start">
-                        <div class="col-lg-4">
                             <div class="border rounded-4 p-4 bg-white shadow-sm">
                                 <div class="card-title mb-4">Shipment Status</div>
-                                <div class="mb-4">
-                                    <div class="d-flex justify-content-between mb-2 small fw-bold"><span>In Transit</span><span>0%</span></div>
-                                    <div class="progress-custom"><div class="progress-bar-custom bg-primary" style="width: 0%"></div></div>
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between mb-1 extra-small fw-bold"><span>In Transit</span><span id="pct-transit">0%</span></div>
+                                    <div class="progress-custom"><div id="pbar-transit" class="progress-bar-custom bg-primary" style="width: 0%"></div></div>
                                 </div>
-                                <div class="mb-4">
-                                    <div class="d-flex justify-content-between mb-2 small fw-bold"><span>Delivered</span><span>0%</span></div>
-                                    <div class="progress-custom"><div class="progress-bar-custom" style="width: 0%; background: #10B981;"></div></div>
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between mb-1 extra-small fw-bold"><span>Delivered</span><span id="pct-delivered">0%</span></div>
+                                    <div class="progress-custom"><div id="pbar-delivered" class="progress-bar-custom" style="width: 0%; background: #10B981;"></div></div>
+                                </div>
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between mb-1 extra-small fw-bold"><span>Pending</span><span id="pct-pending">0%</span></div>
+                                    <div class="progress-custom"><div id="pbar-pending" class="progress-bar-custom" style="width: 0%; background: #F59E0B;"></div></div>
                                 </div>
                                 <div>
-                                    <div class="d-flex justify-content-between mb-2 small fw-bold"><span>Pending</span><span>0%</span></div>
-                                    <div class="progress-custom"><div class="progress-bar-custom" style="width: 0%; background: #F59E0B;"></div></div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-lg-8">
-                            <div class="border rounded-4 p-4 bg-white shadow-sm">
-                                <div class="card-title mb-4">Delivery Performance</div>
-                                <div style="height: 220px; width: 100%;">
-                                    <canvas id="performanceChart"></canvas>
+                                    <div class="d-flex justify-content-between mb-1 extra-small fw-bold text-danger"><span>Returned / Gagal (Ke Kantor)</span><span id="pct-returned">0%</span></div>
+                                    <div class="progress-custom"><div id="pbar-returned" class="progress-bar-custom bg-danger" style="width: 0%"></div></div>
                                 </div>
                             </div>
                         </div>
@@ -729,19 +725,38 @@
                     <!-- Row 4: Recent Shipments -->
                     <div class="row mb-4">
                         <div class="col-12">
-                            <div class="border rounded-4 p-4 bg-white">
-                                <div class="card-title">Recent Shipments <button class="btn btn-sm btn-light border" onclick="loadFullHistory()"><i class="bi bi-arrow-clockwise"></i></button></div>
-                                <div class="table-responsive">
-                                    <table class="table table-borderless m-0">
-                                        <thead>
+                            <div class="border rounded-4 p-4 bg-white shadow-sm">
+                                <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+                                    <div class="card-title m-0 d-flex align-items-center gap-2">
+                                        <span>Recent Shipments</span>
+                                        <span id="recent-shipments-total-badge" class="badge bg-light text-secondary border fw-normal" style="font-size: 0.725rem;">0 Total</span>
+                                        <button class="btn btn-sm btn-light border ms-1" title="Refresh Data" onclick="loadFullHistory()"><i class="bi bi-arrow-clockwise"></i></button>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                                        <select id="recent-status-filter" class="form-select form-select-sm fw-normal py-2" style="border-radius: 10px; width: 110px; font-size: 0.8rem; background: #f8fafc;" onchange="renderRecentShipments()">
+                                            <option value="all">Status</option>
+                                            <option value="completed">Completed</option>
+                                            <option value="in_progress">In Progress</option>
+                                            <option value="assigned">Pending</option>
+                                        </select>
+                                        <div class="position-relative">
+                                            <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"></i>
+                                            <input type="text" id="recent-shipment-search" class="form-control form-control-sm ps-5 py-2 fw-normal" style="border-radius: 10px; width: 220px; background: #f8fafc;" placeholder="Cari ID, Alamat, Kurir..." oninput="renderRecentShipments()">
+                                        </div>
+                                        <button class="btn btn-sm btn-outline-dark fw-bold px-3 py-2" style="border-radius: 10px;" onclick="exportRecentShipmentsToExcel()"><i class="bi bi-file-earmark-excel me-1"></i> Excel Report</button>
+                                    </div>
+                                </div>
+                                <div class="table-responsive" style="max-height: 480px; overflow-y: auto;">
+                                    <table class="table table-hover align-middle m-0">
+                                        <thead class="sticky-top bg-white" style="position: sticky; top: 0; z-index: 10; box-shadow: inset 0 -2px 0 #e2e8f0;">
                                             <tr>
-                                                <th>Shipment ID</th>
-                                                <th>Origin</th>
-                                                <th>Destination</th>
-                                                <th>Status</th>
-                                                <th>Carrier</th>
-                                                <th>ETA / Completed</th>
-                                                <th>Action</th>
+                                                <th style="background: #ffffff;">Shipment ID</th>
+                                                <th style="background: #ffffff;">Origin</th>
+                                                <th style="background: #ffffff;">Destination</th>
+                                                <th style="background: #ffffff;">Status</th>
+                                                <th style="background: #ffffff;">Carrier</th>
+                                                <th style="background: #ffffff;">ETA / Completed</th>
+                                                <th style="background: #ffffff;">Action</th>
                                             </tr>
                                         </thead>
                                         <tbody id="recent-shipments-table">
@@ -757,10 +772,10 @@
                 <!-- DISPATCH VIEW -->
                 <div id="view-dispatch" class="view-section">
                     <div class="row g-4 mb-4">
-                        <!-- Left Panel: Dispatch Controls -->
-                        <div class="col-lg-5">
+                        <!-- Left Panel: Dispatch Controls (Expanded to 7 Columns for Maximum Comfort) -->
+                        <div class="col-lg-7 col-xl-7">
                             <div class="border rounded-4 p-4 bg-white shadow-sm h-100">
-                                <h6 class="fw-bold mb-4">Assign Shipment</h6>
+                                <h6 class="fw-bold mb-4 fs-5"><i class="bi bi-box-seam me-2 text-primary"></i>Assign Shipment</h6>
 
                                 <div class="mb-4">
                                     <label class="extra-small fw-bold text-muted text-uppercase mb-2">1. Select Courier</label>
@@ -780,18 +795,18 @@
                                     </div>
 
                                     <!-- Region Filter & Batch Select -->
-                                    <div class="border rounded-3 p-3 bg-light">
-                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <div class="border rounded-3 p-3 bg-light shadow-sm">
+                                        <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
                                             <div class="d-flex align-items-center">
                                                 <label class="extra-small fw-bold text-muted text-uppercase mb-0">Quick Pick by Region</label>
-                                                <span id="client-qty" class="badge bg-dark ms-2" style="font-size: 0.6rem; border-radius: 6px;">0</span>
+                                                <span id="client-qty" class="badge bg-dark ms-2" style="font-size: 0.65rem; border-radius: 6px;">0</span>
                                             </div>
                                             <div class="d-flex align-items-center gap-2">
                                                 <div class="form-check p-0 m-0" style="min-height: auto;">
                                                     <input type="checkbox" class="form-check-input ms-0" id="select-all-clients" onchange="toggleAllClients(this.checked)" style="width: 14px; height: 14px; margin-top: 0;">
                                                     <label class="form-check-label extra-small fw-bold text-muted ms-1" for="select-all-clients">ALL</label>
                                                 </div>
-                                                <select id="region-filter" class="form-select form-select-sm w-auto border-0 bg-transparent fw-bold text-primary" onchange="loadClientsByRegion(this.value)">
+                                                <select id="region-filter" class="form-select form-select-sm w-auto border-0 bg-white shadow-sm fw-bold text-primary" onchange="loadClientsByRegion(this.value)">
                                                     <option value="">All Regions</option>
                                                     <option value="Auto-detected">Auto-detected</option>
                                                     <option value="Bogor">Bogor</option>
@@ -805,24 +820,36 @@
                                             </div>
                                         </div>
 
-                                        <div class="position-relative mb-2">
-                                            <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-2 text-muted" style="font-size: 0.7rem;"></i>
-                                            <input type="text" id="client-search-input" class="form-control form-control-sm ps-4" style="border-radius: 8px; font-size: 0.7rem;" placeholder="Search by Store or PT..." oninput="filterClients(this.value)">
+                                        <div class="position-relative mb-3">
+                                            <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" style="font-size: 0.8rem;"></i>
+                                            <input type="text" id="client-search-input" class="form-control form-control-sm ps-5 py-2" style="border-radius: 8px; font-size: 0.8rem;" placeholder="Cari Nama Toko, PT, atau Alamat..." oninput="filterClients(this.value)">
                                         </div>
 
-                                        <div id="client-list-container" class="overflow-y-auto mb-3" style="max-height: 250px;">
+                                        <div id="client-list-container" class="overflow-y-auto mb-3 pe-1" style="max-height: 200px;">
                                             <p class="text-center py-3 text-muted extra-small">Loading clients...</p>
                                         </div>
                                         <div class="d-flex gap-2">
-                                            <button class="btn btn-sm btn-outline-dark flex-grow-1 fw-bold" onclick="addSelectedClients()">ADD SELECTED TO ROUTE</button>
-                                            <button class="btn btn-sm btn-outline-danger px-3" onclick="clearAllClients()" title="Hapus Semua Client dari Database">
+                                            <button class="btn btn-sm btn-outline-dark flex-grow-1 fw-bold py-2" style="border-radius: 8px;" onclick="addSelectedClients()"><i class="bi bi-plus-circle me-1"></i> ADD SELECTED TO ROUTE</button>
+                                            <button class="btn btn-sm btn-outline-danger px-3 py-2" style="border-radius: 8px;" onclick="clearAllClients()" title="Hapus Semua Client dari Database">
                                                 <i class="bi bi-trash3-fill"></i>
                                             </button>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div id="dispatch-queue" class="d-flex flex-wrap gap-2 mb-4"></div>
+                                <!-- Added Destinations Route Queue (Gambar 2: Tall & Spacious with Badge) -->
+                                <div class="border rounded-3 p-3 bg-white shadow-sm mb-4">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <label class="extra-small fw-bold text-dark text-uppercase m-0">Rute Pengantaran Kurir</label>
+                                            <span id="queue-count-badge" class="badge bg-primary px-2.5 py-1.5 fw-bold" style="border-radius: 20px; font-size: 0.725rem;">0 Total Destinasi</span>
+                                        </div>
+                                        <button class="btn btn-sm btn-link text-danger text-decoration-none extra-small fw-bold p-0" onclick="tripQueue=[];renderQueue();" title="Kosongkan Rute">
+                                            <i class="bi bi-x-circle me-1"></i>Reset
+                                        </button>
+                                    </div>
+                                    <div id="dispatch-queue" class="d-flex flex-column gap-2 overflow-y-auto pe-1" style="min-height: 180px; max-height: 380px;"></div>
+                                </div>
 
                                 <button class="btn btn-dark w-100 py-3 fw-bold shadow-sm" style="border-radius:12px;" onclick="submitTrip()">
                                     <i class="bi bi-send-plus-fill me-2"></i> CONFIRM & DISPATCH
@@ -830,10 +857,10 @@
                             </div>
                         </div>
 
-                        <!-- Right Panel: Dispatch Map -->
-                        <div class="col-lg-7">
-                            <div class="border rounded-4 overflow-hidden shadow-sm h-100" style="min-height: 500px;">
-                                <div id="map-dispatch" style="height: 100%; width: 100%;"></div>
+                        <!-- Right Panel: Dispatch Map (5 Columns, Compact & Sticky) -->
+                        <div class="col-lg-5 col-xl-5">
+                            <div class="border rounded-4 overflow-hidden shadow-sm position-sticky" style="top: 20px; min-height: 550px;">
+                                <div id="map-dispatch" style="height: 100%; min-height: 550px; width: 100%;"></div>
                             </div>
                         </div>
                     </div>
@@ -857,7 +884,7 @@
                                     <span class="extra-small text-muted fw-bold">Sampai:</span>
                                     <input type="date" id="kpi-end-date" class="form-control form-control-sm border" style="border-radius: 8px; width: 145px;" onchange="renderKPIView()">
                                 </div>
-                                <div class="btn-group btn-group-sm ms-md-2" role="group">
+                                <div class="btn-group btn-group-sm ms-md-2 d-none" role="group">
                                     <button type="button" class="btn btn-outline-secondary fw-semibold" onclick="setKpiPeriod('today')">Hari Ini</button>
                                     <button type="button" class="btn btn-outline-secondary fw-semibold" onclick="setKpiPeriod('this_week')">Minggu Ini</button>
                                     <button type="button" class="btn btn-outline-secondary fw-semibold" onclick="setKpiPeriod('this_month')">Bulan Ini</button>
@@ -892,18 +919,46 @@
                     </div>
 
                     <div class="row g-4 mb-4">
-                        <div class="col-lg-8">
-                            <div class="border rounded-4 p-4 bg-white shadow-sm">
-                                <div class="card-title mb-4">Courier Efficiency Ranking</div>
-                                <div style="height: 350px;">
-                                    <canvas id="kpiRankingChart"></canvas>
+                        <div class="col-lg-9">
+                            <div class="border rounded-4 p-4 bg-white shadow-sm h-100">
+                                <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+                                    <div>
+                                        <h5 class="fw-bold m-0" style="font-size: 1.25rem; color: #111827;">Statistics</h5>
+                                        <small class="text-muted fw-semibold">Performansi Efisiensi Kurir</small>
+                                    </div>
+                                    <div class="d-flex gap-2 align-items-center flex-wrap">
+                                        <select id="stat-metric-filter" class="form-select form-select-sm rounded-pill bg-light text-dark border px-3 py-1.5 fw-semibold shadow-none" style="font-size: 0.725rem; width: auto; cursor: pointer;" onchange="updateKPIChartsFromFilter()">
+                                            <option value="stops">Titik Selesai</option>
+                                            <option value="km">Total Jarak (KM)</option>
+                                            <option value="time">Total Jam / Durasi</option>
+                                        </select>
+                                        <select id="stat-period-filter" class="form-select form-select-sm rounded-pill bg-light text-dark border px-3 py-1.5 fw-semibold shadow-none" style="font-size: 0.725rem; width: auto; cursor: pointer;" onchange="updateKPIChartsFromFilter()">
+                                            <option value="this_week">Weekly</option>
+                                            <option value="today">Today</option>
+                                            <option value="this_month">Monthly</option>
+                                            <option value="all">All Time</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="row align-items-center">
+                                    <div class="col-md-3 mb-3 mb-md-0">
+                                        <div class="p-1">
+                                            <div class="display-5 fw-bold text-dark mb-1" id="kpi-sat-rate" style="font-weight: 800; font-size: 2.4rem; letter-spacing: -1px;">+76%</div>
+                                            <p class="text-muted extra-small fw-semibold m-0" style="line-height: 1.4;">Customer satisfaction increases every week</p>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-9">
+                                        <div style="height: 270px; position: relative;">
+                                            <canvas id="kpiRankingChart"></canvas>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                        <div class="col-lg-4">
-                            <div class="border rounded-4 p-4 bg-white shadow-sm">
-                                <div class="card-title mb-4">Task Distribution</div>
-                                <div style="height: 350px;">
+                        <div class="col-lg-3">
+                            <div class="border rounded-4 p-3 bg-white shadow-sm h-100 d-flex flex-column justify-content-between">
+                                <div class="card-title mb-2 extra-small text-uppercase fw-bold text-muted">Task Distribution</div>
+                                <div style="height: 220px; position: relative;">
                                     <canvas id="kpiDistributionChart"></canvas>
                                 </div>
                             </div>
@@ -921,7 +976,7 @@
                                         <th>Trips</th>
                                         <th>Rating</th>
                                         <th>Distance</th>
-                                        <th>Duration</th>
+                                        <th class="d-none">Duration</th>
                                         <th>Score</th>
                                     </tr>
                                 </thead>
@@ -987,7 +1042,7 @@
                                     <span class="extra-small text-muted fw-bold">Sampai:</span>
                                     <input type="date" id="rep-end-date" class="form-control form-control-sm border" style="border-radius: 8px; width: 145px;" onchange="loadFullHistory()">
                                 </div>
-                                <div class="btn-group btn-group-sm me-md-2" role="group">
+                                <div class="btn-group btn-group-sm me-md-2 d-none" role="group">
                                     <button type="button" class="btn btn-outline-secondary fw-semibold" onclick="setRepPeriod('today')">Hari Ini</button>
                                     <button type="button" class="btn btn-outline-secondary fw-semibold" onclick="setRepPeriod('this_week')">Minggu Ini</button>
                                     <button type="button" class="btn btn-outline-secondary fw-semibold" onclick="setRepPeriod('this_month')">Bulan Ini</button>
@@ -1077,7 +1132,7 @@
                                     <label class="extra-small fw-bold text-muted mb-2">GEOFENCE RADIUS (METERS)</label>
                                     <input type="number" id="cfg-geofence" class="form-control border" value="20" style="border-radius: 10px;">
                                 </div>
-                                <div class="mb-4">
+                                <div class="mb-4 d-none">
                                     <label class="extra-small fw-bold text-muted mb-2">OPERATIONAL COST (RP PER KM)</label>
                                     <input type="number" id="cfg-cost-km" class="form-control border" value="1000" style="border-radius: 10px;">
                                 </div>
@@ -1362,40 +1417,67 @@
             const container = document.getElementById('priority-alerts');
             updateNotificationBell();
             if(!container) return;
-            container.innerHTML = ''; const now = Date.now();
+            container.innerHTML = '';
+            const now = Date.now();
+
             allCurrentTrips.forEach(t => {
+                const cName = registeredUsers[t.courierId] || t.courierId.substring(0,8);
+                const tripIdShort = '#' + t.id.substring(Math.max(0, t.id.length - 6));
+
                 if(t.status === 'in_progress') {
                     const lastUpdate = t.destinations ? t.destinations.filter(d => d.status === 'done' || d.status === 'arrived').reduce((max, d) => {
                         const time = (d.completedTime || d.arrivalTime)?.seconds * 1000 || 0;
                         return time > max ? time : max;
                     }, (t.date?.seconds || 0) * 1000) : 0;
+
                     if(now - lastUpdate > 30 * 60 * 1000) {
-                        container.innerHTML += `<div class="d-flex gap-3 p-3 rounded-3" style="background: #FEF2F2;"><div class="text-danger fs-4"><i class="bi bi-clock-history"></i></div><div><div class="fw-bold small text-dark">DELAY WARNING: ${t.id.substring(0,8)}</div><div class="extra-small text-danger">No update for >30 mins</div></div></div>`;
+                        container.innerHTML += `
+                            <div class="d-flex gap-3 p-3 rounded-3" style="background: #FEF2F2;">
+                                <div class="text-danger fs-4"><i class="bi bi-clock-history"></i></div>
+                                <div>
+                                    <div class="fw-bold small text-dark">Delay: ${tripIdShort} (${cName})</div>
+                                    <div class="extra-small text-danger">Tidak ada pembaruan status > 30 menit</div>
+                                </div>
+                            </div>`;
                     }
                 }
+
                 if(!currentOnlineCouriers[t.courierId] && t.status !== 'completed') {
-                    container.innerHTML += `<div class="d-flex gap-3 p-3 rounded-3" style="background: #FFFBEB;"><div class="text-warning fs-4"><i class="bi bi-person-x"></i></div><div><div class="fw-bold small text-dark">COURIER OFFLINE</div><div class="extra-small text-warning">${registeredUsers[t.courierId] || 'Driver'} has active trip</div></div></div>`;
+                    container.innerHTML += `
+                        <div class="d-flex gap-3 p-3 rounded-3" style="background: #FFFBEB;">
+                            <div class="text-warning fs-4"><i class="bi bi-person-x"></i></div>
+                            <div>
+                                <div class="fw-bold small text-dark">Kurir Offline: ${cName}</div>
+                                <div class="extra-small text-warning">Kurir offline tapi memiliki tugas aktif ${tripIdShort}</div>
+                            </div>
+                        </div>`;
                 }
             });
-            if(container.innerHTML === '') container.innerHTML = '<div class="text-center py-4 text-muted extra-small">No priority alerts.</div>';
+
+            if(container.innerHTML === '') {
+                container.innerHTML = '<div class="text-center py-4 text-muted extra-small"><i class="bi bi-check-circle text-success me-1"></i> Tidak ada peringatan prioritas. Semua berjalan lancar.</div>';
+            }
         }
         window.addEventListener('load', initMaps);
 
-        // Performance Chart Init
-        const ctx = document.getElementById('performanceChart').getContext('2d');
-        new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-                datasets: [{
-                    label: 'Deliveries',
-                    data: [0, 0, 0, 0, 0, 0, 0],
-                    backgroundColor: '#111827',
-                    borderRadius: 8
-                }]
-            },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, border: { display: false } }, x: { grid: { display: false } } } }
-        });
+        // Performance Chart Init (Safe Check)
+        const perfCanvas = document.getElementById('performanceChart');
+        if (perfCanvas) {
+            const ctx = perfCanvas.getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                    datasets: [{
+                        label: 'Deliveries',
+                        data: [0, 0, 0, 0, 0, 0, 0],
+                        backgroundColor: '#111827',
+                        borderRadius: 8
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, border: { display: false } }, x: { grid: { display: false } } } }
+            });
+        }
 
         async function initAutocomplete() {
             try {
@@ -1846,11 +1928,13 @@
                     onTimeTrips++;
                 }
 
-                // Distance Calculation
+                // Distance Calculation: From Accept location to last completed delivery stop
                 if(t.destinations) {
                     t.destinations.forEach((d, i) => {
-                        if(d.status === 'done') {
-                            const start = i === 0 ? { lat: -6.2, lng: 106.81 } : { lat: t.destinations[i-1].latitude, lng: t.destinations[i-1].longitude };
+                        if(d.status === 'done' || d.proofPhotoUrl) {
+                            const start = (i === 0)
+                                ? ((t.acceptLatitude && t.acceptLongitude) ? { lat: t.acceptLatitude, lng: t.acceptLongitude } : { lat: t.destinations[0].latitude, lng: t.destinations[0].longitude })
+                                : { lat: t.destinations[i-1].latitude, lng: t.destinations[i-1].longitude };
                             grandTotalKM += calculateDistance(start.lat, start.lng, d.latitude, d.longitude);
                         }
                     });
@@ -1864,9 +1948,19 @@
                 }
             }
 
+            // Calculate total destinations / stops across all trips for Orders Today
+            let totalStopsToday = 0;
+            allCurrentTrips.forEach(t => {
+                if (t.destinations && t.destinations.length > 0) {
+                    totalStopsToday += t.destinations.length;
+                } else {
+                    totalStopsToday += 1;
+                }
+            });
+
             // Update UI
             if(document.getElementById('stat-active')) document.getElementById('stat-active').innerText = activeTrips;
-            if(document.getElementById('stat-done')) document.getElementById('stat-done').innerText = doneToday;
+            if(document.getElementById('stat-done')) document.getElementById('stat-done').innerText = totalStopsToday;
             if(document.getElementById('stat-delayed')) document.getElementById('stat-delayed').innerText = delayedCount;
             if(document.getElementById('stat-transit-count')) document.getElementById('stat-transit-count').innerText = inTransitCouriers;
             if(document.getElementById('stat-total-km')) document.getElementById('stat-total-km').innerText = grandTotalKM.toFixed(1) + " km";
@@ -1970,51 +2064,135 @@
                 if(!courierStats[cId]) {
                     courierStats[cId] = {
                         name: registeredUsers[cId] || cId.substring(0,8),
-                        completed: 0,
-                        total: 0,
+                        completedStops: 0,
+                        totalStops: 0,
                         totalKM: 0,
                         totalTime: 0
                     };
                 }
 
-                courierStats[cId].total++;
-
-                // KM Calculation: Only from actual completed points (Trip History)
+                // Count total destinations / stops given by admin (patch / dikasih admin)
                 let actualTripKM = 0;
                 if (t.destinations && t.destinations.length > 0) {
+                    courierStats[cId].totalStops += t.destinations.length;
+
                     for (let i = 0; i < t.destinations.length; i++) {
                         const d = t.destinations[i];
-                        if (d.status === 'done' || d.proofPhotoUrl) {
-                            const start = i === 0 ? { lat: -6.2, lng: 106.81 } : { lat: t.destinations[i-1].latitude, lng: t.destinations[i-1].longitude };
+                        const isDone = (d.status === 'done' || (d.proofPhotoUrl && d.proofPhotoUrl.length > 0));
+
+                        if (isDone) {
+                            courierStats[cId].completedStops++;
+
+                            const start = (i === 0)
+                                ? ((t.acceptLatitude && t.acceptLongitude) ? { lat: t.acceptLatitude, lng: t.acceptLongitude } : { lat: t.destinations[0].latitude, lng: t.destinations[0].longitude })
+                                : { lat: t.destinations[i-1].latitude, lng: t.destinations[i-1].longitude };
                             const end = { lat: d.latitude, lng: d.longitude };
                             const dist = calculateDistance(start.lat, start.lng, end.lat, end.lng);
                             actualTripKM += dist;
-
-                            if (d.completedTime && d.arrivalTime) {
-                                const diff = (d.completedTime.seconds - d.arrivalTime.seconds) / 60;
-                                courierStats[cId].totalTime += diff;
-                            }
                         }
                     }
+
+                    // Calculate Start-to-Finish Duration for this trip (ACCEPT -> LAST FINISH)
+                    let startTimeMs = 0;
+                    if (t.acceptedTime && t.acceptedTime.seconds) {
+                        startTimeMs = t.acceptedTime.seconds * 1000;
+                    } else if (t.date && t.date.seconds) {
+                        startTimeMs = t.date.seconds * 1000;
+                    } else if (t.destinations && t.destinations[0] && t.destinations[0].arrivalTime && t.destinations[0].arrivalTime.seconds) {
+                        startTimeMs = t.destinations[0].arrivalTime.seconds * 1000;
+                    }
+
+                    let latestFinishMs = 0;
+                    t.destinations.forEach(d => {
+                        if (d.completedTime && d.completedTime.seconds) {
+                            const ms = d.completedTime.seconds * 1000;
+                            if (ms > latestFinishMs) latestFinishMs = ms;
+                        }
+                    });
+
+                    if (startTimeMs > 0 && latestFinishMs > startTimeMs) {
+                        const tripDurationMins = (latestFinishMs - startTimeMs) / (60 * 1000);
+                        courierStats[cId].totalTime += tripDurationMins;
+                    }
+                } else {
+                    courierStats[cId].totalStops += 1;
+                    if (t.status === 'completed') courierStats[cId].completedStops += 1;
                 }
                 courierStats[cId].totalKM += actualTripKM;
                 grandTotalKM += actualTripKM;
 
                 if(t.status === 'completed' || (t.destinations && t.destinations.every(d => d.status === 'done' || d.proofPhotoUrl))) {
-                    courierStats[cId].completed++;
                     totalCompleted++;
                 }
             });
 
-            const sortedCouriers = Object.values(courierStats).sort((a,b) => b.completed - a.completed);
+            lastKPIData = Object.values(courierStats);
 
-            // Cards Update
-            document.getElementById('kpi-total-done').innerText = totalCompleted;
-            if(sortedCouriers.length > 0) document.getElementById('kpi-top-courier').innerText = sortedCouriers[0].name;
+            // Apply metric filter sort if set from Statistics card
+            if (currentStatMetric === 'km') {
+                kpiSortField = 'distance';
+                kpiSortAsc = false;
+            } else if (currentStatMetric === 'time') {
+                kpiSortField = 'time';
+                kpiSortAsc = false;
+            } else if (currentStatMetric === 'stops') {
+                kpiSortField = 'stops';
+                kpiSortAsc = false;
+            }
 
-            // Show Grand Total Distance
-            if(document.getElementById('kpi-total-km')) {
-                document.getElementById('kpi-total-km').innerText = grandTotalKM.toFixed(1) + " km";
+            // Filter search input
+            const searchVal = (filter || document.getElementById('kpi-search-input')?.value || "").toLowerCase();
+            let displayCouriers = lastKPIData.filter(c => {
+                const isOnline = currentOnlineCouriers[Object.keys(registeredUsers).find(k => registeredUsers[k] === c.name)] ? 'active' : 'offline';
+                return c.name.toLowerCase().includes(searchVal) || isOnline.includes(searchVal);
+            });
+
+            // Sort column
+            displayCouriers.sort((a, b) => {
+                let valA = a.completedStops;
+                let valB = b.completedStops;
+
+                if (kpiSortField === 'distance') {
+                    valA = a.totalKM || 0;
+                    valB = b.totalKM || 0;
+                } else if (kpiSortField === 'time') {
+                    valA = a.totalTime || 0;
+                    valB = b.totalTime || 0;
+                } else if (kpiSortField === 'stops') {
+                    valA = a.completedStops || 0;
+                    valB = b.completedStops || 0;
+                } else if (kpiSortField === 'score' || kpiSortField === 'rating') {
+                    valA = a.totalStops > 0 ? (a.completedStops / a.totalStops) : 0;
+                    valB = b.totalStops > 0 ? (b.completedStops / b.totalStops) : 0;
+                } else if (kpiSortField === 'name') {
+                    valA = a.name.toLowerCase();
+                    valB = b.name.toLowerCase();
+                } else if (kpiSortField === 'status') {
+                    valA = currentOnlineCouriers[Object.keys(registeredUsers).find(k => registeredUsers[k] === a.name)] ? 1 : 0;
+                    valB = currentOnlineCouriers[Object.keys(registeredUsers).find(k => registeredUsers[k] === b.name)] ? 1 : 0;
+                }
+
+                if (valA < valB) return kpiSortAsc ? -1 : 1;
+                if (valA > valB) return kpiSortAsc ? 1 : -1;
+                return 0;
+            });
+
+            // Cards Update: Sync Top Performer, Total Distance, and Completed Stops for Top #1 Courier
+            const topCourier = displayCouriers[0];
+            if (topCourier) {
+                if(document.getElementById('kpi-top-courier')) {
+                    document.getElementById('kpi-top-courier').innerText = topCourier.name;
+                }
+                if(document.getElementById('kpi-total-km')) {
+                    document.getElementById('kpi-total-km').innerText = (topCourier.totalKM || 0).toFixed(1) + " km";
+                }
+                if(document.getElementById('kpi-total-done')) {
+                    document.getElementById('kpi-total-done').innerText = topCourier.completedStops || 0;
+                }
+            } else {
+                if(document.getElementById('kpi-top-courier')) document.getElementById('kpi-top-courier').innerText = '-';
+                if(document.getElementById('kpi-total-km')) document.getElementById('kpi-total-km').innerText = '0.0 km';
+                if(document.getElementById('kpi-total-done')) document.getElementById('kpi-total-done').innerText = '0';
             }
 
             // Table with KPI Rating Logic
@@ -2032,13 +2210,13 @@
                     });
                 });
 
-                // KPI & Rating Formula: If all deliveries are completed (c.completed >= c.total), give 5.0 Stars & 100 Score!
-                const completionRate = c.total > 0 ? (c.completed / c.total) * 100 : 100;
+                // KPI & Rating Formula: Based on completed stops vs total stops (patch / dikasih admin)
+                const completionRate = c.totalStops > 0 ? (c.completedStops / c.totalStops) * 100 : 100;
                 let stars = 5.0;
                 let finalScore = 100;
 
-                if (c.total > 0) {
-                    if (c.completed >= c.total) {
+                if (c.totalStops > 0) {
+                    if (c.completedStops >= c.totalStops) {
                         stars = 5.0;
                         finalScore = 100;
                     } else {
@@ -2054,18 +2232,18 @@
                 tbody.innerHTML += `<tr>
                     <td class="fw-bold">${c.name} <div class="mt-1">${podIconsHtml}</div></td>
                     <td><span class="badge-pill ${isOnline ? 'badge-delivered' : 'badge-delayed'}">${isOnline ? 'Active' : 'Offline'}</span></td>
-                    <td><span class="fw-bold">${c.completed}</span> / <span class="text-muted">${c.total}</span></td>
+                    <td><span class="fw-bold">${c.completedStops}</span> / <span class="text-muted">${c.totalStops}</span></td>
                     <td><i class="bi bi-star-fill text-warning me-1"></i> <strong>${stars.toFixed(1)}</strong></td>
                     <td>${c.totalKM.toFixed(1)} km</td>
-                    <td>${durationStr}</td>
+                    <td class="d-none">${durationStr}</td>
                     <td><span class="badge bg-dark px-2 py-1">${finalScore}</span></td>
                 </tr>`;
             });
 
-            updateKPICharts(sortedCouriers);
+            updateKPICharts(displayCouriers);
         }
 
-        // Helper: Calculate distance in KM using Haversine formula
+        // Helper: Calculate realistic road distance in KM
         function calculateDistance(lat1, lon1, lat2, lon2) {
             const R = 6371; // Earth's radius in km
             const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -2074,7 +2252,51 @@
                       Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
                       Math.sin(dLon/2) * Math.sin(dLon/2);
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            return R * c;
+            const straightDist = R * c;
+
+            // Solusi A: Apply 1.25x Road Factor for realistic road driving distance
+            return straightDist * 1.25;
+        }
+
+        let currentStatMetric = 'stops';
+
+        function updateKPIChartsFromFilter() {
+            const period = document.getElementById('stat-period-filter')?.value || 'this_week';
+            const metric = document.getElementById('stat-metric-filter')?.value || 'stops';
+
+            const today = new Date();
+            const todayStr = today.toISOString().split('T')[0];
+
+            let startMs = 0;
+            let endMs = Infinity;
+
+            if (period === 'today') {
+                startMs = new Date(todayStr).setHours(0,0,0,0);
+                endMs = new Date(todayStr).setHours(23,59,59,999);
+            } else if (period === 'this_week') {
+                const monday = new Date(today);
+                const day = today.getDay() || 7;
+                monday.setDate(today.getDate() - day + 1);
+                startMs = monday.setHours(0,0,0,0);
+                endMs = new Date(todayStr).setHours(23,59,59,999);
+            } else if (period === 'this_month') {
+                const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+                startMs = firstDay.setHours(0,0,0,0);
+                endMs = new Date(todayStr).setHours(23,59,59,999);
+            }
+
+            const kpiStart = document.getElementById('kpi-start-date');
+            const kpiEnd = document.getElementById('kpi-end-date');
+            if (kpiStart && kpiEnd && period !== 'all') {
+                kpiStart.value = new Date(startMs).toISOString().split('T')[0];
+                kpiEnd.value = new Date(endMs).toISOString().split('T')[0];
+            } else if (kpiStart && kpiEnd && period === 'all') {
+                kpiStart.value = '';
+                kpiEnd.value = '';
+            }
+
+            currentStatMetric = metric;
+            renderKPIView();
         }
 
         function updateKPICharts(data) {
@@ -2085,27 +2307,114 @@
             if(rankingChart) rankingChart.destroy();
             if(distributionChart) distributionChart.destroy();
 
-            // Ranking Chart - Using Horizontal Bar for many couriers
+            // Calculate overall satisfaction / completion rate
+            const totalAll = data.reduce((acc, c) => acc + (c.totalStops || c.total || 0), 0);
+            const doneAll = data.reduce((acc, c) => acc + (c.completedStops || c.completed || 0), 0);
+            const ratePct = totalAll > 0 ? Math.round((doneAll / totalAll) * 100) : 100;
+            if(document.getElementById('kpi-sat-rate')) {
+                document.getElementById('kpi-sat-rate').innerText = `+${ratePct}%`;
+            }
+
+            // Top 15 couriers for vertical bar view
+            const topCouriers = data.slice(0, 15);
+            const rawLabels = topCouriers.length > 0 ? topCouriers.map(c => c.name) : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+            const metric = currentStatMetric || 'stops';
+            let values = [];
+
+            if (metric === 'km') {
+                values = topCouriers.map(c => parseFloat((c.totalKM || 0).toFixed(1)));
+            } else if (metric === 'time') {
+                values = topCouriers.map(c => parseFloat(((c.totalTime || 0) / 60).toFixed(1)));
+            } else {
+                values = topCouriers.map(c => c.completedStops || c.completed || 0);
+            }
+
+            const maxVal = Math.max(...values, 1);
+
+            // Highlight top bar in Emerald Green (#10B981), others in Soft Pastel Blue (#E0F2FE)
+            const bgColors = values.map(v => (v === maxVal && v > 0) ? '#10B981' : '#E0F2FE');
+            const hoverBgColors = values.map(v => (v === maxVal && v > 0) ? '#059669' : '#BAE6FD');
+
             rankingChart = new Chart(ctx1, {
                 type: 'bar',
                 data: {
-                    labels: data.slice(0,15).map(c => c.name),
+                    labels: rawLabels,
                     datasets: [{
-                        label: 'Trips Completed',
-                        data: data.slice(0,15).map(c => c.completed),
-                        backgroundColor: '#111827',
-                        borderRadius: 4,
-                        barThickness: 15
+                        label: 'Titik Selesai',
+                        data: values,
+                        backgroundColor: bgColors,
+                        hoverBackgroundColor: hoverBgColors,
+                        borderRadius: 12,
+                        borderSkipped: false,
+                        maxBarThickness: 38,
+                        barPercentage: 0.75,
+                        categoryPercentage: 0.85
                     }]
                 },
                 options: {
-                    indexAxis: 'y', // Makes it horizontal
+                    indexAxis: 'x', // Vertical bar chart as in Image 1
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#1E293B',
+                            titleFont: { size: 12, weight: 'bold' },
+                            bodyFont: { size: 11 },
+                            padding: 10,
+                            cornerRadius: 8,
+                            callbacks: {
+                                title: function(context) {
+                                    const idx = context[0].dataIndex;
+                                    return rawLabels[idx] || '';
+                                },
+                                label: function(context) {
+                                    const idx = context.dataIndex;
+                                    const c = topCouriers[idx];
+                                    if (!c) return ` Selesai: ${context.raw} Titik`;
+
+                                    const hours = Math.floor((c.totalTime || 0) / 60);
+                                    const mins = Math.round((c.totalTime || 0) % 60);
+                                    const durationStr = hours > 0 ? `${hours}j ${mins}m` : `${mins}m`;
+
+                                    return [
+                                        ` Selesai: ${c.completedStops || context.raw} Titik`,
+                                        ` Jarak: ${(c.totalKM || 0).toFixed(1)} km`,
+                                        ` Durasi: ${durationStr}`
+                                    ];
+                                }
+                            }
+                        }
+                    },
                     scales: {
-                        x: { beginAtZero: true, grid: { display: false } },
-                        y: { grid: { display: false } }
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { size: 10, weight: '600' },
+                                color: '#64748B',
+                                maxRotation: 30,
+                                minRotation: 0,
+                                callback: function(val, index) {
+                                    const label = this.getLabelForValue(val);
+                                    if (label && label.length > 9) {
+                                        return label.substring(0, 8) + '..';
+                                    }
+                                    return label;
+                                }
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: '#F1F5F9',
+                                borderDash: [4, 4]
+                            },
+                            ticks: {
+                                display: false
+                            },
+                            border: { display: false }
+                        }
                     }
                 }
             });
@@ -2382,32 +2691,142 @@
             });
         }
 
-        function renderRecentShipments() {
+        function renderRecentShipments(filter = "") {
             const table = document.getElementById('recent-shipments-table');
             if(!table) return;
             table.innerHTML = '';
-            allCurrentTrips.slice(-10).reverse().forEach(t => {
+
+            const search = (typeof filter === 'string' ? filter : (document.getElementById('recent-shipment-search')?.value || "")).toLowerCase();
+            const selectedStatus = document.getElementById('recent-status-filter')?.value || "all";
+            const shipmentRows = [];
+
+            allCurrentTrips.forEach(t => {
                 const cName = registeredUsers[t.courierId] || t.courierId.substring(0,8);
-                const statusClass = t.status === 'completed' ? 'delivered' : (t.status === 'assigned' ? 'pending' : 'transit');
-                const eta = t.status === 'completed' ? 'Finished' : (t.destinations[0]?.arrivalTime ? new Date(t.destinations[0].arrivalTime.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : 'TBD');
+                const tripIdShort = '#' + t.id.substring(Math.max(0, t.id.length - 6));
 
-                const podTrip = t.destinations.find(d => d.proofPhotoUrl);
-                const podIcon = podTrip ? `<i class="bi bi-camera text-primary ms-2 cursor-pointer" data-url="${podTrip.proofPhotoUrl}" onclick="openPoDModal(this.dataset.url)"></i>` : '';
+                if (t.destinations && t.destinations.length > 0) {
+                    t.destinations.forEach((d, idx) => {
+                        const locName = d.locationName || 'Destination';
+                        const fullAddress = d.address || '';
+                        const status = (d.status === 'done' || d.proofPhotoUrl) ? 'completed' : (d.status === 'arrived' ? 'in_progress' : t.status);
+                        const statusClass = status === 'completed' ? 'delivered' : (status === 'assigned' ? 'pending' : 'transit');
 
+                        let timeStr = 'Finished';
+                        if (status !== 'completed') {
+                            if (d.arrivalTime) {
+                                timeStr = new Date(d.arrivalTime.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+                            } else {
+                                timeStr = 'In Transit';
+                            }
+                        } else if (d.completedTime) {
+                            timeStr = new Date(d.completedTime.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+                        }
+
+                        const match = tripIdShort.toLowerCase().includes(search) ||
+                                      locName.toLowerCase().includes(search) ||
+                                      fullAddress.toLowerCase().includes(search) ||
+                                      cName.toLowerCase().includes(search) ||
+                                      status.toLowerCase().includes(search);
+
+                        if (match) {
+                            shipmentRows.push({
+                                tripId: t.id,
+                                displayId: tripIdShort,
+                                stopIndex: d.stopIndex || (idx + 1),
+                                origin: 'Warehouse',
+                                destinationName: locName,
+                                fullAddress: fullAddress,
+                                status: status,
+                                statusClass: statusClass,
+                                carrier: cName,
+                                eta: timeStr,
+                                proofUrl: d.proofPhotoUrl || ''
+                            });
+                        }
+                    });
+                } else {
+                    const match = tripIdShort.toLowerCase().includes(search) || cName.toLowerCase().includes(search);
+                    if (match) {
+                        shipmentRows.push({
+                            tripId: t.id,
+                            displayId: tripIdShort,
+                            stopIndex: 1,
+                            origin: 'Warehouse',
+                            destinationName: 'TBD',
+                            fullAddress: '',
+                            status: t.status,
+                            statusClass: t.status === 'completed' ? 'delivered' : 'pending',
+                            carrier: cName,
+                            eta: t.status === 'completed' ? 'Finished' : 'Pending',
+                            proofUrl: ''
+                        });
+                    }
+                }
+            });
+
+            if (shipmentRows.length === 0) {
+                table.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted extra-small">Tidak ada data pengantaran matching filter "${search}".</td></tr>`;
+                return;
+            }
+
+            // Show latest rows reverse
+            shipmentRows.reverse().slice(0, 50).forEach(s => {
+                const podIcon = s.proofUrl ? `<i class="bi bi-camera text-primary ms-2 cursor-pointer" data-url="${s.proofUrl}" onclick="openPoDModal(this.dataset.url)" title="Lihat Foto PoD"></i>` : '';
                 table.innerHTML += `<tr>
-                    <td class="fw-bold">#${t.id.substring(5,11)} ${podIcon}</td>
-                    <td>Warehouse</td>
-                    <td>${t.destinations[0]?.locationName || 'TBD'}</td>
-                    <td><span class="badge-pill badge-${statusClass}">${t.status}</span></td>
-                    <td>${cName}</td>
-                    <td>${eta}</td>
+                    <td class="fw-bold">${s.displayId} ${podIcon}</td>
+                    <td><span class="badge bg-light text-dark border extra-small">${s.origin}</span></td>
                     <td>
-                        <button class="btn btn-sm btn-light border text-danger" data-id="${t.id}" onclick="deleteTrip(this.dataset.id)">
+                        <div class="fw-bold text-dark">${s.destinationName}</div>
+                        ${s.fullAddress ? `<small class="text-muted extra-small d-block text-truncate" style="max-width:220px">${s.fullAddress}</small>` : ''}
+                    </td>
+                    <td><span class="badge-pill badge-${s.statusClass}">${s.status}</span></td>
+                    <td class="fw-semibold">${s.carrier}</td>
+                    <td><small class="fw-bold text-secondary">${s.eta}</small></td>
+                    <td>
+                        <button class="btn btn-sm btn-light border text-danger" data-id="${s.tripId}" onclick="deleteTrip(this.dataset.id)" title="Hapus Trip">
                             <i class="bi bi-trash"></i>
                         </button>
                     </td>
                 </tr>`;
             });
+        }
+
+        function exportRecentShipmentsToExcel() {
+            const exportData = [];
+
+            allCurrentTrips.forEach(t => {
+                const cName = registeredUsers[t.courierId] || t.courierId.substring(0,8);
+                const tripIdShort = '#' + t.id.substring(Math.max(0, t.id.length - 6));
+
+                if (t.destinations && t.destinations.length > 0) {
+                    t.destinations.forEach((d, idx) => {
+                        const status = (d.status === 'done' || d.proofPhotoUrl) ? 'completed' : d.status;
+                        const arrivalStr = d.arrivalTime ? new Date(d.arrivalTime.seconds * 1000).toLocaleString() : '-';
+                        const completedStr = d.completedTime ? new Date(d.completedTime.seconds * 1000).toLocaleString() : '-';
+
+                        exportData.push({
+                            "Shipment ID": tripIdShort,
+                            "Trip Full ID": t.id,
+                            "Courier": cName,
+                            "Stop #": d.stopIndex || (idx + 1),
+                            "Origin": "Warehouse",
+                            "Destination Name": d.locationName || 'TBD',
+                            "Full Address": d.address || '-',
+                            "Status": status,
+                            "Arrival Time": arrivalStr,
+                            "Completed Time": completedStr,
+                            "Proof Photo URL": d.proofPhotoUrl || '-'
+                        });
+                    });
+                }
+            });
+
+            if (exportData.length === 0) return alert("Tidak ada data pengantaran untuk diekspor!");
+
+            const ws = XLSX.utils.json_to_sheet(exportData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Recent Shipments");
+            XLSX.writeFile(wb, `Wtrack_Recent_Shipments_${new Date().toISOString().slice(0,10)}.xlsx`);
         }
 
         function filterMonitorAll(val) {
@@ -2524,7 +2943,34 @@
         }
 
         function renderQueue() {
-            document.getElementById('dispatch-queue').innerHTML = tripQueue.map((d,i) => `<div class="badge-pill bg-light border text-dark p-2">${i+1}. ${d.name} <i class="bi bi-x-circle ms-2 cursor-pointer text-danger" onclick="tripQueue.splice(${i},1);renderQueue()"></i></div>`).join('');
+            const queueEl = document.getElementById('dispatch-queue');
+            const badgeEl = document.getElementById('queue-count-badge');
+
+            if (badgeEl) {
+                badgeEl.innerText = `${tripQueue.length} Total Destinasi`;
+            }
+
+            if (queueEl) {
+                if (tripQueue.length === 0) {
+                    queueEl.innerHTML = '<div class="text-center py-4 text-muted extra-small"><i class="bi bi-box-arrow-in-down me-1"></i> Belum ada titik pengantaran yang ditambahkan ke rute.</div>';
+                } else {
+                    queueEl.innerHTML = tripQueue.map((d, i) => `
+                        <div class="d-flex align-items-center justify-content-between p-2 bg-light border rounded-3 shadow-2fs mb-1">
+                            <div class="d-flex align-items-center gap-2 overflow-hidden flex-grow-1">
+                                <span class="badge bg-primary text-white fw-bold rounded-circle flex-shrink-0" style="width:24px; height:24px; display:flex; align-items:center; justify-content:center; font-size:0.75rem;">${i+1}</span>
+                                <div class="overflow-hidden">
+                                    <div class="fw-bold text-dark text-truncate" style="font-size: 0.8rem;">${d.name}</div>
+                                    ${d.address ? `<div class="text-muted extra-small text-truncate">${d.address}</div>` : ''}
+                                </div>
+                            </div>
+                            <button class="btn btn-sm btn-link text-danger p-1 ms-2 flex-shrink-0" onclick="tripQueue.splice(${i},1);renderQueue()" title="Hapus dari Rute">
+                                <i class="bi bi-x-circle fs-6"></i>
+                            </button>
+                        </div>
+                    `).join('');
+                }
+            }
+
             draftMarkersLayer.clearLayers();
             tripQueue.forEach((d,i) => {
                 const icon = L.divIcon({ className:'custom-div-icon', html:`<div class='marker-pin' style='background:#F59E0B'></div><div class='marker-num'>${i+1}</div>`, iconSize:[30,42], iconAnchor:[15,42] });

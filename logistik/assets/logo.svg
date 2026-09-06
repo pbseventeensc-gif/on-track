@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 350" width="400" height="350">
+  <!-- Yellow leaf -->
+  <path d="M 45 170 C 45 170, 80 155, 95 240 C 95 240, 45 240, 45 170 Z" fill="#FFE600"/>
+  <!-- Orange leaf -->
+  <path d="M 80 135 C 80 135, 120 115, 138 240 C 138 240, 80 240, 80 135 Z" fill="#FF6B00"/>
+  <!-- Red leaf -->
+  <path d="M 120 95 C 120 95, 170 75, 185 240 C 185 240, 120 240, 120 95 Z" fill="#FF0000"/>
+  <!-- Text WELLEN -->
+  <text x="210" y="165" font-family="'Plus Jakarta Sans', 'Arial Black', sans-serif" font-weight="900" font-size="36" fill="#000000" letter-spacing="1">WELLEN</text>
+  <line x1="262" y1="150" x2="280" y2="150" stroke="#FF0000" stroke-width="4" />
+  <line x1="322" y1="150" x2="340" y2="150" stroke="#FF0000" stroke-width="4" />
+  <!-- Text PRINT -->
+  <text x="214" y="210" font-family="'Plus Jakarta Sans', sans-serif" font-weight="800" font-size="20" fill="#000000" letter-spacing="14">PRINT</text>
+</svg>

@@ -44,6 +44,7 @@ import android.net.Uri
 import java.io.ByteArrayOutputStream
 import java.util.UUID
 
+@SuppressLint("MissingPermission")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ActiveTripScreen(trip: Trip, onBack: () -> Unit, onChatClick: () -> Unit) {
@@ -99,7 +100,23 @@ fun ActiveTripScreen(trip: Trip, onBack: () -> Unit, onChatClick: () -> Unit) {
                     }
                     if (currentTrip.status == "assigned") {
                         Button(
-                            onClick = { db.collection("trips").document(currentTrip.tripId).update("status", "accepted") },
+                            onClick = {
+                                fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, CancellationTokenSource().token)
+                                    .addOnSuccessListener { loc ->
+                                        val map = mutableMapOf<String, Any>(
+                                            "status" to "accepted",
+                                            "acceptedTime" to Timestamp.now()
+                                        )
+                                        if (loc != null) {
+                                            map["acceptLatitude"] = loc.latitude
+                                            map["acceptLongitude"] = loc.longitude
+                                        }
+                                        db.collection("trips").document(currentTrip.tripId).update(map)
+                                    }
+                                    .addOnFailureListener {
+                                        db.collection("trips").document(currentTrip.tripId).update("status", "accepted")
+                                    }
+                            },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF1C40F), contentColor = Color.Black),
                             shape = RoundedCornerShape(8.dp)
                         ) { Text("TERIMA", fontWeight = FontWeight.Bold) }
