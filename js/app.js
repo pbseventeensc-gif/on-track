@@ -1005,6 +1005,11 @@ function renderRecentShipments(filter = "") {
             t.destinations.forEach((d, idx) => {
                 const locName = d.locationName || 'Destination';
                 const fullAddress = d.address || '';
+                const stopIdx = d.stopIndex || (idx + 1);
+
+                // Kode Unik Shipment ID per titik pengiriman (contoh: #713947-1, #713947-2...)
+                const uniqueShipmentId = `${tripIdShort}-${stopIdx}`;
+
                 const status = (d.status === 'done' || d.proofPhotoUrl) ? 'completed' : (d.status === 'arrived' ? 'in_progress' : t.status);
                 const statusClass = status === 'completed' ? 'delivered' : (status === 'assigned' ? 'pending' : 'transit');
 
@@ -1019,7 +1024,7 @@ function renderRecentShipments(filter = "") {
                     timeStr = new Date(d.completedTime.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
                 }
 
-                const searchableText = `${tripIdShort} ${t.id} ${cName} ${locName} ${fullAddress} ${status} ${tripDateStr}`.toLowerCase();
+                const searchableText = `${uniqueShipmentId} ${tripIdShort} ${t.id} ${cName} ${locName} ${fullAddress} ${status} ${tripDateStr}`.toLowerCase();
                 const terms = rawSearch.split(/\s+/).filter(x => x.length > 0);
                 const matchSearch = !rawSearch || terms.every(term => {
                     const cleanTerm = term.replace('#', '');
@@ -1031,10 +1036,10 @@ function renderRecentShipments(filter = "") {
                 if (matchSearch && matchStatus) {
                     shipmentRows.push({
                         tripId: t.id,
-                        displayId: tripIdShort,
+                        displayId: uniqueShipmentId,
                         dateStr: tripDateStr,
                         tripMs: tripMs,
-                        stopIndex: d.stopIndex || (idx + 1),
+                        stopIndex: stopIdx,
                         destinationName: locName,
                         fullAddress: fullAddress,
                         status: status,
