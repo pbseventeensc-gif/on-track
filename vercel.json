@@ -1,41 +1,39 @@
 {
-  "cleanUrls": true,
-  "trailingSlash": false,
-  "redirects": [
+  "version": 2,
+  "builds": [
     {
-      "source": "/inventory",
-      "destination": "https://inventory.wellen.id",
-      "permanent": true
+      "src": "api/**/*.js",
+      "use": "@vercel/node"
     },
     {
-      "source": "/logistik",
-      "destination": "https://logistic.wellen.id",
-      "permanent": true
+      "src": "index.html",
+      "use": "@vercel/static"
     },
     {
-      "source": "/logistic",
-      "destination": "https://logistic.wellen.id",
-      "permanent": true
+      "src": "css/**/*",
+      "use": "@vercel/static"
     },
     {
-      "source": "/dashboard",
-      "destination": "https://logistic.wellen.id",
-      "permanent": true
+      "src": "js/**/*",
+      "use": "@vercel/static"
     },
     {
-      "source": "/kawanlama",
-      "destination": "https://web-track-phi-gilt.vercel.app",
-      "permanent": true
+      "src": "assets/**/*",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/surat-jalan",
+      "dest": "/api/surat-jalan.js"
     },
     {
-      "source": "/adminkawanlama",
-      "destination": "https://web-track-phi-gilt.vercel.app",
-      "permanent": true
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
     },
     {
-      "source": "/cabang",
-      "destination": "https://web-track-phi-gilt.vercel.app?mode=cabang",
-      "permanent": true
+      "src": "/(.*)",
+      "dest": "/$1"
     }
   ]
 }
