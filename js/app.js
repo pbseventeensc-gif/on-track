@@ -940,7 +940,6 @@ function renderRecentShipments(filter = "") {
     table.innerHTML = '';
 
     const rawSearch = (typeof filter === 'string' ? filter : (document.getElementById('recent-shipment-search')?.value || "")).toLowerCase().trim();
-    const searchClean = rawSearch.replace('#', '');
     const selectedStatus = document.getElementById('recent-status-filter')?.value || "all";
     const shipmentRows = [];
 
@@ -948,7 +947,7 @@ function renderRecentShipments(filter = "") {
     const todayDayMs = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
 
     allCurrentTrips.forEach(t => {
-        const cName = registeredUsers[t.courierId] || t.courierId.substring(0,8);
+        const cName = registeredUsers[t.courierId] || t.courierId;
         const tripIdShort = '#' + t.id.substring(Math.max(0, t.id.length - 6));
         const tripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : 0);
         const tripDateStr = tripMs ? new Date(tripMs).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) : '-';
@@ -971,16 +970,12 @@ function renderRecentShipments(filter = "") {
                     timeStr = new Date(d.completedTime.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
                 }
 
-                const matchSearch = !rawSearch ||
-                                   tripIdShort.toLowerCase().includes(rawSearch) ||
-                                   t.id.toLowerCase().includes(rawSearch) ||
-                                   tripIdShort.toLowerCase().replace('#','').includes(searchClean) ||
-                                   t.id.toLowerCase().includes(searchClean) ||
-                                   locName.toLowerCase().includes(rawSearch) ||
-                                   fullAddress.toLowerCase().includes(rawSearch) ||
-                                   cName.toLowerCase().includes(rawSearch) ||
-                                   status.toLowerCase().includes(rawSearch) ||
-                                   tripDateStr.toLowerCase().includes(rawSearch);
+                const searchableText = `${tripIdShort} ${t.id} ${cName} ${locName} ${fullAddress} ${status} ${tripDateStr}`.toLowerCase();
+                const terms = rawSearch.split(/\s+/).filter(x => x.length > 0);
+                const matchSearch = !rawSearch || terms.every(term => {
+                    const cleanTerm = term.replace('#', '');
+                    return searchableText.includes(term) || searchableText.includes(cleanTerm);
+                });
 
                 const matchStatus = (selectedStatus === 'all') || (status === selectedStatus);
 
@@ -1002,12 +997,13 @@ function renderRecentShipments(filter = "") {
                 }
             });
         } else {
-            const matchSearch = !rawSearch ||
-                               tripIdShort.toLowerCase().includes(rawSearch) ||
-                               t.id.toLowerCase().includes(rawSearch) ||
-                               tripIdShort.toLowerCase().replace('#','').includes(searchClean) ||
-                               cName.toLowerCase().includes(rawSearch) ||
-                               tripDateStr.toLowerCase().includes(rawSearch);
+            const searchableText = `${tripIdShort} ${t.id} ${cName} ${t.status} ${tripDateStr}`.toLowerCase();
+            const terms = rawSearch.split(/\s+/).filter(x => x.length > 0);
+            const matchSearch = !rawSearch || terms.every(term => {
+                const cleanTerm = term.replace('#', '');
+                return searchableText.includes(term) || searchableText.includes(cleanTerm);
+            });
+
             const matchStatus = (selectedStatus === 'all') || (t.status === selectedStatus);
             if (matchSearch && matchStatus) {
                 shipmentRows.push({
