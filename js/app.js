@@ -692,31 +692,52 @@ function renderQueue() {
 }
 
 async function submitTrip() {
-    const cid = document.getElementById('sel-courier').value;
-    if(!cid || tripQueue.length===0) return alert("Select carrier and destination!");
-    const id = "TRIP_" + Date.now();
-    await db.collection('trips').doc(id).set({
-        tripId: id,
-        courierId: cid,
-        status: "assigned",
-        date: firebase.firestore.Timestamp.now(),
-        destinations: tripQueue.map((d,i) => ({
-            stopIndex: i+1,
-            locationName: d.name,
-            address: d.address,
-            latitude: d.lat,
-            longitude: d.lng,
-            status: "pending",
-            proofPhotoUrl: ""
-        }))
-    });
+    const btn = document.querySelector('[onclick*="submitTrip"]');
+    const cidEl = document.getElementById('sel-courier');
+    if (!cidEl) return alert("Elemen pemilihan kurir tidak ditemukan!");
+    const cid = cidEl.value;
 
-    syncDestinationsToMasterClients(tripQueue);
+    if (!cid) return alert("PILIH KURIR TERLEBIH DAHULU!\nSilakan pilih nama kurir penanggung jawab di langkah 1 (Select Courier).");
+    if (!tripQueue || tripQueue.length === 0) return alert("TAMBAHKAN ALAMAT TUJUAN TERLEBIH DAHULU!\nSilakan centang lokasi dan klik (+ ADD SELECTED TO ROUTE) di langkah 2 (Add Destinations).");
 
-    tripQueue = [];
-    renderQueue();
-    document.getElementById('sel-courier').value = "";
-    showToast("Shipment dispatched!");
+    if (btn) {
+        btn.disabled = true;
+        btn.innerText = "SENDING DISPATCH...";
+    }
+
+    try {
+        const id = "TRIP_" + Date.now();
+        await db.collection('trips').doc(id).set({
+            tripId: id,
+            courierId: cid,
+            status: "assigned",
+            date: firebase.firestore.Timestamp.now(),
+            destinations: tripQueue.map((d, i) => ({
+                stopIndex: i + 1,
+                locationName: d.name || d.locationName || "Tujuan",
+                address: d.address || "",
+                latitude: parseFloat(d.lat !== undefined ? d.lat : (d.latitude || -6.2088)),
+                longitude: parseFloat(d.lng !== undefined ? d.lng : (d.longitude || 106.8456)),
+                status: "pending",
+                proofPhotoUrl: ""
+            }))
+        });
+
+        syncDestinationsToMasterClients(tripQueue);
+
+        showToast("BERHASIL DITUGASKAN! Pengiriman telah dikirim ke kurir.");
+        tripQueue = [];
+        renderQueue();
+        cidEl.value = "";
+    } catch (e) {
+        console.error("Submit Trip Error:", e);
+        alert("Gagal menugaskan pengiriman: " + e.message);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-send-plus-fill me-2"></i> CONFIRM & DISPATCH';
+        }
+    }
 }
 
 async function syncDestinationsToMasterClients(destinations) {
