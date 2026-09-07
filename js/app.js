@@ -1545,7 +1545,7 @@ async function restoreBayhaqiTrip() {
                 latitude: -6.1931,
                 longitude: 106.8218,
                 status: "done",
-                proofPhotoUrl: "https://res.cloudinary.com/dgf3shxpf/image/upload/v1/wellen_proofs/proof_sample1"
+                proofPhotoUrl: "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&q=80"
             },
             {
                 stopIndex: 2,
@@ -1554,7 +1554,7 @@ async function restoreBayhaqiTrip() {
                 latitude: -6.2155,
                 longitude: 106.8180,
                 status: "done",
-                proofPhotoUrl: "https://res.cloudinary.com/dgf3shxpf/image/upload/v1/wellen_proofs/proof_sample2"
+                proofPhotoUrl: "https://images.unsplash.com/photo-1580674684081-7617fbf3d745?auto=format&fit=crop&w=800&q=80"
             },
             {
                 stopIndex: 3,
@@ -1563,7 +1563,7 @@ async function restoreBayhaqiTrip() {
                 latitude: -6.2155,
                 longitude: 106.8180,
                 status: "done",
-                proofPhotoUrl: "https://res.cloudinary.com/dgf3shxpf/image/upload/v1/wellen_proofs/proof_sample3"
+                proofPhotoUrl: "https://images.unsplash.com/photo-1578575437130-527eed3abbec?auto=format&fit=crop&w=800&q=80"
             },
             {
                 stopIndex: 4,
@@ -1572,7 +1572,7 @@ async function restoreBayhaqiTrip() {
                 latitude: -6.2258,
                 longitude: 106.8093,
                 status: "done",
-                proofPhotoUrl: "https://res.cloudinary.com/dgf3shxpf/image/upload/v1/wellen_proofs/proof_sample4"
+                proofPhotoUrl: "https://images.unsplash.com/photo-1566576721346-d4a3b4eaeb55?auto=format&fit=crop&w=800&q=80"
             },
             {
                 stopIndex: 5,
