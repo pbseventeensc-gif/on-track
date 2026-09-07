@@ -11,6 +11,19 @@ const tripRoutesLayer = L.layerGroup();
 
 let heatmapLayer = null;
 
+// Jabodetabek + Cikarang + Karawang + Tangerang + Bogor Bounding Box (-6.8000 to -5.8000, 106.3000 to 107.5000)
+function isInsideJabodetabekArea(lat, lng) {
+    const latitude = parseFloat(lat);
+    const longitude = parseFloat(lng);
+    if (isNaN(latitude) || isNaN(longitude)) return false;
+    return latitude >= -6.8000 && latitude <= -5.8000 && longitude >= 106.3000 && longitude <= 107.5000;
+}
+
+const jabodetabekMaxBounds = L.latLngBounds(
+    L.latLng(-6.8000, 106.3000), // South-West (Bogor / Tangerang)
+    L.latLng(-5.8000, 107.5000)  // North-East (Jakarta Coast / Karawang)
+);
+
 const googleTiles = {
     url: 'https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
     options: {
@@ -27,7 +40,11 @@ function initMaps() {
             const containerMap = document.getElementById('map');
             if (containerMap && containerMap._leaflet_id) containerMap._leaflet_id = null;
 
-            map = L.map('map', { zoomControl: false }).setView([-6.2088, 106.8456], 12);
+            map = L.map('map', {
+                zoomControl: false,
+                maxBounds: jabodetabekMaxBounds,
+                maxBoundsViscosity: 0.8
+            }).setView([-6.2088, 106.8456], 12);
             L.control.zoom({ position: 'bottomright' }).addTo(map);
             L.tileLayer(googleTiles.url, googleTiles.options).addTo(map);
             tripMarkersLayer.addTo(map);
@@ -38,7 +55,11 @@ function initMaps() {
             const containerMon = document.getElementById('map-monitor');
             if (containerMon && containerMon._leaflet_id) containerMon._leaflet_id = null;
 
-            mapMonitor = L.map('map-monitor', { zoomControl: false }).setView([-6.2088, 106.8456], 12);
+            mapMonitor = L.map('map-monitor', {
+                zoomControl: false,
+                maxBounds: jabodetabekMaxBounds,
+                maxBoundsViscosity: 0.8
+            }).setView([-6.2088, 106.8456], 12);
             L.control.zoom({ position: 'bottomright' }).addTo(mapMonitor);
             L.tileLayer(googleTiles.url, googleTiles.options).addTo(mapMonitor);
             monitorMarkersLayer.addTo(mapMonitor);
@@ -50,7 +71,11 @@ function initMaps() {
             const containerDisp = document.getElementById('map-dispatch');
             if (containerDisp && containerDisp._leaflet_id) containerDisp._leaflet_id = null;
 
-            mapDispatch = L.map('map-dispatch', { zoomControl: false }).setView([-6.2088, 106.8456], 12);
+            mapDispatch = L.map('map-dispatch', {
+                zoomControl: false,
+                maxBounds: jabodetabekMaxBounds,
+                maxBoundsViscosity: 0.8
+            }).setView([-6.2088, 106.8456], 12);
             L.control.zoom({ position: 'bottomright' }).addTo(mapDispatch);
             L.tileLayer(googleTiles.url, googleTiles.options).addTo(mapDispatch);
             draftMarkersLayer.addTo(mapDispatch);
@@ -73,11 +98,14 @@ function updateMapMarkers(filter = "") {
     if (typeof monitorCouriersLayer !== 'undefined') monitorCouriersLayer.clearLayers();
     if (typeof tripRoutesLayer !== 'undefined') tripRoutesLayer.clearLayers();
 
-    // 1. Render Online Couriers
+    // 1. Render Online Couriers inside Jabodetabek & Karawang
     if (typeof currentOnlineCouriers !== 'undefined') {
         for (const id in currentOnlineCouriers) {
             const c = currentOnlineCouriers[id];
             if (!c || typeof c.lat === 'undefined' || typeof c.lng === 'undefined') continue;
+
+            // Restrict courier markers to Jabodetabek + Cikarang + Karawang + Tangerang
+            if (!isInsideJabodetabekArea(c.lat, c.lng)) continue;
 
             const color = typeof getCourierColor === 'function' ? getCourierColor(id) : '#10B981';
             const name = (typeof registeredUsers !== 'undefined' && registeredUsers[id]) ? registeredUsers[id] : 'Carrier';
@@ -117,14 +145,14 @@ function updateMapMarkers(filter = "") {
             const routePoints = [];
 
             const livePos = (typeof currentOnlineCouriers !== 'undefined') ? currentOnlineCouriers[t.courierId] : null;
-            const startPt = (livePos && livePos.lat && livePos.lng) ? [livePos.lat, livePos.lng] : [-6.2088, 106.8456];
+            const startPt = (livePos && livePos.lat && livePos.lng && isInsideJabodetabekArea(livePos.lat, livePos.lng)) ? [livePos.lat, livePos.lng] : [-6.2088, 106.8456];
             routePoints.push(startPt);
 
             t.destinations.forEach((d, idx) => {
                 let dLat = parseFloat(d.latitude !== undefined ? d.latitude : (d.lat !== undefined ? d.lat : 0));
                 let dLng = parseFloat(d.longitude !== undefined ? d.longitude : (d.lng !== undefined ? d.lng : 0));
 
-                if (!dLat || !dLng || isNaN(dLat) || isNaN(dLng)) {
+                if (!dLat || !dLng || isNaN(dLat) || isNaN(dLng) || !isInsideJabodetabekArea(dLat, dLng)) {
                     let hash = 0;
                     const str = (d.locationName || '') + (d.address || '') + idx;
                     for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
@@ -205,7 +233,9 @@ function toggleHeatmap() {
         allCurrentTrips.forEach(t => {
             if (t.destinations) {
                 t.destinations.forEach(d => {
-                    if (d.status === 'done') points.push([d.latitude, d.longitude, 0.5]);
+                    if (d.status === 'done' && isInsideJabodetabekArea(d.latitude, d.longitude)) {
+                        points.push([d.latitude, d.longitude, 0.5]);
+                    }
                 });
             }
         });
@@ -234,6 +264,11 @@ async function initAutocomplete() {
         if (window.google && google.maps && google.maps.places && google.maps.places.Autocomplete) {
             autocomplete = new google.maps.places.Autocomplete(input, {
                 componentRestrictions: { country: "id" },
+                bounds: new google.maps.LatLngBounds(
+                    { lat: -6.8000, lng: 106.3000 },
+                    { lat: -5.8000, lng: 107.5000 }
+                ),
+                strictBounds: true,
                 fields: ["geometry", "name", "formatted_address"]
             });
         } else if (window.google && google.maps && google.maps.importLibrary) {
@@ -241,6 +276,11 @@ async function initAutocomplete() {
             if (Autocomplete) {
                 autocomplete = new Autocomplete(input, {
                     componentRestrictions: { country: "id" },
+                    bounds: new google.maps.LatLngBounds(
+                        { lat: -6.8000, lng: 106.3000 },
+                        { lat: -5.8000, lng: 107.5000 }
+                    ),
+                    strictBounds: true,
                     fields: ["geometry", "name", "formatted_address"]
                 });
             }
@@ -254,6 +294,13 @@ async function initAutocomplete() {
                     const lng = place.geometry.location.lng();
                     const name = place.name || input.value.split(',')[0] || "Tujuan";
                     const address = place.formatted_address || input.value;
+
+                    if (!isInsideJabodetabekArea(lat, lng)) {
+                        alert("LOKASI DILUAR WILAYAH JABODETABEK & KARAWANG!\nPengiriman hanya dibatasi untuk area Jabodetabek, Cikarang, Karawang, dan Tangerang.");
+                        input.value = "";
+                        return;
+                    }
+
                     tripQueue.push({ name, address, lat, lng });
                     renderQueue();
                     input.value = "";
@@ -289,6 +336,12 @@ async function addManualAddress() {
                     const parts = addressText.split(',');
                     const storeName = parts[0].trim();
 
+                    if (!isInsideJabodetabekArea(lat, lng)) {
+                        alert("LOKASI DILUAR WILAYAH JABODETABEK & KARAWANG!\nPengiriman hanya dibatasi untuk area Jabodetabek, Cikarang, Karawang, dan Tangerang.");
+                        input.value = "";
+                        return;
+                    }
+
                     tripQueue.push({ name: storeName, address: formatted, lat, lng });
                     renderQueue();
                     input.value = "";
@@ -318,6 +371,11 @@ async function geocodeWithNominatim(addressText) {
             const formatted = data[0].display_name;
             const parts = addressText.split(',');
             const storeName = parts[0].trim();
+
+            if (!isInsideJabodetabekArea(lat, lng)) {
+                alert("LOKASI DILUAR WILAYAH JABODETABEK & KARAWANG!\nPengiriman hanya dibatasi untuk area Jabodetabek, Cikarang, Karawang, dan Tangerang.");
+                return;
+            }
 
             tripQueue.push({ name: storeName, address: formatted, lat, lng });
             renderQueue();
