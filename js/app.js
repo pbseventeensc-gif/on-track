@@ -1050,7 +1050,7 @@ function renderRecentShipments(filter = "") {
             <td class="fw-normal text-dark">${s.carrier}</td>
             <td><small class="fw-normal text-secondary">${s.eta}</small></td>
             <td>
-                <button class="btn btn-sm btn-light border text-danger" data-id="${s.tripId}" onclick="deleteTrip(this.dataset.id)" title="Hapus Trip">
+                <button class="btn btn-sm btn-light border text-danger" onclick="deleteDestinationStop('${s.tripId}', ${s.stopIndex}, '${s.destinationName.replace(/'/g, "\\'")}')" title="Hapus Titik Pengantaran Ini">
                     <i class="bi bi-trash"></i>
                 </button>
             </td>
@@ -1530,6 +1530,37 @@ function handleLogout() {
 
 function logout() {
     handleLogout();
+}
+
+async function deleteDestinationStop(tripId, stopIndex, locationName) {
+    if (!confirm(`Hapus titik pengantaran "${locationName}" (#Stop ${stopIndex}) dari pengiriman ini?`)) return;
+
+    try {
+        const tripRef = db.collection('trips').doc(tripId);
+        const snap = await tripRef.get();
+
+        if (!snap.exists) return showToast("Pengiriman tidak ditemukan.");
+
+        const tData = snap.data();
+        const currentDests = tData.destinations || [];
+
+        const updatedDests = currentDests.filter(d => d.stopIndex !== stopIndex && d.locationName !== locationName);
+
+        if (updatedDests.length === 0) {
+            await tripRef.delete();
+            showToast("Titik pengantaran terakhir dihapus, pengiriman dibatalkan.");
+        } else {
+            updatedDests.forEach((d, idx) => d.stopIndex = idx + 1);
+
+            await tripRef.update({
+                destinations: updatedDests
+            });
+            showToast(`Titik pengantaran "${locationName}" berhasil dihapus.`);
+        }
+    } catch(e) {
+        console.error("Error deleting destination stop:", e);
+        alert("Gagal menghapus titik pengantaran: " + e.message);
+    }
 }
 
 async function restoreBayhaqiTrip() {
