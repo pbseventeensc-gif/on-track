@@ -168,22 +168,31 @@ function updateMapMarkers(filter = "") {
                 let pinColor = cColor;
                 let statusText = 'Pending';
                 let numBadge = d.stopIndex || (idx + 1);
+                let badgeContent = numBadge;
 
-                if (d.status === 'done' || (d.proofPhotoUrl && d.proofPhotoUrl.length > 0)) {
+                if (d.proofPhotoUrl && d.proofPhotoUrl.length > 0) {
+                    pinColor = '#10B981';
+                    statusText = 'Selesai (SJ Uploaded) ✓';
+                    badgeContent = '<i class="bi bi-check-lg" style="color: #10B981; font-size: 15px; -webkit-text-stroke: 1px #10B981;"></i>';
+                } else if (d.status === 'done') {
                     pinColor = '#10B981';
                     statusText = 'Selesai ✓';
+                    badgeContent = '<i class="bi bi-check-lg" style="color: #10B981; font-size: 15px; -webkit-text-stroke: 1px #10B981;"></i>';
                 } else if (d.status === 'arrived') {
                     pinColor = '#F59E0B';
                     statusText = 'Tiba 🚚';
+                    badgeContent = numBadge;
                 } else if (t.status === 'accepted') {
                     statusText = 'Diterima (Proses)';
+                    badgeContent = numBadge;
                 } else if (t.status === 'assigned') {
                     statusText = 'Ditugaskan';
+                    badgeContent = numBadge;
                 }
 
                 const icon = L.divIcon({
                     className: 'custom-div-icon',
-                    html: `<div class='marker-pin' style='background:${pinColor}'></div><div class='marker-num'>${numBadge}</div>`,
+                    html: `<div class='marker-pin' style='background:${pinColor}'></div><div class='marker-num'>${badgeContent}</div>`,
                     iconSize: [30, 42],
                     iconAnchor: [15, 42]
                 });
