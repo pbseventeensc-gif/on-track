@@ -1,5 +1,0 @@
-{
-  "rewrites": [
-    { "source": "/api/surat-jalan", "destination": "/api/surat-jalan.js" }
-  ]
-}
