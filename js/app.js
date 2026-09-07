@@ -466,6 +466,7 @@ db.collection('users').onSnapshot(snap => {
     });
     renderCourierOptions();
     renderManageCouriersList();
+    renderRecentShipments();
     if(document.getElementById('view-chat') && document.getElementById('view-chat').classList.contains('active')) loadChatList();
     refreshAllMonitorData();
 });
@@ -532,10 +533,6 @@ db.collection('trips').onSnapshot(snap => {
         const t = doc.data();
         t.id = doc.id;
         allCurrentTrips.push(t);
-
-        if (t.id === 'TRIP_1788765713947' && (!t.destinations || t.destinations.length < 6)) {
-            restoreBayhaqiTrip();
-        }
 
         if (t.destinations && t.destinations.length > 0) {
             syncDestinationsToMasterClients(t.destinations);
@@ -1489,8 +1486,7 @@ auth.onAuthStateChanged(user => {
         document.getElementById('login-screen').style.display = 'none';
         document.getElementById('main-wrapper').style.display = 'flex';
 
-        // Auto-restore active trip for muhamadbayhaqi0 in Firestore
-        restoreBayhaqiTrip();
+        removeBaliClientsFromMaster();
         removeBaliClientsFromMaster();
 
         db.collection('users').doc(user.uid).get().then(doc => {
