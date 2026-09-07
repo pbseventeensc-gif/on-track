@@ -619,12 +619,18 @@ function updateGlobalStats() {
         }
     }
 
+    const today = new Date();
+    const todayDayMs = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+
     let totalStopsToday = 0;
     allCurrentTrips.forEach(t => {
-        if (t.destinations && t.destinations.length > 0) {
-            totalStopsToday += t.destinations.length;
-        } else {
-            totalStopsToday += 1;
+        const tripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : 0);
+        if (tripMs >= todayDayMs) {
+            if (t.destinations && t.destinations.length > 0) {
+                totalStopsToday += t.destinations.length;
+            } else {
+                totalStopsToday += 1;
+            }
         }
     });
 
@@ -1037,6 +1043,24 @@ function renderRecentShipments(filter = "") {
     const totalBadge = document.getElementById('recent-shipments-total-badge');
     if (totalBadge) {
         totalBadge.innerText = `${todayRows.length} Hari Ini`;
+    }
+
+    // Populate autocomplete datalist for Recent Shipments search bar
+    const datalist = document.getElementById('recent-shipments-datalist');
+    if (datalist) {
+        const suggestions = new Set();
+        for (const id in registeredUsers) {
+            if (registeredUsers[id]) suggestions.add(registeredUsers[id]);
+        }
+        allCurrentTrips.forEach(t => {
+            suggestions.add('#' + t.id.substring(Math.max(0, t.id.length - 6)));
+            if (t.destinations) {
+                t.destinations.forEach(d => {
+                    if (d.locationName) suggestions.add(d.locationName);
+                });
+            }
+        });
+        datalist.innerHTML = Array.from(suggestions).map(s => `<option value="${s}">`).join('');
     }
 
     if (shipmentRows.length === 0) {

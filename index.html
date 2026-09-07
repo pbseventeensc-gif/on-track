@@ -303,7 +303,8 @@
                                         </select>
                                         <div class="position-relative">
                                             <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"></i>
-                                            <input type="text" id="recent-shipment-search" class="form-control form-control-sm ps-5 py-2 fw-normal" style="border-radius: 10px; width: 220px; background: #f8fafc;" placeholder="Cari ID, Alamat, Kurir..." oninput="renderRecentShipments()">
+                                            <input type="text" id="recent-shipment-search" class="form-control form-control-sm ps-5 py-2 fw-normal" style="border-radius: 10px; width: 220px; background: #f8fafc;" placeholder="Cari ID, Alamat, Kurir..." oninput="renderRecentShipments(this.value)" list="recent-shipments-datalist">
+                                            <datalist id="recent-shipments-datalist"></datalist>
                                         </div>
                                         <button class="btn btn-sm btn-outline-dark fw-bold px-3 py-2" style="border-radius: 10px;" onclick="exportRecentShipmentsToExcel()"><i class="bi bi-file-earmark-excel me-1"></i> Excel Report</button>
                                     </div>
