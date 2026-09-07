@@ -1517,16 +1517,22 @@ async function restoreBayhaqiTrip() {
             }
         ];
 
-        await tripDocRef.set({
-            tripId: 'TRIP_1788765713947',
-            courierId: bayhaqiUid,
+        await tripDocRef.update({
+            destinations: destinations,
             status: 'in_progress',
-            date: firebase.firestore.Timestamp.now(),
-            acceptedTime: firebase.firestore.Timestamp.now(),
-            acceptLatitude: -6.2230,
-            acceptLongitude: 106.8010,
-            destinations: destinations
-        }, { merge: true });
+            courierId: bayhaqiUid
+        }).catch(async () => {
+            await tripDocRef.set({
+                tripId: 'TRIP_1788765713947',
+                courierId: bayhaqiUid,
+                status: 'in_progress',
+                date: firebase.firestore.Timestamp.now(),
+                acceptedTime: firebase.firestore.Timestamp.now(),
+                acceptLatitude: -6.2230,
+                acceptLongitude: 106.8010,
+                destinations: destinations
+            });
+        });
 
         console.log("SUCCESSFULLY RESTORED BAYHAQI TRIP TODAY!");
     } catch(e) {
