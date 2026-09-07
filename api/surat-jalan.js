@@ -1,14 +1,27 @@
 export default async function handler(req, res) {
-  // Hanya menerima metode POST
+  // Set CORS Headers agar Kasir / Sistem POS dari mana saja bisa mengirim data
+  res.setHeader('Access-Control-Allow-Credentials', true);
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+  );
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  // Menerima metode POST dari Kasir / Sistem POS
   if (req.method === 'POST') {
     try {
       const data = req.body;
-      console.log("[DATA SURAT JALAN DITERIMA]:", data);
+      console.log("[DATA SURAT JALAN DITERIMA DARI KASIR]:", data);
 
-      // Data dari kasir (nomor SJ, kode_scan, klien) siap disimpan ke database
       return res.status(200).json({
         success: true,
-        message: "Data berhasil diterima oleh Vercel",
+        message: "Data Surat Jalan berhasil diterima oleh Vercel",
+        timestamp: new Date().toISOString(),
         data: data
       });
     } catch (error) {
@@ -16,6 +29,10 @@ export default async function handler(req, res) {
     }
   } else {
     // Respon jika diakses via GET browser biasa
-    return res.status(200).json({ status: "API Surat Jalan Aktif" });
+    return res.status(200).json({
+      status: "API Surat Jalan Wellen Print Aktif",
+      endpoint: "/api/surat-jalan",
+      method: "POST"
+    });
   }
 }
