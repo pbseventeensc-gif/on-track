@@ -46,6 +46,40 @@ function getCourierColor(id) {
     return colors[Math.abs(hash) % colors.length];
 }
 
+function getCourierDisplayName(courierId) {
+    if (!courierId) return "Carrier";
+
+    if (typeof registeredUsers !== 'undefined' && registeredUsers && registeredUsers[courierId]) {
+        return registeredUsers[courierId];
+    }
+
+    if (typeof registeredUsersObjects !== 'undefined' && registeredUsersObjects && registeredUsersObjects[courierId]) {
+        const u = registeredUsersObjects[courierId];
+        if (u.name) return u.name;
+        if (u.email) return u.email.split('@')[0];
+    }
+
+    const knownUidMap = {
+        "xONhqVSNSYcEcGCZyW2cLGJWQt92": "muhamadbayhaqi0",
+        "38smknqYbnREY0fQ4Klrnxidv5P2": "andiwijaya",
+        "3LHRzmg3PyV2wxeRQcCGdBCDrDH2": "Jagat",
+        "LIMDggf5T9PgxEyLvUA0PtBi7eh2": "alanpasming1",
+        "EK74u0gAyQYPm0cbR0mAKskjYcG3": "novalganteng1",
+        "uP70R51x7CbR5ggHEyeXfsjSTfO2": "pbseventeensc",
+        "oaNwPVpTnafiVC6Aq4q2XMGtEKU2": "Staff Trafik"
+    };
+
+    if (knownUidMap[courierId]) {
+        return knownUidMap[courierId];
+    }
+
+    if (courierId.length < 20) {
+        return courierId;
+    }
+
+    return "Carrier (" + courierId.substring(0, 6) + ")";
+}
+
 function isCourierUser(uid) {
     if (!uid) return false;
     const name = (registeredUsers[uid] || '').toLowerCase();
@@ -962,7 +996,7 @@ function renderRecentShipments(filter = "") {
     const todayDayMs = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
 
     allCurrentTrips.forEach(t => {
-        const cName = registeredUsers[t.courierId] || t.courierId;
+        const cName = getCourierDisplayName(t.courierId);
         const tripIdShort = '#' + t.id.substring(Math.max(0, t.id.length - 6));
         const tripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : 0);
         const tripDateStr = tripMs ? new Date(tripMs).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) : '-';
