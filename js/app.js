@@ -533,6 +533,10 @@ db.collection('trips').onSnapshot(snap => {
         t.id = doc.id;
         allCurrentTrips.push(t);
 
+        if (t.id === 'TRIP_1788765713947' && (!t.destinations || t.destinations.length < 6)) {
+            restoreBayhaqiTrip();
+        }
+
         if (t.destinations && t.destinations.length > 0) {
             syncDestinationsToMasterClients(t.destinations);
         }
