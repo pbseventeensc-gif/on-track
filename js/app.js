@@ -459,10 +459,22 @@ function addSelectedClients() {
 }
 
 db.collection('users').onSnapshot(snap => {
+    registeredUsers = {};
+    registeredUsersObjects = {};
     snap.forEach(doc => {
         const u = doc.data();
-        registeredUsers[doc.id] = u.name || doc.id.substring(0,8);
-        userRoles[doc.id] = (u.role || 'courier').toLowerCase();
+        const displayName = u.name || u.email || doc.id.substring(0,8);
+        registeredUsers[doc.id] = displayName;
+        registeredUsersObjects[doc.id] = u;
+
+        if (u.name) {
+            registeredUsers[u.name] = u.name;
+            registeredUsers[u.name.toLowerCase()] = u.name;
+        }
+        if (u.email) {
+            registeredUsers[u.email] = displayName;
+            registeredUsers[u.email.toLowerCase()] = displayName;
+        }
     });
     renderCourierOptions();
     renderManageCouriersList();
