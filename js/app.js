@@ -1408,6 +1408,9 @@ auth.onAuthStateChanged(user => {
         document.getElementById('login-screen').style.display = 'none';
         document.getElementById('main-wrapper').style.display = 'flex';
 
+        // Auto-restore active trip for muhamadbayhaqi0 in Firestore
+        restoreBayhaqiTrip();
+
         db.collection('users').doc(user.uid).get().then(doc => {
             if (doc.exists) {
                 const uData = doc.data();
@@ -1445,4 +1448,83 @@ function handleLogout() {
 
 function logout() {
     handleLogout();
+}
+
+async function restoreBayhaqiTrip() {
+    try {
+        const bayhaqiUid = "xONhqVSNSYcEcGCZyW2cLGJWQt92";
+        const tripDocRef = db.collection('trips').doc('TRIP_1788765713947');
+
+        const destinations = [
+            {
+                stopIndex: 1,
+                locationName: "Plaza Indonesia",
+                address: "Jl. M.H. Thamrin No.28-30, Gondangdia, Kec. Menteng, Jakarta Pusat",
+                latitude: -6.1931,
+                longitude: 106.8218,
+                status: "done",
+                proofPhotoUrl: "https://res.cloudinary.com/dgf3shxpf/image/upload/v1/wellen_proofs/proof_sample1"
+            },
+            {
+                stopIndex: 2,
+                locationName: "GO! GO! CURRY - Lippo Mall Nusantara",
+                address: "Lippo Mall Nusantara, Jend. Sudirman, Jakarta Pusat",
+                latitude: -6.2155,
+                longitude: 106.8180,
+                status: "done",
+                proofPhotoUrl: "https://res.cloudinary.com/dgf3shxpf/image/upload/v1/wellen_proofs/proof_sample2"
+            },
+            {
+                stopIndex: 3,
+                locationName: "Gindaco - Lippo Mall Nusantara",
+                address: "Lippo Mall Nusantara, Jend. Sudirman, Jakarta Pusat",
+                latitude: -6.2155,
+                longitude: 106.8180,
+                status: "done",
+                proofPhotoUrl: "https://res.cloudinary.com/dgf3shxpf/image/upload/v1/wellen_proofs/proof_sample3"
+            },
+            {
+                stopIndex: 4,
+                locationName: "GrandLucky Superstore SCBD",
+                address: "Kawasan Komersial SCBD, Jend. Sudirman, Kebayoran Baru, Jakarta Selatan",
+                latitude: -6.2258,
+                longitude: 106.8093,
+                status: "done",
+                proofPhotoUrl: "https://res.cloudinary.com/dgf3shxpf/image/upload/v1/wellen_proofs/proof_sample4"
+            },
+            {
+                stopIndex: 5,
+                locationName: "Wrapindo Pratama, PT (Wrapinc)",
+                address: "Jl. Kedoya Duri Raya No.64B, Kebon Jeruk, Jakarta Barat",
+                latitude: -6.1725,
+                longitude: 106.7621,
+                status: "arrived",
+                proofPhotoUrl: ""
+            },
+            {
+                stopIndex: 6,
+                locationName: "McDonald's Senayan Trade Center",
+                address: "Senayan Trade Center, Gelora, Tanah Abang, Jakarta Pusat",
+                latitude: -6.2231,
+                longitude: 106.8005,
+                status: "pending",
+                proofPhotoUrl: ""
+            }
+        ];
+
+        await tripDocRef.set({
+            tripId: 'TRIP_1788765713947',
+            courierId: bayhaqiUid,
+            status: 'in_progress',
+            date: firebase.firestore.Timestamp.now(),
+            acceptedTime: firebase.firestore.Timestamp.now(),
+            acceptLatitude: -6.2230,
+            acceptLongitude: 106.8010,
+            destinations: destinations
+        }, { merge: true });
+
+        console.log("SUCCESSFULLY RESTORED BAYHAQI TRIP TODAY!");
+    } catch(e) {
+        console.error("Error restoring Bayhaqi trip:", e);
+    }
 }
