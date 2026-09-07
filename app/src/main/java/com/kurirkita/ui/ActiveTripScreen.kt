@@ -101,21 +101,35 @@ fun ActiveTripScreen(trip: Trip, onBack: () -> Unit, onChatClick: () -> Unit) {
                     if (currentTrip.status == "assigned") {
                         Button(
                             onClick = {
-                                fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, CancellationTokenSource().token)
-                                    .addOnSuccessListener { loc ->
-                                        val map = mutableMapOf<String, Any>(
-                                            "status" to "accepted",
-                                            "acceptedTime" to Timestamp.now()
+                                // Instantly update status to "accepted" in Firestore (0ms latency response)
+                                val map = mutableMapOf<String, Any>(
+                                    "status" to "accepted",
+                                    "acceptedTime" to Timestamp.now()
+                                )
+                                db.collection("trips").document(currentTrip.tripId).update(map)
+                                    .addOnSuccessListener {
+                                        Toast.makeText(context, "Tugas berhasil diterima!", Toast.LENGTH_SHORT).show()
+                                    }
+
+                                // Capture GPS location asynchronously in background without blocking accept
+                                fusedLocationClient.lastLocation.addOnSuccessListener { loc ->
+                                    if (loc != null) {
+                                        db.collection("trips").document(currentTrip.tripId).update(
+                                            "acceptLatitude", loc.latitude,
+                                            "acceptLongitude", loc.longitude
                                         )
-                                        if (loc != null) {
-                                            map["acceptLatitude"] = loc.latitude
-                                            map["acceptLongitude"] = loc.longitude
-                                        }
-                                        db.collection("trips").document(currentTrip.tripId).update(map)
+                                    } else {
+                                        fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, CancellationTokenSource().token)
+                                            .addOnSuccessListener { loc2 ->
+                                                if (loc2 != null) {
+                                                    db.collection("trips").document(currentTrip.tripId).update(
+                                                        "acceptLatitude", loc2.latitude,
+                                                        "acceptLongitude", loc2.longitude
+                                                    )
+                                                }
+                                            }
                                     }
-                                    .addOnFailureListener {
-                                        db.collection("trips").document(currentTrip.tripId).update("status", "accepted")
-                                    }
+                                }
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF1C40F), contentColor = Color.Black),
                             shape = RoundedCornerShape(8.dp)
