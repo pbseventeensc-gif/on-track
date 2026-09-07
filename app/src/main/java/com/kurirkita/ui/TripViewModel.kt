@@ -39,60 +39,53 @@ class TripViewModel : ViewModel() {
     private fun fetchAssignedTrips() {
         val userId = auth.currentUser?.uid ?: return
         val userEmail = auth.currentUser?.email ?: ""
+        val userEmailPrefix = if (userEmail.contains("@")) userEmail.substringBefore("@") else userEmail
         Log.d("TripVM", "Fetching trips for user: $userId ($userEmail)")
 
+        var courierName = ""
         db.collection("users").document(userId).get().addOnSuccessListener { userDoc ->
-            val userName = userDoc.getString("name") ?: ""
-
-            listener?.remove()
-            listener = db.collection("trips")
-                .addSnapshotListener { snapshot, e ->
-                    _isRefreshing.value = false
-                    if (e != null) {
-                        Log.e("TripVM", "Firestore Error: ${e.message}")
-                        _dashboardState.value = _dashboardState.value.copy(activeShipments = "-1")
-                        return@addSnapshotListener
-                    }
-
-                    if (snapshot == null) return@addSnapshotListener
-
-                    try {
-                        val allTrips = snapshot.toObjects(Trip::class.java)
-                        
-                        // Match trip by UID OR Courier Name OR Courier Email
-                        val tripList = allTrips.filter { t ->
-                            t.status != "completed" && (
-                                t.courierId == userId ||
-                                (userName.isNotEmpty() && t.courierId.equals(userName, ignoreCase = true)) ||
-                                (userEmail.isNotEmpty() && t.courierId.equals(userEmail, ignoreCase = true))
-                            )
-                        }
-
-                        Log.d("TripVM", "SUCCESS: Found ${tripList.size} active trips for user $userName ($userId)")
-                        _trips.value = tripList
-
-                        _dashboardState.value = _dashboardState.value.copy(
-                            activeShipments = tripList.size.toString(),
-                            courierId = userId
-                        )
-                    } catch (err: Exception) {
-                        Log.e("TripVM", "Mapping Error: ${err.message}")
-                    }
-                }
-        }.addOnFailureListener {
-            // Fallback query by UID
-            listener?.remove()
-            listener = db.collection("trips")
-                .whereEqualTo("courierId", userId)
-                .addSnapshotListener { snapshot, e ->
-                    _isRefreshing.value = false
-                    if (snapshot != null) {
-                        val allTrips = snapshot.toObjects(Trip::class.java)
-                        val tripList = allTrips.filter { it.status != "completed" }
-                        _trips.value = tripList
-                    }
-                }
+            if (userDoc != null && userDoc.exists()) {
+                courierName = userDoc.getString("name") ?: ""
+            }
         }
+
+        listener?.remove()
+        listener = db.collection("trips")
+            .addSnapshotListener { snapshot, e ->
+                _isRefreshing.value = false
+                if (e != null) {
+                    Log.e("TripVM", "Firestore Error: ${e.message}")
+                    _dashboardState.value = _dashboardState.value.copy(activeShipments = "-1")
+                    return@addSnapshotListener
+                }
+
+                if (snapshot == null) return@addSnapshotListener
+
+                try {
+                    val allTrips = snapshot.toObjects(Trip::class.java)
+                    
+                    // Match trip if courierId equals UID OR email OR courierName OR email prefix
+                    val tripList = allTrips.filter { t ->
+                        t.status != "completed" && (
+                            t.courierId == userId ||
+                            (courierName.isNotEmpty() && t.courierId.equals(courierName, ignoreCase = true)) ||
+                            (userEmail.isNotEmpty() && t.courierId.equals(userEmail, ignoreCase = true)) ||
+                            (userEmailPrefix.isNotEmpty() && t.courierId.equals(userEmailPrefix, ignoreCase = true)) ||
+                            t.courierId.contains(userId, ignoreCase = true)
+                        )
+                    }
+
+                    Log.d("TripVM", "SUCCESS: Found ${tripList.size} active trips out of ${allTrips.size} total trips in DB for user ($userId)")
+                    _trips.value = tripList
+
+                    _dashboardState.value = _dashboardState.value.copy(
+                        activeShipments = tripList.size.toString(),
+                        courierId = userId
+                    )
+                } catch (err: Exception) {
+                    Log.e("TripVM", "Mapping Error: ${err.message}")
+                }
+            }
     }
 
     private fun fetchHistoryAndStats() {
