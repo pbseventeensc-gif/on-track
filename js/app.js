@@ -1414,6 +1414,7 @@ auth.onAuthStateChanged(user => {
 
         // Auto-restore active trip for muhamadbayhaqi0 in Firestore
         restoreBayhaqiTrip();
+        removeBaliClientsFromMaster();
 
         db.collection('users').doc(user.uid).get().then(doc => {
             if (doc.exists) {
@@ -1530,5 +1531,21 @@ async function restoreBayhaqiTrip() {
         console.log("SUCCESSFULLY RESTORED BAYHAQI TRIP TODAY!");
     } catch(e) {
         console.error("Error restoring Bayhaqi trip:", e);
+    }
+}
+
+async function removeBaliClientsFromMaster() {
+    try {
+        const snap = await db.collection('clients').get();
+        snap.forEach(doc => {
+            const data = doc.data();
+            const text = ((data.name || '') + ' ' + (data.address || '') + ' ' + (data.region || '')).toLowerCase();
+            if (text.includes('bali') || text.includes('denpasar') || text.includes('kuta') || text.includes('badung')) {
+                db.collection('clients').doc(doc.id).delete();
+                console.log("Deleted Bali client from Master Database:", doc.id);
+            }
+        });
+    } catch(e) {
+        console.warn("Error cleaning Bali clients:", e);
     }
 }
