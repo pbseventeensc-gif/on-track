@@ -939,14 +939,19 @@ function renderRecentShipments(filter = "") {
     if(!table) return;
     table.innerHTML = '';
 
-    const search = (typeof filter === 'string' ? filter : (document.getElementById('recent-shipment-search')?.value || "")).toLowerCase();
+    const rawSearch = (typeof filter === 'string' ? filter : (document.getElementById('recent-shipment-search')?.value || "")).toLowerCase().trim();
+    const searchClean = rawSearch.replace('#', '');
     const selectedStatus = document.getElementById('recent-status-filter')?.value || "all";
     const shipmentRows = [];
+
+    const today = new Date();
+    const todayDayMs = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
 
     allCurrentTrips.forEach(t => {
         const cName = registeredUsers[t.courierId] || t.courierId.substring(0,8);
         const tripIdShort = '#' + t.id.substring(Math.max(0, t.id.length - 6));
-        const tripDateStr = t.date ? new Date(t.date.seconds * 1000).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) : '-';
+        const tripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : 0);
+        const tripDateStr = tripMs ? new Date(tripMs).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) : '-';
 
         if (t.destinations && t.destinations.length > 0) {
             t.destinations.forEach((d, idx) => {
@@ -966,12 +971,16 @@ function renderRecentShipments(filter = "") {
                     timeStr = new Date(d.completedTime.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
                 }
 
-                const matchSearch = tripIdShort.toLowerCase().includes(search) ||
-                                   locName.toLowerCase().includes(search) ||
-                                   fullAddress.toLowerCase().includes(search) ||
-                                   cName.toLowerCase().includes(search) ||
-                                   status.toLowerCase().includes(search) ||
-                                   tripDateStr.toLowerCase().includes(search);
+                const matchSearch = !rawSearch ||
+                                   tripIdShort.toLowerCase().includes(rawSearch) ||
+                                   t.id.toLowerCase().includes(rawSearch) ||
+                                   tripIdShort.toLowerCase().replace('#','').includes(searchClean) ||
+                                   t.id.toLowerCase().includes(searchClean) ||
+                                   locName.toLowerCase().includes(rawSearch) ||
+                                   fullAddress.toLowerCase().includes(rawSearch) ||
+                                   cName.toLowerCase().includes(rawSearch) ||
+                                   status.toLowerCase().includes(rawSearch) ||
+                                   tripDateStr.toLowerCase().includes(rawSearch);
 
                 const matchStatus = (selectedStatus === 'all') || (status === selectedStatus);
 
@@ -980,6 +989,7 @@ function renderRecentShipments(filter = "") {
                         tripId: t.id,
                         displayId: tripIdShort,
                         dateStr: tripDateStr,
+                        tripMs: tripMs,
                         stopIndex: d.stopIndex || (idx + 1),
                         destinationName: locName,
                         fullAddress: fullAddress,
@@ -992,13 +1002,19 @@ function renderRecentShipments(filter = "") {
                 }
             });
         } else {
-            const matchSearch = tripIdShort.toLowerCase().includes(search) || cName.toLowerCase().includes(search) || tripDateStr.toLowerCase().includes(search);
+            const matchSearch = !rawSearch ||
+                               tripIdShort.toLowerCase().includes(rawSearch) ||
+                               t.id.toLowerCase().includes(rawSearch) ||
+                               tripIdShort.toLowerCase().replace('#','').includes(searchClean) ||
+                               cName.toLowerCase().includes(rawSearch) ||
+                               tripDateStr.toLowerCase().includes(rawSearch);
             const matchStatus = (selectedStatus === 'all') || (t.status === selectedStatus);
             if (matchSearch && matchStatus) {
                 shipmentRows.push({
                     tripId: t.id,
                     displayId: tripIdShort,
                     dateStr: tripDateStr,
+                    tripMs: tripMs,
                     stopIndex: 1,
                     destinationName: 'TBD',
                     fullAddress: '',
@@ -1012,9 +1028,10 @@ function renderRecentShipments(filter = "") {
         }
     });
 
+    const todayRows = shipmentRows.filter(s => s.tripMs >= todayDayMs);
     const totalBadge = document.getElementById('recent-shipments-total-badge');
     if (totalBadge) {
-        totalBadge.innerText = `${shipmentRows.length} Total`;
+        totalBadge.innerText = `${todayRows.length} Hari Ini`;
     }
 
     if (shipmentRows.length === 0) {
@@ -1023,12 +1040,14 @@ function renderRecentShipments(filter = "") {
     }
 
     shipmentRows.reverse().slice(0, 50).forEach(s => {
-        const podIcon = s.proofUrl ? `<i class="bi bi-camera text-primary ms-2 cursor-pointer" data-url="${s.proofUrl}" onclick="openPoDModal(this.dataset.url)" title="Lihat Foto PoD"></i>` : '';
+        const podIcon = s.proofUrl ? `<i class="bi bi-camera-fill text-success ms-1 cursor-pointer" data-url="${s.proofUrl}" onclick="openPoDModal(this.dataset.url)" title="Lihat Foto PoD"></i>` : '';
+        const uploadBtn = `<button class="btn btn-sm btn-link text-primary p-0 ms-1 text-decoration-none" onclick="openManualUploadModal('${s.tripId}', ${s.stopIndex}, '${s.destinationName.replace(/'/g, "\\'")}')" title="Upload Foto PoD Manual Admin"><i class="bi bi-upload"></i></button>`;
+
         table.innerHTML += `<tr>
-            <td class="fw-normal text-muted extra-small">${s.dateStr}</td>
-            <td class="fw-normal text-dark">${s.displayId} ${podIcon}</td>
+            <td class="fw-normal text-muted extra-small" style="white-space: nowrap;">${s.dateStr}</td>
+            <td class="fw-bold text-dark">${s.displayId} ${podIcon} ${uploadBtn}</td>
             <td>
-                <div class="fw-normal text-dark">${s.destinationName}</div>
+                <div class="fw-bold text-dark">${s.destinationName}</div>
                 ${s.fullAddress ? `<small class="text-muted extra-small d-block text-truncate fw-normal" style="max-width:240px">${s.fullAddress}</small>` : ''}
             </td>
             <td><span class="badge-pill badge-${s.statusClass} fw-normal">${s.status}</span></td>
@@ -1041,6 +1060,68 @@ function renderRecentShipments(filter = "") {
             </td>
         </tr>`;
     });
+}
+
+function openManualUploadModal(tripId, stopIndex, locationName) {
+    document.getElementById('upload-modal-trip-id').value = tripId;
+    document.getElementById('upload-modal-stop-index').value = stopIndex;
+    document.getElementById('upload-modal-location-name').innerText = locationName || "Destination Stop #" + stopIndex;
+    document.getElementById('upload-modal-file').value = "";
+    document.getElementById('upload-modal-status').innerText = "";
+
+    new bootstrap.Modal(document.getElementById('manualUploadModal')).show();
+}
+
+async function submitManualUploadPhoto() {
+    const tripId = document.getElementById('upload-modal-trip-id').value;
+    const stopIndex = parseInt(document.getElementById('upload-modal-stop-index').value);
+    const file = document.getElementById('upload-modal-file').files[0];
+    const statusEl = document.getElementById('upload-modal-status');
+    const btn = document.getElementById('upload-modal-submit-btn');
+
+    if (!tripId || !file) return alert("Pilih file foto bukti terlebih dahulu!");
+
+    if (btn) { btn.disabled = true; btn.innerText = "UPLOADING..."; }
+    if (statusEl) statusEl.innerText = "Mengunggah foto bukti...";
+
+    try {
+        const ref = storage.ref(`proofs/manual_${Date.now()}_${file.name}`);
+        const task = await ref.put(file);
+        const photoUrl = await task.ref.getDownloadURL();
+
+        const tripDocRef = db.collection('trips').doc(tripId);
+        const tripSnap = await tripDocRef.get();
+
+        if (tripSnap.exists) {
+            const tData = tripSnap.data();
+            const updatedDests = (tData.destinations || []).map(d => {
+                if (d.stopIndex === stopIndex || (d.stopIndex === undefined && d.locationName === document.getElementById('upload-modal-location-name').innerText)) {
+                    return {
+                        ...d,
+                        status: "done",
+                        completedTime: firebase.firestore.Timestamp.now(),
+                        proofPhotoUrl: photoUrl
+                    };
+                }
+                return d;
+            });
+
+            const allDone = updatedDests.every(d => d.status === 'done' || (d.proofPhotoUrl && d.proofPhotoUrl.length > 0));
+            const updateMap = { destinations: updatedDests };
+            if (allDone) updateMap.status = "completed";
+            else if (tData.status === "assigned" || tData.status === "accepted") updateMap.status = "in_progress";
+
+            await tripDocRef.update(updateMap);
+
+            showToast("BUKTI FOTO BERHASIL DIUNGGAH! Status pengiriman di-update ke Selesai.");
+            bootstrap.Modal.getInstance(document.getElementById('manualUploadModal'))?.hide();
+        }
+    } catch(e) {
+        console.error("Manual upload error:", e);
+        alert("Gagal mengunggah foto: " + e.message);
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerText = "UNGGAH & SELESAIKAN"; }
+    }
 }
 
 function exportRecentShipmentsToExcel() {

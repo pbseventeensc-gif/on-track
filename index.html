@@ -750,6 +750,38 @@
         </div>
     </div>
 
+    <!-- Manual Photo Upload Modal for Admin -->
+    <div class="modal fade" id="manualUploadModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
+                <div class="modal-header border-0 pb-0">
+                    <h6 class="fw-bold text-dark m-0"><i class="bi bi-camera-fill me-2 text-primary"></i>Upload Bukti Foto (PoD Manual Admin)</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <input type="hidden" id="upload-modal-trip-id">
+                    <input type="hidden" id="upload-modal-stop-index">
+
+                    <div class="p-3 bg-light rounded-3 border mb-3">
+                        <small class="text-muted extra-small fw-bold text-uppercase d-block mb-1">Lokasi Tujuan / Stop:</small>
+                        <div class="fw-bold text-dark" id="upload-modal-location-name">Destination Name</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="extra-small fw-bold text-muted text-uppercase mb-2 d-block">Pilih File Foto Bukti (JPEG / PNG)</label>
+                        <input type="file" id="upload-modal-file" accept="image/*" class="form-control py-2" style="border-radius: 10px;">
+                    </div>
+
+                    <div id="upload-modal-status" class="extra-small fw-bold text-primary mb-3"></div>
+
+                    <button type="button" id="upload-modal-submit-btn" class="btn btn-dark w-100 py-3 fw-bold shadow-sm" style="border-radius: 12px;" onclick="submitManualUploadPhoto()">
+                        <i class="bi bi-upload me-2"></i> UNGGAH & SELESAIKAN
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
