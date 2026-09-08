@@ -29,6 +29,66 @@
             key: "AIzaSyCAR9bhj6u72OpTqYLEuBvBGvCaaFSPUGQ",
             v: "weekly"
         });
+
+        // Global Auth Handlers
+        window.handleLogin = async function(e) {
+            if(e && e.preventDefault) e.preventDefault();
+            const emailEl = document.getElementById('login-email');
+            const passEl = document.getElementById('login-password') || document.getElementById('login-pass');
+            const err = document.getElementById('login-error');
+            const btn = document.getElementById('btn-login-submit');
+
+            if (!emailEl || !passEl) return;
+            const email = emailEl.value.trim();
+            const pass = passEl.value;
+
+            if (err) err.classList.add('d-none');
+
+            if (!email || !pass) {
+                if (err) {
+                    err.innerText = "Email dan password wajib diisi.";
+                    err.classList.remove('d-none');
+                }
+                return;
+            }
+
+            if (btn) {
+                btn.disabled = true;
+                btn.innerText = "SIGNING IN...";
+            }
+
+            try {
+                const firebaseAuth = typeof auth !== 'undefined' ? auth : (typeof firebase !== 'undefined' && firebase.auth ? firebase.auth() : null);
+                if (firebaseAuth) {
+                    await firebaseAuth.signInWithEmailAndPassword(email, pass);
+                } else {
+                    alert("Sistem Autentikasi sedang dimuat, silakan coba lagi...");
+                    if (btn) { btn.disabled = false; btn.innerText = "SIGN IN"; }
+                }
+            } catch (error) {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerText = "SIGN IN";
+                }
+                if (err) {
+                    err.innerText = "Login Gagal: " + error.message;
+                    err.classList.remove('d-none');
+                } else {
+                    alert("Login Gagal: " + error.message);
+                }
+            }
+        };
+
+        window.handleLogout = function() {
+            if (confirm("Sign out dari dashboard?")) {
+                const firebaseAuth = typeof auth !== 'undefined' ? auth : (typeof firebase !== 'undefined' && firebase.auth ? firebase.auth() : null);
+                if (firebaseAuth) {
+                    firebaseAuth.signOut().then(() => window.location.reload());
+                } else {
+                    window.location.reload();
+                }
+            }
+        };
     </script>
 
     <!-- Custom CSS Styles -->

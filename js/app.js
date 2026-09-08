@@ -1734,3 +1734,9 @@ async function removeBaliClientsFromMaster() {
         console.warn("Error cleaning Bali clients:", e);
     }
 }
+
+// Global window exports
+window.handleLogin = handleLogin;
+window.handleLogout = handleLogout;
+window.logout = logout;
+window.deleteDestinationStop = deleteDestinationStop;

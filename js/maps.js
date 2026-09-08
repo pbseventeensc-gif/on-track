@@ -3,11 +3,31 @@
 // ==========================================
 
 let map, mapMonitor, mapDispatch;
-const tripMarkersLayer = L.layerGroup();
-const monitorMarkersLayer = L.layerGroup();
-const monitorCouriersLayer = L.layerGroup();
-const draftMarkersLayer = L.layerGroup();
-const tripRoutesLayer = L.layerGroup();
+let tripMarkersLayer = (typeof L !== 'undefined' && L.layerGroup) ? L.layerGroup() : null;
+let monitorMarkersLayer = (typeof L !== 'undefined' && L.layerGroup) ? L.layerGroup() : null;
+let monitorCouriersLayer = (typeof L !== 'undefined' && L.layerGroup) ? L.layerGroup() : null;
+let draftMarkersLayer = (typeof L !== 'undefined' && L.layerGroup) ? L.layerGroup() : null;
+let tripRoutesLayer = (typeof L !== 'undefined' && L.layerGroup) ? L.layerGroup() : null;
+
+function ensureMapLayers() {
+    if (typeof L !== 'undefined' && L.layerGroup) {
+        if (!tripMarkersLayer) tripMarkersLayer = L.layerGroup();
+        if (!monitorMarkersLayer) monitorMarkersLayer = L.layerGroup();
+        if (!monitorCouriersLayer) monitorCouriersLayer = L.layerGroup();
+        if (!draftMarkersLayer) draftMarkersLayer = L.layerGroup();
+        if (!tripRoutesLayer) tripRoutesLayer = L.layerGroup();
+    }
+}
+
+function getJabodetabekMaxBounds() {
+    if (typeof L !== 'undefined' && L.latLngBounds) {
+        return L.latLngBounds(
+            L.latLng(-6.8000, 106.3000), // South-West (Bogor / Tangerang)
+            L.latLng(-5.8000, 107.5000)  // North-East (Jakarta Coast / Karawang)
+        );
+    }
+    return null;
+}
 
 let heatmapLayer = null;
 
@@ -19,11 +39,6 @@ function isInsideJabodetabekArea(lat, lng) {
     return latitude >= -6.8000 && latitude <= -5.8000 && longitude >= 106.3000 && longitude <= 107.5000;
 }
 
-const jabodetabekMaxBounds = L.latLngBounds(
-    L.latLng(-6.8000, 106.3000), // South-West (Bogor / Tangerang)
-    L.latLng(-5.8000, 107.5000)  // North-East (Jakarta Coast / Karawang)
-);
-
 const googleTiles = {
     url: 'https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
     options: {
@@ -34,6 +49,10 @@ const googleTiles = {
 };
 
 function initMaps() {
+    if (typeof L === 'undefined') return;
+    ensureMapLayers();
+    const jabodetabekMaxBounds = getJabodetabekMaxBounds();
+
     try {
         if (document.getElementById('map')) {
             if (map) { map.remove(); map = null; }
