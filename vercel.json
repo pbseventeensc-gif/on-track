@@ -1,8 +1,6 @@
 {
-  "cleanUrls": true,
-  "trailingSlash": false,
   "functions": {
-    "api/**/*.js": {
+    "api/*.js": {
       "memory": 1024,
       "maxDuration": 10
     }
@@ -11,6 +9,10 @@
     {
       "source": "/api/surat-jalan",
       "destination": "/api/surat-jalan.js"
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
     }
   ]
 }
