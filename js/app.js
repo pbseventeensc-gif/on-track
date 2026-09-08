@@ -23,15 +23,17 @@ function ensureFirebaseApp() {
 }
 
 ensureFirebaseApp();
-const rtdb = (typeof window.rtdb !== 'undefined' && window.rtdb) ? window.rtdb : (typeof firebase !== 'undefined' && firebase.database ? firebase.database() : null);
-const db = (typeof window.db !== 'undefined' && window.db) ? window.db : (typeof firebase !== 'undefined' && firebase.firestore ? firebase.firestore() : null);
-const storage = (typeof window.storage !== 'undefined' && window.storage) ? window.storage : (typeof firebase !== 'undefined' && firebase.storage ? firebase.storage() : null);
-const auth = (typeof window.auth !== 'undefined' && window.auth) ? window.auth : (typeof firebase !== 'undefined' && firebase.auth ? firebase.auth() : null);
+const rtdb = (typeof firebase !== 'undefined' && firebase.database) ? firebase.database() : (typeof window.rtdb !== 'undefined' ? window.rtdb : null);
+const db = (typeof firebase !== 'undefined' && firebase.firestore) ? firebase.firestore() : (typeof window.db !== 'undefined' ? window.db : null);
+const storage = (typeof firebase !== 'undefined' && firebase.storage) ? firebase.storage() : (typeof window.storage !== 'undefined' ? window.storage : null);
+const auth = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth() : (typeof window.auth !== 'undefined' ? window.auth : null);
 
-try {
-    db.settings({ experimentalAutoDetectLongPolling: true });
-} catch (e) {
-    console.log("Firestore long polling settings info:", e);
+if (db) {
+    try {
+        db.settings({ experimentalAutoDetectLongPolling: true });
+    } catch (e) {
+        console.log("Firestore long polling settings info:", e);
+    }
 }
 
 const registeredUsers = {};
@@ -1566,38 +1568,43 @@ async function handleLogin(e) {
     }
 }
 
-auth.onAuthStateChanged(user => {
-    if (user) {
-        document.getElementById('login-screen').style.display = 'none';
-        document.getElementById('main-wrapper').style.display = 'flex';
+const currentAuth = auth || (typeof firebase !== 'undefined' && firebase.auth ? firebase.auth() : null);
+if (currentAuth) {
+    currentAuth.onAuthStateChanged(user => {
+        if (user) {
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('main-wrapper').style.display = 'flex';
 
-        removeBaliClientsFromMaster();
-        removeBaliClientsFromMaster();
+            removeBaliClientsFromMaster();
 
-        db.collection('users').doc(user.uid).get().then(doc => {
-            if (doc.exists) {
-                const uData = doc.data();
-                const uRole = (uData.role || 'admin').toLowerCase();
-                currentUserRole = uRole;
+            const currentDb = db || (typeof firebase !== 'undefined' && firebase.firestore ? firebase.firestore() : null);
+            if (currentDb) {
+                currentDb.collection('users').doc(user.uid).get().then(doc => {
+                    if (doc.exists) {
+                        const uData = doc.data();
+                        const uRole = (uData.role || 'admin').toLowerCase();
+                        currentUserRole = uRole;
 
-                const profileName = document.getElementById('profile-name');
-                const profileRole = document.getElementById('profile-role');
-                if (profileName) profileName.innerText = "admin";
-                if (profileRole) profileRole.innerHTML = '<span class="d-inline-block rounded-circle bg-success me-1" style="width: 7px; height: 7px;"></span>Online';
+                        const profileName = document.getElementById('profile-name');
+                        const profileRole = document.getElementById('profile-role');
+                        if (profileName) profileName.innerText = "admin";
+                        if (profileRole) profileRole.innerHTML = '<span class="d-inline-block rounded-circle bg-success me-1" style="width: 7px; height: 7px;"></span>Online';
+                    }
+                }).catch(e => console.warn("Could not fetch user role:", e));
             }
-        });
 
-        setTimeout(() => {
-            if (typeof initMaps === 'function') initMaps();
-            if (typeof map !== 'undefined' && map && typeof map.invalidateSize === 'function') map.invalidateSize();
-            if (typeof mapMonitor !== 'undefined' && mapMonitor && typeof mapMonitor.invalidateSize === 'function') mapMonitor.invalidateSize();
-            if (typeof mapDispatch !== 'undefined' && mapDispatch && typeof mapDispatch.invalidateSize === 'function') mapDispatch.invalidateSize();
-        }, 300);
-    } else {
-        document.getElementById('login-screen').style.display = 'flex';
-        document.getElementById('main-wrapper').style.display = 'none';
-    }
-});
+            setTimeout(() => {
+                if (typeof initMaps === 'function') initMaps();
+                if (typeof map !== 'undefined' && map && typeof map.invalidateSize === 'function') map.invalidateSize();
+                if (typeof mapMonitor !== 'undefined' && mapMonitor && typeof mapMonitor.invalidateSize === 'function') mapMonitor.invalidateSize();
+                if (typeof mapDispatch !== 'undefined' && mapDispatch && typeof mapDispatch.invalidateSize === 'function') mapDispatch.invalidateSize();
+            }, 300);
+        } else {
+            document.getElementById('login-screen').style.display = 'flex';
+            document.getElementById('main-wrapper').style.display = 'none';
+        }
+    });
+}
 
 function handleLogout() {
     if (confirm("Sign out dari dashboard?")) {
