@@ -12,7 +12,17 @@ const firebaseConfig = {
     appId: "1:180144218738:web:f6751f383bf7f65b3ed8eb"
 };
 
-firebase.initializeApp(firebaseConfig);
+function ensureFirebaseApp() {
+    if (typeof firebase !== 'undefined') {
+        if (!firebase.apps || firebase.apps.length === 0) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        return firebase;
+    }
+    return null;
+}
+
+ensureFirebaseApp();
 const rtdb = firebase.database();
 const db = firebase.firestore();
 const storage = firebase.storage();

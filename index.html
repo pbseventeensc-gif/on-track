@@ -31,6 +31,26 @@
         });
 
         // Global Auth Handlers
+        const firebaseConfig = {
+            apiKey: "AIzaSyCAR9bhj6u72OpTqYLEuBvBGvCaaFSPUGQ",
+            authDomain: "ontrack-fccb8.firebaseapp.com",
+            databaseURL: "https://ontrack-fccb8-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "ontrack-fccb8",
+            storageBucket: "ontrack-fccb8.firebasestorage.app",
+            messagingSenderId: "180144218738",
+            appId: "1:180144218738:web:f6751f383bf7f65b3ed8eb"
+        };
+
+        function ensureFirebaseApp() {
+            if (typeof firebase !== 'undefined') {
+                if (!firebase.apps || firebase.apps.length === 0) {
+                    firebase.initializeApp(firebaseConfig);
+                }
+                return firebase;
+            }
+            return null;
+        }
+
         window.handleLogin = async function(e) {
             if(e && e.preventDefault) e.preventDefault();
             const emailEl = document.getElementById('login-email');
@@ -58,7 +78,8 @@
             }
 
             try {
-                const firebaseAuth = typeof auth !== 'undefined' ? auth : (typeof firebase !== 'undefined' && firebase.auth ? firebase.auth() : null);
+                ensureFirebaseApp();
+                const firebaseAuth = (typeof auth !== 'undefined' && auth) ? auth : (typeof firebase !== 'undefined' && firebase.auth ? firebase.auth() : null);
                 if (firebaseAuth) {
                     await firebaseAuth.signInWithEmailAndPassword(email, pass);
                 } else {
