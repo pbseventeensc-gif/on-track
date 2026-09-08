@@ -1010,8 +1010,8 @@ function renderRecentShipments(filter = "") {
     allCurrentTrips.forEach(t => {
         const cName = getCourierDisplayName(t.courierId);
         const tripIdShort = '#' + t.id.substring(Math.max(0, t.id.length - 6));
-        const tripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : 0);
-        const tripDateStr = tripMs ? new Date(tripMs).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) : '-';
+        const tripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : (t.id ? parseInt(t.id.replace('TRIP_', '')) || 0 : 0));
+        const tripDateStr = tripMs ? new Date(tripMs).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '-';
 
         if (t.destinations && t.destinations.length > 0) {
             t.destinations.forEach((d, idx) => {
@@ -1019,7 +1019,7 @@ function renderRecentShipments(filter = "") {
                 const fullAddress = d.address || '';
                 const stopIdx = d.stopIndex || (idx + 1);
 
-                // Kode Unik Shipment ID per titik pengiriman (contoh: #713947-1, #713947-2...)
+                // Kode Unik Shipment ID per titik pengiriman (contoh: #178884-1, #178884-2, #178884-3...)
                 const uniqueShipmentId = `${tripIdShort}-${stopIdx}`;
 
                 const status = (d.status === 'done' || d.proofPhotoUrl) ? 'completed' : (d.status === 'arrived' ? 'in_progress' : t.status);
