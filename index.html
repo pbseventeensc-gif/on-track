@@ -66,6 +66,24 @@
             return null;
         }
 
+        // Listener Auth State: Otomatis masuk jika sudah login / refresh
+        if (window.auth) {
+            window.auth.onAuthStateChanged(function(user) {
+                const loginScreen = document.getElementById('login-screen');
+                const mainWrapper = document.getElementById('main-wrapper');
+                const profileName = document.getElementById('profile-name');
+
+                if (user) {
+                    if (loginScreen) loginScreen.style.setProperty('display', 'none', 'important');
+                    if (mainWrapper) mainWrapper.style.setProperty('display', 'flex', 'important');
+                    if (profileName) profileName.innerText = user.email.split('@')[0];
+                } else {
+                    if (loginScreen) loginScreen.style.setProperty('display', 'flex', 'important');
+                    if (mainWrapper) mainWrapper.style.setProperty('display', 'none', 'important');
+                }
+            });
+        }
+
         window.handleLogin = async function(e) {
             if(e && e.preventDefault) e.preventDefault();
             const emailEl = document.getElementById('login-email');
@@ -97,6 +115,10 @@
                 const firebaseAuth = (typeof auth !== 'undefined' && auth) ? auth : (typeof firebase !== 'undefined' && firebase.auth ? firebase.auth() : null);
                 if (firebaseAuth) {
                     await firebaseAuth.signInWithEmailAndPassword(email, pass);
+                    const loginScreen = document.getElementById('login-screen');
+                    const mainWrapper = document.getElementById('main-wrapper');
+                    if (loginScreen) loginScreen.style.setProperty('display', 'none', 'important');
+                    if (mainWrapper) mainWrapper.style.setProperty('display', 'flex', 'important');
                 } else {
                     alert("Sistem Autentikasi sedang dimuat, silakan coba lagi...");
                     if (btn) { btn.disabled = false; btn.innerText = "SIGN IN"; }
@@ -179,9 +201,9 @@
             height: 100vh;
             background-color: #111827 !important;
             z-index: 99999 !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         .login-box {
             background: #ffffff !important;
@@ -871,6 +893,63 @@
                 </div>
             </div>
 
+        </div>
+    </div>
+</div>
+
+<!-- Modals & Toasts -->
+<div class="toast-container position-fixed top-0 start-50 translate-middle-x p-3" style="z-index:99999">
+    <div id="myToast" class="toast align-items-center text-white bg-dark border-0 shadow-lg" role="alert" style="border-radius:12px">
+        <div class="d-flex p-3"><div class="toast-body fw-bold"></div></div>
+    </div>
+</div>
+
+<div class="modal fade" id="imageModal" tabindex="-1">
+    <div class="modal-dialog modal-sm modal-dialog-centered" style="max-width: 400px;">
+        <div class="modal-content border-0 shadow-lg" style="border-radius:24px; overflow:hidden">
+            <div class="position-absolute top-0 end-0 p-3" style="z-index: 10">
+                <button type="button" class="btn-close-custom" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0 text-center bg-black d-flex align-items-center justify-content-center" style="min-height: 300px;">
+                <img id="modalImg" src="" style="max-width:100%; max-height: 70vh; width: auto; height: auto; object-fit: contain; image-rendering: high-quality;">
+                <div class="position-absolute bottom-0 start-0 end-0 p-3" style="background: linear-gradient(transparent, rgba(0,0,0,0.8))">
+                    <a id="downloadBtn" href="#" download class="btn btn-light btn-sm w-100 fw-bold py-2" style="border-radius: 8px">
+                        <i class="bi bi-download me-2"></i>Download HD
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Manual Photo Upload Modal for Admin -->
+<div class="modal fade" id="manualUploadModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
+            <div class="modal-header border-0 pb-0">
+                <h6 class="fw-bold text-dark m-0"><i class="bi bi-camera-fill me-2 text-primary"></i>Upload Bukti Foto (PoD Manual Admin)</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <input type="hidden" id="upload-modal-trip-id">
+                <input type="hidden" id="upload-modal-stop-index">
+
+                <div class="p-3 bg-light rounded-3 border mb-3">
+                    <small class="text-muted extra-small fw-bold text-uppercase d-block mb-1">Lokasi Tujuan / Stop:</small>
+                    <div class="fw-bold text-dark" id="upload-modal-location-name">Destination Name</div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="extra-small fw-bold text-muted text-uppercase mb-2 d-block">Pilih File Foto Bukti (JPEG / PNG)</label>
+                    <input type="file" id="upload-modal-file" accept="image/*" class="form-control py-2" style="border-radius: 10px;">
+                </div>
+
+                <div id="upload-modal-status" class="extra-small fw-bold text-primary mb-3"></div>
+
+                <button type="button" id="upload-modal-submit-btn" class="btn btn-dark w-100 py-3 fw-bold shadow-sm" style="border-radius: 12px;" onclick="submitManualUploadPhoto()">
+                    <i class="bi bi-upload me-2"></i> UNGGAH & SELESAIKAN
+                </button>
+            </div>
         </div>
     </div>
 </div>
