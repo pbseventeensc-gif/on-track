@@ -591,10 +591,6 @@ db.collection('trips').onSnapshot(snap => {
         const t = doc.data();
         t.id = doc.id;
         allCurrentTrips.push(t);
-
-        if (t.destinations && t.destinations.length > 0) {
-            syncDestinationsToMasterClients(t.destinations);
-        }
     });
     updateGlobalStats();
     renderRecentShipments();

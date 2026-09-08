@@ -55,56 +55,46 @@ function initMaps() {
 
     try {
         if (document.getElementById('map')) {
-            if (map) { map.remove(); map = null; }
-            const containerMap = document.getElementById('map');
-            if (containerMap && containerMap._leaflet_id) containerMap._leaflet_id = null;
-
-            map = L.map('map', {
-                zoomControl: false,
-                maxBounds: jabodetabekMaxBounds,
-                maxBoundsViscosity: 0.8
-            }).setView([-6.2088, 106.8456], 12);
-            L.control.zoom({ position: 'bottomright' }).addTo(map);
-            L.tileLayer(googleTiles.url, googleTiles.options).addTo(map);
-            tripMarkersLayer.addTo(map);
-            tripRoutesLayer.addTo(map);
+            if (!map) {
+                map = L.map('map', {
+                    zoomControl: false,
+                    maxBounds: jabodetabekMaxBounds,
+                    maxBoundsViscosity: 0.8
+                }).setView([-6.2088, 106.8456], 12);
+                L.control.zoom({ position: 'bottomright' }).addTo(map);
+                addMapTileLayer(map);
+                if (tripMarkersLayer) tripMarkersLayer.addTo(map);
+                if (tripRoutesLayer) tripRoutesLayer.addTo(map);
+            }
         }
         if (document.getElementById('map-monitor')) {
-            if (mapMonitor) { mapMonitor.remove(); mapMonitor = null; }
-            const containerMon = document.getElementById('map-monitor');
-            if (containerMon && containerMon._leaflet_id) containerMon._leaflet_id = null;
-
-            mapMonitor = L.map('map-monitor', {
-                zoomControl: false,
-                maxBounds: jabodetabekMaxBounds,
-                maxBoundsViscosity: 0.8
-            }).setView([-6.2088, 106.8456], 12);
-            L.control.zoom({ position: 'bottomright' }).addTo(mapMonitor);
-            L.tileLayer(googleTiles.url, googleTiles.options).addTo(mapMonitor);
-            monitorMarkersLayer.addTo(mapMonitor);
-            monitorCouriersLayer.addTo(mapMonitor);
-            tripRoutesLayer.addTo(mapMonitor);
+            if (!mapMonitor) {
+                mapMonitor = L.map('map-monitor', {
+                    zoomControl: false,
+                    maxBounds: jabodetabekMaxBounds,
+                    maxBoundsViscosity: 0.8
+                }).setView([-6.2088, 106.8456], 12);
+                L.control.zoom({ position: 'bottomright' }).addTo(mapMonitor);
+                addMapTileLayer(mapMonitor);
+                if (monitorMarkersLayer) monitorMarkersLayer.addTo(mapMonitor);
+                if (monitorCouriersLayer) monitorCouriersLayer.addTo(mapMonitor);
+                if (tripRoutesLayer) tripRoutesLayer.addTo(mapMonitor);
+            }
         }
         if (document.getElementById('map-dispatch')) {
-            if (mapDispatch) { mapDispatch.remove(); mapDispatch = null; }
-            const containerDisp = document.getElementById('map-dispatch');
-            if (containerDisp && containerDisp._leaflet_id) containerDisp._leaflet_id = null;
-
-            mapDispatch = L.map('map-dispatch', {
-                zoomControl: false,
-                maxBounds: jabodetabekMaxBounds,
-                maxBoundsViscosity: 0.8
-            }).setView([-6.2088, 106.8456], 12);
-            L.control.zoom({ position: 'bottomright' }).addTo(mapDispatch);
-            L.tileLayer(googleTiles.url, googleTiles.options).addTo(mapDispatch);
-            draftMarkersLayer.addTo(mapDispatch);
+            if (!mapDispatch) {
+                mapDispatch = L.map('map-dispatch', {
+                    zoomControl: false,
+                    maxBounds: jabodetabekMaxBounds,
+                    maxBoundsViscosity: 0.8
+                }).setView([-6.2088, 106.8456], 12);
+                L.control.zoom({ position: 'bottomright' }).addTo(mapDispatch);
+                addMapTileLayer(mapDispatch);
+                if (draftMarkersLayer) draftMarkersLayer.addTo(mapDispatch);
+            }
         }
 
-        setTimeout(() => {
-            if (map && typeof map.invalidateSize === 'function') map.invalidateSize();
-            if (mapMonitor && typeof mapMonitor.invalidateSize === 'function') mapMonitor.invalidateSize();
-            if (mapDispatch && typeof mapDispatch.invalidateSize === 'function') mapDispatch.invalidateSize();
-        }, 200);
+        refreshMapSizes();
     } catch (e) {
         console.error("Leaflet Init Error:", e);
     }
