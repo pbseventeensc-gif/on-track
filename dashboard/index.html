@@ -32,14 +32,84 @@
     </script>
 
     <!-- Custom CSS Styles -->
-    <link rel="stylesheet" href="../css/style.css?v=1.0.3">
+    <link rel="stylesheet" href="/css/style.css?v=1.0.3">
+    <style>
+:root {
+    --primary: #111827;
+    --bg-body: #F9FAFB;
+    --border-color: #E5E7EB;
+    --text-main: #111827;
+    --text-muted: #6B7280;
+    --sidebar-width: 260px;
+    --status-transit: #3B82F6;
+    --status-delivered: #10B981;
+    --status-pending: #F59E0B;
+    --status-delayed: #EF4444;
+}
+body { background-color: var(--bg-body); font-family: 'Plus Jakarta Sans', sans-serif; color: var(--text-main); overflow: hidden; height: 100vh; }
+.wrapper { display: flex; height: 100vh; width: 100vw; overflow: hidden; }
+.sidebar { width: var(--sidebar-width); background: #fff; border-right: 1px solid var(--border-color); display: flex; flex-direction: column; transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), left 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 2000; position: relative; }
+.sidebar.collapsed { width: 80px; }
+.sidebar-backdrop { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1999; backdrop-filter: blur(2px); }
+.sidebar-backdrop.active { display: block; }
+.sidebar-header { padding: 20px; display: flex; align-items: center; gap: 12px; min-height: 120px; }
+.main-logo { height: 70px; max-width: 100%; object-fit: contain; transition: 0.3s; }
+.sidebar.collapsed .main-logo { height: 32px; }
+.nav-category { font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; padding: 24px 24px 8px; letter-spacing: 0.05em; white-space: nowrap; overflow: hidden; }
+.sidebar.collapsed .nav-category { opacity: 0; visibility: hidden; padding: 12px 0; height: 0; }
+.nav-menu { flex: 1; overflow-y: auto; padding: 0 12px; overflow-x: hidden; }
+.nav-link-custom { display: flex; align-items: center; padding: 10px 12px; color: var(--text-muted); font-weight: 500; text-decoration: none !important; border-radius: 8px; transition: 0.2s; cursor: pointer; margin-bottom: 2px; font-size: 0.9rem; white-space: nowrap; }
+.nav-link-custom:hover { background: #F9FAFB; color: var(--primary); }
+.nav-link-custom.active { background: #F3F4F6; color: var(--primary); font-weight: 600; }
+.nav-link-custom i { font-size: 1.2rem; margin-right: 12px; min-width: 24px; text-align: center; }
+.sidebar-footer { padding: 20px; border-top: 1px solid var(--border-color); display: flex; align-items: center; gap: 12px; white-space: nowrap; overflow: hidden; }
+.profile-img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+.collapse-toggle { position: absolute; right: -12px; top: 50%; transform: translateY(-50%); width: 24px; height: 48px; background: #000; color: #fff; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 1100; box-shadow: 0 2px 10px rgba(0,0,0,0.2); transition: 0.3s ease; border: 1px solid rgba(255,255,255,0.1); }
+.main-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.top-header { height: 70px; background: #fff; border-bottom: 1px solid var(--border-color); padding: 0 32px; display: flex; align-items: center; justify-content: space-between; }
+.search-container { position: relative; width: 300px; }
+.search-container i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
+.search-input, .form-control, .form-select { padding-left: 36px; border-radius: 10px; border: 1px solid var(--border-color); background: #ffffff; color: #111827 !important; font-size: 0.9rem; width: 100%; }
+.header-actions { display: flex; align-items: center; gap: 16px; }
+.action-btn { width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: center; color: var(--text-muted); cursor: pointer; position: relative; }
+.btn-new-shipment { background: var(--primary); color: #fff; border: none; padding: 10px 20px; border-radius: 10px; font-weight: 600; font-size: 0.9rem; display: flex; align-items: center; gap: 8px; }
+#login-screen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #111827; z-index: 3000; display: flex; align-items: center; justify-content: center; background-image: linear-gradient(rgba(0,0,0,0.8), rgba(0,0,0,0.8)), url('https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80'); background-size: cover; }
+.login-box { background: #fff; padding: 40px; border-radius: 24px; width: 90%; max-width: 400px; box-shadow: 0 20px 50px rgba(0,0,0,0.3); }
+.login-logo { height: 60px; object-fit: contain; }
+#main-wrapper { display: none; }
+.content-scroll { flex: 1; overflow-y: auto; padding: 32px; background: transparent; }
+.stat-card { border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; background: #fff; }
+.stat-label { font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 8px; }
+.stat-value { font-size: 1.5rem; font-weight: 800; color: var(--text-main); margin-bottom: 4px; }
+.card-title { font-weight: 700; font-size: 1.1rem; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+#map, #map-monitor, #map-dispatch { height: 450px; width: 100%; border-radius: 12px; border: 1px solid var(--border-color); }
+#map-monitor, #map-dispatch { min-height: 500px; background: #f8fafc; }
+.table thead th { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.025em; font-weight: 700; color: var(--text-muted); padding: 12px 16px; border-bottom: 1px solid var(--border-color); }
+.table tbody td { padding: 16px; font-size: 0.85rem; vertical-align: middle; border-bottom: 1px solid var(--border-color); }
+.badge-pill { padding: 6px 12px; border-radius: 9999px; font-size: 0.7rem; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; }
+.badge-transit { background: #EFF6FF; color: #3B82F6; }
+.badge-delivered { background: #ECFDF5; color: #10B981; }
+.badge-pending { background: #FFFBEB; color: #F59E0B; }
+.badge-delayed { background: #FEF2F2; color: #EF4444; }
+.progress-custom { height: 8px; border-radius: 4px; background: #F3F4F6; overflow: hidden; margin-bottom: 12px; }
+.progress-bar-custom { height: 100%; border-radius: 4px; }
+.view-section { display: none; animation: fadeIn 0.3s; }
+.view-section.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.extra-small { font-size: 0.7rem; }
+.cursor-pointer { cursor: pointer; }
+.custom-div-icon { background: none; border: none; }
+.marker-pin { width: 32px; height: 32px; border-radius: 50% 50% 50% 0; background: var(--status-transit); position: absolute; transform: rotate(-45deg); left: 50%; top: 50%; margin: -15px 0 0 -15px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.2); border: 2px solid #fff; }
+.marker-pin::after { content: ''; width: 22px; height: 22px; background: #fff; position: absolute; border-radius: 50%; }
+.marker-num { position: absolute; width: 32px; height: 32px; line-height: 29px; text-align: center; font-weight: 800; font-size: 12px; color: #111827 !important; z-index: 10; top: 50%; left: 50%; margin: -15px 0 0 -15px; }
+    </style>
 </head>
 <body>
 
     <!-- Login Screen -->
     <div id="login-screen">
         <div class="login-box text-center">
-            <img src="../assets/logo.svg" alt="Wellen Print" class="login-logo mb-3" style="height:70px; width:auto; object-fit:contain;">
+            <img src="/assets/logo.svg" alt="Wellen Print" class="login-logo mb-3" style="height:70px; width:auto; object-fit:contain;">
             <h5 class="fw-800 mb-2">Admin Logistik</h5>
             <p class="text-muted small mb-4">Silakan login untuk mengakses dashboard.</p>
 
@@ -71,7 +141,7 @@
                 <i class="bi bi-chevron-left" style="font-size: 12px;"></i>
             </div>
             <div class="sidebar-header" style="padding: 20px 16px; min-height: 90px; justify-content: flex-start;">
-                <img src="../assets/logo.svg" class="main-logo" alt="Wellen Print" style="height: 72px; width: auto; max-width: 100%; object-fit: contain;">
+                <img src="/assets/logo.svg" class="main-logo" alt="Wellen Print" style="height: 72px; width: auto; max-width: 100%; object-fit: contain;">
             </div>
 
             <nav class="nav-menu">
@@ -570,7 +640,8 @@
                         <!-- Search Bar for Monitor -->
                         <div class="position-relative mb-4">
                             <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"></i>
-                            <input type="text" id="monitor-search" class="form-control ps-5 py-2 fw-semibold" style="border-radius: 12px; background: #ffffff; color: #111827 !important;" placeholder="Search by Order ID, Client, Courier..." oninput="filterMonitorAll(this.value)">
+                            <input type="text" id="monitor-search" class="form-control ps-5 py-2 fw-semibold" style="border-radius: 12px; background: #ffffff; color: #111827 !important;" placeholder="Search by Order ID, Client, Courier..." oninput="filterMonitorAll(this.value)" list="monitor-datalist">
+                            <datalist id="monitor-datalist"></datalist>
                         </div>
 
                         <!-- Monitor Map -->
@@ -790,8 +861,8 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
     <!-- Custom Modular JS -->
-    <script src="../js/maps.js?v=1.0.3"></script>
-    <script src="../js/kpi.js?v=1.0.3"></script>
-    <script src="../js/app.js?v=1.0.3"></script>
+    <script src="/js/maps.js?v=1.0.3"></script>
+    <script src="/js/kpi.js?v=1.0.3"></script>
+    <script src="/js/app.js?v=1.0.3"></script>
 </body>
 </html>
