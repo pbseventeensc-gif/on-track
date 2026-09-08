@@ -23,10 +23,10 @@ function ensureFirebaseApp() {
 }
 
 ensureFirebaseApp();
-const rtdb = firebase.database();
-const db = firebase.firestore();
-const storage = firebase.storage();
-const auth = firebase.auth();
+const rtdb = (typeof window.rtdb !== 'undefined' && window.rtdb) ? window.rtdb : (typeof firebase !== 'undefined' && firebase.database ? firebase.database() : null);
+const db = (typeof window.db !== 'undefined' && window.db) ? window.db : (typeof firebase !== 'undefined' && firebase.firestore ? firebase.firestore() : null);
+const storage = (typeof window.storage !== 'undefined' && window.storage) ? window.storage : (typeof firebase !== 'undefined' && firebase.storage ? firebase.storage() : null);
+const auth = (typeof window.auth !== 'undefined' && window.auth) ? window.auth : (typeof firebase !== 'undefined' && firebase.auth ? firebase.auth() : null);
 
 try {
     db.settings({ experimentalAutoDetectLongPolling: true });
