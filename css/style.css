@@ -317,21 +317,50 @@ body {
 .progress-custom { height: 8px; border-radius: 4px; background: #F3F4F6; overflow: hidden; margin-bottom: 12px; }
 .progress-bar-custom { height: 100%; border-radius: 4px; }
 
-/* Responsive Sidebar */
+/* Mobile & Tablet Responsive Optimizations */
 @media (max-width: 991px) {
     .sidebar {
         position: fixed;
-        left: -280px; /* Slightly more than sidebar-width */
+        left: -280px;
         top: 0;
         bottom: 0;
-        box-shadow: 10px 0 30px rgba(0,0,0,0.1);
-        width: 260px !important; /* Force width on mobile */
+        box-shadow: 10px 0 30px rgba(0,0,0,0.15);
+        width: 260px !important;
+        z-index: 2100;
     }
     .sidebar.open { left: 0; }
-    .top-header { padding: 0 16px; }
+    .top-header { padding: 0 16px; height: 64px; }
     .search-container { display: none; }
-    .content-scroll { padding: 16px; }
-    .sidebar.collapsed { width: 260px; } /* Disable collapse on mobile */
+    .content-scroll { padding: 16px 12px; }
+    .sidebar.collapsed { width: 260px; }
+}
+
+@media (max-width: 768px) {
+    .top-header { height: 60px; padding: 0 12px; }
+    .header-actions { gap: 8px; }
+    .action-btn { width: 36px; height: 36px; font-size: 0.85rem; }
+    .btn-new-shipment { padding: 8px 12px; font-size: 0.8rem; }
+    .stat-card { padding: 14px; margin-bottom: 8px; }
+    .stat-value { font-size: 1.25rem; }
+    .stat-label { font-size: 0.725rem; }
+    #map, #map-monitor, #map-dispatch { height: 300px !important; min-height: 300px !important; }
+    .tracking-card { padding: 16px; margin-bottom: 16px; }
+    .shipment-id { font-size: 1rem; }
+    .login-box { padding: 24px 18px; width: 92%; max-width: 380px; border-radius: 18px; }
+    .table thead th, .table tbody td { padding: 10px 8px; font-size: 0.75rem; }
+    .stepper { flex-direction: column; align-items: flex-start; gap: 16px; padding-left: 12px; }
+    .step-line { display: none; }
+    .step-item { flex-direction: row; gap: 12px; align-items: center; width: 100%; }
+    .step-label { position: static; width: auto; text-align: left; margin-bottom: 0; }
+    #notif-dropdown { width: 290px !important; right: -10px !important; }
+}
+
+@media (max-width: 576px) {
+    .btn-new-shipment span { display: none; }
+    .btn-new-shipment { padding: 8px 10px; }
+    .profile-info { max-width: 90px; }
+    .table-responsive { border-radius: 8px; }
+    .client-checkbox { width: 18px; height: 18px; }
 }
 
 /* Modal Close Button Custom */
