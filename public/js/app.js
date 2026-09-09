@@ -2,7 +2,7 @@
 // WTRACK LOGISTICS - CORE DASHBOARD & FIREBASE
 // ==========================================
 
-const firebaseConfig = {
+var firebaseConfig = window.firebaseConfig || {
     apiKey: "AIzaSyCAR9bhj6u72OpTqYLEuBvBGvCaaFSPUGQ",
     authDomain: "ontrack-fccb8.firebaseapp.com",
     databaseURL: "https://ontrack-fccb8-default-rtdb.asia-southeast1.firebasedatabase.app",
@@ -23,6 +23,7 @@ function ensureFirebaseApp() {
 }
 
 ensureFirebaseApp();
+
 function getAuth() {
     if (typeof firebase !== 'undefined' && firebase.auth) return firebase.auth();
     if (typeof window.auth !== 'undefined' && window.auth) return window.auth;
@@ -42,6 +43,18 @@ function getStorage() {
     if (typeof firebase !== 'undefined' && firebase.storage) return firebase.storage();
     if (typeof window.storage !== 'undefined' && window.storage) return window.storage;
     return null;
+}
+
+function calculateDistance(lat1, lon1, lat2, lon2) {
+    if (!lat1 || !lon1 || !lat2 || !lon2) return 0;
+    const R = 6371; // Radius bumi dalam KM
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
 }
 
 // Immediate window exports (hoisted functions)
@@ -65,6 +78,7 @@ window.logout = logout;
 window.deleteDestinationStop = deleteDestinationStop;
 window.openPoDModal = openPoDModal;
 window.toggleNotifDropdown = toggleNotifDropdown;
+window.calculateDistance = calculateDistance;
 
 let rtdb = getRtdb();
 let db = getDb();
@@ -79,8 +93,9 @@ if (db) {
     }
 }
 
-const registeredUsers = {};
-const userRoles = {};
+var registeredUsers = window.registeredUsers || {};
+var registeredUsersObjects = window.registeredUsersObjects || {};
+var userRoles = window.userRoles || {};
 
 let tripQueue = [];
 let currentChatId = null;
@@ -146,8 +161,11 @@ function isCourierUser(uid) {
 }
 
 function toggleDarkMode() {
-    isDarkMode = document.getElementById('dark-mode-toggle').checked;
-    document.body.classList.toggle('dark-theme', isDarkMode);
+    const el = document.getElementById('dark-mode-toggle');
+    if (el) {
+        isDarkMode = el.checked;
+        document.body.classList.toggle('dark-theme', isDarkMode);
+    }
 }
 
 function showToast(msg) {
@@ -164,9 +182,14 @@ function showToast(msg) {
 }
 
 function openPoDModal(url) {
-    document.getElementById('modalImg').src = url;
-    document.getElementById('downloadBtn').href = url;
-    new bootstrap.Modal(document.getElementById('imageModal')).show();
+    const img = document.getElementById('modalImg');
+    const btn = document.getElementById('downloadBtn');
+    if (img) img.src = url;
+    if (btn) btn.href = url;
+    const modalEl = document.getElementById('imageModal');
+    if (modalEl && typeof bootstrap !== 'undefined') {
+        new bootstrap.Modal(modalEl).show();
+    }
 }
 
 function toggleNotifDropdown(e) {
@@ -331,10 +354,11 @@ function updateDynamicAlerts() {
 function toggleSidebar() {
     const sb = document.getElementById('sidebar');
     const backdrop = document.getElementById('sidebar-backdrop');
+    if (!sb) return;
 
     if (window.innerWidth <= 991) {
         sb.classList.toggle('open');
-        backdrop.classList.toggle('active');
+        if (backdrop) backdrop.classList.toggle('active');
     } else {
         toggleCollapse();
     }
@@ -342,6 +366,7 @@ function toggleSidebar() {
 
 function toggleCollapse() {
     const sb = document.getElementById('sidebar');
+    if (!sb) return;
     sb.classList.toggle('collapsed');
 
     setTimeout(() => {
@@ -370,8 +395,10 @@ function switchTab(viewId, el) {
         if(navLink) navLink.classList.add('active');
     }
 
-    document.getElementById('sidebar').classList.remove('open');
-    document.getElementById('sidebar-backdrop').classList.remove('active');
+    const sb = document.getElementById('sidebar');
+    const backdrop = document.getElementById('sidebar-backdrop');
+    if (sb) sb.classList.remove('open');
+    if (backdrop) backdrop.classList.remove('active');
 
     setTimeout(() => {
         if(typeof map !== 'undefined' && map && typeof map.invalidateSize === 'function') map.invalidateSize();
@@ -389,7 +416,7 @@ function toggleAllClients(checked) {
 
 async function loadClientsByRegion(region) {
     const container = document.getElementById('client-list-container');
-    if(!container) return;
+    if(!container || !db) return;
     const sa = document.getElementById('select-all-clients');
     if(sa) sa.checked = false;
 
@@ -477,7 +504,8 @@ function filterClients(query) {
             item.classList.remove('d-none');
             visibleCount++;
         });
-        document.getElementById('client-qty').innerText = visibleCount;
+        const qtyEl = document.getElementById('client-qty');
+        if (qtyEl) qtyEl.innerText = visibleCount;
         return;
     }
 
@@ -500,7 +528,8 @@ function filterClients(query) {
             item.classList.add('d-none');
         }
     });
-    document.getElementById('client-qty').innerText = visibleCount;
+    const qtyEl = document.getElementById('client-qty');
+    if (qtyEl) qtyEl.innerText = visibleCount;
 }
 
 async function deleteClient(id, name) {
@@ -508,7 +537,8 @@ async function deleteClient(id, name) {
     try {
         await db.collection('clients').doc(id).delete();
         showToast("Client berhasil dihapus.");
-        loadClientsByRegion(document.getElementById('region-filter').value);
+        const regEl = document.getElementById('region-filter');
+        loadClientsByRegion(regEl ? regEl.value : "");
     } catch (e) {
         alert("Gagal menghapus client: " + e.message);
     }
@@ -527,7 +557,8 @@ async function clearAllClients() {
         await batch.commit();
 
         showToast("Seluruh database client telah dikosongkan.");
-        loadClientsByRegion(document.getElementById('region-filter').value);
+        const regEl = document.getElementById('region-filter');
+        loadClientsByRegion(regEl ? regEl.value : "");
     } catch (e) {
         alert("Gagal mengosongkan database client: " + e.message);
     }
@@ -566,30 +597,32 @@ function addSelectedClients() {
     }
 }
 
-db.collection('users').onSnapshot(snap => {
-    registeredUsers = {};
-    registeredUsersObjects = {};
-    snap.forEach(doc => {
-        const u = doc.data();
-        const displayName = u.name || u.email || doc.id.substring(0,8);
-        registeredUsers[doc.id] = displayName;
-        registeredUsersObjects[doc.id] = u;
+if (db) {
+    db.collection('users').onSnapshot(snap => {
+        registeredUsers = {};
+        registeredUsersObjects = {};
+        snap.forEach(doc => {
+            const u = doc.data();
+            const displayName = u.name || u.email || doc.id.substring(0,8);
+            registeredUsers[doc.id] = displayName;
+            registeredUsersObjects[doc.id] = u;
 
-        if (u.name) {
-            registeredUsers[u.name] = u.name;
-            registeredUsers[u.name.toLowerCase()] = u.name;
-        }
-        if (u.email) {
-            registeredUsers[u.email] = displayName;
-            registeredUsers[u.email.toLowerCase()] = displayName;
-        }
+            if (u.name) {
+                registeredUsers[u.name] = u.name;
+                registeredUsers[u.name.toLowerCase()] = u.name;
+            }
+            if (u.email) {
+                registeredUsers[u.email] = displayName;
+                registeredUsers[u.email.toLowerCase()] = displayName;
+            }
+        });
+        renderCourierOptions();
+        renderManageCouriersList();
+        renderRecentShipments();
+        if(document.getElementById('view-chat') && document.getElementById('view-chat').classList.contains('active')) loadChatList();
+        refreshAllMonitorData();
     });
-    renderCourierOptions();
-    renderManageCouriersList();
-    renderRecentShipments();
-    if(document.getElementById('view-chat') && document.getElementById('view-chat').classList.contains('active')) loadChatList();
-    refreshAllMonitorData();
-});
+}
 
 function renderManageCouriersList() {
     const container = document.getElementById('manage-couriers-container');
@@ -642,21 +675,25 @@ function renderCourierOptions() {
     }
 }
 
-rtdb.ref('courier_live_location').on('value', snap => {
-    currentOnlineCouriers = snap.val() || {};
-    updateGlobalStats();
-});
-
-db.collection('trips').onSnapshot(snap => {
-    allCurrentTrips = [];
-    snap.forEach(doc => {
-        const t = doc.data();
-        t.id = doc.id;
-        allCurrentTrips.push(t);
+if (rtdb) {
+    rtdb.ref('courier_live_location').on('value', snap => {
+        currentOnlineCouriers = snap.val() || {};
+        updateGlobalStats();
     });
-    updateGlobalStats();
-    renderRecentShipments();
-});
+}
+
+if (db) {
+    db.collection('trips').onSnapshot(snap => {
+        allCurrentTrips = [];
+        snap.forEach(doc => {
+            const t = doc.data();
+            t.id = doc.id;
+            allCurrentTrips.push(t);
+        });
+        updateGlobalStats();
+        renderRecentShipments();
+    });
+}
 
 function updateGlobalStats() {
     let activeTrips = 0;
@@ -810,7 +847,7 @@ function renderQueue() {
         }
     }
 
-    if (typeof draftMarkersLayer !== 'undefined' && draftMarkersLayer) {
+    if (typeof draftMarkersLayer !== 'undefined' && draftMarkersLayer && typeof L !== 'undefined') {
         draftMarkersLayer.clearLayers();
         tripQueue.forEach((d, i) => {
             const icon = L.divIcon({ className:'custom-div-icon', html:`<div class='marker-pin' style='background:#F59E0B'></div><div class='marker-num'>${i+1}</div>`, iconSize:[30,42], iconAnchor:[15,42] });
@@ -869,7 +906,7 @@ async function submitTrip() {
 }
 
 async function syncDestinationsToMasterClients(destinations) {
-    if (!destinations || destinations.length === 0) return;
+    if (!destinations || destinations.length === 0 || !db) return;
 
     try {
         for (const d of destinations) {
@@ -1034,7 +1071,7 @@ function filterMonitorAll(val) {
 }
 
 function focusOnCourier(id, isMonitor = false) {
-    const targetMap = isMonitor ? mapMonitor : map;
+    const targetMap = isMonitor ? (typeof mapMonitor !== 'undefined' ? mapMonitor : null) : (typeof map !== 'undefined' ? map : null);
     if (!targetMap) return;
 
     let targetPos = null;
@@ -1082,7 +1119,6 @@ function renderRecentShipments(filter = "") {
                 const fullAddress = d.address || '';
                 const stopIdx = d.stopIndex || (idx + 1);
 
-                // Kode Unik Shipment ID per titik pengiriman (contoh: #178884-1, #178884-2, #178884-3...)
                 const uniqueShipmentId = `${tripIdShort}-${stopIdx}`;
 
                 const status = (d.status === 'done' || d.proofPhotoUrl) ? 'completed' : (d.status === 'arrived' ? 'in_progress' : t.status);
@@ -1159,7 +1195,6 @@ function renderRecentShipments(filter = "") {
         totalBadge.innerText = `${todayRows.length} Hari Ini`;
     }
 
-    // Populate autocomplete datalist for Recent Shipments search bar
     const datalist = document.getElementById('recent-shipments-datalist');
     if (datalist) {
         const suggestions = new Set();
@@ -1206,13 +1241,22 @@ function renderRecentShipments(filter = "") {
 }
 
 function openManualUploadModal(tripId, stopIndex, locationName) {
-    document.getElementById('upload-modal-trip-id').value = tripId;
-    document.getElementById('upload-modal-stop-index').value = stopIndex;
-    document.getElementById('upload-modal-location-name').innerText = locationName || "Destination Stop #" + stopIndex;
-    document.getElementById('upload-modal-file').value = "";
-    document.getElementById('upload-modal-status').innerText = "";
+    const tripIdEl = document.getElementById('upload-modal-trip-id');
+    const stopIdxEl = document.getElementById('upload-modal-stop-index');
+    const locNameEl = document.getElementById('upload-modal-location-name');
+    const fileEl = document.getElementById('upload-modal-file');
+    const statusEl = document.getElementById('upload-modal-status');
 
-    new bootstrap.Modal(document.getElementById('manualUploadModal')).show();
+    if (tripIdEl) tripIdEl.value = tripId;
+    if (stopIdxEl) stopIdxEl.value = stopIndex;
+    if (locNameEl) locNameEl.innerText = locationName || "Destination Stop #" + stopIndex;
+    if (fileEl) fileEl.value = "";
+    if (statusEl) statusEl.innerText = "";
+
+    const modalEl = document.getElementById('manualUploadModal');
+    if (modalEl && typeof bootstrap !== 'undefined') {
+        new bootstrap.Modal(modalEl).show();
+    }
 }
 
 async function submitManualUploadPhoto() {
@@ -1257,7 +1301,10 @@ async function submitManualUploadPhoto() {
             await tripDocRef.update(updateMap);
 
             showToast("BUKTI FOTO BERHASIL DIUNGGAH! Status pengiriman di-update ke Selesai.");
-            bootstrap.Modal.getInstance(document.getElementById('manualUploadModal'))?.hide();
+            const modalEl = document.getElementById('manualUploadModal');
+            if (modalEl && typeof bootstrap !== 'undefined') {
+                bootstrap.Modal.getInstance(modalEl)?.hide();
+            }
         }
     } catch(e) {
         console.error("Manual upload error:", e);
@@ -1268,6 +1315,7 @@ async function submitManualUploadPhoto() {
 }
 
 function exportRecentShipmentsToExcel() {
+    if (typeof XLSX === 'undefined') return alert("SheetJS library not loaded!");
     const exportData = [];
 
     allCurrentTrips.forEach(t => {
@@ -1364,6 +1412,7 @@ function loadFullHistory() {
 }
 
 function exportFullReportsToExcel() {
+    if (typeof XLSX === 'undefined') return alert("SheetJS library not loaded!");
     if (!lastLoadedHistory || lastLoadedHistory.length === 0) return alert("Tidak ada data laporan untuk diekspor!");
 
     const exportData = [];
@@ -1414,6 +1463,7 @@ async function clearAllHistory() {
 }
 
 async function importClientsFromExcel() {
+    if (typeof XLSX === 'undefined') return alert("SheetJS library not loaded!");
     const file = document.getElementById('client-excel-file').files[0];
     if(!file) return alert("Please select an Excel file first!");
 
@@ -1437,7 +1487,7 @@ async function importClientsFromExcel() {
 
         status.innerText = `Processing ${rows.length} clients...`;
         const batch = db.batch();
-        const geocoder = new google.maps.Geocoder();
+        const geocoder = (typeof google !== 'undefined' && google.maps && google.maps.Geocoder) ? new google.maps.Geocoder() : null;
 
         for (let i = 0; i < rows.length; i++) {
             const row = rows[i];
@@ -1451,18 +1501,21 @@ async function importClientsFromExcel() {
             const searchQuery = address ? `${address}${regionSuffix}, Indonesia` : `${name}${regionSuffix}, Indonesia`;
 
             try {
-                const geoResult = await new Promise((resolve) => {
-                    geocoder.geocode({ address: searchQuery }, (results, status) => {
-                        if (status === 'OK') {
-                            resolve({
-                                location: results[0].geometry.location,
-                                fullAddress: results[0].formatted_address
-                            });
-                        } else {
-                            resolve(null);
-                        }
+                let geoResult = null;
+                if (geocoder) {
+                    geoResult = await new Promise((resolve) => {
+                        geocoder.geocode({ address: searchQuery }, (results, s) => {
+                            if (s === 'OK' && results[0]) {
+                                resolve({
+                                    location: results[0].geometry.location,
+                                    fullAddress: results[0].formatted_address
+                                });
+                            } else {
+                                resolve(null);
+                            }
+                        });
                     });
-                });
+                }
 
                 const finalAddress = (address.length < 5 && geoResult) ? geoResult.fullAddress : (address || (geoResult ? geoResult.fullAddress : "Alamat tidak ditemukan"));
 
@@ -1553,7 +1606,7 @@ function openChat(id, name) {
     if (chatUnsub) chatUnsub();
 
     const box = document.getElementById('chat-messages-main') || document.getElementById('chat-messages-box');
-    if (!box) return;
+    if (!box || !db) return;
     box.innerHTML = '<p class="text-center py-4 text-muted extra-small">Loading messages...</p>';
 
     const col = db.collection('chats').doc(id).collection('messages');
@@ -1574,7 +1627,7 @@ function openChat(id, name) {
 
 function sendChatMain() {
     const input = document.getElementById('chat-input-main') || document.getElementById('chat-input-text');
-    if (!input || !currentChatId) return;
+    if (!input || !currentChatId || !db) return;
     const text = input.value.trim();
     if (!text) return;
 
@@ -1688,11 +1741,16 @@ initAuthListener();
 
 function handleLogout() {
     if (confirm("Sign out dari dashboard?")) {
-        auth.signOut().then(() => {
+        const firebaseAuth = getAuth();
+        if (firebaseAuth) {
+            firebaseAuth.signOut().then(() => {
+                window.location.reload();
+            }).catch(err => {
+                alert("Logout error: " + err.message);
+            });
+        } else {
             window.location.reload();
-        }).catch(err => {
-            alert("Logout error: " + err.message);
-        });
+        }
     }
 }
 
@@ -1817,6 +1875,7 @@ async function restoreBayhaqiTrip() {
 }
 
 async function removeBaliClientsFromMaster() {
+    if (!db) return;
     try {
         const snap = await db.collection('clients').get();
         snap.forEach(doc => {
@@ -1831,25 +1890,3 @@ async function removeBaliClientsFromMaster() {
         console.warn("Error cleaning Bali clients:", e);
     }
 }
-
-// Global window exports
-window.switchTab = switchTab;
-window.toggleSidebar = toggleSidebar;
-window.toggleCollapse = toggleCollapse;
-window.toggleDarkMode = toggleDarkMode;
-window.focusOnCourier = focusOnCourier;
-window.filterMonitorAll = filterMonitorAll;
-window.loadClientsByRegion = loadClientsByRegion;
-window.filterClients = filterClients;
-window.deleteClient = deleteClient;
-window.clearAllClients = clearAllClients;
-window.addSelectedClients = addSelectedClients;
-window.submitTrip = submitTrip;
-window.toggleAllClients = toggleAllClients;
-window.promptEditCourierName = promptEditCourierName;
-window.handleLogin = handleLogin;
-window.handleLogout = handleLogout;
-window.logout = logout;
-window.deleteDestinationStop = deleteDestinationStop;
-window.openPoDModal = openPoDModal;
-window.toggleNotifDropdown = toggleNotifDropdown;
