@@ -626,17 +626,9 @@ function initUsersSnapshot() {
         snap.forEach(doc => {
             const u = doc.data();
             const displayName = u.name || u.email || doc.id.substring(0,8);
+            // Map strictly by User UID to avoid duplicate option rendering
             registeredUsers[doc.id] = displayName;
             registeredUsersObjects[doc.id] = u;
-
-            if (u.name) {
-                registeredUsers[u.name] = u.name;
-                registeredUsers[u.name.toLowerCase()] = u.name;
-            }
-            if (u.email) {
-                registeredUsers[u.email] = displayName;
-                registeredUsers[u.email.toLowerCase()] = displayName;
-            }
         });
         renderCourierOptions();
         renderManageCouriersList();
@@ -652,11 +644,21 @@ function renderManageCouriersList() {
     if (!container) return;
     container.innerHTML = '';
 
-    let hasCouriers = false;
-    for (const id in registeredUsers) {
-        if (!isCourierUser(id)) continue;
-        hasCouriers = true;
-        const name = registeredUsers[id];
+    const sortedCouriers = [];
+    for (const uid in registeredUsers) {
+        if (!isCourierUser(uid)) continue;
+        sortedCouriers.push({ uid: uid, name: registeredUsers[uid] });
+    }
+    sortedCouriers.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+
+    if (sortedCouriers.length === 0) {
+        container.innerHTML = '<p class="text-center py-3 text-muted extra-small">Belum ada kurir terdaftar.</p>';
+        return;
+    }
+
+    sortedCouriers.forEach(c => {
+        const id = c.uid;
+        const name = c.name;
         container.innerHTML += `
             <div class="d-flex align-items-center justify-content-between p-3 border rounded-3 mb-2 bg-light">
                 <div class="d-flex align-items-center gap-2">
@@ -671,10 +673,7 @@ function renderManageCouriersList() {
                 </button>
             </div>
         `;
-    }
-    if (!hasCouriers) {
-        container.innerHTML = '<p class="text-center py-3 text-muted extra-small">Belum ada kurir terdaftar.</p>';
-    }
+    });
 }
 
 async function promptEditCourierName(id, currentName) {
@@ -694,10 +693,17 @@ async function promptEditCourierName(id, currentName) {
 function renderCourierOptions() {
     const sel = document.getElementById('sel-courier'); if(!sel) return;
     sel.innerHTML = '<option value="">Select Carrier...</option>';
-    for (const id in registeredUsers) {
-        if (!isCourierUser(id)) continue;
-        sel.innerHTML += `<option value="${id}">${registeredUsers[id]}</option>`;
+
+    const sortedCouriers = [];
+    for (const uid in registeredUsers) {
+        if (!isCourierUser(uid)) continue;
+        sortedCouriers.push({ uid: uid, name: registeredUsers[uid] });
     }
+    sortedCouriers.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+
+    sortedCouriers.forEach(c => {
+        sel.innerHTML += `<option value="${c.uid}">${c.name}</option>`;
+    });
 }
 
 function initRtdbListener() {
