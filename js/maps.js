@@ -2,6 +2,14 @@
 // WTRACK LOGISTICS - LEAFLET & MAPS MODULE
 // ==========================================
 
+window.refreshMapSizes = function() {
+    setTimeout(() => {
+        if (window.map && typeof window.map.invalidateSize === 'function') window.map.invalidateSize();
+        if (window.mapMonitor && typeof window.mapMonitor.invalidateSize === 'function') window.mapMonitor.invalidateSize();
+        if (window.mapDispatch && typeof window.mapDispatch.invalidateSize === 'function') window.mapDispatch.invalidateSize();
+    }, 200);
+};
+
 let map, mapMonitor, mapDispatch;
 let tripMarkersLayer = (typeof L !== 'undefined' && L.layerGroup) ? L.layerGroup() : null;
 let monitorMarkersLayer = (typeof L !== 'undefined' && L.layerGroup) ? L.layerGroup() : null;
@@ -72,47 +80,51 @@ function initMaps() {
     const jabodetabekMaxBounds = getJabodetabekMaxBounds();
 
     try {
-        if (document.getElementById('map')) {
-            if (!map) {
-                map = L.map('map', {
-                    zoomControl: false,
-                    maxBounds: jabodetabekMaxBounds,
-                    maxBoundsViscosity: 0.8
-                }).setView([-6.2088, 106.8456], 12);
-                L.control.zoom({ position: 'bottomright' }).addTo(map);
-                addMapTileLayer(map);
-                if (tripMarkersLayer) tripMarkersLayer.addTo(map);
-                if (tripRoutesLayer) tripRoutesLayer.addTo(map);
-            }
-        }
-        if (document.getElementById('map-monitor')) {
-            if (!mapMonitor) {
-                mapMonitor = L.map('map-monitor', {
-                    zoomControl: false,
-                    maxBounds: jabodetabekMaxBounds,
-                    maxBoundsViscosity: 0.8
-                }).setView([-6.2088, 106.8456], 12);
-                L.control.zoom({ position: 'bottomright' }).addTo(mapMonitor);
-                addMapTileLayer(mapMonitor);
-                if (monitorMarkersLayer) monitorMarkersLayer.addTo(mapMonitor);
-                if (monitorCouriersLayer) monitorCouriersLayer.addTo(mapMonitor);
-                if (tripRoutesLayer) tripRoutesLayer.addTo(mapMonitor);
-            }
-        }
-        if (document.getElementById('map-dispatch')) {
-            if (!mapDispatch) {
-                mapDispatch = L.map('map-dispatch', {
-                    zoomControl: false,
-                    maxBounds: jabodetabekMaxBounds,
-                    maxBoundsViscosity: 0.8
-                }).setView([-6.2088, 106.8456], 12);
-                L.control.zoom({ position: 'bottomright' }).addTo(mapDispatch);
-                addMapTileLayer(mapDispatch);
-                if (draftMarkersLayer) draftMarkersLayer.addTo(mapDispatch);
-            }
+        const elMap = document.getElementById('map');
+        if (elMap && !map) {
+            map = L.map('map', {
+                zoomControl: false,
+                maxBounds: jabodetabekMaxBounds,
+                maxBoundsViscosity: 0.8
+            }).setView([-6.2088, 106.8456], 12);
+            L.control.zoom({ position: 'bottomright' }).addTo(map);
+            addMapTileLayer(map);
+            if (tripMarkersLayer) tripMarkersLayer.addTo(map);
+            if (tripRoutesLayer) tripRoutesLayer.addTo(map);
+            window.map = map;
         }
 
-        refreshMapSizes();
+        const elMonitor = document.getElementById('map-monitor');
+        if (elMonitor && !mapMonitor) {
+            mapMonitor = L.map('map-monitor', {
+                zoomControl: false,
+                maxBounds: jabodetabekMaxBounds,
+                maxBoundsViscosity: 0.8
+            }).setView([-6.2088, 106.8456], 12);
+            L.control.zoom({ position: 'bottomright' }).addTo(mapMonitor);
+            addMapTileLayer(mapMonitor);
+            if (monitorMarkersLayer) monitorMarkersLayer.addTo(mapMonitor);
+            if (monitorCouriersLayer) monitorCouriersLayer.addTo(mapMonitor);
+            if (tripRoutesLayer) tripRoutesLayer.addTo(mapMonitor);
+            window.mapMonitor = mapMonitor;
+        }
+
+        const elDispatch = document.getElementById('map-dispatch');
+        if (elDispatch && !mapDispatch) {
+            mapDispatch = L.map('map-dispatch', {
+                zoomControl: false,
+                maxBounds: jabodetabekMaxBounds,
+                maxBoundsViscosity: 0.8
+            }).setView([-6.2088, 106.8456], 12);
+            L.control.zoom({ position: 'bottomright' }).addTo(mapDispatch);
+            addMapTileLayer(mapDispatch);
+            if (draftMarkersLayer) draftMarkersLayer.addTo(mapDispatch);
+            window.mapDispatch = mapDispatch;
+        }
+
+        if (typeof refreshMapSizes === 'function') {
+            refreshMapSizes();
+        }
     } catch (e) {
         console.error("Leaflet Init Error:", e);
     }
@@ -120,10 +132,10 @@ function initMaps() {
 
 function updateMapMarkers(filter = "") {
     const search = filter.toLowerCase();
-    if (typeof tripMarkersLayer !== 'undefined') tripMarkersLayer.clearLayers();
-    if (typeof monitorMarkersLayer !== 'undefined') monitorMarkersLayer.clearLayers();
-    if (typeof monitorCouriersLayer !== 'undefined') monitorCouriersLayer.clearLayers();
-    if (typeof tripRoutesLayer !== 'undefined') tripRoutesLayer.clearLayers();
+    if (typeof tripMarkersLayer !== 'undefined' && tripMarkersLayer) tripMarkersLayer.clearLayers();
+    if (typeof monitorMarkersLayer !== 'undefined' && monitorMarkersLayer) monitorMarkersLayer.clearLayers();
+    if (typeof monitorCouriersLayer !== 'undefined' && monitorCouriersLayer) monitorCouriersLayer.clearLayers();
+    if (typeof tripRoutesLayer !== 'undefined' && tripRoutesLayer) tripRoutesLayer.clearLayers();
 
     // 1. Render Online Couriers inside Jabodetabek & Karawang
     if (typeof currentOnlineCouriers !== 'undefined') {
@@ -131,7 +143,6 @@ function updateMapMarkers(filter = "") {
             const c = currentOnlineCouriers[id];
             if (!c || typeof c.lat === 'undefined' || typeof c.lng === 'undefined') continue;
 
-            // Restrict courier markers to Jabodetabek + Cikarang + Karawang + Tangerang
             if (!isInsideJabodetabekArea(c.lat, c.lng)) continue;
 
             const color = typeof getCourierColor === 'function' ? getCourierColor(id) : '#10B981';
@@ -145,14 +156,14 @@ function updateMapMarkers(filter = "") {
                 iconAnchor: [12, 12]
             });
 
-            if (typeof tripMarkersLayer !== 'undefined') {
+            if (typeof tripMarkersLayer !== 'undefined' && tripMarkersLayer) {
                 const mDash = L.marker(pos, { icon: courierIcon }).addTo(tripMarkersLayer);
                 mDash.courierId = id;
                 mDash.courierName = name;
                 mDash.bindPopup(`<div style="min-width:140px;"><b>${name}</b><br><small style="color:${color}; font-weight:800;">LIVE GPS ON-TRACK</small></div>`);
             }
 
-            if (typeof monitorCouriersLayer !== 'undefined' && (!filter || name.toLowerCase().includes(search) || id.toLowerCase().includes(search))) {
+            if (typeof monitorCouriersLayer !== 'undefined' && monitorCouriersLayer && (!filter || name.toLowerCase().includes(search) || id.toLowerCase().includes(search))) {
                 const mMon = L.marker(pos, { icon: courierIcon }).addTo(monitorCouriersLayer);
                 mMon.courierId = id;
                 mMon.courierName = name;
@@ -237,8 +248,8 @@ function updateMapMarkers(filter = "") {
                     </div>
                 `;
 
-                if (typeof tripMarkersLayer !== 'undefined') L.marker(pt, { icon }).bindPopup(popupHtml).addTo(tripMarkersLayer);
-                if (typeof monitorMarkersLayer !== 'undefined') {
+                if (typeof tripMarkersLayer !== 'undefined' && tripMarkersLayer) L.marker(pt, { icon }).bindPopup(popupHtml).addTo(tripMarkersLayer);
+                if (typeof monitorMarkersLayer !== 'undefined' && monitorMarkersLayer) {
                     const matches = d.locationName.toLowerCase().includes(search) || cName.toLowerCase().includes(search) || t.id.toLowerCase().includes(search);
                     if (!filter || matches) {
                         L.marker(pt, { icon }).bindPopup(popupHtml).addTo(monitorMarkersLayer);
@@ -246,7 +257,7 @@ function updateMapMarkers(filter = "") {
                 }
             });
 
-            if (typeof tripRoutesLayer !== 'undefined' && routePoints.length > 1) {
+            if (typeof tripRoutesLayer !== 'undefined' && tripRoutesLayer && routePoints.length > 1) {
                 L.polyline(routePoints, {
                     color: cColor,
                     weight: 4,
@@ -260,7 +271,7 @@ function updateMapMarkers(filter = "") {
 
 function toggleHeatmap() {
     if (heatmapLayer) {
-        map.removeLayer(heatmapLayer);
+        if (map) map.removeLayer(heatmapLayer);
         heatmapLayer = null;
         return;
     }
@@ -276,9 +287,14 @@ function toggleHeatmap() {
             }
         });
     }
-    if (points.length === 0) return showToast("No delivery data for heatmap.");
-    heatmapLayer = L.heatLayer(points, { radius: 25, blur: 15 }).addTo(map);
-    showToast("Heatmap Analytics Active");
+    if (points.length === 0) {
+        if (typeof showToast === 'function') showToast("No delivery data for heatmap.");
+        return;
+    }
+    if (map) {
+        heatmapLayer = L.heatLayer(points, { radius: 25, blur: 15 }).addTo(map);
+        if (typeof showToast === 'function') showToast("Heatmap Analytics Active");
+    }
 }
 
 window.gm_authFailure = function() {
@@ -298,7 +314,6 @@ async function initAutocomplete() {
         const input = document.getElementById('places-search');
         if (!input) return;
 
-        // Ensure clean background & disable browser autofill/credential managers
         input.setAttribute('autocomplete', 'off');
         input.setAttribute('spellcheck', 'false');
         input.setAttribute('data-lpignore', 'true');
@@ -347,10 +362,12 @@ async function initAutocomplete() {
                         return;
                     }
 
-                    tripQueue.push({ name, address, lat, lng });
-                    renderQueue();
+                    if (typeof tripQueue !== 'undefined') {
+                        tripQueue.push({ name, address, lat, lng });
+                        if (typeof renderQueue === 'function') renderQueue();
+                    }
                     input.value = "";
-                    showToast("Lokasi ditambahkan ke rute!");
+                    if (typeof showToast === 'function') showToast("Lokasi ditambahkan ke rute!");
                     if (mapDispatch) mapDispatch.flyTo([lat, lng], 16);
                 } else if (input.value.trim().length > 0) {
                     addManualAddress();
@@ -368,7 +385,7 @@ async function addManualAddress() {
     const addressText = input.value.trim();
     if (!addressText) return alert("Masukkan nama toko atau alamat lokasi terlebih dahulu!");
 
-    showToast("Mencari koordinat lokasi...");
+    if (typeof showToast === 'function') showToast("Mencari koordinat lokasi...");
 
     try {
         if (window.google && google.maps && google.maps.Geocoder) {
@@ -388,10 +405,12 @@ async function addManualAddress() {
                         return;
                     }
 
-                    tripQueue.push({ name: storeName, address: formatted, lat, lng });
-                    renderQueue();
+                    if (typeof tripQueue !== 'undefined') {
+                        tripQueue.push({ name: storeName, address: formatted, lat, lng });
+                        if (typeof renderQueue === 'function') renderQueue();
+                    }
                     input.value = "";
-                    showToast("Lokasi berhasil ditambahkan!");
+                    if (typeof showToast === 'function') showToast("Lokasi berhasil ditambahkan!");
                     if (mapDispatch) mapDispatch.flyTo([lat, lng], 16);
                 } else {
                     geocodeWithNominatim(addressText);
@@ -423,11 +442,13 @@ async function geocodeWithNominatim(addressText) {
                 return;
             }
 
-            tripQueue.push({ name: storeName, address: formatted, lat, lng });
-            renderQueue();
+            if (typeof tripQueue !== 'undefined') {
+                tripQueue.push({ name: storeName, address: formatted, lat, lng });
+                if (typeof renderQueue === 'function') renderQueue();
+            }
             const input = document.getElementById('places-search');
             if (input) input.value = "";
-            showToast("Lokasi berhasil ditambahkan!");
+            if (typeof showToast === 'function') showToast("Lokasi berhasil ditambahkan!");
             if (mapDispatch) mapDispatch.flyTo([lat, lng], 16);
         } else {
             alert(`Lokasi "${addressText}" tidak ditemukan. Silakan perjelas nama toko / jalan / kota.`);
@@ -441,10 +462,3 @@ window.addEventListener('load', () => {
     initMaps();
     initAutocomplete();
 });
-
-// Global window exports
-window.initMaps = initMaps;
-window.initAutocomplete = initAutocomplete;
-window.addManualAddress = addManualAddress;
-window.updateMapMarkers = updateMapMarkers;
-window.toggleHeatmap = toggleHeatmap;
