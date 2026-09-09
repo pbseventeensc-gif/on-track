@@ -23,10 +23,31 @@ function ensureFirebaseApp() {
 }
 
 ensureFirebaseApp();
-const rtdb = (typeof firebase !== 'undefined' && firebase.database) ? firebase.database() : (typeof window.rtdb !== 'undefined' ? window.rtdb : null);
-const db = (typeof firebase !== 'undefined' && firebase.firestore) ? firebase.firestore() : (typeof window.db !== 'undefined' ? window.db : null);
-const storage = (typeof firebase !== 'undefined' && firebase.storage) ? firebase.storage() : (typeof window.storage !== 'undefined' ? window.storage : null);
-const auth = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth() : (typeof window.auth !== 'undefined' ? window.auth : null);
+function getAuth() {
+    if (typeof firebase !== 'undefined' && firebase.auth) return firebase.auth();
+    if (typeof window.auth !== 'undefined' && window.auth) return window.auth;
+    return null;
+}
+function getDb() {
+    if (typeof firebase !== 'undefined' && firebase.firestore) return firebase.firestore();
+    if (typeof window.db !== 'undefined' && window.db) return window.db;
+    return null;
+}
+function getRtdb() {
+    if (typeof firebase !== 'undefined' && firebase.database) return firebase.database();
+    if (typeof window.rtdb !== 'undefined' && window.rtdb) return window.rtdb;
+    return null;
+}
+function getStorage() {
+    if (typeof firebase !== 'undefined' && firebase.storage) return firebase.storage();
+    if (typeof window.storage !== 'undefined' && window.storage) return window.storage;
+    return null;
+}
+
+let rtdb = getRtdb();
+let db = getDb();
+let storage = getStorage();
+let auth = getAuth();
 
 if (db) {
     try {
@@ -1546,7 +1567,9 @@ function sendChatMain() {
 }
 
 async function handleLogin(e) {
-    if(e) e.preventDefault();
+    if(e && e.preventDefault) e.preventDefault();
+    ensureFirebaseApp();
+
     const emailEl = document.getElementById('login-email');
     const passEl = document.getElementById('login-password') || document.getElementById('login-pass');
     const err = document.getElementById('login-error');
@@ -1573,50 +1596,73 @@ async function handleLogin(e) {
     }
 
     try {
-        await auth.signInWithEmailAndPassword(email, pass);
+        const firebaseAuth = getAuth();
+        if (!firebaseAuth) {
+            throw new Error("Sistem Autentikasi Firebase belum siap. Silakan coba sebentar lagi.");
+        }
+        await firebaseAuth.signInWithEmailAndPassword(email, pass);
     } catch (e) {
+        console.error("Login Error:", e);
         if (btn) {
             btn.disabled = false;
             btn.innerText = "SIGN IN";
         }
         if (err) {
-            err.innerText = "Login Gagal: " + e.message;
+            err.innerText = "Login Gagal: " + (e.message || e);
             err.classList.remove('d-none');
         } else {
-            alert("Login Gagal: " + e.message);
+            alert("Login Gagal: " + (e.message || e));
         }
     }
 }
 
-const currentAuth = auth || (typeof firebase !== 'undefined' && firebase.auth ? firebase.auth() : null);
-if (currentAuth) {
-    currentAuth.onAuthStateChanged(user => {
-        if (user) {
-            document.getElementById('login-screen').style.display = 'none';
-            document.getElementById('main-wrapper').style.display = 'flex';
+function initAuthListener() {
+    ensureFirebaseApp();
+    const firebaseAuth = getAuth();
+    if (firebaseAuth) {
+        firebaseAuth.onAuthStateChanged(user => {
+            const loginScreen = document.getElementById('login-screen');
+            const mainWrapper = document.getElementById('main-wrapper');
 
-            removeBaliClientsFromMaster();
+            if (user) {
+                if (loginScreen) loginScreen.style.display = 'none';
+                if (mainWrapper) mainWrapper.style.display = 'flex';
 
-            const currentDb = db || (typeof firebase !== 'undefined' && firebase.firestore ? firebase.firestore() : null);
-            if (currentDb) {
-                currentDb.collection('users').doc(user.uid).get().then(doc => {
-                    if (doc.exists) {
-                        const uData = doc.data();
-                        const uRole = (uData.role || 'admin').toLowerCase();
-                        currentUserRole = uRole;
+                removeBaliClientsFromMaster();
 
-                        const profileName = document.getElementById('profile-name');
-                        const profileRole = document.getElementById('profile-role');
-                        if (profileName) profileName.innerText = "admin";
-                        if (profileRole) profileRole.innerHTML = '<span class="d-inline-block rounded-circle bg-success me-1" style="width: 7px; height: 7px;"></span>Online';
-                    }
-                }).catch(e => console.warn("Could not fetch user role:", e));
+                const currentDb = getDb();
+                if (currentDb) {
+                    currentDb.collection('users').doc(user.uid).get().then(doc => {
+                        if (doc.exists) {
+                            const uData = doc.data();
+                            const uRole = (uData.role || 'admin').toLowerCase();
+                            currentUserRole = uRole;
+
+                            const profileName = document.getElementById('profile-name');
+                            const profileRole = document.getElementById('profile-role');
+                            if (profileName) profileName.innerText = uData.name || "admin";
+                            if (profileRole) profileRole.innerHTML = '<span class="d-inline-block rounded-circle bg-success me-1" style="width: 7px; height: 7px;"></span>Online';
+                        }
+                    }).catch(e => console.warn("Could not fetch user role:", e));
+                }
+
+                setTimeout(() => {
+                    if (typeof initMaps === 'function') initMaps();
+                    if (typeof map !== 'undefined' && map && typeof map.invalidateSize === 'function') map.invalidateSize();
+                    if (typeof mapMonitor !== 'undefined' && mapMonitor && typeof mapMonitor.invalidateSize === 'function') mapMonitor.invalidateSize();
+                    if (typeof mapDispatch !== 'undefined' && mapDispatch && typeof mapDispatch.invalidateSize === 'function') mapDispatch.invalidateSize();
+                }, 300);
+            } else {
+                if (loginScreen) loginScreen.style.display = 'flex';
+                if (mainWrapper) mainWrapper.style.display = 'none';
             }
+        });
+    } else {
+        setTimeout(initAuthListener, 250);
+    }
+}
 
-            setTimeout(() => {
-                if (typeof initMaps === 'function') initMaps();
-                if (typeof map !== 'undefined' && map && typeof map.invalidateSize === 'function') map.invalidateSize();
-                if (typeof mapMonitor !== 'undefined' && mapMonitor && typeof mapMonitor.invalidateSize === 'function') mapMonitor.invalidateSize();
+initAuthListener();
                 if (typeof mapDispatch !== 'undefined' && mapDispatch && typeof mapDispatch.invalidateSize === 'function') mapDispatch.invalidateSize();
             }, 300);
         } else {
