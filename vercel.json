@@ -1,5 +1,7 @@
 {
   "version": 2,
+  "public": true,
+  "cleanUrls": true,
   "functions": {
     "api/*.js": {
       "memory": 1024,
@@ -14,10 +16,6 @@
     {
       "source": "/api/(.*)",
       "destination": "/api/$1"
-    },
-    {
-      "source": "/dashboard",
-      "destination": "/index.html"
     }
   ]
 }
