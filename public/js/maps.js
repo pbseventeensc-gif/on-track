@@ -423,3 +423,10 @@ window.addEventListener('load', () => {
     initMaps();
     initAutocomplete();
 });
+
+// Global window exports
+window.initMaps = initMaps;
+window.initAutocomplete = initAutocomplete;
+window.addManualAddress = addManualAddress;
+window.updateMapMarkers = updateMapMarkers;
+window.toggleHeatmap = toggleHeatmap;
