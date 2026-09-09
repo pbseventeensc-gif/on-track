@@ -9,6 +9,13 @@ let monitorCouriersLayer = (typeof L !== 'undefined' && L.layerGroup) ? L.layerG
 let draftMarkersLayer = (typeof L !== 'undefined' && L.layerGroup) ? L.layerGroup() : null;
 let tripRoutesLayer = (typeof L !== 'undefined' && L.layerGroup) ? L.layerGroup() : null;
 
+// Immediate window exports
+window.initMaps = initMaps;
+window.initAutocomplete = initAutocomplete;
+window.addManualAddress = addManualAddress;
+window.updateMapMarkers = updateMapMarkers;
+window.toggleHeatmap = toggleHeatmap;
+
 function ensureMapLayers() {
     if (typeof L !== 'undefined' && L.layerGroup) {
         if (!tripMarkersLayer) tripMarkersLayer = L.layerGroup();

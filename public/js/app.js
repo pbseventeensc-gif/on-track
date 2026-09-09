@@ -44,6 +44,28 @@ function getStorage() {
     return null;
 }
 
+// Immediate window exports (hoisted functions)
+window.switchTab = switchTab;
+window.toggleSidebar = toggleSidebar;
+window.toggleCollapse = toggleCollapse;
+window.toggleDarkMode = toggleDarkMode;
+window.focusOnCourier = focusOnCourier;
+window.filterMonitorAll = filterMonitorAll;
+window.loadClientsByRegion = loadClientsByRegion;
+window.filterClients = filterClients;
+window.deleteClient = deleteClient;
+window.clearAllClients = clearAllClients;
+window.addSelectedClients = addSelectedClients;
+window.submitTrip = submitTrip;
+window.toggleAllClients = toggleAllClients;
+window.promptEditCourierName = promptEditCourierName;
+window.handleLogin = handleLogin;
+window.handleLogout = handleLogout;
+window.logout = logout;
+window.deleteDestinationStop = deleteDestinationStop;
+window.openPoDModal = openPoDModal;
+window.toggleNotifDropdown = toggleNotifDropdown;
+
 let rtdb = getRtdb();
 let db = getDb();
 let storage = getStorage();
