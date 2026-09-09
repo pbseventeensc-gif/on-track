@@ -437,16 +437,27 @@
                                     <button class="btn btn-sm btn-light border ms-1" title="Refresh Data" onclick="loadFullHistory()"><i class="bi bi-arrow-clockwise"></i></button>
                                 </div>
                                 <div class="d-flex align-items-center gap-2 flex-wrap">
-                                    <select id="recent-status-filter" class="form-select form-select-sm fw-normal py-2" style="border-radius: 10px; width: 130px; padding-right: 22px; font-size: 0.8rem; background: #f8fafc;" onchange="renderRecentShipments()">
-                                        <option value="all">Status</option>
+                                    <select id="recent-date-filter" class="form-select form-select-sm fw-normal py-2" style="border-radius: 10px; width: 135px; font-size: 0.8rem; background: #f8fafc;" onchange="renderRecentShipments()">
+                                        <option value="all">Semua Tanggal</option>
+                                        <option value="today">Hari Ini</option>
+                                        <option value="3days">3 Hari Terakhir</option>
+                                        <option value="7days">7 Hari Terakhir</option>
+                                        <option value="month">Bulan Ini</option>
+                                    </select>
+                                    <select id="recent-carrier-filter" class="form-select form-select-sm fw-normal py-2" style="border-radius: 10px; width: 135px; font-size: 0.8rem; background: #f8fafc;" onchange="renderRecentShipments()">
+                                        <option value="all">Semua Kurir</option>
+                                    </select>
+                                    <select id="recent-status-filter" class="form-select form-select-sm fw-normal py-2" style="border-radius: 10px; width: 125px; font-size: 0.8rem; background: #f8fafc;" onchange="renderRecentShipments()">
+                                        <option value="all">Semua Status</option>
                                         <option value="completed">Completed</option>
                                         <option value="in_progress">In Progress</option>
                                         <option value="assigned">Pending</option>
                                     </select>
                                     <div class="position-relative">
                                         <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"></i>
-                                        <input type="text" id="recent-shipment-search" class="form-control form-control-sm ps-5 py-2 fw-normal" style="border-radius: 10px; width: 220px; background: #f8fafc;" placeholder="Cari ID, Alamat, Kurir..." oninput="renderRecentShipments(this.value)" autocomplete="off">
+                                        <input type="text" id="recent-shipment-search" class="form-control form-control-sm ps-5 py-2 fw-normal" style="border-radius: 10px; width: 200px; background: #f8fafc;" placeholder="Cari ID, Alamat, Kurir..." oninput="renderRecentShipments(this.value)" autocomplete="off">
                                     </div>
+                                    <button class="btn btn-sm btn-light border py-2 px-2" style="border-radius: 10px;" title="Reset Filter" onclick="resetRecentFilters()"><i class="bi bi-arrow-counterclockwise"></i></button>
                                     <button class="btn btn-sm btn-outline-dark fw-bold px-3 py-2" style="border-radius: 10px;" onclick="exportRecentShipmentsToExcel()"><i class="bi bi-file-earmark-excel me-1"></i> Excel Report</button>
                                 </div>
                             </div>

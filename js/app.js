@@ -90,6 +90,8 @@ window.logout = logout;
 window.deleteDestinationStop = deleteDestinationStop;
 window.openPoDModal = openPoDModal;
 window.toggleNotifDropdown = toggleNotifDropdown;
+window.renderRecentShipments = renderRecentShipments;
+window.resetRecentFilters = resetRecentFilters;
 window.calculateDistance = calculateDistance;
 
 let rtdb = getRtdb();
@@ -272,19 +274,21 @@ function updateNotificationBell() {
                     icon: 'bi-clock-history',
                     title: `DELAY WARNING: ${t.id.substring(0,8)}`,
                     desc: `Tidak ada update > 30 menit`,
-                    tab: 'monitor'
+                    tab: 'monitor',
+                    courierId: t.courierId
                 });
             }
         }
 
-        if (t.courierId && !currentOnlineCouriers[t.courierId] && t.status !== 'completed') {
+        if (t.courierId && !isCourierOnline(t.courierId) && t.status !== 'completed') {
             const courierName = registeredUsers[t.courierId] || 'Kurir';
             notificationItems.push({
                 type: 'warning',
                 icon: 'bi-person-x-fill',
-                title: `KURIR OFFLINE`,
+                title: `KURIR OFFLINE: ${courierName}`,
                 desc: `${courierName} offline padahal ada tugas aktif`,
-                tab: 'monitor'
+                tab: 'monitor',
+                courierId: t.courierId
             });
         }
     });
@@ -321,8 +325,9 @@ function updateNotificationBell() {
         listEl.innerHTML = notificationItems.map(item => {
             const bgClass = item.type === 'danger' ? '#FEF2F2' : item.type === 'warning' ? '#FFFBEB' : '#F0F9FF';
             const iconColor = item.type === 'danger' ? 'text-danger' : item.type === 'warning' ? 'text-warning' : 'text-primary';
+            const clickAction = item.courierId ? `focusOnCourier('${item.courierId}', true);` : `switchTab('${item.tab}', document.querySelector('[onclick*=\\'${item.tab}\\'\\]'));`;
             return `
-                <div class="p-3 border-bottom d-flex align-items-start gap-3 cursor-pointer" style="background: ${bgClass}; transition: 0.2s;" onclick="switchTab('${item.tab}', document.querySelector('[onclick*=\\'${item.tab}\\'\\]')); toggleNotifDropdown(event);">
+                <div class="p-3 border-bottom d-flex align-items-start gap-3 cursor-pointer" style="background: ${bgClass}; transition: 0.2s;" onclick="${clickAction} toggleNotifDropdown(event);">
                     <div class="${iconColor} fs-5 mt-1"><i class="bi ${item.icon}"></i></div>
                     <div class="flex-grow-1">
                         <div class="fw-bold extra-small text-dark">${item.title}</div>
@@ -353,7 +358,7 @@ function updateDynamicAlerts() {
 
             if(now - lastUpdate > 30 * 60 * 1000) {
                 container.innerHTML += `
-                    <div class="d-flex gap-3 p-3 rounded-3" style="background: #FEF2F2;">
+                    <div class="d-flex gap-3 p-3 rounded-3 cursor-pointer" style="background: #FEF2F2;" onclick="focusOnCourier('${t.courierId}', true)">
                         <div class="text-danger fs-4"><i class="bi bi-clock-history"></i></div>
                         <div>
                             <div class="fw-bold small text-dark">Delay: ${tripIdShort} (${cName})</div>
@@ -363,9 +368,9 @@ function updateDynamicAlerts() {
             }
         }
 
-        if(!currentOnlineCouriers[t.courierId] && t.status !== 'completed') {
+        if(!isCourierOnline(t.courierId) && t.status !== 'completed') {
             container.innerHTML += `
-                <div class="d-flex gap-3 p-3 rounded-3" style="background: #FFFBEB;">
+                <div class="d-flex gap-3 p-3 rounded-3 cursor-pointer" style="background: #FFFBEB;" onclick="focusOnCourier('${t.courierId}', true)">
                     <div class="text-warning fs-4"><i class="bi bi-person-x"></i></div>
                     <div>
                         <div class="fw-bold small text-dark">Kurir Offline: ${cName}</div>
@@ -631,6 +636,39 @@ function addSelectedClients() {
     }
 }
 
+async function deleteOrphanTrips() {
+    try {
+        const activeDb = getDb();
+        if (!activeDb) return;
+
+        const snap = await activeDb.collection('trips').get();
+        if (snap.empty) return;
+
+        const batch = activeDb.batch();
+        let deleteCount = 0;
+
+        snap.forEach(doc => {
+            const t = doc.data();
+            const courierId = t.courierId || '';
+            const isKnownUser = (typeof registeredUsers !== 'undefined' && registeredUsers[courierId]) ||
+                                (courierId === "xONhqVSNSYcEcGCZyW2cLGJWQt92" || courierId === "38smknqYbnREY0fQ4Klrnxidv5P2" || courierId === "3LHRzmg3PyV2wxeRQcCGdBCDrDH2");
+
+            if (!isKnownUser || courierId.includes('EK74u0gA') || courierId.toLowerCase().includes('novalgan')) {
+                batch.delete(doc.ref);
+                deleteCount++;
+            }
+        });
+
+        if (deleteCount > 0) {
+            await batch.commit();
+            console.log(`Cleaned up ${deleteCount} orphan trips from Firestore.`);
+            showToast(`Sistem membersihkan ${deleteCount} tugas lama dari database.`);
+        }
+    } catch(e) {
+        console.warn("Orphan trips cleanup info:", e);
+    }
+}
+
 function initUsersSnapshot() {
     const activeDb = getDb();
     if (!activeDb) {
@@ -647,6 +685,7 @@ function initUsersSnapshot() {
             registeredUsers[doc.id] = displayName;
             registeredUsersObjects[doc.id] = u;
         });
+        deleteOrphanTrips();
         renderCourierOptions();
         renderManageCouriersList();
         renderRecentShipments();
@@ -1206,16 +1245,45 @@ function renderRecentShipments(filter = "") {
 
     const rawSearch = (typeof filter === 'string' ? filter : (document.getElementById('recent-shipment-search')?.value || "")).toLowerCase().trim();
     const selectedStatus = document.getElementById('recent-status-filter')?.value || "all";
-    const shipmentRows = [];
+    const selectedCarrier = document.getElementById('recent-carrier-filter')?.value || "all";
+    const selectedDateMode = document.getElementById('recent-date-filter')?.value || "all";
 
-    const today = new Date();
-    const todayDayMs = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+    const shipmentRows = [];
+    const now = new Date();
+    const todayDayMs = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+
+    let filterStartMs = 0;
+    let filterEndMs = Infinity;
+
+    if (selectedDateMode === "today") {
+        filterStartMs = todayDayMs;
+        filterEndMs = todayDayMs + (24 * 60 * 60 * 1000) - 1;
+    } else if (selectedDateMode === "3days") {
+        filterStartMs = todayDayMs - (2 * 24 * 60 * 60 * 1000);
+        filterEndMs = todayDayMs + (24 * 60 * 60 * 1000) - 1;
+    } else if (selectedDateMode === "7days") {
+        filterStartMs = todayDayMs - (6 * 24 * 60 * 60 * 1000);
+        filterEndMs = todayDayMs + (24 * 60 * 60 * 1000) - 1;
+    } else if (selectedDateMode === "month") {
+        filterStartMs = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+        filterEndMs = todayDayMs + (24 * 60 * 60 * 1000) - 1;
+    }
 
     allCurrentTrips.forEach(t => {
         const cName = getCourierDisplayName(t.courierId);
         const tripIdShort = '#' + t.id.substring(Math.max(0, t.id.length - 6));
         const tripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : (t.id ? parseInt(t.id.replace('TRIP_', '')) || 0 : 0));
         const tripDateStr = tripMs ? new Date(tripMs).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '-';
+
+        // Check Carrier Filter
+        if (selectedCarrier !== "all" && t.courierId !== selectedCarrier && cName.toLowerCase() !== selectedCarrier.toLowerCase()) {
+            return;
+        }
+
+        // Check Date Filter
+        if (filterStartMs > 0 && (tripMs < filterStartMs || tripMs > filterEndMs)) {
+            return;
+        }
 
         if (t.destinations && t.destinations.length > 0) {
             t.destinations.forEach((d, idx) => {
@@ -1233,7 +1301,7 @@ function renderRecentShipments(filter = "") {
                     if (d.arrivalTime) {
                         timeStr = new Date(d.arrivalTime.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
                     } else {
-                        timeStr = 'In Transit';
+                        timeStr = 'On Delivery';
                     }
                 } else if (d.completedTime) {
                     timeStr = new Date(d.completedTime.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
@@ -1265,59 +1333,29 @@ function renderRecentShipments(filter = "") {
                     });
                 }
             });
-        } else {
-            const searchableText = `${tripIdShort} ${t.id} ${cName} ${t.status} ${tripDateStr}`.toLowerCase();
-            const terms = rawSearch.split(/\s+/).filter(x => x.length > 0);
-            const matchSearch = !rawSearch || terms.every(term => {
-                const cleanTerm = term.replace('#', '');
-                return searchableText.includes(term) || searchableText.includes(cleanTerm);
-            });
-
-            const matchStatus = (selectedStatus === 'all') || (t.status === selectedStatus);
-            if (matchSearch && matchStatus) {
-                shipmentRows.push({
-                    tripId: t.id,
-                    displayId: tripIdShort,
-                    dateStr: tripDateStr,
-                    tripMs: tripMs,
-                    stopIndex: 1,
-                    destinationName: 'TBD',
-                    fullAddress: '',
-                    status: t.status,
-                    statusClass: t.status === 'completed' ? 'delivered' : 'pending',
-                    carrier: cName,
-                    eta: t.status === 'completed' ? 'Finished' : 'Pending',
-                    proofUrl: ''
-                });
-            }
         }
     });
 
-    const todayRows = shipmentRows.filter(s => s.tripMs >= todayDayMs);
     const totalBadge = document.getElementById('recent-shipments-total-badge');
     if (totalBadge) {
-        totalBadge.innerText = `${todayRows.length} Hari Ini`;
+        totalBadge.innerText = `${shipmentRows.length} Total Filtered`;
     }
 
-    const datalist = document.getElementById('recent-shipments-datalist');
-    if (datalist) {
-        const suggestions = new Set();
-        for (const id in registeredUsers) {
-            if (registeredUsers[id]) suggestions.add(registeredUsers[id]);
+    const carrierSelect = document.getElementById('recent-carrier-filter');
+    if (carrierSelect && carrierSelect.options.length <= 1) {
+        const sortedCouriers = [];
+        for (const uid in registeredUsers) {
+            if (!isCourierUser(uid)) continue;
+            sortedCouriers.push({ uid: uid, name: registeredUsers[uid] });
         }
-        allCurrentTrips.forEach(t => {
-            suggestions.add('#' + t.id.substring(Math.max(0, t.id.length - 6)));
-            if (t.destinations) {
-                t.destinations.forEach(d => {
-                    if (d.locationName) suggestions.add(d.locationName);
-                });
-            }
+        sortedCouriers.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+        sortedCouriers.forEach(c => {
+            carrierSelect.innerHTML += `<option value="${c.uid}">${c.name}</option>`;
         });
-        datalist.innerHTML = Array.from(suggestions).map(s => `<option value="${s}">`).join('');
     }
 
     if (shipmentRows.length === 0) {
-        table.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted extra-small">Tidak ada data pengantaran matching filter.</td></tr>`;
+        table.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted extra-small"><i class="bi bi-search me-1"></i> Tidak ada data pengantaran matching filter.</td></tr>`;
         return;
     }
 
@@ -1342,6 +1380,21 @@ function renderRecentShipments(filter = "") {
             </td>
         </tr>`;
     });
+}
+
+function resetRecentFilters() {
+    const sSearch = document.getElementById('recent-shipment-search');
+    const sStatus = document.getElementById('recent-status-filter');
+    const sCarrier = document.getElementById('recent-carrier-filter');
+    const sDate = document.getElementById('recent-date-filter');
+
+    if (sSearch) sSearch.value = "";
+    if (sStatus) sStatus.value = "all";
+    if (sCarrier) sCarrier.value = "all";
+    if (sDate) sDate.value = "all";
+
+    renderRecentShipments();
+    showToast("Filter tabel dikembalikan ke awal.");
 }
 
 function openManualUploadModal(tripId, stopIndex, locationName) {

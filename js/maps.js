@@ -272,6 +272,7 @@ function updateMapMarkers(filter = "") {
 function toggleHeatmap() {
     if (heatmapLayer) {
         if (map) map.removeLayer(heatmapLayer);
+        if (typeof mapMonitor !== 'undefined' && mapMonitor) mapMonitor.removeLayer(heatmapLayer);
         heatmapLayer = null;
         return;
     }
@@ -280,20 +281,35 @@ function toggleHeatmap() {
         allCurrentTrips.forEach(t => {
             if (t.destinations) {
                 t.destinations.forEach(d => {
-                    if (d.status === 'done' && isInsideJabodetabekArea(d.latitude, d.longitude)) {
-                        points.push([d.latitude, d.longitude, 0.5]);
+                    const lat = parseFloat(d.latitude || d.lat);
+                    const lng = parseFloat(d.longitude || d.lng);
+                    if (!isNaN(lat) && !isNaN(lng) && isInsideJabodetabekArea(lat, lng)) {
+                        points.push([lat, lng, 0.8]);
                     }
                 });
             }
         });
     }
+
     if (points.length === 0) {
         if (typeof showToast === 'function') showToast("No delivery data for heatmap.");
         return;
     }
+
+    // Pure RED traffic congestion & delivery density gradient
+    const redGradient = {
+        0.2: '#fee2e2',
+        0.5: '#f87171',
+        0.8: '#ef4444',
+        1.0: '#991b1b'
+    };
+
     if (map) {
-        heatmapLayer = L.heatLayer(points, { radius: 25, blur: 15 }).addTo(map);
-        if (typeof showToast === 'function') showToast("Heatmap Analytics Active");
+        heatmapLayer = L.heatLayer(points, { radius: 28, blur: 18, maxZoom: 18, gradient: redGradient }).addTo(map);
+        if (typeof mapMonitor !== 'undefined' && mapMonitor) {
+            L.heatLayer(points, { radius: 28, blur: 18, maxZoom: 18, gradient: redGradient }).addTo(mapMonitor);
+        }
+        if (typeof showToast === 'function') showToast("Red Traffic Heatmap Analytics Active");
     }
 }
 

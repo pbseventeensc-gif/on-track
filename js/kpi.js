@@ -127,10 +127,14 @@ function renderKPIView(filter = "") {
     let grandTotalKM = 0;
 
     filteredTrips.forEach(t => {
-        const cId = t.courierId;
+        const cId = t.courierId || '';
+        if (cId.includes('EK74u0gA') || cId.toLowerCase().includes('novalgan')) return;
+        const cName = registeredUsers[cId] || (cId.length > 20 ? getCourierDisplayName(cId) : cId);
+        if (cName.includes('EK74u0gA') || cName.toLowerCase().includes('novalgan')) return;
+
         if(!courierStats[cId]) {
             courierStats[cId] = {
-                name: registeredUsers[cId] || cId.substring(0,8),
+                name: cName,
                 completedStops: 0,
                 totalStops: 0,
                 totalKM: 0,
