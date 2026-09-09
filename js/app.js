@@ -353,32 +353,44 @@ async function loadClientsByRegion(region) {
     container.innerHTML = '<p class="text-center py-3 text-muted extra-small">Fetching clients...</p>';
 
     try {
-        let query = db.collection('clients');
-        if(region) query = query.where('region', '==', region);
-
-        const snap = await query.get();
+        const snap = await db.collection('clients').get();
         allClients = [];
         container.innerHTML = '';
 
-        document.getElementById('client-qty').innerText = snap.size;
-
         if(snap.empty) {
-            container.innerHTML = '<p class="text-center py-3 text-muted extra-small">No clients found in this region.</p>';
+            const qtyEl = document.getElementById('client-qty');
+            if(qtyEl) qtyEl.innerText = "0";
+            container.innerHTML = '<p class="text-center py-3 text-muted extra-small">Belum ada database toko/client.</p>';
             return;
         }
+
+        const selectedRegion = (region || '').toLowerCase().trim();
+        let matchCount = 0;
 
         snap.forEach(doc => {
             const c = doc.data();
             c.id = doc.id;
+
+            const clientRegion = (c.region || '').toLowerCase().trim();
+            const clientAddress = (c.address || '').toLowerCase();
+
+            if (selectedRegion) {
+                const isMatch = clientRegion === selectedRegion ||
+                                clientRegion.includes(selectedRegion) ||
+                                clientAddress.includes(selectedRegion);
+                if (!isMatch) return;
+            }
+
+            matchCount++;
             allClients.push(c);
 
-            const addressParts = c.address.split(',');
+            const addressParts = (c.address || '').split(',');
             const storeName = addressParts[0].trim();
             const remainingAddress = addressParts.slice(1).join(',').trim();
 
-            const escName = c.name.replace(/"/g, '&quot;');
+            const escName = (c.name || '').replace(/"/g, '&quot;');
             const escStore = storeName.replace(/"/g, '&quot;');
-            const escAddr = c.address.replace(/"/g, '&quot;');
+            const escAddr = (c.address || '').replace(/"/g, '&quot;');
 
             container.innerHTML += `
                 <div class="d-flex align-items-center gap-2 mb-2 p-2 bg-white rounded border shadow-sm position-relative group-hover">
@@ -399,9 +411,16 @@ async function loadClientsByRegion(region) {
                 </div>
             `;
         });
+
+        const qtyEl = document.getElementById('client-qty');
+        if(qtyEl) qtyEl.innerText = matchCount;
+
+        if(matchCount === 0) {
+            container.innerHTML = '<p class="text-center py-3 text-muted extra-small">Tidak ada toko/client di area ini.</p>';
+        }
     } catch (e) {
         console.error("Error loading clients:", e);
-        container.innerHTML = '<p class="text-center py-3 text-danger extra-small">Error loading clients.</p>';
+        container.innerHTML = '<p class="text-center py-3 text-danger extra-small">Gagal memuat daftar toko.</p>';
     }
 }
 
@@ -707,11 +726,16 @@ function updateGlobalStats() {
     updateDynamicAlerts();
 }
 
+let refreshMonitorTimeout = null;
 function refreshAllMonitorData() {
-    renderMonitorUI(activeFilter);
-    if (typeof updateMapMarkers === 'function') updateMapMarkers(activeFilter);
-    updateMonitorSuggestions();
-    if (typeof renderKPIView === 'function') renderKPIView();
+    if (refreshMonitorTimeout) return;
+    refreshMonitorTimeout = setTimeout(() => {
+        refreshMonitorTimeout = null;
+        renderMonitorUI(activeFilter);
+        if (typeof updateMapMarkers === 'function') updateMapMarkers(activeFilter);
+        updateMonitorSuggestions();
+        if (typeof renderKPIView === 'function') renderKPIView();
+    }, 100);
 }
 
 function renderQueue() {

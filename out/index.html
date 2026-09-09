@@ -515,7 +515,7 @@ body { background-color: var(--bg-body); font-family: 'Plus Jakarta Sans', sans-
                                     <div class="d-flex gap-2 mb-3">
                                         <div class="position-relative flex-grow-1">
                                             <i class="bi bi-geo-alt position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"></i>
-                                            <input type="text" id="places-search" class="form-control ps-5 py-2" style="border-radius: 10px;" placeholder="Tulis / cari nama toko atau alamat..." onkeypress="if(event.key==='Enter'){ event.preventDefault(); addManualAddress(); }">
+                                            <input type="text" id="places-search" class="form-control ps-5 py-2" style="border-radius: 10px; background-color: #ffffff;" placeholder="Tulis / cari nama toko atau alamat..." autocomplete="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" onkeypress="if(event.key==='Enter'){ event.preventDefault(); addManualAddress(); }">
                                         </div>
                                         <button class="btn btn-dark px-3 fw-bold d-flex align-items-center gap-1" style="border-radius: 10px; font-size: 0.85rem;" onclick="addManualAddress()">
                                             <i class="bi bi-plus-lg"></i> <span>ADD</span>
@@ -537,12 +537,16 @@ body { background-color: var(--bg-body); font-family: 'Plus Jakarta Sans', sans-
                                                 <select id="region-filter" class="form-select form-select-sm w-auto border-0 bg-white shadow-sm fw-bold text-primary" onchange="loadClientsByRegion(this.value)">
                                                     <option value="">All Regions</option>
                                                     <option value="Auto-detected">Auto-detected</option>
+                                                    <option value="Bekasi">Bekasi</option>
                                                     <option value="Bogor">Bogor</option>
                                                     <option value="Cikarang">Cikarang</option>
+                                                    <option value="Depok">Depok</option>
                                                     <option value="Jakarta Barat">Jakarta Barat</option>
                                                     <option value="Jakarta Pusat">Jakarta Pusat</option>
                                                     <option value="Jakarta Selatan">Jakarta Selatan</option>
                                                     <option value="Jakarta Timur">Jakarta Timur</option>
+                                                    <option value="Jakarta Utara">Jakarta Utara</option>
+                                                    <option value="Karawang">Karawang</option>
                                                     <option value="Tangerang">Tangerang</option>
                                                 </select>
                                             </div>

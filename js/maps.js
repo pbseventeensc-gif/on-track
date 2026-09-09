@@ -268,6 +268,8 @@ window.gm_authFailure = function() {
     const input = document.getElementById('places-search');
     if (input) {
         input.classList.remove('pac-target-input');
+        input.style.backgroundImage = 'none';
+        input.style.backgroundColor = '#ffffff';
     }
     const pacContainers = document.querySelectorAll('.pac-container');
     pacContainers.forEach(c => c.remove());
@@ -277,6 +279,14 @@ async function initAutocomplete() {
     try {
         const input = document.getElementById('places-search');
         if (!input) return;
+
+        // Ensure clean background & disable browser autofill/credential managers
+        input.setAttribute('autocomplete', 'off');
+        input.setAttribute('spellcheck', 'false');
+        input.setAttribute('data-lpignore', 'true');
+        input.setAttribute('data-1p-ignore', 'true');
+        input.style.backgroundImage = 'none';
+        input.style.backgroundColor = '#ffffff';
 
         let autocomplete;
         if (window.google && google.maps && google.maps.places && google.maps.places.Autocomplete) {

@@ -348,8 +348,11 @@ body {
 .btn-close-custom:hover { transform: scale(1.1); background-color: #333 !important; }
 
 /* Hide Google Places Autocomplete Error Badges */
-input.pac-target-input {
+input.pac-target-input,
+#places-search,
+#places-search.pac-target-input {
     background-image: none !important;
+    background-color: #ffffff !important;
 }
 .pac-container {
     border-radius: 12px;
