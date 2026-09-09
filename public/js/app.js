@@ -1663,14 +1663,6 @@ function initAuthListener() {
 }
 
 initAuthListener();
-                if (typeof mapDispatch !== 'undefined' && mapDispatch && typeof mapDispatch.invalidateSize === 'function') mapDispatch.invalidateSize();
-            }, 300);
-        } else {
-            document.getElementById('login-screen').style.display = 'flex';
-            document.getElementById('main-wrapper').style.display = 'none';
-        }
-    });
-}
 
 function handleLogout() {
     if (confirm("Sign out dari dashboard?")) {

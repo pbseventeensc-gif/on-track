@@ -48,6 +48,17 @@ const googleTiles = {
     }
 };
 
+function addMapTileLayer(targetMap) {
+    if (!targetMap || typeof L === 'undefined') return;
+    try {
+        L.tileLayer(googleTiles.url, googleTiles.options).addTo(targetMap);
+    } catch(e) {
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(targetMap);
+    }
+}
+
 function initMaps() {
     if (typeof L === 'undefined') return;
     ensureMapLayers();
