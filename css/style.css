@@ -319,19 +319,41 @@ body {
 
 /* Mobile & Tablet Responsive Optimizations */
 @media (max-width: 991px) {
+    html, body {
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+        height: auto !important;
+        min-height: 100% !important;
+    }
+    .wrapper {
+        flex-direction: column !important;
+        height: auto !important;
+        min-height: 100% !important;
+        overflow-x: hidden !important;
+        overflow-y: visible !important;
+    }
+    .main-panel {
+        height: auto !important;
+        overflow: visible !important;
+    }
+    .content-scroll {
+        height: auto !important;
+        overflow: visible !important;
+        padding: 16px 12px !important;
+    }
     .sidebar {
         position: fixed;
         left: -280px;
         top: 0;
         bottom: 0;
-        box-shadow: 10px 0 30px rgba(0,0,0,0.15);
+        box-shadow: 10px 0 30px rgba(0,0,0,0.25);
         width: 260px !important;
         z-index: 2100;
+        height: 100vh !important;
     }
     .sidebar.open { left: 0; }
-    .top-header { padding: 0 16px; height: 64px; }
+    .top-header { padding: 0 16px; height: 60px; }
     .search-container { display: none; }
-    .content-scroll { padding: 16px 12px; }
     .sidebar.collapsed { width: 260px; }
 }
 
