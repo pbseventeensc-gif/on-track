@@ -25,23 +25,35 @@ function ensureFirebaseApp() {
 ensureFirebaseApp();
 
 function getAuth() {
-    if (typeof firebase !== 'undefined' && firebase.auth) return firebase.auth();
     if (typeof window.auth !== 'undefined' && window.auth) return window.auth;
+    if (typeof firebase !== 'undefined' && firebase.auth) {
+        window.auth = firebase.auth();
+        return window.auth;
+    }
     return null;
 }
 function getDb() {
-    if (typeof firebase !== 'undefined' && firebase.firestore) return firebase.firestore();
     if (typeof window.db !== 'undefined' && window.db) return window.db;
+    if (typeof firebase !== 'undefined' && firebase.firestore) {
+        window.db = firebase.firestore();
+        return window.db;
+    }
     return null;
 }
 function getRtdb() {
-    if (typeof firebase !== 'undefined' && firebase.database) return firebase.database();
     if (typeof window.rtdb !== 'undefined' && window.rtdb) return window.rtdb;
+    if (typeof firebase !== 'undefined' && firebase.database) {
+        window.rtdb = firebase.database();
+        return window.rtdb;
+    }
     return null;
 }
 function getStorage() {
-    if (typeof firebase !== 'undefined' && firebase.storage) return firebase.storage();
     if (typeof window.storage !== 'undefined' && window.storage) return window.storage;
+    if (typeof firebase !== 'undefined' && firebase.storage) {
+        window.storage = firebase.storage();
+        return window.storage;
+    }
     return null;
 }
 
@@ -416,14 +428,15 @@ function toggleAllClients(checked) {
 
 async function loadClientsByRegion(region) {
     const container = document.getElementById('client-list-container');
-    if(!container || !db) return;
+    const activeDb = getDb();
+    if(!container || !activeDb) return;
     const sa = document.getElementById('select-all-clients');
     if(sa) sa.checked = false;
 
     container.innerHTML = '<p class="text-center py-3 text-muted extra-small">Fetching clients...</p>';
 
     try {
-        const snap = await db.collection('clients').get();
+        const snap = await activeDb.collection('clients').get();
         allClients = [];
         container.innerHTML = '';
 
@@ -535,7 +548,9 @@ function filterClients(query) {
 async function deleteClient(id, name) {
     if(!confirm(`Hapus client "${name}" dari database?`)) return;
     try {
-        await db.collection('clients').doc(id).delete();
+        const activeDb = getDb();
+        if (!activeDb) return;
+        await activeDb.collection('clients').doc(id).delete();
         showToast("Client berhasil dihapus.");
         const regEl = document.getElementById('region-filter');
         loadClientsByRegion(regEl ? regEl.value : "");
@@ -549,10 +564,12 @@ async function clearAllClients() {
     if (!confirm("APAKAH ANDA YAKIN? Tindakan ini tidak bisa dibatalkan.")) return;
 
     try {
-        const snap = await db.collection('clients').get();
+        const activeDb = getDb();
+        if (!activeDb) return;
+        const snap = await activeDb.collection('clients').get();
         if (snap.empty) return showToast("Database client sudah kosong.");
 
-        const batch = db.batch();
+        const batch = activeDb.batch();
         snap.forEach(doc => batch.delete(doc.ref));
         await batch.commit();
 
@@ -597,8 +614,13 @@ function addSelectedClients() {
     }
 }
 
-if (db) {
-    db.collection('users').onSnapshot(snap => {
+function initUsersSnapshot() {
+    const activeDb = getDb();
+    if (!activeDb) {
+        setTimeout(initUsersSnapshot, 300);
+        return;
+    }
+    activeDb.collection('users').onSnapshot(snap => {
         registeredUsers = {};
         registeredUsersObjects = {};
         snap.forEach(doc => {
@@ -623,6 +645,7 @@ if (db) {
         refreshAllMonitorData();
     });
 }
+initUsersSnapshot();
 
 function renderManageCouriersList() {
     const container = document.getElementById('manage-couriers-container');
@@ -659,7 +682,9 @@ async function promptEditCourierName(id, currentName) {
     if (!newName || newName.trim() === "" || newName.trim() === currentName) return;
 
     try {
-        await db.collection('users').doc(id).update({ name: newName.trim() });
+        const activeDb = getDb();
+        if (!activeDb) return;
+        await activeDb.collection('users').doc(id).update({ name: newName.trim() });
         showToast("Nama kurir berhasil diperbarui!");
     } catch(e) {
         alert("Gagal memperbarui nama kurir: " + e.message);
@@ -675,15 +700,26 @@ function renderCourierOptions() {
     }
 }
 
-if (rtdb) {
-    rtdb.ref('courier_live_location').on('value', snap => {
+function initRtdbListener() {
+    const activeRtdb = getRtdb();
+    if (!activeRtdb) {
+        setTimeout(initRtdbListener, 300);
+        return;
+    }
+    activeRtdb.ref('courier_live_location').on('value', snap => {
         currentOnlineCouriers = snap.val() || {};
         updateGlobalStats();
     });
 }
+initRtdbListener();
 
-if (db) {
-    db.collection('trips').onSnapshot(snap => {
+function initTripsSnapshot() {
+    const activeDb = getDb();
+    if (!activeDb) {
+        setTimeout(initTripsSnapshot, 300);
+        return;
+    }
+    activeDb.collection('trips').onSnapshot(snap => {
         allCurrentTrips = [];
         snap.forEach(doc => {
             const t = doc.data();
@@ -694,6 +730,7 @@ if (db) {
         renderRecentShipments();
     });
 }
+initTripsSnapshot();
 
 function updateGlobalStats() {
     let activeTrips = 0;
@@ -871,8 +908,11 @@ async function submitTrip() {
     }
 
     try {
+        const activeDb = getDb();
+        if (!activeDb) throw new Error("Firestore Database belum terhubung.");
+
         const id = "TRIP_" + Date.now();
-        await db.collection('trips').doc(id).set({
+        await activeDb.collection('trips').doc(id).set({
             tripId: id,
             courierId: cid,
             status: "assigned",
@@ -906,7 +946,8 @@ async function submitTrip() {
 }
 
 async function syncDestinationsToMasterClients(destinations) {
-    if (!destinations || destinations.length === 0 || !db) return;
+    const activeDb = getDb();
+    if (!destinations || destinations.length === 0 || !activeDb) return;
 
     try {
         for (const d of destinations) {
@@ -931,7 +972,7 @@ async function syncDestinationsToMasterClients(destinations) {
 
             const clientDocId = "CLIENT_" + name.replace(/[^a-zA-Z0-9]/g, "_").toUpperCase();
 
-            await db.collection('clients').doc(clientDocId).set({
+            await activeDb.collection('clients').doc(clientDocId).set({
                 name: name,
                 address: address,
                 latitude: lat,
@@ -948,7 +989,9 @@ async function syncDestinationsToMasterClients(destinations) {
 async function deleteTrip(tripId) {
     if (!confirm("Hapus tugas pengiriman ini dari sistem?")) return;
     try {
-        await db.collection('trips').doc(tripId).delete();
+        const activeDb = getDb();
+        if (!activeDb) return;
+        await activeDb.collection('trips').doc(tripId).delete();
         showToast("Tugas berhasil dihapus.");
         if (document.getElementById('view-reports')?.classList.contains('active')) loadFullHistory();
     } catch(e) {
@@ -1272,11 +1315,15 @@ async function submitManualUploadPhoto() {
     if (statusEl) statusEl.innerText = "Mengunggah foto bukti...";
 
     try {
-        const ref = storage.ref(`proofs/manual_${Date.now()}_${file.name}`);
+        const activeStorage = getStorage();
+        const activeDb = getDb();
+        if (!activeStorage || !activeDb) throw new Error("Firebase Storage/Firestore belum siap.");
+
+        const ref = activeStorage.ref(`proofs/manual_${Date.now()}_${file.name}`);
         const task = await ref.put(file);
         const photoUrl = await task.ref.getDownloadURL();
 
-        const tripDocRef = db.collection('trips').doc(tripId);
+        const tripDocRef = activeDb.collection('trips').doc(tripId);
         const tripSnap = await tripDocRef.get();
 
         if (tripSnap.exists) {
@@ -1448,10 +1495,12 @@ async function clearAllHistory() {
     if (!confirm("APAKAH ANDA YAKIN? Semua data pengantaran akan hilang selamanya.")) return;
 
     try {
-        const snap = await db.collection('trips').get();
+        const activeDb = getDb();
+        if (!activeDb) return;
+        const snap = await activeDb.collection('trips').get();
         if (snap.empty) return showToast("Tidak ada riwayat untuk dihapus.");
 
-        const batch = db.batch();
+        const batch = activeDb.batch();
         snap.forEach(doc => batch.delete(doc.ref));
         await batch.commit();
 
@@ -1486,7 +1535,9 @@ async function importClientsFromExcel() {
         }
 
         status.innerText = `Processing ${rows.length} clients...`;
-        const batch = db.batch();
+        const activeDb = getDb();
+        if (!activeDb) return alert("Database tidak terhubung.");
+        const batch = activeDb.batch();
         const geocoder = (typeof google !== 'undefined' && google.maps && google.maps.Geocoder) ? new google.maps.Geocoder() : null;
 
         for (let i = 0; i < rows.length; i++) {
@@ -1519,7 +1570,7 @@ async function importClientsFromExcel() {
 
                 const finalAddress = (address.length < 5 && geoResult) ? geoResult.fullAddress : (address || (geoResult ? geoResult.fullAddress : "Alamat tidak ditemukan"));
 
-                const ref = db.collection('clients').doc();
+                const ref = activeDb.collection('clients').doc();
                 batch.set(ref, {
                     name: name,
                     region: region || (geoResult ? "Auto-detected" : "General"),
@@ -1547,19 +1598,24 @@ async function importClientsFromExcel() {
 }
 
 async function updateConfig() {
+    const activeDb = getDb();
+    if (!activeDb) return;
     const v = document.getElementById('cfg-interval').value, u = document.getElementById('cfg-time-unit').value, g = document.getElementById('cfg-geofence').value;
-    await db.collection('config').doc('tracking').set({ intervalMs: v * u, geofenceRadius: parseFloat(g), updatedAt: firebase.firestore.Timestamp.now() }, { merge: true });
+    await activeDb.collection('config').doc('tracking').set({ intervalMs: v * u, geofenceRadius: parseFloat(g), updatedAt: firebase.firestore.Timestamp.now() }, { merge: true });
     showToast("System updated.");
 }
 
 async function publishUpdateAuto() {
+    const activeStorage = getStorage();
+    const activeDb = getDb();
+    if (!activeStorage || !activeDb) return alert("Firebase belum siap.");
     const v = document.getElementById('upd-version').value, f = document.getElementById('upd-file').files[0];
     if (!v || !f) return alert("Select version and file!");
     const prog = document.getElementById('upd-progress'); prog.classList.remove('d-none');
-    const task = storage.ref('updates/' + f.name).put(f);
+    const task = activeStorage.ref('updates/' + f.name).put(f);
     task.on('state_changed', s => { prog.querySelector('.progress-bar').style.width = (s.bytesTransferred/s.totalBytes)*100 + '%'; }, e => alert(e.message), async () => {
         const url = await task.snapshot.ref.getDownloadURL();
-        await db.collection('config').doc('app_status').set({ versionCode: parseInt(v), downloadUrl: url, updatedAt: firebase.firestore.Timestamp.now() }, { merge: true });
+        await activeDb.collection('config').doc('app_status').set({ versionCode: parseInt(v), downloadUrl: url, updatedAt: firebase.firestore.Timestamp.now() }, { merge: true });
         showToast("Update published!"); prog.classList.add('d-none');
     });
 }
@@ -1606,10 +1662,11 @@ function openChat(id, name) {
     if (chatUnsub) chatUnsub();
 
     const box = document.getElementById('chat-messages-main') || document.getElementById('chat-messages-box');
-    if (!box || !db) return;
+    const activeDb = getDb();
+    if (!box || !activeDb) return;
     box.innerHTML = '<p class="text-center py-4 text-muted extra-small">Loading messages...</p>';
 
-    const col = db.collection('chats').doc(id).collection('messages');
+    const col = activeDb.collection('chats').doc(id).collection('messages');
     chatUnsub = col.orderBy('timestamp', 'asc').onSnapshot(snap => {
         box.innerHTML = '';
         snap.forEach(doc => {
@@ -1627,11 +1684,12 @@ function openChat(id, name) {
 
 function sendChatMain() {
     const input = document.getElementById('chat-input-main') || document.getElementById('chat-input-text');
-    if (!input || !currentChatId || !db) return;
+    const activeDb = getDb();
+    if (!input || !currentChatId || !activeDb) return;
     const text = input.value.trim();
     if (!text) return;
 
-    db.collection('chats').doc(currentChatId).collection('messages').add({
+    activeDb.collection('chats').doc(currentChatId).collection('messages').add({
         senderId: 'admin',
         senderRole: 'admin',
         text: text,
@@ -1642,7 +1700,7 @@ function sendChatMain() {
 }
 
 async function handleLogin(e) {
-    if(e && e.preventDefault) e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     ensureFirebaseApp();
 
     const emailEl = document.getElementById('login-email');
@@ -1673,7 +1731,7 @@ async function handleLogin(e) {
     try {
         const firebaseAuth = getAuth();
         if (!firebaseAuth) {
-            throw new Error("Sistem Autentikasi Firebase belum siap. Silakan coba sebentar lagi.");
+            throw new Error("Sistem Autentikasi Firebase belum siap. Silakan refresh halaman.");
         }
         await firebaseAuth.signInWithEmailAndPassword(email, pass);
     } catch (e) {
@@ -1700,8 +1758,8 @@ function initAuthListener() {
             const mainWrapper = document.getElementById('main-wrapper');
 
             if (user) {
-                if (loginScreen) loginScreen.style.display = 'none';
-                if (mainWrapper) mainWrapper.style.display = 'flex';
+                if (loginScreen) loginScreen.style.setProperty('display', 'none', 'important');
+                if (mainWrapper) mainWrapper.style.setProperty('display', 'flex', 'important');
 
                 removeBaliClientsFromMaster();
 
@@ -1728,8 +1786,8 @@ function initAuthListener() {
                     if (typeof mapDispatch !== 'undefined' && mapDispatch && typeof mapDispatch.invalidateSize === 'function') mapDispatch.invalidateSize();
                 }, 300);
             } else {
-                if (loginScreen) loginScreen.style.display = 'flex';
-                if (mainWrapper) mainWrapper.style.display = 'none';
+                if (loginScreen) loginScreen.style.setProperty('display', 'flex', 'important');
+                if (mainWrapper) mainWrapper.style.setProperty('display', 'none', 'important');
             }
         });
     } else {
@@ -1762,7 +1820,9 @@ async function deleteDestinationStop(tripId, stopIndex, locationName) {
     if (!confirm(`Hapus titik pengantaran "${locationName}" (#Stop ${stopIndex}) dari pengiriman ini?`)) return;
 
     try {
-        const tripRef = db.collection('trips').doc(tripId);
+        const activeDb = getDb();
+        if (!activeDb) return;
+        const tripRef = activeDb.collection('trips').doc(tripId);
         const snap = await tripRef.get();
 
         if (!snap.exists) return showToast("Pengiriman tidak ditemukan.");
@@ -1791,8 +1851,10 @@ async function deleteDestinationStop(tripId, stopIndex, locationName) {
 
 async function restoreBayhaqiTrip() {
     try {
+        const activeDb = getDb();
+        if (!activeDb) return;
         const bayhaqiUid = "xONhqVSNSYcEcGCZyW2cLGJWQt92";
-        const tripDocRef = db.collection('trips').doc('TRIP_1788765713947');
+        const tripDocRef = activeDb.collection('trips').doc('TRIP_1788765713947');
 
         const destinations = [
             {
@@ -1875,14 +1937,15 @@ async function restoreBayhaqiTrip() {
 }
 
 async function removeBaliClientsFromMaster() {
-    if (!db) return;
+    const activeDb = getDb();
+    if (!activeDb) return;
     try {
-        const snap = await db.collection('clients').get();
+        const snap = await activeDb.collection('clients').get();
         snap.forEach(doc => {
             const data = doc.data();
             const text = ((data.name || '') + ' ' + (data.address || '') + ' ' + (data.region || '')).toLowerCase();
             if (text.includes('bali') || text.includes('denpasar') || text.includes('kuta') || text.includes('badung')) {
-                db.collection('clients').doc(doc.id).delete();
+                activeDb.collection('clients').doc(doc.id).delete();
                 console.log("Deleted Bali client from Master Database:", doc.id);
             }
         });
@@ -1890,3 +1953,25 @@ async function removeBaliClientsFromMaster() {
         console.warn("Error cleaning Bali clients:", e);
     }
 }
+
+// Global window exports
+window.switchTab = switchTab;
+window.toggleSidebar = toggleSidebar;
+window.toggleCollapse = toggleCollapse;
+window.toggleDarkMode = toggleDarkMode;
+window.focusOnCourier = focusOnCourier;
+window.filterMonitorAll = filterMonitorAll;
+window.loadClientsByRegion = loadClientsByRegion;
+window.filterClients = filterClients;
+window.deleteClient = deleteClient;
+window.clearAllClients = clearAllClients;
+window.addSelectedClients = addSelectedClients;
+window.submitTrip = submitTrip;
+window.toggleAllClients = toggleAllClients;
+window.promptEditCourierName = promptEditCourierName;
+window.handleLogin = handleLogin;
+window.handleLogout = handleLogout;
+window.logout = logout;
+window.deleteDestinationStop = deleteDestinationStop;
+window.openPoDModal = openPoDModal;
+window.toggleNotifDropdown = toggleNotifDropdown;
