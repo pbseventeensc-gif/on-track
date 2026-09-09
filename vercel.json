@@ -17,11 +17,7 @@
     },
     {
       "source": "/dashboard",
-      "destination": "/dashboard/index.html"
-    },
-    {
-      "source": "/logistik",
-      "destination": "/logistik/index.html"
+      "destination": "/index.html"
     }
   ]
 }
