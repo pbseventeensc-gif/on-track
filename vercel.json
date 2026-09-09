@@ -1,21 +1,5 @@
 {
   "version": 2,
   "public": true,
-  "cleanUrls": true,
-  "functions": {
-    "api/*.js": {
-      "memory": 1024,
-      "maxDuration": 10
-    }
-  },
-  "rewrites": [
-    {
-      "source": "/api/surat-jalan",
-      "destination": "/api/surat-jalan.js"
-    },
-    {
-      "source": "/api/(.*)",
-      "destination": "/api/$1"
-    }
-  ]
+  "cleanUrls": true
 }
