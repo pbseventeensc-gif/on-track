@@ -90,6 +90,8 @@ window.logout = logout;
 window.deleteDestinationStop = deleteDestinationStop;
 window.openPoDModal = openPoDModal;
 window.toggleNotifDropdown = toggleNotifDropdown;
+window.handleNotificationClick = handleNotificationClick;
+window.focusOnTrip = focusOnTrip;
 window.renderRecentShipments = renderRecentShipments;
 window.resetRecentFilters = resetRecentFilters;
 window.calculateDistance = calculateDistance;
@@ -223,6 +225,9 @@ function openPoDModal(url) {
     }
 }
 
+let isNotificationRead = false;
+let lastNotifCount = 0;
+
 function toggleNotifDropdown(e) {
     if (e) {
         e.preventDefault();
@@ -235,11 +240,98 @@ function toggleNotifDropdown(e) {
     if (isHidden) {
         dropdown.classList.remove('d-none');
         dropdown.style.display = 'block';
+
+        // Mark as read and hide alert red badge immediately when opened
+        isNotificationRead = true;
+        const badgeEl = document.getElementById('notif-badge');
+        if (badgeEl) badgeEl.classList.add('d-none');
+
         updateNotificationBell();
     } else {
         dropdown.classList.add('d-none');
         dropdown.style.display = 'none';
     }
+}
+
+function handleNotificationClick(index, e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    // Mark as read and hide alert red badge
+    isNotificationRead = true;
+    const badgeEl = document.getElementById('notif-badge');
+    if (badgeEl) badgeEl.classList.add('d-none');
+
+    // Close dropdown
+    const dropdown = document.getElementById('notif-dropdown');
+    if (dropdown) {
+        dropdown.classList.add('d-none');
+        dropdown.style.display = 'none';
+    }
+
+    const item = notificationItems[index];
+    if (!item) return;
+
+    if (item.tripId) {
+        focusOnTrip(item.tripId);
+    } else if (item.courierId) {
+        focusOnCourier(item.courierId, true);
+    } else if (item.tab) {
+        switchTab(item.tab, document.querySelector(`[onclick*="${item.tab}"]`));
+    }
+}
+
+function focusOnTrip(tripId) {
+    switchTab('monitor', document.querySelector('[onclick*="monitor"]'));
+
+    const trip = allCurrentTrips.find(t => t.id === tripId || t.id.substring(0, 8) === tripId || (t.id && tripId.includes(t.id)));
+    if (!trip) {
+        showToast("Data pengiriman tidak ditemukan.");
+        return;
+    }
+
+    if (trip.courierId && currentOnlineCouriers[trip.courierId]) {
+        focusOnCourier(trip.courierId, true);
+        return;
+    }
+
+    let targetPos = null;
+    if (trip.acceptLatitude && trip.acceptLongitude) {
+        targetPos = [parseFloat(trip.acceptLatitude), parseFloat(trip.acceptLongitude)];
+    } else if (trip.destinations && trip.destinations.length > 0) {
+        const d = trip.destinations.find(x => x.status === 'in_progress' || x.status === 'arrived') || trip.destinations[0];
+        if (d && (d.latitude || d.lat) && (d.longitude || d.lng)) {
+            targetPos = [parseFloat(d.latitude || d.lat), parseFloat(d.longitude || d.lng)];
+        }
+    }
+
+    const targetMap = (typeof mapMonitor !== 'undefined' && mapMonitor) ? mapMonitor : (typeof map !== 'undefined' ? map : null);
+    if (targetPos && !isNaN(targetPos[0]) && !isNaN(targetPos[1]) && targetMap) {
+        setTimeout(() => {
+            if (typeof targetMap.invalidateSize === 'function') targetMap.invalidateSize();
+            targetMap.flyTo(targetPos, 16, { duration: 1.5 });
+
+            if (typeof monitorMarkersLayer !== 'undefined' && monitorMarkersLayer) {
+                monitorMarkersLayer.eachLayer(marker => {
+                    if (marker.tripId === trip.id && typeof marker.openPopup === 'function') {
+                        marker.openPopup();
+                    }
+                });
+            }
+        }, 350);
+    }
+
+    const searchInput = document.getElementById('recent-shipment-search');
+    if (searchInput) {
+        searchInput.value = trip.id.substring(0, 8);
+        if (typeof renderRecentShipments === 'function') {
+            renderRecentShipments(trip.id.substring(0, 8));
+        }
+    }
+
+    showToast("Membuka lokasi pengiriman #" + trip.id.substring(Math.max(0, trip.id.length - 6)));
 }
 
 document.addEventListener('click', (e) => {
@@ -272,21 +364,26 @@ function updateNotificationBell() {
                 notificationItems.push({
                     type: 'danger',
                     icon: 'bi-clock-history',
-                    title: `DELAY WARNING: ${t.id.substring(0,8)}`,
+                    title: `DELAY WARNING: #${t.id.substring(Math.max(0, t.id.length - 6))}`,
                     desc: `Tidak ada update > 30 menit`,
-                    tab: 'monitor'
+                    tab: 'monitor',
+                    tripId: t.id,
+                    courierId: t.courierId
                 });
             }
         }
 
-        if (t.courierId && !currentOnlineCouriers[t.courierId] && t.status !== 'completed') {
+        const isOnline = typeof isCourierOnline === 'function' ? isCourierOnline(t.courierId) : !!currentOnlineCouriers[t.courierId];
+        if (t.courierId && !isOnline && t.status !== 'completed') {
             const courierName = registeredUsers[t.courierId] || 'Kurir';
             notificationItems.push({
                 type: 'warning',
                 icon: 'bi-person-x-fill',
-                title: `KURIR OFFLINE`,
+                title: `KURIR OFFLINE: ${courierName}`,
                 desc: `${courierName} offline padahal ada tugas aktif`,
-                tab: 'monitor'
+                tab: 'monitor',
+                courierId: t.courierId,
+                tripId: t.id
             });
         }
     });
@@ -303,8 +400,15 @@ function updateNotificationBell() {
     }
 
     const totalCount = notificationItems.length;
+
+    // Reset read state if new notification items arrive
+    if (totalCount > lastNotifCount) {
+        isNotificationRead = false;
+    }
+    lastNotifCount = totalCount;
+
     if (badgeEl) {
-        if (totalCount > 0) {
+        if (totalCount > 0 && !isNotificationRead) {
             badgeEl.innerText = totalCount;
             badgeEl.classList.remove('d-none');
         } else {
@@ -320,15 +424,18 @@ function updateNotificationBell() {
     if (totalCount === 0) {
         listEl.innerHTML = '<div class="text-center py-4 text-muted extra-small"><i class="bi bi-check-circle fs-4 d-block mb-1 text-success"></i>Tidak ada peringatan baru. Semua lancar!</div>';
     } else {
-        listEl.innerHTML = notificationItems.map(item => {
+        listEl.innerHTML = notificationItems.map((item, idx) => {
             const bgClass = item.type === 'danger' ? '#FEF2F2' : item.type === 'warning' ? '#FFFBEB' : '#F0F9FF';
             const iconColor = item.type === 'danger' ? 'text-danger' : item.type === 'warning' ? 'text-warning' : 'text-primary';
             return `
-                <div class="p-3 border-bottom d-flex align-items-start gap-3 cursor-pointer" style="background: ${bgClass}; transition: 0.2s;" onclick="switchTab('${item.tab}', document.querySelector('[onclick*=\\'${item.tab}\\'\\]')); toggleNotifDropdown(event);">
+                <div class="p-3 border-bottom d-flex align-items-start gap-3 cursor-pointer" style="background: ${bgClass}; transition: 0.2s;" onclick="handleNotificationClick(${idx}, event)">
                     <div class="${iconColor} fs-5 mt-1"><i class="bi ${item.icon}"></i></div>
                     <div class="flex-grow-1">
                         <div class="fw-bold extra-small text-dark">${item.title}</div>
                         <div class="extra-small text-muted" style="font-size: 0.7rem;">${item.desc}</div>
+                    </div>
+                    <div class="text-muted extra-small" style="font-size: 0.65rem;">
+                        <i class="bi bi-chevron-right"></i>
                     </div>
                 </div>
             `;
@@ -355,7 +462,7 @@ function updateDynamicAlerts() {
 
             if(now - lastUpdate > 30 * 60 * 1000) {
                 container.innerHTML += `
-                    <div class="d-flex gap-3 p-3 rounded-3" style="background: #FEF2F2;">
+                    <div class="d-flex gap-3 p-3 rounded-3 cursor-pointer" style="background: #FEF2F2;" onclick="focusOnTrip('${t.id}')">
                         <div class="text-danger fs-4"><i class="bi bi-clock-history"></i></div>
                         <div>
                             <div class="fw-bold small text-dark">Delay: ${tripIdShort} (${cName})</div>
@@ -365,9 +472,10 @@ function updateDynamicAlerts() {
             }
         }
 
-        if(!currentOnlineCouriers[t.courierId] && t.status !== 'completed') {
+        const isOnline = typeof isCourierOnline === 'function' ? isCourierOnline(t.courierId) : !!currentOnlineCouriers[t.courierId];
+        if(!isOnline && t.status !== 'completed') {
             container.innerHTML += `
-                <div class="d-flex gap-3 p-3 rounded-3" style="background: #FFFBEB;">
+                <div class="d-flex gap-3 p-3 rounded-3 cursor-pointer" style="background: #FFFBEB;" onclick="focusOnCourier('${t.courierId}', true)">
                     <div class="text-warning fs-4"><i class="bi bi-person-x"></i></div>
                     <div>
                         <div class="fw-bold small text-dark">Kurir Offline: ${cName}</div>
@@ -2086,5 +2194,7 @@ window.logout = logout;
 window.deleteDestinationStop = deleteDestinationStop;
 window.openPoDModal = openPoDModal;
 window.toggleNotifDropdown = toggleNotifDropdown;
+window.handleNotificationClick = handleNotificationClick;
+window.focusOnTrip = focusOnTrip;
 window.renderRecentShipments = renderRecentShipments;
 window.resetRecentFilters = resetRecentFilters;
