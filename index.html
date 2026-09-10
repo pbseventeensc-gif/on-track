@@ -180,6 +180,67 @@
         .marker-pin { width: 32px; height: 32px; border-radius: 50% 50% 50% 0; background: var(--status-transit); position: absolute; transform: rotate(-45deg); left: 50%; top: 50%; margin: -15px 0 0 -15px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.2); border: 2px solid #fff; }
         .marker-pin::after { content: ''; width: 22px; height: 22px; background: #fff; position: absolute; border-radius: 50%; }
         .marker-num { position: absolute; width: 32px; height: 32px; line-height: 29px; text-align: center; font-weight: 800; font-size: 12px; color: #111827 !important; z-index: 10; top: 50%; left: 50%; margin: -15px 0 0 -15px; }
+
+        @media (max-width: 991px) {
+            html, body {
+                overflow-x: hidden !important;
+                overflow-y: auto !important;
+                height: auto !important;
+                min-height: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            .wrapper {
+                display: flex !important;
+                flex-direction: column !important;
+                height: auto !important;
+                min-height: 100vh !important;
+                overflow-x: hidden !important;
+                overflow-y: visible !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            .main-panel {
+                width: 100% !important;
+                height: auto !important;
+                min-height: 100vh !important;
+                overflow: visible !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            .sidebar {
+                position: fixed !important;
+                left: -280px !important;
+                top: 0 !important;
+                bottom: 0 !important;
+                box-shadow: 10px 0 30px rgba(0,0,0,0.25) !important;
+                width: 260px !important;
+                z-index: 2100 !important;
+                height: 100vh !important;
+                transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            }
+            .sidebar.open {
+                left: 0 !important;
+            }
+            .sidebar.collapsed {
+                width: 260px !important;
+            }
+            .top-header {
+                padding: 0 16px !important;
+                height: 60px !important;
+                width: 100% !important;
+                margin: 0 !important;
+            }
+            .search-container {
+                display: none !important;
+            }
+            .content-scroll {
+                height: auto !important;
+                overflow: visible !important;
+                padding: 16px 12px !important;
+                margin: 0 !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -315,7 +376,7 @@
                     </div>
                 </div>
                 <button class="btn-new-shipment" onclick="switchTab('dispatch', document.querySelector('[onclick*=\'dispatch\']'))">
-                    <i class="bi bi-plus-lg"></i> New Shipment
+                    <i class="bi bi-plus-lg"></i> <span>New Shipment</span>
                 </button>
                 <button class="btn btn-light border text-danger d-flex align-items-center gap-1 px-3 py-2 fw-semibold" style="border-radius: 10px; font-size: 0.85rem;" onclick="handleLogout()" title="Logout">
                     <i class="bi bi-box-arrow-right"></i> <span>Logout</span>
