@@ -9,6 +9,64 @@ let kpiSortField = 'stops';
 let kpiSortAsc = false;
 let currentStatMetric = 'stops';
 
+window.courierPodStore = {};
+
+function openCourierPoDGallery(courierKey, courierName) {
+    const list = window.courierPodStore[courierKey] || [];
+    if (list.length === 0) return alert(`Belum ada foto Bukti Pengiriman untuk ${courierName}`);
+
+    let modalEl = document.getElementById('courierPodGalleryModal');
+    if (!modalEl) {
+        modalEl = document.createElement('div');
+        modalEl.id = 'courierPodGalleryModal';
+        modalEl.className = 'modal fade';
+        modalEl.tabIndex = -1;
+        modalEl.innerHTML = `
+            <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+                <div class="modal-content border-0 shadow-lg" style="border-radius: 16px;">
+                    <div class="modal-header border-bottom py-3">
+                        <div>
+                            <h6 class="modal-title fw-semibold text-dark m-0" id="courierPodModalTitle">Foto Bukti Pengiriman</h6>
+                            <small class="text-muted extra-small" id="courierPodModalSubtitle">0 Foto</small>
+                        </div>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body p-3 bg-light">
+                        <div class="row g-2" id="courierPodGalleryGrid"></div>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modalEl);
+    }
+
+    document.getElementById('courierPodModalTitle').innerText = `Bukti Pengiriman — ${courierName}`;
+    document.getElementById('courierPodModalSubtitle').innerText = `${list.length} foto bukti pengiriman (PoD)`;
+
+    const grid = document.getElementById('courierPodGalleryGrid');
+    grid.innerHTML = '';
+
+    list.forEach((pod) => {
+        grid.innerHTML += `
+            <div class="col-6 col-sm-4 col-md-3">
+                <div class="card h-100 border shadow-sm overflow-hidden" style="border-radius: 10px;">
+                    <div class="position-relative" style="height: 110px; background: #e2e8f0;">
+                        <img src="${pod.url}" class="w-100 h-100 object-fit-cover cursor-pointer" onclick="openPoDModal('${pod.url}')" title="Klik untuk memperbesar">
+                        <span class="position-absolute top-0 start-0 m-1 badge bg-dark opacity-75 extra-small fw-normal">Stop ${pod.stopIndex}</span>
+                    </div>
+                    <div class="p-1.5 px-2 bg-white">
+                        <div class="extra-small text-truncate text-muted fw-normal" title="${pod.locationName}">${pod.locationName}</div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    const bsModal = new bootstrap.Modal(modalEl);
+    bsModal.show();
+}
+window.openCourierPoDGallery = openCourierPoDGallery;
+
 // Helper: Calculate realistic road distance in KM
 function calculateDistance(lat1, lon1, lat2, lon2) {
     const R = 6371; // Earth's radius in km
@@ -261,20 +319,37 @@ function renderKPIView(filter = "") {
         if(document.getElementById('kpi-total-done')) document.getElementById('kpi-total-done').innerText = '0';
     }
 
+    window.courierPodStore = {};
+    const tableRowsHtml = [];
+
     displayCouriers.forEach(c => {
-        const courierId = Object.keys(registeredUsers).find(key => registeredUsers[key] === c.name);
+        const courierId = Object.keys(registeredUsers).find(key => registeredUsers[key] === c.name) || c.name;
         const isOnline = currentOnlineCouriers[courierId];
 
-        let podIconsHtml = '';
-        filteredTrips.filter(t => t.courierId === courierId).forEach(trip => {
+        const podList = [];
+        filteredTrips.filter(t => t.courierId === courierId || registeredUsers[t.courierId] === c.name).forEach(trip => {
             if (trip.destinations) {
                 trip.destinations.forEach(d => {
                     if (d.proofPhotoUrl) {
-                        podIconsHtml += `<i class="bi bi-camera text-primary ms-1 cursor-pointer" data-url="${d.proofPhotoUrl}" onclick="openPoDModal(this.dataset.url)" title="Stop ${d.stopIndex}"></i> `;
+                        podList.push({
+                            url: d.proofPhotoUrl,
+                            stopIndex: d.stopIndex,
+                            locationName: d.locationName || `Stop ${d.stopIndex}`,
+                            tripId: trip.tripId
+                        });
                     }
                 });
             }
         });
+
+        window.courierPodStore[c.name] = podList;
+
+        let podBtnHtml = '';
+        if (podList.length > 0) {
+            podBtnHtml = `<button class="btn btn-sm btn-light border py-0.5 px-2 ms-2 extra-small rounded-pill text-primary fw-medium" onclick="openCourierPoDGallery('${c.name.replace(/'/g, "\\'")}', '${c.name.replace(/'/g, "\\'")}')" title="Lihat ${podList.length} Foto Bukti Pengiriman">
+                <i class="bi bi-images me-1"></i>${podList.length} Foto
+            </button>`;
+        }
 
         const completionRate = c.totalStops > 0 ? (c.completedStops / c.totalStops) * 100 : 100;
         let stars = 5.0;
@@ -294,16 +369,18 @@ function renderKPIView(filter = "") {
         const mins = Math.round(c.totalTime % 60);
         const durationStr = hours > 0 ? `${hours}j ${mins}m` : `${mins}m`;
 
-        tbody.innerHTML += `<tr>
-            <td class="fw-bold">${c.name} <div class="mt-1">${podIconsHtml}</div></td>
-            <td><span class="badge-pill ${isOnline ? 'badge-delivered' : 'badge-delayed'}">${isOnline ? 'Active' : 'Offline'}</span></td>
-            <td><span class="fw-bold">${c.completedStops}</span> / <span class="text-muted">${c.totalStops}</span></td>
-            <td><i class="bi bi-star-fill text-warning me-1"></i> <strong>${stars.toFixed(1)}</strong></td>
-            <td>${c.totalKM.toFixed(1)} km</td>
+        tableRowsHtml.push(`<tr>
+            <td class="fw-semibold text-dark">${c.name} ${podBtnHtml}</td>
+            <td><span class="badge-pill ${isOnline ? 'badge-delivered' : 'badge-delayed'} fw-normal">${isOnline ? 'Active' : 'Offline'}</span></td>
+            <td><span class="fw-semibold">${c.completedStops}</span> / <span class="text-muted">${c.totalStops}</span></td>
+            <td><i class="bi bi-star-fill text-warning me-1"></i> <span class="fw-semibold">${stars.toFixed(1)}</span></td>
+            <td class="fw-normal">${c.totalKM.toFixed(1)} km</td>
             <td class="d-none">${durationStr}</td>
-            <td><span class="badge bg-dark px-2 py-1">${finalScore}</span></td>
-        </tr>`;
+            <td><span class="badge bg-secondary-subtle text-dark fw-medium px-2 py-1">${finalScore}</span></td>
+        </tr>`);
     });
+
+    tbody.innerHTML = tableRowsHtml.join('');
 
     updateKPICharts(displayCouriers);
 }

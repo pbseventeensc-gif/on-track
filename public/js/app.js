@@ -1343,6 +1343,20 @@ function focusOnCourier(id, isMonitor = true) {
     }
 }
 
+let recentSortField = 'date';
+let recentSortAsc = false;
+
+function sortRecentShipments(field) {
+    if (recentSortField === field) {
+        recentSortAsc = !recentSortAsc;
+    } else {
+        recentSortField = field;
+        recentSortAsc = (field === 'date' ? false : true);
+    }
+    renderRecentShipments();
+}
+window.sortRecentShipments = sortRecentShipments;
+
 function renderRecentShipments(filter = "") {
     const table = document.getElementById('recent-shipments-table');
     if(!table) return;
@@ -1351,7 +1365,8 @@ function renderRecentShipments(filter = "") {
     const rawSearch = (typeof filter === 'string' ? filter : (document.getElementById('recent-shipment-search')?.value || "")).toLowerCase().trim();
     const selectedStatus = document.getElementById('recent-status-filter')?.value || "all";
     const selectedCarrier = document.getElementById('recent-carrier-filter')?.value || "all";
-    const selectedDateMode = document.getElementById('recent-date-filter')?.value || "all";
+    const startDateVal = document.getElementById('recent-start-date')?.value;
+    const endDateVal = document.getElementById('recent-end-date')?.value;
 
     const shipmentRows = [];
     const now = new Date();
@@ -1360,18 +1375,30 @@ function renderRecentShipments(filter = "") {
     let filterStartMs = 0;
     let filterEndMs = Infinity;
 
-    if (selectedDateMode === "today") {
-        filterStartMs = todayDayMs;
-        filterEndMs = todayDayMs + (24 * 60 * 60 * 1000) - 1;
-    } else if (selectedDateMode === "3days") {
-        filterStartMs = todayDayMs - (2 * 24 * 60 * 60 * 1000);
-        filterEndMs = todayDayMs + (24 * 60 * 60 * 1000) - 1;
-    } else if (selectedDateMode === "7days") {
-        filterStartMs = todayDayMs - (6 * 24 * 60 * 60 * 1000);
-        filterEndMs = todayDayMs + (24 * 60 * 60 * 1000) - 1;
-    } else if (selectedDateMode === "month") {
-        filterStartMs = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-        filterEndMs = todayDayMs + (24 * 60 * 60 * 1000) - 1;
+    if (startDateVal) {
+        const d = new Date(startDateVal + "T00:00:00");
+        if (!isNaN(d.getTime())) filterStartMs = d.getTime();
+    }
+    if (endDateVal) {
+        const d = new Date(endDateVal + "T23:59:59.999");
+        if (!isNaN(d.getTime())) filterEndMs = d.getTime();
+    }
+
+    if (!startDateVal && !endDateVal) {
+        const selectedDateMode = document.getElementById('recent-date-filter')?.value || "all";
+        if (selectedDateMode === "today") {
+            filterStartMs = todayDayMs;
+            filterEndMs = todayDayMs + (24 * 60 * 60 * 1000) - 1;
+        } else if (selectedDateMode === "3days") {
+            filterStartMs = todayDayMs - (2 * 24 * 60 * 60 * 1000);
+            filterEndMs = todayDayMs + (24 * 60 * 60 * 1000) - 1;
+        } else if (selectedDateMode === "7days") {
+            filterStartMs = todayDayMs - (6 * 24 * 60 * 60 * 1000);
+            filterEndMs = todayDayMs + (24 * 60 * 60 * 1000) - 1;
+        } else if (selectedDateMode === "month") {
+            filterStartMs = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+            filterEndMs = todayDayMs + (24 * 60 * 60 * 1000) - 1;
+        }
     }
 
     allCurrentTrips.forEach(t => {
@@ -1464,11 +1491,51 @@ function renderRecentShipments(filter = "") {
         return;
     }
 
-    shipmentRows.reverse().slice(0, 50).forEach(s => {
+    shipmentRows.sort((a, b) => {
+        let valA, valB;
+        if (recentSortField === 'date') {
+            valA = a.tripMs || 0;
+            valB = b.tripMs || 0;
+        } else if (recentSortField === 'id') {
+            valA = a.displayId.toLowerCase();
+            valB = b.displayId.toLowerCase();
+        } else if (recentSortField === 'destination') {
+            valA = a.destinationName.toLowerCase();
+            valB = b.destinationName.toLowerCase();
+        } else if (recentSortField === 'status') {
+            valA = a.status.toLowerCase();
+            valB = b.status.toLowerCase();
+        } else if (recentSortField === 'carrier') {
+            valA = a.carrier.toLowerCase();
+            valB = b.carrier.toLowerCase();
+        } else if (recentSortField === 'eta') {
+            valA = a.eta.toLowerCase();
+            valB = b.eta.toLowerCase();
+        }
+
+        if (valA < valB) return recentSortAsc ? -1 : 1;
+        if (valA > valB) return recentSortAsc ? 1 : -1;
+        return 0;
+    });
+
+    const sortFields = ['date', 'id', 'destination', 'status', 'carrier', 'eta'];
+    sortFields.forEach(f => {
+        const iconEl = document.getElementById(`sort-icon-${f}`);
+        if (iconEl) {
+            if (recentSortField === f) {
+                iconEl.className = recentSortAsc ? "bi bi-sort-up text-primary ms-1" : "bi bi-sort-down-alt text-primary ms-1";
+            } else {
+                iconEl.className = "bi bi-arrow-down-up text-muted ms-1";
+            }
+        }
+    });
+
+    const rowsHtml = [];
+    shipmentRows.slice(0, 100).forEach(s => {
         const podIcon = s.proofUrl ? `<i class="bi bi-camera-fill text-success ms-1 cursor-pointer" data-url="${s.proofUrl}" onclick="openPoDModal(this.dataset.url)" title="Lihat Foto PoD"></i>` : '';
         const uploadBtn = `<button class="btn btn-sm btn-link text-primary p-0 ms-1 text-decoration-none" onclick="openManualUploadModal('${s.tripId}', ${s.stopIndex}, '${s.destinationName.replace(/'/g, "\\'")}')" title="Upload Foto PoD Manual Admin"><i class="bi bi-upload"></i></button>`;
 
-        table.innerHTML += `<tr>
+        rowsHtml.push(`<tr>
             <td class="fw-normal text-muted extra-small" style="white-space: nowrap;">${s.dateStr}</td>
             <td class="fw-bold text-dark">${s.displayId} ${podIcon} ${uploadBtn}</td>
             <td>
@@ -1483,8 +1550,9 @@ function renderRecentShipments(filter = "") {
                     <i class="bi bi-trash"></i>
                 </button>
             </td>
-        </tr>`;
+        </tr>`);
     });
+    table.innerHTML = rowsHtml.join('');
 }
 
 function resetRecentFilters() {
@@ -1492,11 +1560,18 @@ function resetRecentFilters() {
     const sStatus = document.getElementById('recent-status-filter');
     const sCarrier = document.getElementById('recent-carrier-filter');
     const sDate = document.getElementById('recent-date-filter');
+    const sStart = document.getElementById('recent-start-date');
+    const sEnd = document.getElementById('recent-end-date');
 
     if (sSearch) sSearch.value = "";
     if (sStatus) sStatus.value = "all";
     if (sCarrier) sCarrier.value = "all";
     if (sDate) sDate.value = "all";
+    if (sStart) sStart.value = "";
+    if (sEnd) sEnd.value = "";
+
+    recentSortField = 'date';
+    recentSortAsc = false;
 
     renderRecentShipments();
     showToast("Filter tabel dikembalikan ke awal.");
