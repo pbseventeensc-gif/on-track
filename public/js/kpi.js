@@ -371,7 +371,7 @@ function renderKPIView(filter = "") {
             <td><span class="fw-semibold">${c.completedStops}</span> / <span class="text-muted">${c.totalStops}</span></td>
             <td><i class="bi bi-star-fill text-warning me-1"></i> <span class="fw-semibold">${stars.toFixed(1)}</span></td>
             <td class="fw-normal">${c.totalKM.toFixed(1)} km</td>
-            <td class="d-none">${durationStr}</td>
+            <td class="fw-normal text-dark">${c.totalTime > 0 ? durationStr : '0j 0m'}</td>
             <td><span class="badge bg-secondary-subtle text-dark fw-medium px-2 py-1">${finalScore}</span></td>
         </tr>`);
     });
