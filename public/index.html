@@ -89,7 +89,7 @@
     </script>
 
     <!-- Custom CSS Styles -->
-    <link rel="stylesheet" href="/css/style.css?v=105.0">
+    <link rel="stylesheet" href="/css/style.css?v=106.0">
     <style>
         :root {
             --primary: #111827;
@@ -879,23 +879,28 @@
                         </div>
                     </div>
                     <div class="col-lg-6">
-                        <div class="border rounded-4 p-4 bg-white">
-                            <h6 class="fw-bold mb-4">System Configuration</h6>
+                        <div class="border rounded-4 p-4 bg-white shadow-sm">
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <h6 class="fw-semibold m-0"><i class="bi bi-gear-fill me-2 text-primary"></i>System Configuration</h6>
+                                <button class="btn btn-sm btn-light border extra-small fw-normal" style="border-radius: 8px;" onclick="resetConfigToDefault()" title="Atur Ulang ke Default (30 Menit / 200m)">
+                                    <i class="bi bi-arrow-counterclockwise me-1"></i> Reset Default
+                                </button>
+                            </div>
                             <div class="mb-4">
-                                <label class="extra-small fw-bold text-muted mb-2">SYNC INTERVAL</label>
+                                <label class="extra-small fw-semibold text-muted text-uppercase mb-2 d-block">SYNC INTERVAL (MINUTES)</label>
                                 <div class="input-group">
-                                    <input type="number" id="cfg-interval" class="form-control border" value="10" style="border-radius: 10px 0 0 10px;">
-                                    <select id="cfg-time-unit" class="form-select border" style="border-radius: 0 10px 10px 0;">
-                                        <option value="1000">Seconds</option>
-                                        <option value="60000">Minutes</option>
-                                    </select>
+                                    <input type="number" id="cfg-interval" class="form-control border fw-normal" value="30" min="1" style="border-radius: 10px 0 0 10px;">
+                                    <span class="input-group-text bg-light text-muted extra-small fw-normal border-start-0" style="border-radius: 0 10px 10px 0;">Menit</span>
                                 </div>
                             </div>
                             <div class="mb-4">
-                                <label class="extra-small fw-bold text-muted mb-2">GEOFENCE RADIUS (METERS)</label>
-                                <input type="number" id="cfg-geofence" class="form-control border" value="20" style="border-radius: 10px;">
+                                <label class="extra-small fw-semibold text-muted text-uppercase mb-2 d-block">GEOFENCE RADIUS (METERS)</label>
+                                <div class="input-group">
+                                    <input type="number" id="cfg-geofence" class="form-control border fw-normal" value="200" min="10" style="border-radius: 10px 0 0 10px;">
+                                    <span class="input-group-text bg-light text-muted extra-small fw-normal border-start-0" style="border-radius: 0 10px 10px 0;">Meter</span>
+                                </div>
                             </div>
-                            <button class="btn btn-dark w-100 py-3 fw-bold" style="border-radius:12px" onclick="updateConfig()">SAVE CHANGES</button>
+                            <button class="btn btn-dark w-100 py-2.5 fw-bold" style="border-radius:12px" onclick="updateConfig()">SAVE CHANGES</button>
                         </div>
 
                         <div class="border rounded-4 p-4 bg-white shadow-sm mt-4">
@@ -972,8 +977,8 @@
 
 <!-- Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<script src="/js/maps.js?v=105.0"></script>
-<script src="/js/kpi.js?v=105.0"></script>
-<script src="/js/app.js?v=105.0"></script>
+<script src="/js/maps.js?v=106.0"></script>
+<script src="/js/kpi.js?v=106.0"></script>
+<script src="/js/app.js?v=106.0"></script>
 </body>
 </html>

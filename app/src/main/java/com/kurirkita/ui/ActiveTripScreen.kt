@@ -53,7 +53,7 @@ fun ActiveTripScreen(trip: Trip, onBack: () -> Unit, onChatClick: () -> Unit) {
     var currentTrip by remember { mutableStateOf(trip) }
     val storage = FirebaseStorage.getInstance()
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
-    var geofenceRadius by remember { mutableStateOf(50f) }
+    var geofenceRadius by remember { mutableStateOf(200f) }
 
     LaunchedEffect(Unit) {
         db.collection("config").document("tracking").addSnapshotListener { snap, _ ->

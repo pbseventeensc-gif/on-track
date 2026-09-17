@@ -1893,13 +1893,78 @@ async function importClientsFromExcel() {
     reader.readAsArrayBuffer(file);
 }
 
+function initTrackingConfigListener() {
+    const activeDb = getDb();
+    if (!activeDb) {
+        setTimeout(initTrackingConfigListener, 500);
+        return;
+    }
+
+    activeDb.collection('config').doc('tracking').onSnapshot(snap => {
+        const data = snap?.data() || {};
+        const cfgIntervalEl = document.getElementById('cfg-interval');
+        const cfgGeofenceEl = document.getElementById('cfg-geofence');
+
+        if (cfgIntervalEl) {
+            if (data.intervalMs) {
+                const mins = Math.round(data.intervalMs / (60 * 1000));
+                cfgIntervalEl.value = mins > 0 ? mins : 30;
+            } else {
+                cfgIntervalEl.value = 30;
+            }
+        }
+
+        if (cfgGeofenceEl) {
+            if (data.geofenceRadius) {
+                cfgGeofenceEl.value = data.geofenceRadius;
+            } else {
+                cfgGeofenceEl.value = 200;
+            }
+        }
+    }, err => {
+        console.warn("Config listener error:", err);
+    });
+}
+initTrackingConfigListener();
+
 async function updateConfig() {
     const activeDb = getDb();
-    if (!activeDb) return;
-    const v = document.getElementById('cfg-interval').value, u = document.getElementById('cfg-time-unit').value, g = document.getElementById('cfg-geofence').value;
-    await activeDb.collection('config').doc('tracking').set({ intervalMs: v * u, geofenceRadius: parseFloat(g), updatedAt: firebase.firestore.Timestamp.now() }, { merge: true });
-    showToast("System updated.");
+    if (!activeDb) return alert("Firebase database belum siap.");
+
+    const mins = parseFloat(document.getElementById('cfg-interval')?.value || "30");
+    const geofence = parseFloat(document.getElementById('cfg-geofence')?.value || "200");
+
+    const validMins = (!isNaN(mins) && mins > 0) ? mins : 30;
+    const validGeofence = (!isNaN(geofence) && geofence > 0) ? geofence : 200;
+
+    const intervalMs = validMins * 60 * 1000;
+
+    try {
+        await activeDb.collection('config').doc('tracking').set({
+            intervalMs: intervalMs,
+            geofenceRadius: validGeofence,
+            updatedAt: firebase.firestore.Timestamp.now()
+        }, { merge: true });
+
+        showToast(`Konfigurasi tersimpan: ${validMins} Menit / ${validGeofence} Meter.`);
+    } catch (e) {
+        alert("Gagal menyimpan konfigurasi: " + e.message);
+    }
 }
+window.updateConfig = updateConfig;
+
+async function resetConfigToDefault() {
+    if (!confirm("Atur ulang konfigurasi ke Default (30 Menit & 200 Meter)?")) return;
+
+    const cfgIntervalEl = document.getElementById('cfg-interval');
+    const cfgGeofenceEl = document.getElementById('cfg-geofence');
+
+    if (cfgIntervalEl) cfgIntervalEl.value = 30;
+    if (cfgGeofenceEl) cfgGeofenceEl.value = 200;
+
+    await updateConfig();
+}
+window.resetConfigToDefault = resetConfigToDefault;
 
 async function publishUpdateAuto() {
     const activeStorage = getStorage();
