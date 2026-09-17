@@ -547,6 +547,7 @@ function switchTab(viewId, el) {
 
     if(viewId === 'chat') loadChatList();
     if(viewId === 'dispatch') loadClientsByRegion("");
+    if(viewId === 'pod-archive') renderPoDArchiveView();
 }
 
 function toggleAllClients(checked) {
@@ -1615,7 +1616,12 @@ async function submitManualUploadPhoto() {
         const activeDb = getDb();
         if (!activeStorage || !activeDb) throw new Error("Firebase Storage/Firestore belum siap.");
 
-        const ref = activeStorage.ref(`proofs/manual_${Date.now()}_${file.name}`);
+        const cleanTripId = tripId.replace(/[^a-zA-Z0-9]/g, '_');
+        const locName = document.getElementById('upload-modal-location-name')?.innerText || 'Client';
+        const cleanClientName = locName.replace(/[^a-zA-Z0-9]/g, '_');
+        const customFileName = `${cleanTripId}_Stop${stopIndex}_${cleanClientName}_${Date.now()}.jpg`;
+
+        const ref = activeStorage.ref(`proofs/${customFileName}`);
         const task = await ref.put(file);
         const photoUrl = await task.ref.getDownloadURL();
 
@@ -2340,3 +2346,132 @@ window.handleNotificationClick = handleNotificationClick;
 window.focusOnTrip = focusOnTrip;
 window.renderRecentShipments = renderRecentShipments;
 window.resetRecentFilters = resetRecentFilters;
+
+function renderPoDArchiveView(filter = "") {
+    const grid = document.getElementById('archive-photo-grid');
+    if (!grid) return;
+
+    const rawSearch = (typeof filter === 'string' ? filter : (document.getElementById('archive-search-input')?.value || "")).toLowerCase().trim();
+    const selectedCourier = document.getElementById('archive-courier-filter')?.value || "all";
+    const startDateVal = document.getElementById('archive-start-date')?.value;
+    const endDateVal = document.getElementById('archive-end-date')?.value;
+
+    let filterStartMs = 0;
+    let filterEndMs = Infinity;
+
+    if (startDateVal) {
+        const d = new Date(startDateVal + "T00:00:00");
+        if (!isNaN(d.getTime())) filterStartMs = d.getTime();
+    }
+    if (endDateVal) {
+        const d = new Date(endDateVal + "T23:59:59.999");
+        if (!isNaN(d.getTime())) filterEndMs = d.getTime();
+    }
+
+    const archiveCourierSelect = document.getElementById('archive-courier-filter');
+    if (archiveCourierSelect && archiveCourierSelect.options.length <= 1) {
+        const sortedCouriers = [];
+        for (const uid in registeredUsers) {
+            if (!isCourierUser(uid)) continue;
+            sortedCouriers.push({ uid: uid, name: registeredUsers[uid] });
+        }
+        sortedCouriers.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+        sortedCouriers.forEach(c => {
+            archiveCourierSelect.innerHTML += `<option value="${c.name}">${c.name}</option>`;
+        });
+    }
+
+    const photos = [];
+    allCurrentTrips.forEach(t => {
+        const cName = getCourierDisplayName(t.courierId);
+        const tripIdShort = '#' + t.id.substring(Math.max(0, t.id.length - 6));
+        const tripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : 0);
+        const tripDateStr = tripMs ? new Date(tripMs).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '-';
+
+        if (selectedCourier !== 'all' && cName !== selectedCourier && t.courierId !== selectedCourier) {
+            return;
+        }
+
+        if (filterStartMs > 0 && (tripMs < filterStartMs || tripMs > filterEndMs)) {
+            return;
+        }
+
+        if (t.destinations) {
+            t.destinations.forEach((d, idx) => {
+                if (d.proofPhotoUrl) {
+                    const locName = d.locationName || 'Destination';
+                    const fullAddress = d.address || '';
+                    const stopIdx = d.stopIndex || (idx + 1);
+                    const uniqueShipmentId = `${tripIdShort}-${stopIdx}`;
+
+                    const searchableText = `${uniqueShipmentId} ${tripIdShort} ${t.id} ${cName} ${locName} ${fullAddress} ${tripDateStr}`.toLowerCase();
+                    const terms = rawSearch.split(/\s+/).filter(x => x.length > 0);
+                    const matchSearch = !rawSearch || terms.every(term => searchableText.includes(term));
+
+                    if (matchSearch) {
+                        photos.push({
+                            url: d.proofPhotoUrl,
+                            shipmentId: uniqueShipmentId,
+                            clientName: locName,
+                            fullAddress: fullAddress,
+                            courierName: cName,
+                            dateStr: tripDateStr,
+                            tripMs: tripMs,
+                            stopIndex: stopIdx
+                        });
+                    }
+                }
+            });
+        }
+    });
+
+    const badge = document.getElementById('archive-count-badge');
+    if (badge) badge.innerText = `${photos.length} Foto Ditemukan`;
+
+    if (photos.length === 0) {
+        grid.innerHTML = `<div class="col-12 text-center py-5 text-muted extra-small">
+            <i class="bi bi-search fs-2 d-block mb-2 text-secondary"></i>
+            Tidak ada foto bukti pengiriman (PoD) yang sesuai dengan filter.
+        </div>`;
+        return;
+    }
+
+    photos.sort((a, b) => (b.tripMs || 0) - (a.tripMs || 0));
+
+    const gridHtml = [];
+    photos.forEach(p => {
+        gridHtml.push(`
+            <div class="col-6 col-sm-4 col-md-3 col-lg-2">
+                <div class="card h-100 border shadow-sm overflow-hidden" style="border-radius: 12px;">
+                    <div class="position-relative" style="height: 120px; background: #f1f5f9;">
+                        <img src="${p.url}" class="w-100 h-100 object-fit-cover cursor-pointer" onclick="openPoDModal('${p.url}')" title="Klik untuk memperbesar">
+                        <span class="position-absolute top-0 start-0 m-1 badge bg-dark opacity-75 extra-small fw-normal">${p.shipmentId}</span>
+                    </div>
+                    <div class="p-2 bg-white">
+                        <div class="fw-semibold extra-small text-truncate text-dark" title="${p.clientName}">${p.clientName}</div>
+                        <div class="extra-small text-truncate text-muted fw-normal">${p.courierName} &bull; ${p.dateStr}</div>
+                    </div>
+                </div>
+            </div>
+        `);
+    });
+
+    grid.innerHTML = gridHtml.join('');
+}
+window.renderPoDArchiveView = renderPoDArchiveView;
+
+function resetPoDArchiveFilter() {
+    const sSearch = document.getElementById('archive-search-input');
+    const sCourier = document.getElementById('archive-courier-filter');
+    const sStart = document.getElementById('archive-start-date');
+    const sEnd = document.getElementById('archive-end-date');
+
+    if (sSearch) sSearch.value = "";
+    if (sCourier) sCourier.value = "all";
+    if (sStart) sStart.value = "";
+    if (sEnd) sEnd.value = "";
+
+    renderPoDArchiveView();
+    showToast("Filter arsip dikembalikan.");
+}
+window.resetPoDArchiveFilter = resetPoDArchiveFilter;

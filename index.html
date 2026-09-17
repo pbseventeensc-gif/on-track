@@ -89,7 +89,7 @@
     </script>
 
     <!-- Custom CSS Styles -->
-    <link rel="stylesheet" href="/css/style.css?v=106.0">
+    <link rel="stylesheet" href="/css/style.css?v=107.0">
     <style>
         :root {
             --primary: #111827;
@@ -304,6 +304,9 @@
             </a>
 
             <div class="nav-category" id="cat-system">System</div>
+            <a class="nav-link-custom" id="nav-pod-archive" onclick="switchTab('pod-archive', this)">
+                <i class="bi bi-images"></i> <span>Arsip Foto PoD</span>
+            </a>
             <a class="nav-link-custom" id="nav-reports" onclick="switchTab('reports', this)">
                 <i class="bi bi-bar-chart"></i> <span>Reports</span>
             </a>
@@ -905,6 +908,59 @@
                             <div id="manage-couriers-container" class="overflow-y-auto" style="max-height: 250px;">
                                 <p class="text-center py-3 text-muted extra-small">Loading daftar kurir...</p>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- POD ARCHIVE VIEW -->
+            <div id="view-pod-archive" class="view-section">
+                <div class="border rounded-4 p-4 bg-white shadow-sm mb-4">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+                        <div>
+                            <h6 class="fw-bold m-0 text-dark"><i class="bi bi-images me-2 text-primary"></i>📦 Arsip Foto Bukti Pengiriman (PoD)</h6>
+                            <small class="text-muted extra-small">Cari dan tinjau seluruh arsip foto bukti pengiriman kurir</small>
+                        </div>
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <button class="btn btn-sm btn-light border extra-small fw-normal" style="border-radius: 8px;" title="Reset Filter Arsip" onclick="resetPoDArchiveFilter()">
+                                <i class="bi bi-arrow-counterclockwise me-1"></i> Reset Filter
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="row g-2 mb-4">
+                        <div class="col-md-3">
+                            <label class="extra-small text-muted fw-semibold mb-1 d-block">PILIH KURIR</label>
+                            <select id="archive-courier-filter" class="form-select form-select-sm border fw-normal py-2" style="border-radius: 10px; font-size: 0.8rem; background: #f8fafc;" onchange="renderPoDArchiveView()">
+                                <option value="all">Semua Kurir</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="extra-small text-muted fw-semibold mb-1 d-block">RENTANG TANGGAL (KALENDER)</label>
+                            <div class="d-flex align-items-center gap-1 bg-light border p-1 px-2" style="border-radius: 10px;">
+                                <span class="extra-small text-muted fw-normal">Dari:</span>
+                                <input type="date" id="archive-start-date" class="form-control form-control-sm border-0 bg-transparent fw-normal py-1" style="width: 120px; font-size: 0.775rem;" onchange="renderPoDArchiveView()">
+                                <span class="extra-small text-muted fw-normal ms-1">Sampai:</span>
+                                <input type="date" id="archive-end-date" class="form-control form-control-sm border-0 bg-transparent fw-normal py-1" style="width: 120px; font-size: 0.775rem;" onchange="renderPoDArchiveView()">
+                            </div>
+                        </div>
+                        <div class="col-md-5">
+                            <label class="extra-small text-muted fw-semibold mb-1 d-block">CARI ID / KLIEN / ALAMAT</label>
+                            <div class="position-relative">
+                                <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" style="font-size: 0.85rem;"></i>
+                                <input type="text" id="archive-search-input" class="form-control form-control-sm ps-5 py-2 fw-normal" style="border-radius: 10px; background: #f8fafc; font-size: 0.8rem;" placeholder="Cari Shipment ID, Nama Klien, Alamat..." oninput="renderPoDArchiveView(this.value)" autocomplete="off">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <small class="text-muted extra-small" id="archive-count-badge">0 Foto Ditemukan</small>
+                    </div>
+
+                    <div class="row g-3" id="archive-photo-grid" style="min-height: 250px;">
+                        <div class="col-12 text-center py-5 text-muted extra-small">
+                            <i class="bi bi-images fs-2 d-block mb-2 text-secondary"></i>
+                            Pilih filter di atas untuk melihat foto arsip PoD.
                         </div>
                     </div>
                 </div>
