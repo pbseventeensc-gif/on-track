@@ -1538,16 +1538,16 @@ function renderRecentShipments(filter = "") {
         const uploadBtn = `<button class="btn btn-sm btn-link text-primary p-0 ms-1 text-decoration-none" onclick="openManualUploadModal('${s.tripId}', ${s.stopIndex}, '${s.destinationName.replace(/'/g, "\\'")}')" title="Upload Foto PoD Manual Admin"><i class="bi bi-upload"></i></button>`;
 
         rowsHtml.push(`<tr>
-            <td class="fw-normal text-muted extra-small" style="white-space: nowrap;">${s.dateStr}</td>
-            <td class="fw-bold text-dark">${s.displayId} ${podIcon} ${uploadBtn}</td>
+            <td class="fw-normal text-muted extra-small text-nowrap" style="white-space: nowrap;">${s.dateStr}</td>
+            <td class="fw-bold text-dark text-nowrap" style="white-space: nowrap;">${s.displayId} ${podIcon} ${uploadBtn}</td>
             <td>
-                <div class="fw-bold text-dark">${s.destinationName}</div>
+                <div class="fw-bold text-dark text-truncate" style="max-width:240px">${s.destinationName}</div>
                 ${s.fullAddress ? `<small class="text-muted extra-small d-block text-truncate fw-normal" style="max-width:240px">${s.fullAddress}</small>` : ''}
             </td>
-            <td><span class="badge-pill badge-${s.statusClass} fw-normal">${s.status}</span></td>
-            <td class="fw-normal text-dark">${s.carrier}</td>
-            <td><small class="fw-normal text-secondary">${s.eta}</small></td>
-            <td>
+            <td class="text-nowrap" style="white-space: nowrap;"><span class="badge-pill badge-${s.statusClass} fw-normal">${s.status}</span></td>
+            <td class="fw-normal text-dark text-nowrap" style="white-space: nowrap;">${s.carrier}</td>
+            <td class="text-nowrap" style="white-space: nowrap;"><small class="fw-normal text-secondary">${s.eta}</small></td>
+            <td class="text-nowrap">
                 <button class="btn btn-sm btn-light border text-danger" onclick="deleteDestinationStop('${s.tripId}', ${s.stopIndex}, '${s.destinationName.replace(/'/g, "\\'")}')" title="Hapus Titik Pengantaran Ini">
                     <i class="bi bi-trash"></i>
                 </button>
