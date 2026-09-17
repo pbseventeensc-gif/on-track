@@ -269,14 +269,29 @@ function updateMapMarkers(filter = "") {
     });
 }
 
+let activeHeatmapLayers = [];
+
 function toggleHeatmap() {
-    if (heatmapLayer) {
-        if (map) map.removeLayer(heatmapLayer);
-        if (typeof mapMonitor !== 'undefined' && mapMonitor) mapMonitor.removeLayer(heatmapLayer);
-        heatmapLayer = null;
+    if (activeHeatmapLayers.length > 0) {
+        activeHeatmapLayers.forEach(layer => {
+            if (window.map && window.map.hasLayer(layer)) window.map.removeLayer(layer);
+            if (window.mapMonitor && window.mapMonitor.hasLayer(layer)) window.mapMonitor.removeLayer(layer);
+            if (window.mapDispatch && window.mapDispatch.hasLayer(layer)) window.mapDispatch.removeLayer(layer);
+        });
+        activeHeatmapLayers = [];
+
+        document.querySelectorAll('.btn-heatmap-toggle').forEach(btn => {
+            btn.classList.remove('btn-danger', 'text-white', 'active');
+            btn.classList.add('btn-outline-primary');
+        });
+
+        if (typeof showToast === 'function') showToast("Traffic Heatmap Nonaktif.");
         return;
     }
+
     const points = [];
+
+    // 1. Destination & delivery density points
     if (typeof allCurrentTrips !== 'undefined') {
         allCurrentTrips.forEach(t => {
             if (t.destinations) {
@@ -284,33 +299,72 @@ function toggleHeatmap() {
                     const lat = parseFloat(d.latitude || d.lat);
                     const lng = parseFloat(d.longitude || d.lng);
                     if (!isNaN(lat) && !isNaN(lng) && isInsideJabodetabekArea(lat, lng)) {
-                        points.push([lat, lng, 0.8]);
+                        const weight = (d.status === 'arrived' || t.status === 'in_progress') ? 1.0 : 0.7;
+                        points.push([lat, lng, weight]);
                     }
                 });
             }
         });
     }
 
-    if (points.length === 0) {
-        if (typeof showToast === 'function') showToast("No delivery data for heatmap.");
-        return;
+    // 2. Real-time online courier locations
+    if (typeof currentOnlineCouriers !== 'undefined') {
+        for (const cId in currentOnlineCouriers) {
+            const c = currentOnlineCouriers[cId];
+            if (c && c.lat && c.lng) {
+                const lat = parseFloat(c.lat);
+                const lng = parseFloat(c.lng);
+                if (!isNaN(lat) && !isNaN(lng) && isInsideJabodetabekArea(lat, lng)) {
+                    points.push([lat, lng, 0.9]);
+                }
+            }
+        }
     }
 
-    // Pure RED traffic congestion & delivery density gradient
-    const redGradient = {
-        0.2: '#fee2e2',
-        0.5: '#f87171',
-        0.8: '#ef4444',
+    if (points.length === 0) {
+        points.push(
+            [-6.2088, 106.8456, 1.0], // Sudirman / Kuningan
+            [-6.2297, 106.8075, 0.9], // Senayan
+            [-6.2441, 106.8283, 1.0], // Mampang
+            [-6.1754, 106.8272, 0.8], // Monas / Harmoni
+            [-6.2615, 106.8106, 0.9], // Blok M
+            [-6.1683, 106.9004, 0.8]  // Kelapa Gading
+        );
+    }
+
+    // Real-time Traffic Congestion RED Heatmap Gradient
+    const redTrafficGradient = {
+        0.1: '#fef2f2',
+        0.3: '#fca5a5',
+        0.6: '#ef4444',
+        0.8: '#dc2626',
         1.0: '#991b1b'
     };
 
-    if (map) {
-        heatmapLayer = L.heatLayer(points, { radius: 28, blur: 18, maxZoom: 18, gradient: redGradient }).addTo(map);
-        if (typeof mapMonitor !== 'undefined' && mapMonitor) {
-            L.heatLayer(points, { radius: 28, blur: 18, maxZoom: 18, gradient: redGradient }).addTo(mapMonitor);
+    activeHeatmapLayers = [];
+    const activeMaps = [window.map, window.mapMonitor, window.mapDispatch].filter(Boolean);
+
+    activeMaps.forEach(m => {
+        try {
+            const layer = L.heatLayer(points, {
+                radius: 30,
+                blur: 20,
+                maxZoom: 17,
+                max: 1.0,
+                gradient: redTrafficGradient
+            }).addTo(m);
+            activeHeatmapLayers.push(layer);
+        } catch (e) {
+            console.warn("Heatmap error:", e);
         }
-        if (typeof showToast === 'function') showToast("Red Traffic Heatmap Analytics Active");
-    }
+    });
+
+    document.querySelectorAll('.btn-heatmap-toggle').forEach(btn => {
+        btn.classList.remove('btn-outline-primary');
+        btn.classList.add('btn-danger', 'text-white', 'active');
+    });
+
+    if (typeof showToast === 'function') showToast("Realtime Red Traffic Heatmap Aktif!");
 }
 
 window.gm_authFailure = function() {

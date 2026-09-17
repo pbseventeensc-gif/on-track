@@ -1224,51 +1224,53 @@ function renderMonitorUI(filter = "") {
 
     const courierIds = Object.keys(courierGroups);
     if(courierIds.length === 0) {
-        mList.innerHTML = '<div class="col-12 text-center p-5 text-muted">No active couriers matching filter.</div>';
+        mList.innerHTML = '<div class="col-12 text-center p-4 text-muted extra-small">No active couriers matching filter.</div>';
         return;
     }
 
+    const cardsHtml = [];
     courierIds.forEach(cId => {
         const c = courierGroups[cId];
         const cColor = getCourierColor(c.id);
         const progress = Math.round((c.doneStops / c.totalStops) * 100) || 0;
         const isOnline = isCourierOnline(c.id);
 
-        mList.innerHTML += `
-            <div class="col-md-6 col-xl-4">
-                <div class="border rounded-4 p-4 bg-white shadow-sm h-100" style="border-top: 4px solid ${cColor} !important">
-                    <div class="d-flex justify-content-between align-start mb-3">
-                        <div class="d-flex align-items-center gap-3">
-                            <img src="https://ui-avatars.com/api/?name=${encodeURIComponent(c.name)}&background=${cColor.replace('#','')}&color=fff" style="width:40px;height:40px;border-radius:12px;">
+        cardsHtml.push(`
+            <div class="col-sm-6 col-md-4 col-lg-3 col-xl-3 mb-2">
+                <div class="border rounded-3 p-2.5 px-3 bg-white shadow-sm h-100" style="border-top: 3px solid ${cColor} !important">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <img src="https://ui-avatars.com/api/?name=${encodeURIComponent(c.name)}&background=${cColor.replace('#','')}&color=fff" style="width:32px;height:32px;border-radius:8px;">
                             <div>
-                                <div class="fw-bold mb-0" style="font-size:1rem">${c.name}</div>
-                                <small class="${isOnline ? 'text-success' : 'text-muted'} fw-bold" style="font-size:0.7rem">
-                                    <i class="bi bi-circle-fill me-1" style="font-size: 6px"></i> ${isOnline ? 'ONLINE' : 'OFFLINE'}
+                                <div class="fw-bold mb-0 text-dark text-truncate" style="font-size:0.875rem; max-width: 110px;" title="${c.name}">${c.name}</div>
+                                <small class="${isOnline ? 'text-success' : 'text-muted'} fw-semibold" style="font-size:0.65rem">
+                                    <i class="bi bi-circle-fill me-1" style="font-size: 5px"></i> ${isOnline ? 'ONLINE' : 'OFFLINE'}
                                 </small>
                             </div>
                         </div>
                         <div class="d-flex align-items-center gap-1">
-                            <span class="badge rounded-pill bg-light text-dark border small" style="font-size:0.65rem">${c.trips.length} Active Trips</span>
-                            <button class="btn btn-sm btn-link text-danger p-0 ms-1 text-decoration-none" onclick="deleteCourierActiveTrips('${c.id}', '${c.name.replace(/'/g, "\\'")}')" title="Batalkan/Hapus Semua Tugas Aktif Kurir Ini"><i class="bi bi-trash"></i></button>
+                            <span class="badge rounded-pill bg-light text-dark border extra-small py-1 px-2" style="font-size:0.65rem">${c.trips.length} Active Trips</span>
+                            <button class="btn btn-sm btn-link text-danger p-0 ms-1 text-decoration-none" onclick="deleteCourierActiveTrips('${c.id}', '${c.name.replace(/'/g, "\\'")}')" title="Batalkan/Hapus Semua Tugas Aktif Kurir Ini"><i class="bi bi-trash" style="font-size:0.8rem"></i></button>
                         </div>
                     </div>
 
-                    <div class="mb-4">
-                        <div class="d-flex justify-content-between small mb-2">
-                            <span class="text-muted fw-bold">Overall Progress</span>
+                    <div class="mb-2">
+                        <div class="d-flex justify-content-between extra-small mb-1">
+                            <span class="text-muted fw-medium">Overall Progress</span>
                             <span class="fw-bold text-dark">${c.doneStops}/${c.totalStops} Stops</span>
                         </div>
-                        <div class="progress" style="height: 8px; border-radius: 10px; background: #F1F5F9">
-                            <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: ${progress}%; background: ${cColor}; border-radius: 10px;"></div>
+                        <div class="progress" style="height: 6px; border-radius: 6px; background: #F1F5F9">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: ${progress}%; background: ${cColor}; border-radius: 6px;"></div>
                         </div>
                     </div>
 
-                    <button class="btn btn-sm btn-dark w-100 py-2 fw-bold" style="border-radius: 10px; font-size:0.85rem" data-id="${c.id}" onclick="focusOnCourier(this.dataset.id, true)">
+                    <button class="btn btn-sm btn-dark w-100 py-1.5 fw-bold" style="border-radius: 8px; font-size:0.75rem" data-id="${c.id}" onclick="focusOnCourier(this.dataset.id, true)">
                         <i class="bi bi-geo-alt-fill me-1"></i> FOCUS TRACKING
                     </button>
                 </div>
-            </div>`;
+            </div>`);
     });
+    mList.innerHTML = cardsHtml.join('');
 }
 
 async function deleteCourierActiveTrips(courierId, courierName) {
