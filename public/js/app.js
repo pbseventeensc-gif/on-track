@@ -462,11 +462,11 @@ function updateDynamicAlerts() {
 
             if(now - lastUpdate > 30 * 60 * 1000) {
                 container.innerHTML += `
-                    <div class="d-flex gap-3 p-3 rounded-3 cursor-pointer" style="background: #FEF2F2;" onclick="focusOnTrip('${t.id}')">
-                        <div class="text-danger fs-4"><i class="bi bi-clock-history"></i></div>
+                    <div class="d-flex align-items-center gap-2 p-2 px-3 rounded-3 cursor-pointer" style="background: #FEF2F2;" onclick="focusOnTrip('${t.id}')">
+                        <div class="text-danger fs-5 d-flex align-items-center me-1"><i class="bi bi-clock-history"></i></div>
                         <div>
-                            <div class="fw-bold small text-dark">Delay: ${tripIdShort} (${cName})</div>
-                            <div class="extra-small text-danger">Tidak ada pembaruan status > 30 menit</div>
+                            <div class="fw-semibold text-dark" style="font-size: 0.8125rem; line-height: 1.25;">Delay: ${tripIdShort} (${cName})</div>
+                            <div class="text-danger" style="font-size: 0.725rem; margin-top: 1px;">Tidak ada pembaruan status > 30 menit</div>
                         </div>
                     </div>`;
             }
@@ -475,11 +475,11 @@ function updateDynamicAlerts() {
         const isOnline = typeof isCourierOnline === 'function' ? isCourierOnline(t.courierId) : !!currentOnlineCouriers[t.courierId];
         if(!isOnline && t.status !== 'completed') {
             container.innerHTML += `
-                <div class="d-flex gap-3 p-3 rounded-3 cursor-pointer" style="background: #FFFBEB;" onclick="focusOnCourier('${t.courierId}', true)">
-                    <div class="text-warning fs-4"><i class="bi bi-person-x"></i></div>
+                <div class="d-flex align-items-center gap-2 p-2 px-3 rounded-3 cursor-pointer" style="background: #FFFBEB;" onclick="focusOnCourier('${t.courierId}', true)">
+                    <div class="text-warning fs-5 d-flex align-items-center me-1"><i class="bi bi-person-x"></i></div>
                     <div>
-                        <div class="fw-bold small text-dark">Kurir Offline: ${cName}</div>
-                        <div class="extra-small text-warning">Kurir offline tapi memiliki tugas aktif ${tripIdShort}</div>
+                        <div class="fw-semibold text-dark" style="font-size: 0.8125rem; line-height: 1.25;">Kurir Offline: ${cName}</div>
+                        <div class="text-warning" style="font-size: 0.725rem; margin-top: 1px;">Kurir offline tapi memiliki tugas aktif ${tripIdShort}</div>
                     </div>
                 </div>`;
         }
