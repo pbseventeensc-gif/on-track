@@ -983,8 +983,8 @@ function updateGlobalStats() {
         }
 
         if (!startDateVal && !endDateVal) {
-            const selectedDateMode = document.getElementById('recent-date-filter')?.value || "all";
-            if (selectedDateMode === "today") {
+            const selectedDateMode = document.getElementById('recent-date-filter')?.value || "today";
+            if (selectedDateMode === "today" || !selectedDateMode) {
                 filterStartMs = todayDayMs;
                 filterEndMs = todayDayMs + (24 * 60 * 60 * 1000) - 1;
             } else if (selectedDateMode === "3days") {
@@ -996,6 +996,9 @@ function updateGlobalStats() {
             } else if (selectedDateMode === "month") {
                 filterStartMs = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
                 filterEndMs = todayDayMs + (24 * 60 * 60 * 1000) - 1;
+            } else if (selectedDateMode === "all") {
+                filterStartMs = 0;
+                filterEndMs = Infinity;
             }
         }
 
@@ -1537,8 +1540,8 @@ function renderRecentShipments(filter = "") {
     }
 
     if (!startDateVal && !endDateVal) {
-        const selectedDateMode = document.getElementById('recent-date-filter')?.value || "all";
-        if (selectedDateMode === "today") {
+        const selectedDateMode = document.getElementById('recent-date-filter')?.value || "today";
+        if (selectedDateMode === "today" || !selectedDateMode) {
             filterStartMs = todayDayMs;
             filterEndMs = todayDayMs + (24 * 60 * 60 * 1000) - 1;
         } else if (selectedDateMode === "3days") {
@@ -1550,6 +1553,9 @@ function renderRecentShipments(filter = "") {
         } else if (selectedDateMode === "month") {
             filterStartMs = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
             filterEndMs = todayDayMs + (24 * 60 * 60 * 1000) - 1;
+        } else if (selectedDateMode === "all") {
+            filterStartMs = 0;
+            filterEndMs = Infinity;
         }
     }
 
