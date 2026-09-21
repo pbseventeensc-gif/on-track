@@ -123,7 +123,67 @@ let activeFilter = "";
 let isDarkMode = false;
 let allClients = [];
 let notificationItems = [];
-let currentUserRole = "admin";
+let currentUserRole = "super_admin";
+let currentUserBranchId = "pusat";
+
+function getActiveBranchId() {
+    if (currentUserRole === 'branch_admin' || currentUserRole === 'branch') {
+        return currentUserBranchId || 'cikokol';
+    }
+    const selectEl = document.getElementById('header-branch-filter');
+    if (selectEl) {
+        return selectEl.value;
+    }
+    return 'all';
+}
+window.getActiveBranchId = getActiveBranchId;
+
+function getTripBranch(t) {
+    if (!t) return 'pusat';
+    if (t.branchId) return t.branchId.toLowerCase();
+
+    const courierObj = registeredUsersObjects ? registeredUsersObjects[t.courierId] : null;
+    if (courierObj && courierObj.branchId) {
+        return courierObj.branchId.toLowerCase();
+    }
+
+    return 'pusat';
+}
+window.getTripBranch = getTripBranch;
+
+function isTripInActiveBranch(t) {
+    const activeBranch = getActiveBranchId();
+    if (activeBranch === 'all') return true;
+    const tripBranch = getTripBranch(t);
+    return tripBranch === activeBranch;
+}
+window.isTripInActiveBranch = isTripInActiveBranch;
+
+function isCourierInActiveBranch(courierUid) {
+    const activeBranch = getActiveBranchId();
+    if (activeBranch === 'all') return true;
+    const courierObj = registeredUsersObjects ? registeredUsersObjects[courierUid] : null;
+    if (courierObj && courierObj.branchId) {
+        return courierObj.branchId.toLowerCase() === activeBranch;
+    }
+    const hasTripInBranch = allCurrentTrips.some(t => t.courierId === courierUid && getTripBranch(t) === activeBranch);
+    if (hasTripInBranch) return true;
+
+    return activeBranch === 'pusat';
+}
+window.isCourierInActiveBranch = isCourierInActiveBranch;
+
+function switchBranchFilter(branchVal) {
+    if (typeof showToast === 'function') {
+        const branchNames = { 'all': 'Semua Cabang', 'pusat': 'Cabang Pusat', 'cikokol': 'Cabang Cikokol' };
+        showToast(`Memfilter tampilan ke: ${branchNames[branchVal] || branchVal}`);
+    }
+    if (typeof updateGlobalStats === 'function') updateGlobalStats();
+    if (typeof renderRecentShipments === 'function') renderRecentShipments();
+    if (typeof renderMonitorUI === 'function') renderMonitorUI();
+    if (typeof updateMapMarkers === 'function') updateMapMarkers();
+}
+window.switchBranchFilter = switchBranchFilter;
 
 function getCourierColor(id) {
     const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#6366f1'];
@@ -1003,6 +1063,10 @@ function updateGlobalStats() {
         }
 
         const filteredTrips = allCurrentTrips.filter(t => {
+            if (typeof isTripInActiveBranch === 'function' && !isTripInActiveBranch(t)) {
+                return false;
+            }
+
             const cName = getCourierDisplayName ? getCourierDisplayName(t.courierId) : t.courierId;
             const tripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : (t.id ? parseInt(t.id.replace('TRIP_', '')) || 0 : 0));
 
@@ -1564,6 +1628,10 @@ function renderRecentShipments(filter = "") {
     }
 
     allCurrentTrips.forEach(t => {
+        if (typeof isTripInActiveBranch === 'function' && !isTripInActiveBranch(t)) {
+            return;
+        }
+
         const cName = getCourierDisplayName(t.courierId);
         const tripIdShort = '#' + t.id.substring(Math.max(0, t.id.length - 6));
         const tripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : (t.id ? parseInt(t.id.replace('TRIP_', '')) || 0 : 0));
@@ -2310,11 +2378,28 @@ function initAuthListener() {
                             const uData = doc.data();
                             const uRole = (uData.role || 'admin').toLowerCase();
                             currentUserRole = uRole;
+                            currentUserBranchId = (uData.branchId || 'pusat').toLowerCase();
+
+                            const branchWrapper = document.getElementById('branch-selector-wrapper');
+                            const branchSelect = document.getElementById('header-branch-filter');
+
+                            if (currentUserRole === 'branch_admin' || currentUserRole === 'branch') {
+                                const branchTitle = (uData.branchName || currentUserBranchId).toUpperCase();
+                                if (branchWrapper) {
+                                    branchWrapper.innerHTML = `<span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 fw-bold" style="font-size: 0.8rem;"><i class="bi bi-building me-1"></i> Cabang ${branchTitle}</span>`;
+                                }
+                            } else {
+                                if (branchSelect) branchSelect.value = 'all';
+                            }
+
+                            if (typeof switchBranchFilter === 'function') {
+                                switchBranchFilter(getActiveBranchId());
+                            }
 
                             const profileName = document.getElementById('profile-name');
                             const profileRole = document.getElementById('profile-role');
                             if (profileName) profileName.innerText = uData.name || "admin";
-                            if (profileRole) profileRole.innerHTML = '<span class="d-inline-block rounded-circle bg-success me-1" style="width: 7px; height: 7px;"></span>Online';
+                            if (profileRole) profileRole.innerHTML = `<span class="d-inline-block rounded-circle bg-success me-1" style="width: 7px; height: 7px;"></span>${currentUserRole === 'branch_admin' ? 'Admin Cabang' : 'Super Admin'}`;
                         }
                     }).catch(e => console.warn("Could not fetch user role:", e));
                 }

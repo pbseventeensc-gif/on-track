@@ -140,6 +140,8 @@ function updateMapMarkers(filter = "") {
     // 1. Render Online Couriers inside Jabodetabek & Karawang
     if (typeof currentOnlineCouriers !== 'undefined') {
         for (const id in currentOnlineCouriers) {
+            if (typeof isCourierInActiveBranch === 'function' && !isCourierInActiveBranch(id)) continue;
+
             const c = currentOnlineCouriers[id];
             if (!c || typeof c.lat === 'undefined' || typeof c.lng === 'undefined') continue;
 
@@ -179,6 +181,8 @@ function updateMapMarkers(filter = "") {
     const todayDayMs = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
 
     allCurrentTrips.forEach(t => {
+        if (typeof isTripInActiveBranch === 'function' && !isTripInActiveBranch(t)) return;
+
         const cName = (typeof registeredUsers !== 'undefined' && registeredUsers[t.courierId]) ? registeredUsers[t.courierId] : t.courierId.substring(0,8);
         const cColor = typeof getCourierColor === 'function' ? getCourierColor(t.courierId) : '#3B82F6';
         const tripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : (t.id ? parseInt(t.id.replace('TRIP_', '')) || 0 : 0));

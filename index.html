@@ -378,6 +378,13 @@
                         </div>
                     </div>
                 </div>
+                <div id="branch-selector-wrapper" class="d-flex align-items-center gap-2 me-2">
+                    <select id="header-branch-filter" class="form-select form-select-sm fw-bold border-success-subtle" style="border-radius: 10px; width: 140px; font-size: 0.8rem; background: #f0fdf4; color: #15803d; cursor: pointer;" onchange="switchBranchFilter(this.value)">
+                        <option value="all">🏢 Semua Cabang</option>
+                        <option value="pusat">📍 Pusat</option>
+                        <option value="cikokol">📍 Cikokol</option>
+                    </select>
+                </div>
                 <button class="btn-new-shipment" onclick="switchTab('dispatch', document.querySelector('[onclick*=\'dispatch\']'))">
                     <i class="bi bi-plus-lg"></i> <span>New Shipment</span>
                 </button>
