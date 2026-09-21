@@ -1312,9 +1312,13 @@ function renderMonitorUI(filter = "") {
     mList.innerHTML = '';
 
     const search = filter.toLowerCase();
+    const now = new Date();
+    const todayDayMs = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
 
     const courierGroups = {};
     allCurrentTrips.forEach(t => {
+        const tripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : 0);
+        if (tripMs < todayDayMs) return; // Clean H+1: Only show today's active trips
         if(t.status === 'completed') return;
         const cId = t.courierId;
         const cName = registeredUsers[cId] || cId.substring(0,8);
