@@ -254,6 +254,15 @@ body {
     padding: 20px;
     background: #fff;
 }
+.stat-card.clickable {
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.stat-card.clickable:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 16px rgba(0,0,0,0.08);
+    border-color: #3b82f6 !important;
+}
 .stat-label { font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 8px; }
 .stat-value { font-size: 1.5rem; font-weight: 800; color: var(--text-main); margin-bottom: 4px; }
 .stat-trend { font-size: 0.75rem; font-weight: 700; display: flex; align-items: center; gap: 4px; }

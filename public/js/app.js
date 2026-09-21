@@ -1406,6 +1406,49 @@ function focusOnCourier(id, isMonitor = true) {
 let recentSortField = 'date';
 let recentSortAsc = false;
 
+function filterTableByCard(cardType) {
+    const sStatus = document.getElementById('recent-status-filter');
+    const sStart = document.getElementById('recent-start-date');
+    const sEnd = document.getElementById('recent-end-date');
+
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    if (cardType === 'active') {
+        if (sStatus) sStatus.value = "active_all";
+        if (sStart) sStart.value = "";
+        if (sEnd) sEnd.value = "";
+        if (typeof showToast === 'function') showToast("Menampilkan seluruh Active Shipments");
+    } else if (cardType === 'delayed') {
+        if (sStatus) sStatus.value = "delayed";
+        if (sStart) sStart.value = "";
+        if (sEnd) sEnd.value = "";
+        if (typeof showToast === 'function') showToast("Menampilkan pengiriman Terlambat (Delayed)");
+    } else if (cardType === 'in_transit') {
+        if (sStatus) sStatus.value = "in_progress";
+        if (sStart) sStart.value = "";
+        if (sEnd) sEnd.value = "";
+        if (typeof showToast === 'function') showToast("Menampilkan pengiriman In Transit");
+    } else if (cardType === 'today') {
+        if (sStatus) sStatus.value = "all";
+        if (sStart) sStart.value = todayStr;
+        if (sEnd) sEnd.value = todayStr;
+        if (typeof showToast === 'function') showToast("Menampilkan pengiriman Hari Ini (Orders Today)");
+    } else if (cardType === 'total_km') {
+        if (sStatus) sStatus.value = "completed";
+        if (sStart) sStart.value = "";
+        if (sEnd) sEnd.value = "";
+        if (typeof showToast === 'function') showToast("Menampilkan pengiriman Selesai dengan Total Distance");
+    }
+
+    renderRecentShipments();
+
+    const targetEl = document.getElementById('recent-shipments-table') || document.querySelector('.card.border.rounded-4.p-4.mb-4');
+    if (targetEl) {
+        targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+}
+window.filterTableByCard = filterTableByCard;
+
 function sortRecentShipments(field) {
     if (recentSortField === field) {
         recentSortAsc = !recentSortAsc;
@@ -1506,7 +1549,20 @@ function renderRecentShipments(filter = "") {
                     return searchableText.includes(term) || searchableText.includes(cleanTerm);
                 });
 
-                const matchStatus = (selectedStatus === 'all') || (status === selectedStatus);
+                let matchStatus = false;
+                if (selectedStatus === 'all') {
+                    matchStatus = true;
+                } else if (selectedStatus === 'active_all') {
+                    matchStatus = (status !== 'completed');
+                } else if (selectedStatus === 'delayed') {
+                    const lastUpdate = t.destinations ? t.destinations.filter(d => d.status === 'done' || d.status === 'arrived').reduce((max, d) => {
+                        const time = (d.completedTime || d.arrivalTime)?.seconds * 1000 || 0;
+                        return time > max ? time : max;
+                    }, (t.date?.seconds || 0) * 1000) : 0;
+                    matchStatus = (status !== 'completed') && (Date.now() - lastUpdate > 30 * 60 * 1000);
+                } else {
+                    matchStatus = (status === selectedStatus);
+                }
 
                 if (matchSearch && matchStatus) {
                     shipmentRows.push({

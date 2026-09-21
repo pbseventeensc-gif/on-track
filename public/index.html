@@ -392,7 +392,7 @@
             <div id="view-dashboard" class="view-section active">
                 <div class="row g-4 mb-4">
                     <div class="col-6 col-md-4 col-xl-2">
-                        <div class="stat-card">
+                        <div class="stat-card clickable" onclick="filterTableByCard('active')" title="Klik untuk memfilter tabel ke Active Shipments">
                             <div class="stat-label">Active Shipments</div>
                             <div class="stat-value" id="stat-active">0</div>
                             <div class="stat-trend trend-up"><i class="bi bi-arrow-up-short"></i> +0% vs lw</div>
@@ -406,28 +406,28 @@
                         </div>
                     </div>
                     <div class="col-6 col-md-4 col-xl-2">
-                        <div class="stat-card">
+                        <div class="stat-card clickable" onclick="filterTableByCard('delayed')" title="Klik untuk memfilter tabel ke Delayed Shipments">
                             <div class="stat-label">Delayed</div>
                             <div class="stat-value" id="stat-delayed">0</div>
                             <div class="stat-trend text-muted">Stable</div>
                         </div>
                     </div>
                     <div class="col-6 col-md-4 col-xl-2">
-                        <div class="stat-card">
+                        <div class="stat-card clickable" onclick="filterTableByCard('in_transit')" title="Klik untuk memfilter tabel ke In Transit Shipments">
                             <div class="stat-label">In Transit</div>
                             <div class="stat-value" id="stat-transit-count">0</div>
                             <div class="stat-trend trend-up"><i class="bi bi-arrow-up-short"></i> +0%</div>
                         </div>
                     </div>
                     <div class="col-6 col-md-4 col-xl-2">
-                        <div class="stat-card">
+                        <div class="stat-card clickable" onclick="filterTableByCard('today')" title="Klik untuk memfilter tabel ke Orders Today">
                             <div class="stat-label">Orders Today</div>
                             <div class="stat-value" id="stat-done">0</div>
                             <div class="stat-trend trend-up"><i class="bi bi-arrow-up-short"></i> +0%</div>
                         </div>
                     </div>
                     <div class="col-6 col-md-4 col-xl-2">
-                        <div class="stat-card">
+                        <div class="stat-card clickable" onclick="filterTableByCard('total_km')" title="Klik untuk memfilter tabel ke Total Distance">
                             <div class="stat-label">Total Distance</div>
                             <div class="stat-value" id="stat-total-km">0 km</div>
                             <div class="stat-trend text-muted">Real-time</div>
@@ -511,11 +511,13 @@
                                     <select id="recent-carrier-filter" class="form-select form-select-sm fw-normal py-2" style="border-radius: 10px; width: 135px; font-size: 0.8rem; background: #f8fafc;" onchange="renderRecentShipments()">
                                         <option value="all">Semua Kurir</option>
                                     </select>
-                                    <select id="recent-status-filter" class="form-select form-select-sm fw-normal py-2" style="border-radius: 10px; width: 125px; font-size: 0.8rem; background: #f8fafc;" onchange="renderRecentShipments()">
+                                    <select id="recent-status-filter" class="form-select form-select-sm fw-normal py-2" style="border-radius: 10px; width: 140px; font-size: 0.8rem; background: #f8fafc;" onchange="renderRecentShipments()">
                                         <option value="all">Semua Status</option>
-                                        <option value="completed">Completed</option>
+                                        <option value="active_all">Semua Aktif</option>
                                         <option value="in_progress">In Progress</option>
+                                        <option value="delayed">Terlambat (Delayed)</option>
                                         <option value="assigned">Pending</option>
+                                        <option value="completed">Completed</option>
                                     </select>
                                     <div class="position-relative">
                                         <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"></i>
