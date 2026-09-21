@@ -900,115 +900,172 @@ function initTripsSnapshot() {
 }
 initTripsSnapshot();
 
+let isUpdatingStats = false;
+
 function updateGlobalStats() {
-    let activeTrips = 0;
-    let doneToday = 0;
-    let delayedCount = 0;
-    let inTransitCouriers = 0;
-    let totalCompletedTrips = 0;
-    let onTimeTrips = 0;
-    let grandTotalKM = 0;
+    if (isUpdatingStats) return;
+    isUpdatingStats = true;
 
-    let totalStops = 0;
-    let deliveredStops = 0;
-    let inTransitStops = 0;
-    let pendingStops = 0;
-    let returnedStops = 0;
+    try {
+        let activeTrips = 0;
+        let doneToday = 0;
+        let delayedCount = 0;
+        let inTransitCouriers = 0;
+        let totalCompletedTrips = 0;
+        let onTimeTrips = 0;
+        let grandTotalKM = 0;
 
-    const couriersWithActiveTrip = new Set();
+        let totalStops = 0;
+        let deliveredStops = 0;
+        let inTransitStops = 0;
+        let pendingStops = 0;
+        let returnedStops = 0;
 
-    allCurrentTrips.forEach(t => {
-        if(t.status !== 'completed') {
-            activeTrips++;
-            couriersWithActiveTrip.add(t.courierId);
+        const couriersWithActiveTrip = new Set();
 
-            const lastUpdate = t.destinations ? t.destinations.filter(d => d.status === 'done' || d.status === 'arrived').reduce((max, d) => {
-                const time = (d.completedTime || d.arrivalTime)?.seconds * 1000 || 0;
-                return time > max ? time : max;
-            }, (t.date?.seconds || 0) * 1000) : 0;
+        const selectedCarrier = document.getElementById('recent-carrier-filter')?.value || "all";
+        const startDateVal = document.getElementById('recent-start-date')?.value;
+        const endDateVal = document.getElementById('recent-end-date')?.value;
 
-            if(Date.now() - lastUpdate > 30 * 60 * 1000 && t.status === 'in_progress') {
-                delayedCount++;
+        const now = new Date();
+        const todayDayMs = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+
+        let filterStartMs = 0;
+        let filterEndMs = Infinity;
+
+        if (startDateVal) {
+            const d = new Date(startDateVal + "T00:00:00");
+            if (!isNaN(d.getTime())) filterStartMs = d.getTime();
+        }
+        if (endDateVal) {
+            const d = new Date(endDateVal + "T23:59:59.999");
+            if (!isNaN(d.getTime())) filterEndMs = d.getTime();
+        }
+
+        if (!startDateVal && !endDateVal) {
+            const selectedDateMode = document.getElementById('recent-date-filter')?.value || "all";
+            if (selectedDateMode === "today") {
+                filterStartMs = todayDayMs;
+                filterEndMs = todayDayMs + (24 * 60 * 60 * 1000) - 1;
+            } else if (selectedDateMode === "3days") {
+                filterStartMs = todayDayMs - (2 * 24 * 60 * 60 * 1000);
+                filterEndMs = todayDayMs + (24 * 60 * 60 * 1000) - 1;
+            } else if (selectedDateMode === "7days") {
+                filterStartMs = todayDayMs - (6 * 24 * 60 * 60 * 1000);
+                filterEndMs = todayDayMs + (24 * 60 * 60 * 1000) - 1;
+            } else if (selectedDateMode === "month") {
+                filterStartMs = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+                filterEndMs = todayDayMs + (24 * 60 * 60 * 1000) - 1;
             }
-        } else {
-            totalCompletedTrips++;
-            doneToday++;
-            onTimeTrips++;
         }
 
-        if(t.destinations) {
-            t.destinations.forEach((d, i) => {
-                totalStops++;
-                if (d.status === 'done' || d.proofPhotoUrl) {
-                    deliveredStops++;
-                } else if (d.status === 'arrived') {
-                    inTransitStops++;
-                } else if (d.status === 'returned' || d.status === 'failed') {
-                    returnedStops++;
-                } else {
-                    pendingStops++;
+        const filteredTrips = allCurrentTrips.filter(t => {
+            const cName = getCourierDisplayName ? getCourierDisplayName(t.courierId) : t.courierId;
+            const tripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : (t.id ? parseInt(t.id.replace('TRIP_', '')) || 0 : 0));
+
+            if (selectedCarrier !== "all" && t.courierId !== selectedCarrier && cName.toLowerCase() !== selectedCarrier.toLowerCase()) {
+                return false;
+            }
+
+            if (filterStartMs > 0 && (tripMs < filterStartMs || tripMs > filterEndMs)) {
+                return false;
+            }
+
+            return true;
+        });
+
+        filteredTrips.forEach(t => {
+            if(t.status !== 'completed') {
+                activeTrips++;
+                couriersWithActiveTrip.add(t.courierId);
+
+                const lastUpdate = t.destinations ? t.destinations.filter(d => d.status === 'done' || d.status === 'arrived').reduce((max, d) => {
+                    const time = (d.completedTime || d.arrivalTime)?.seconds * 1000 || 0;
+                    return time > max ? time : max;
+                }, (t.date?.seconds || 0) * 1000) : 0;
+
+                if(Date.now() - lastUpdate > 30 * 60 * 1000 && t.status === 'in_progress') {
+                    delayedCount++;
                 }
-
-                if(d.status === 'done' || d.proofPhotoUrl) {
-                    const start = (i === 0)
-                        ? ((t.acceptLatitude && t.acceptLongitude) ? { lat: t.acceptLatitude, lng: t.acceptLongitude } : { lat: t.destinations[0].latitude, lng: t.destinations[0].longitude })
-                        : { lat: t.destinations[i-1].latitude, lng: t.destinations[i-1].longitude };
-                    grandTotalKM += calculateDistance(start.lat, start.lng, d.latitude, d.longitude);
-                }
-            });
-        }
-    });
-
-    for (const id in currentOnlineCouriers) {
-        if (couriersWithActiveTrip.has(id)) {
-            inTransitCouriers++;
-        }
-    }
-
-    const today = new Date();
-    const todayDayMs = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
-
-    let totalStopsToday = 0;
-    allCurrentTrips.forEach(t => {
-        const tripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : 0);
-        if (tripMs >= todayDayMs) {
-            if (t.destinations && t.destinations.length > 0) {
-                totalStopsToday += t.destinations.length;
             } else {
-                totalStopsToday += 1;
+                totalCompletedTrips++;
+                doneToday++;
+                onTimeTrips++;
+            }
+
+            if(t.destinations) {
+                t.destinations.forEach((d, i) => {
+                    totalStops++;
+                    if (d.status === 'done' || d.proofPhotoUrl) {
+                        deliveredStops++;
+                    } else if (d.status === 'arrived') {
+                        inTransitStops++;
+                    } else if (d.status === 'returned' || d.status === 'failed') {
+                        returnedStops++;
+                    } else {
+                        pendingStops++;
+                    }
+
+                    if(d.status === 'done' || d.proofPhotoUrl) {
+                        const start = (i === 0)
+                            ? ((t.acceptLatitude && t.acceptLongitude) ? { lat: t.acceptLatitude, lng: t.acceptLongitude } : { lat: t.destinations[0].latitude, lng: t.destinations[0].longitude })
+                            : { lat: t.destinations[i-1].latitude, lng: t.destinations[i-1].longitude };
+                        grandTotalKM += calculateDistance(start.lat, start.lng, d.latitude, d.longitude);
+                    }
+                });
+            }
+        });
+
+        for (const id in currentOnlineCouriers) {
+            if (couriersWithActiveTrip.has(id)) {
+                inTransitCouriers++;
             }
         }
-    });
 
-    if(document.getElementById('stat-active')) document.getElementById('stat-active').innerText = activeTrips;
-    if(document.getElementById('stat-done')) document.getElementById('stat-done').innerText = totalStopsToday;
-    if(document.getElementById('stat-delayed')) document.getElementById('stat-delayed').innerText = delayedCount;
-    if(document.getElementById('stat-transit-count')) document.getElementById('stat-transit-count').innerText = inTransitCouriers;
-    if(document.getElementById('stat-total-km')) document.getElementById('stat-total-km').innerText = grandTotalKM.toFixed(1) + " km";
+        let totalStopsToday = 0;
+        filteredTrips.forEach(t => {
+            const tripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : 0);
+            if (tripMs >= todayDayMs) {
+                if (t.destinations && t.destinations.length > 0) {
+                    totalStopsToday += t.destinations.length;
+                } else {
+                    totalStopsToday += 1;
+                }
+            }
+        });
 
-    const safeTotal = totalStops > 0 ? totalStops : 1;
-    const pctDelivered = Math.round((deliveredStops / safeTotal) * 100);
-    const pctTransit = Math.round((inTransitStops / safeTotal) * 100);
-    const pctPending = Math.round((pendingStops / safeTotal) * 100);
-    const pctReturned = Math.round((returnedStops / safeTotal) * 100);
+        if(document.getElementById('stat-active')) document.getElementById('stat-active').innerText = activeTrips;
+        if(document.getElementById('stat-done')) document.getElementById('stat-done').innerText = totalStopsToday;
+        if(document.getElementById('stat-delayed')) document.getElementById('stat-delayed').innerText = delayedCount;
+        if(document.getElementById('stat-transit-count')) document.getElementById('stat-transit-count').innerText = inTransitCouriers;
+        if(document.getElementById('stat-total-km')) document.getElementById('stat-total-km').innerText = grandTotalKM.toFixed(1) + " km";
 
-    if(document.getElementById('pct-delivered')) document.getElementById('pct-delivered').innerText = pctDelivered + "%";
-    if(document.getElementById('pbar-delivered')) document.getElementById('pbar-delivered').style.width = pctDelivered + "%";
+        const safeTotal = totalStops > 0 ? totalStops : 1;
+        const pctDelivered = Math.round((deliveredStops / safeTotal) * 100);
+        const pctTransit = Math.round((inTransitStops / safeTotal) * 100);
+        const pctPending = Math.round((pendingStops / safeTotal) * 100);
+        const pctReturned = Math.round((returnedStops / safeTotal) * 100);
 
-    if(document.getElementById('pct-transit')) document.getElementById('pct-transit').innerText = pctTransit + "%";
-    if(document.getElementById('pbar-transit')) document.getElementById('pbar-transit').style.width = pctTransit + "%";
+        if(document.getElementById('pct-delivered')) document.getElementById('pct-delivered').innerText = pctDelivered + "%";
+        if(document.getElementById('pbar-delivered')) document.getElementById('pbar-delivered').style.width = pctDelivered + "%";
 
-    if(document.getElementById('pct-pending')) document.getElementById('pct-pending').innerText = pctPending + "%";
-    if(document.getElementById('pbar-pending')) document.getElementById('pbar-pending').style.width = pctPending + "%";
+        if(document.getElementById('pct-transit')) document.getElementById('pct-transit').innerText = pctTransit + "%";
+        if(document.getElementById('pbar-transit')) document.getElementById('pbar-transit').style.width = pctTransit + "%";
 
-    if(document.getElementById('pct-returned')) document.getElementById('pct-returned').innerText = pctReturned + "%";
-    if(document.getElementById('pbar-returned')) document.getElementById('pbar-returned').style.width = pctReturned + "%";
+        if(document.getElementById('pct-pending')) document.getElementById('pct-pending').innerText = pctPending + "%";
+        if(document.getElementById('pbar-pending')) document.getElementById('pbar-pending').style.width = pctPending + "%";
 
-    const onTimeRate = totalCompletedTrips > 0 ? Math.round((onTimeTrips / totalCompletedTrips) * 100) : 100;
-    if(document.getElementById('stat-ontime')) document.getElementById('stat-ontime').innerText = onTimeRate + "%";
+        if(document.getElementById('pct-returned')) document.getElementById('pct-returned').innerText = pctReturned + "%";
+        if(document.getElementById('pbar-returned')) document.getElementById('pbar-returned').style.width = pctReturned + "%";
 
-    refreshAllMonitorData();
-    updateDynamicAlerts();
+        const onTimeRate = totalCompletedTrips > 0 ? Math.round((onTimeTrips / totalCompletedTrips) * 100) : 100;
+        if(document.getElementById('stat-ontime')) document.getElementById('stat-ontime').innerText = onTimeRate + "%";
+
+        refreshAllMonitorData();
+        updateDynamicAlerts();
+    } finally {
+        isUpdatingStats = false;
+    }
 }
 
 let refreshMonitorTimeout = null;
@@ -1556,6 +1613,7 @@ function renderRecentShipments(filter = "") {
         </tr>`);
     });
     table.innerHTML = rowsHtml.join('');
+    updateGlobalStats();
 }
 
 function resetRecentFilters() {
