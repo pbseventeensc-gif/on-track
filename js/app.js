@@ -443,6 +443,25 @@ function updateNotificationBell() {
     }
 }
 
+let alertsClearedAt = 0;
+const dismissedAlertIds = new Set();
+
+function clearAllPriorityAlerts() {
+    alertsClearedAt = Date.now();
+    dismissedAlertIds.clear();
+    if (typeof showToast === 'function') showToast("Semua peringatan prioritas dibersihkan.");
+    updateDynamicAlerts();
+}
+window.clearAllPriorityAlerts = clearAllPriorityAlerts;
+
+function dismissSingleAlert(alertId, event) {
+    if (event) event.stopPropagation();
+    dismissedAlertIds.add(alertId);
+    if (typeof showToast === 'function') showToast("Peringatan dibersihkan.");
+    updateDynamicAlerts();
+}
+window.dismissSingleAlert = dismissSingleAlert;
+
 function updateDynamicAlerts() {
     const container = document.getElementById('priority-alerts');
     updateNotificationBell();
@@ -460,28 +479,41 @@ function updateDynamicAlerts() {
                 return time > max ? time : max;
             }, (t.date?.seconds || 0) * 1000) : 0;
 
-            if(now - lastUpdate > 30 * 60 * 1000) {
-                container.innerHTML += `
-                    <div class="d-flex align-items-center gap-2 p-2 px-3 rounded-3 cursor-pointer" style="background: #FEF2F2;" onclick="focusOnTrip('${t.id}')">
-                        <div class="text-danger fs-5 d-flex align-items-center me-1"><i class="bi bi-clock-history"></i></div>
-                        <div>
-                            <div class="fw-semibold text-dark" style="font-size: 0.8125rem; line-height: 1.25;">Delay: ${tripIdShort} (${cName})</div>
-                            <div class="text-danger" style="font-size: 0.725rem; margin-top: 1px;">Tidak ada pembaruan status > 30 menit</div>
-                        </div>
-                    </div>`;
+            const delayAlertId = `delay_${t.id}`;
+            if(now - lastUpdate > 30 * 60 * 1000 && lastUpdate < now) {
+                if (!dismissedAlertIds.has(delayAlertId) && lastUpdate >= alertsClearedAt) {
+                    container.innerHTML += `
+                        <div class="d-flex align-items-center justify-content-between p-2 px-3 rounded-3 cursor-pointer mb-1" style="background: #FEF2F2;" onclick="focusOnTrip('${t.id}')">
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="text-danger fs-5 d-flex align-items-center me-1"><i class="bi bi-clock-history"></i></div>
+                                <div>
+                                    <div class="fw-semibold text-dark" style="font-size: 0.8125rem; line-height: 1.25;">Delay: ${tripIdShort} (${cName})</div>
+                                    <div class="text-danger" style="font-size: 0.725rem; margin-top: 1px;">Tidak ada pembaruan status > 30 menit</div>
+                                </div>
+                            </div>
+                            <button class="btn-close ms-2" style="font-size: 0.65rem;" onclick="dismissSingleAlert('${delayAlertId}', event)" title="Hapus Peringatan Ini"></button>
+                        </div>`;
+                }
             }
         }
 
         const isOnline = typeof isCourierOnline === 'function' ? isCourierOnline(t.courierId) : !!currentOnlineCouriers[t.courierId];
+        const offlineAlertId = `offline_${t.courierId}_${t.id}`;
         if(!isOnline && t.status !== 'completed') {
-            container.innerHTML += `
-                <div class="d-flex align-items-center gap-2 p-2 px-3 rounded-3 cursor-pointer" style="background: #FFFBEB;" onclick="focusOnCourier('${t.courierId}', true)">
-                    <div class="text-warning fs-5 d-flex align-items-center me-1"><i class="bi bi-person-x"></i></div>
-                    <div>
-                        <div class="fw-semibold text-dark" style="font-size: 0.8125rem; line-height: 1.25;">Kurir Offline: ${cName}</div>
-                        <div class="text-warning" style="font-size: 0.725rem; margin-top: 1px;">Kurir offline tapi memiliki tugas aktif ${tripIdShort}</div>
-                    </div>
-                </div>`;
+            const tripTime = (t.date?.seconds || 0) * 1000;
+            if (!dismissedAlertIds.has(offlineAlertId) && tripTime >= alertsClearedAt) {
+                container.innerHTML += `
+                    <div class="d-flex align-items-center justify-content-between p-2 px-3 rounded-3 cursor-pointer mb-1" style="background: #FFFBEB;" onclick="focusOnCourier('${t.courierId}', true)">
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="text-warning fs-5 d-flex align-items-center me-1"><i class="bi bi-person-x"></i></div>
+                            <div>
+                                <div class="fw-semibold text-dark" style="font-size: 0.8125rem; line-height: 1.25;">Kurir Offline: ${cName}</div>
+                                <div class="text-warning" style="font-size: 0.725rem; margin-top: 1px;">Kurir offline tapi memiliki tugas aktif ${tripIdShort}</div>
+                            </div>
+                        </div>
+                        <button class="btn-close ms-2" style="font-size: 0.65rem;" onclick="dismissSingleAlert('${offlineAlertId}', event)" title="Hapus Peringatan Ini"></button>
+                    </div>`;
+            }
         }
     });
 
