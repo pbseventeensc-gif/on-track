@@ -468,10 +468,18 @@ function updateDynamicAlerts() {
     if(!container) return;
     container.innerHTML = '';
     const now = Date.now();
+    const nowDate = new Date();
+    const todayDayMs = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate()).getTime();
 
     allCurrentTrips.forEach(t => {
         const cName = registeredUsers[t.courierId] || t.courierId.substring(0,8);
         const tripIdShort = '#' + t.id.substring(Math.max(0, t.id.length - 6));
+        const tripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : (t.id ? parseInt(t.id.replace('TRIP_', '')) || 0 : 0));
+
+        // Auto-expire alerts on H+1: Only generate Priority Alerts for TODAY'S active trips
+        if (tripMs < todayDayMs) {
+            return;
+        }
 
         if(t.status === 'in_progress') {
             const lastUpdate = t.destinations ? t.destinations.filter(d => d.status === 'done' || d.status === 'arrived').reduce((max, d) => {
