@@ -140,12 +140,21 @@ window.getActiveBranchId = getActiveBranchId;
 
 function getTripBranch(t) {
     if (!t) return 'pusat';
-    if (t.branchId) return t.branchId.toLowerCase();
 
-    const courierObj = registeredUsersObjects ? registeredUsersObjects[t.courierId] : null;
-    if (courierObj && courierObj.branchId) {
-        return courierObj.branchId.toLowerCase();
+    if (t.courierId) {
+        let courierUid = t.courierId;
+        if (typeof registeredUsers !== 'undefined' && registeredUsers) {
+            if (!registeredUsersObjects || !registeredUsersObjects[courierUid]) {
+                const foundUid = Object.keys(registeredUsers).find(k => registeredUsers[k] === courierUid);
+                if (foundUid) courierUid = foundUid;
+            }
+        }
+        const courierObj = (typeof registeredUsersObjects !== 'undefined' && registeredUsersObjects) ? registeredUsersObjects[courierUid] : null;
+        const courierBranch = (courierObj && courierObj.branchId) ? courierObj.branchId.toLowerCase() : 'pusat';
+        return courierBranch;
     }
+
+    if (t.branchId) return t.branchId.toLowerCase();
 
     return 'pusat';
 }
@@ -159,17 +168,21 @@ function isTripInActiveBranch(t) {
 }
 window.isTripInActiveBranch = isTripInActiveBranch;
 
-function isCourierInActiveBranch(courierUid) {
+function isCourierInActiveBranch(courierUidOrName) {
     const activeBranch = getActiveBranchId();
     if (activeBranch === 'all') return true;
-    const courierObj = registeredUsersObjects ? registeredUsersObjects[courierUid] : null;
-    if (courierObj && courierObj.branchId) {
-        return courierObj.branchId.toLowerCase() === activeBranch;
-    }
-    const hasTripInBranch = allCurrentTrips.some(t => t.courierId === courierUid && getTripBranch(t) === activeBranch);
-    if (hasTripInBranch) return true;
 
-    return activeBranch === 'pusat';
+    let courierUid = courierUidOrName;
+    if (typeof registeredUsers !== 'undefined' && registeredUsers) {
+        if (!registeredUsersObjects || !registeredUsersObjects[courierUid]) {
+            const foundUid = Object.keys(registeredUsers).find(k => registeredUsers[k] === courierUidOrName);
+            if (foundUid) courierUid = foundUid;
+        }
+    }
+
+    const courierObj = (typeof registeredUsersObjects !== 'undefined' && registeredUsersObjects) ? registeredUsersObjects[courierUid] : null;
+    const courierBranch = (courierObj && courierObj.branchId) ? courierObj.branchId.toLowerCase() : 'pusat';
+    return courierBranch === activeBranch;
 }
 window.isCourierInActiveBranch = isCourierInActiveBranch;
 
@@ -182,6 +195,10 @@ function switchBranchFilter(branchVal) {
     if (typeof renderRecentShipments === 'function') renderRecentShipments();
     if (typeof renderMonitorUI === 'function') renderMonitorUI();
     if (typeof updateMapMarkers === 'function') updateMapMarkers();
+    if (typeof renderCourierOptions === 'function') renderCourierOptions();
+    if (typeof loadChatList === 'function') loadChatList();
+    if (typeof renderKPIView === 'function') renderKPIView();
+    if (typeof renderManageCouriersList === 'function') renderManageCouriersList();
 }
 window.switchBranchFilter = switchBranchFilter;
 
@@ -909,12 +926,13 @@ function renderManageCouriersList() {
     const sortedCouriers = [];
     for (const uid in registeredUsers) {
         if (!isCourierUser(uid)) continue;
+        if (typeof isCourierInActiveBranch === 'function' && !isCourierInActiveBranch(uid)) continue;
         sortedCouriers.push({ uid: uid, name: registeredUsers[uid] });
     }
     sortedCouriers.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
 
     if (sortedCouriers.length === 0) {
-        container.innerHTML = '<p class="text-center py-3 text-muted extra-small">Belum ada kurir terdaftar.</p>';
+        container.innerHTML = '<p class="text-center py-3 text-muted extra-small">Belum ada kurir terdaftar di cabang ini.</p>';
         return;
     }
 
@@ -959,6 +977,7 @@ function renderCourierOptions() {
     const sortedCouriers = [];
     for (const uid in registeredUsers) {
         if (!isCourierUser(uid)) continue;
+        if (typeof isCourierInActiveBranch === 'function' && !isCourierInActiveBranch(uid)) continue;
         sortedCouriers.push({ uid: uid, name: registeredUsers[uid] });
     }
     sortedCouriers.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
@@ -2233,8 +2252,13 @@ function loadChatList(filter = "") {
     if (!container) return;
     container.innerHTML = '';
 
+    let totalCouriersInBranch = 0;
+
     for (const id in registeredUsers) {
         if (!isCourierUser(id)) continue;
+        if (typeof isCourierInActiveBranch === 'function' && !isCourierInActiveBranch(id)) continue;
+
+        totalCouriersInBranch++;
         const name = registeredUsers[id];
         if (filter && !name.toLowerCase().includes(filter.toLowerCase())) continue;
 
@@ -2255,6 +2279,10 @@ function loadChatList(filter = "") {
                 <i class="bi bi-chevron-right text-muted"></i>
             </div>
         `;
+    }
+
+    if (totalCouriersInBranch === 0) {
+        container.innerHTML = `<div class="text-center py-4 text-muted extra-small"><i class="bi bi-chat-dots me-1"></i> Belum ada kurir/driver terdaftar di cabang ini.</div>`;
     }
 }
 
@@ -2627,10 +2655,12 @@ function renderPoDArchiveView(filter = "") {
     }
 
     const archiveCourierSelect = document.getElementById('archive-courier-filter');
-    if (archiveCourierSelect && archiveCourierSelect.options.length <= 1) {
+    if (archiveCourierSelect) {
+        archiveCourierSelect.innerHTML = '<option value="all">Semua Kurir</option>';
         const sortedCouriers = [];
         for (const uid in registeredUsers) {
             if (!isCourierUser(uid)) continue;
+            if (typeof isCourierInActiveBranch === 'function' && !isCourierInActiveBranch(uid)) continue;
             sortedCouriers.push({ uid: uid, name: registeredUsers[uid] });
         }
         sortedCouriers.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
@@ -2641,6 +2671,9 @@ function renderPoDArchiveView(filter = "") {
 
     const photos = [];
     allCurrentTrips.forEach(t => {
+        if (typeof isTripInActiveBranch === 'function' && !isTripInActiveBranch(t)) return;
+        if (t.courierId && typeof isCourierInActiveBranch === 'function' && !isCourierInActiveBranch(t.courierId)) return;
+
         const cName = getCourierDisplayName(t.courierId);
         const tripIdShort = '#' + t.id.substring(Math.max(0, t.id.length - 6));
         const tripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : 0);

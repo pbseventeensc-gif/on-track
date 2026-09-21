@@ -170,11 +170,15 @@ function renderKPIView(filter = "") {
 
     let filteredTrips = allCurrentTrips;
 
+    if (typeof isTripInActiveBranch === 'function') {
+        filteredTrips = filteredTrips.filter(t => isTripInActiveBranch(t));
+    }
+
     if (startDateVal || endDateVal) {
         const startMs = startDateVal ? new Date(startDateVal).setHours(0,0,0,0) : 0;
         const endMs = endDateVal ? new Date(endDateVal).setHours(23,59,59,999) : Infinity;
 
-        filteredTrips = allCurrentTrips.filter(t => {
+        filteredTrips = filteredTrips.filter(t => {
             const tripMs = t.date?.seconds ? t.date.seconds * 1000 : 0;
             return tripMs >= startMs && tripMs <= endMs;
         });
@@ -186,6 +190,8 @@ function renderKPIView(filter = "") {
 
     filteredTrips.forEach(t => {
         const cId = t.courierId;
+        if (typeof isCourierInActiveBranch === 'function' && !isCourierInActiveBranch(cId)) return;
+
         if(!courierStats[cId]) {
             courierStats[cId] = {
                 name: registeredUsers[cId] || cId.substring(0,8),
@@ -460,7 +466,13 @@ function updateKPICharts(data) {
     });
 
     let completedSum = 0, inTransitSum = 0, pendingSum = 0;
-    allCurrentTrips.forEach(t => {
+    const branchTrips = allCurrentTrips.filter(t => {
+        if (typeof isTripInActiveBranch === 'function' && !isTripInActiveBranch(t)) return false;
+        if (t.courierId && typeof isCourierInActiveBranch === 'function' && !isCourierInActiveBranch(t.courierId)) return false;
+        return true;
+    });
+
+    branchTrips.forEach(t => {
         if (t.destinations && t.destinations.length > 0) {
             t.destinations.forEach(d => {
                 if (d.status === 'done' || d.proofPhotoUrl) completedSum++;
