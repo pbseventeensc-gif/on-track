@@ -1017,16 +1017,20 @@ function updateGlobalStats() {
         let activeShipmentsCount = 0;
 
         filteredTrips.forEach(t => {
+            const tripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : 0);
+
             if(t.status !== 'completed') {
                 couriersWithActiveTrip.add(t.courierId);
 
-                const lastUpdate = t.destinations ? t.destinations.filter(d => d.status === 'done' || d.status === 'arrived').reduce((max, d) => {
-                    const time = (d.completedTime || d.arrivalTime)?.seconds * 1000 || 0;
-                    return time > max ? time : max;
-                }, (t.date?.seconds || 0) * 1000) : 0;
+                if (tripMs >= todayDayMs && t.status === 'in_progress') {
+                    const lastUpdate = t.destinations ? t.destinations.filter(d => d.status === 'done' || d.status === 'arrived').reduce((max, d) => {
+                        const time = (d.completedTime || d.arrivalTime)?.seconds * 1000 || 0;
+                        return time > max ? time : max;
+                    }, (t.date?.seconds || 0) * 1000) : 0;
 
-                if(Date.now() - lastUpdate > 30 * 60 * 1000 && t.status === 'in_progress') {
-                    delayedCount++;
+                    if(lastUpdate > 0 && Date.now() - lastUpdate > 30 * 60 * 1000) {
+                        delayedCount++;
+                    }
                 }
             } else {
                 totalCompletedTrips++;
@@ -1082,7 +1086,7 @@ function updateGlobalStats() {
         if(document.getElementById('stat-active')) document.getElementById('stat-active').innerText = activeShipmentsCount;
         if(document.getElementById('stat-done')) document.getElementById('stat-done').innerText = totalStopsToday;
         if(document.getElementById('stat-delayed')) document.getElementById('stat-delayed').innerText = delayedCount;
-        if(document.getElementById('stat-transit-count')) document.getElementById('stat-transit-count').innerText = inTransitCouriers;
+        if(document.getElementById('stat-transit-count')) document.getElementById('stat-transit-count').innerText = inTransitStops;
         if(document.getElementById('stat-total-km')) document.getElementById('stat-total-km').innerText = grandTotalKM.toFixed(1) + " km";
 
         const safeTotal = totalStops > 0 ? totalStops : 1;
