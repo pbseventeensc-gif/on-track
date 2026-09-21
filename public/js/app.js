@@ -974,9 +974,10 @@ function updateGlobalStats() {
             return true;
         });
 
+        let activeShipmentsCount = 0;
+
         filteredTrips.forEach(t => {
             if(t.status !== 'completed') {
-                activeTrips++;
                 couriersWithActiveTrip.add(t.courierId);
 
                 const lastUpdate = t.destinations ? t.destinations.filter(d => d.status === 'done' || d.status === 'arrived').reduce((max, d) => {
@@ -993,26 +994,30 @@ function updateGlobalStats() {
                 onTimeTrips++;
             }
 
-            if(t.destinations) {
+            if(t.destinations && t.destinations.length > 0) {
                 t.destinations.forEach((d, i) => {
                     totalStops++;
-                    if (d.status === 'done' || d.proofPhotoUrl) {
+                    if (d.status === 'done' || d.proofPhotoUrl || d.status === 'completed') {
                         deliveredStops++;
                     } else if (d.status === 'arrived') {
                         inTransitStops++;
+                        activeShipmentsCount++;
                     } else if (d.status === 'returned' || d.status === 'failed') {
                         returnedStops++;
                     } else {
                         pendingStops++;
+                        activeShipmentsCount++;
                     }
 
-                    if(d.status === 'done' || d.proofPhotoUrl) {
+                    if(d.status === 'done' || d.proofPhotoUrl || d.status === 'completed') {
                         const start = (i === 0)
                             ? ((t.acceptLatitude && t.acceptLongitude) ? { lat: t.acceptLatitude, lng: t.acceptLongitude } : { lat: t.destinations[0].latitude, lng: t.destinations[0].longitude })
                             : { lat: t.destinations[i-1].latitude, lng: t.destinations[i-1].longitude };
                         grandTotalKM += calculateDistance(start.lat, start.lng, d.latitude, d.longitude);
                     }
                 });
+            } else if (t.status !== 'completed') {
+                activeShipmentsCount++;
             }
         });
 
@@ -1034,7 +1039,7 @@ function updateGlobalStats() {
             }
         });
 
-        if(document.getElementById('stat-active')) document.getElementById('stat-active').innerText = activeTrips;
+        if(document.getElementById('stat-active')) document.getElementById('stat-active').innerText = activeShipmentsCount;
         if(document.getElementById('stat-done')) document.getElementById('stat-done').innerText = totalStopsToday;
         if(document.getElementById('stat-delayed')) document.getElementById('stat-delayed').innerText = delayedCount;
         if(document.getElementById('stat-transit-count')) document.getElementById('stat-transit-count').innerText = inTransitCouriers;
