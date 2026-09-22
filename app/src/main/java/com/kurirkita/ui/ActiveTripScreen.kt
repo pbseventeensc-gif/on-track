@@ -9,6 +9,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -152,6 +153,9 @@ fun ActiveTripScreen(trip: Trip, onBack: () -> Unit, onChatClick: () -> Unit) {
                         },
                         onUpdateWithCategorizedPhotos = { status, sjBmp, itemBmps ->
                             uploadCategorizedPhotosAndUpdate(storage, db, currentTrip, dest, sjBmp, itemBmps, status)
+                        },
+                        onUpdatePendingApproval = { reason, photoBmp ->
+                            uploadPendingProofPhotoAndUpdate(storage, db, currentTrip, dest, reason, photoBmp)
                         }
                     )
                 }
@@ -234,7 +238,8 @@ fun DestinationItem(
     client: com.google.android.gms.location.FusedLocationProviderClient,
     radius: Float,
     onUpdateStatus: (String) -> Unit,
-    onUpdateWithCategorizedPhotos: (String, Bitmap?, List<Bitmap>) -> Unit
+    onUpdateWithCategorizedPhotos: (String, Bitmap?, List<Bitmap>) -> Unit,
+    onUpdatePendingApproval: (String, Bitmap) -> Unit
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     var isUploading by remember { mutableStateOf(false) }
@@ -245,6 +250,12 @@ fun DestinationItem(
     val capturedItemBitmaps = remember { mutableStateListOf<Bitmap>() }
     var activeCaptureMode by remember { mutableStateOf("sj") } // "sj" or "item"
 
+    // Pending Approval Dialog state
+    var showPendingDialog by remember { mutableStateOf(false) }
+    var pendingReasonSelected by remember { mutableStateOf("Klien Tutup / Toko Belum Buka") }
+    var customPendingReason by remember { mutableStateOf("") }
+    var pendingPhotoBitmap by remember { mutableStateOf<Bitmap?>(null) }
+
     var photoUri by remember { mutableStateOf<Uri?>(null) }
     val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
         if (success && photoUri != null) {
@@ -253,12 +264,14 @@ fun DestinationItem(
                 if (bitmap != null) {
                     if (activeCaptureMode == "sj") {
                         capturedSjBitmap = bitmap
-                    } else {
+                    } else if (activeCaptureMode == "item") {
                         if (capturedItemBitmaps.size < 2) {
                             capturedItemBitmaps.add(bitmap)
                         } else {
                             Toast.makeText(context, "Maksimal 2 foto barang", Toast.LENGTH_SHORT).show()
                         }
+                    } else if (activeCaptureMode == "pending") {
+                        pendingPhotoBitmap = bitmap
                     }
                 }
             } catch (e: Exception) {
@@ -287,7 +300,119 @@ fun DestinationItem(
         cameraLauncher.launch(uri)
     }
 
-    if (showPhotoDialog && dest.proofPhotoUrl.isNotEmpty()) {
+    fun launchCameraForPending() {
+        activeCaptureMode = "pending"
+        val file = File(context.cacheDir, "temp_proof_pending_${System.currentTimeMillis()}.jpg")
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+        photoUri = uri
+        cameraLauncher.launch(uri)
+    }
+
+    // Pending Approval Request Dialog
+    if (showPendingDialog) {
+        Dialog(onDismissRequest = { showPendingDialog = false }) {
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(8.dp),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("⚠️ Lapor Klien Tutup / Tunda", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        IconButton(onClick = { showPendingDialog = false }) {
+                            Icon(Icons.Default.Close, contentDescription = "Tutup")
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Pilih Alasan:", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+
+                    val reasons = listOf(
+                        "Klien Tutup / Toko Belum Buka",
+                        "Penerima Tidak Ada di Lokasi",
+                        "Alamat Tidak Ditemukan / Salah",
+                        "Lainnya"
+                    )
+                    reasons.forEach { r ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
+                        ) {
+                            RadioButton(
+                                selected = (pendingReasonSelected == r),
+                                onClick = { pendingReasonSelected = r }
+                            )
+                            Text(r, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(start = 4.dp))
+                        }
+                    }
+
+                    if (pendingReasonSelected == "Lainnya") {
+                        OutlinedTextField(
+                            value = customPendingReason,
+                            onValueChange = { customPendingReason = it },
+                            label = { Text("Tuliskan Alasan") },
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Foto Bukti Pintu/Lokasi Tutup (Wajib):", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+
+                    if (pendingPhotoBitmap != null) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth().height(120.dp).padding(vertical = 6.dp),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Image(
+                                bitmap = pendingPhotoBitmap!!.asImageBitmap(),
+                                contentDescription = "Foto Pintu Tutup",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                            )
+                        }
+                    }
+
+                    OutlinedButton(
+                        onClick = { launchCameraForPending() },
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(if (pendingPhotoBitmap == null) "AMBIL FOTO LOKASI TUTUP" else "FOTO ULANG")
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        TextButton(onClick = { showPendingDialog = false }) { Text("Batal") }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Button(
+                            onClick = {
+                                val finalReason = if (pendingReasonSelected == "Lainnya") customPendingReason.ifEmpty { "Klien Tutup" } else pendingReasonSelected
+                                if (pendingPhotoBitmap == null) {
+                                    Toast.makeText(context, "Wajib mengambil 1 foto lokasi tutup", Toast.LENGTH_SHORT).show()
+                                    return@Button
+                                }
+                                showPendingDialog = false
+                                isUploading = true
+                                onUpdatePendingApproval(finalReason, pendingPhotoBitmap!!)
+                            },
+                            enabled = pendingPhotoBitmap != null,
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE11D48), contentColor = Color.White),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text("KIRIM LAPORAN", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (showPhotoDialog && (dest.proofPhotoUrl.isNotEmpty() || dest.pendingProofPhotoUrl.isNotEmpty())) {
         Dialog(onDismissRequest = { showPhotoDialog = false }) {
             Card(
                 modifier = Modifier
@@ -315,6 +440,45 @@ fun DestinationItem(
                         modifier = Modifier.fillMaxWidth().weight(1f, fill = false),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
+                        // Pending Proof Photo
+                        if (dest.pendingProofPhotoUrl.isNotEmpty()) {
+                            item {
+                                Text(
+                                    "🚨 Foto Lokasi/Pintu Tutup",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFE11D48),
+                                    modifier = Modifier.padding(bottom = 4.dp)
+                                )
+                                Card(
+                                    modifier = Modifier.fillMaxWidth().height(220.dp),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Box(modifier = Modifier.fillMaxSize()) {
+                                        Image(
+                                            painter = rememberAsyncImagePainter(dest.pendingProofPhotoUrl),
+                                            contentDescription = null,
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                        )
+                                        Surface(
+                                            color = Color(0xFFE11D48),
+                                            shape = RoundedCornerShape(topStart = 8.dp, bottomEnd = 8.dp),
+                                            modifier = Modifier.align(Alignment.TopStart)
+                                        ) {
+                                            Text(
+                                                "🚨 Klien Tutup",
+                                                color = Color.White,
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.Bold,
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
                         // 1. Show Surat Jalan Photo if present
                         if (dest.proofPhotoSj.isNotEmpty()) {
                             item {
@@ -396,7 +560,7 @@ fun DestinationItem(
                         }
 
                         // Fallback for legacy single/comma-separated proofPhotoUrl
-                        if (dest.proofPhotoSj.isEmpty() && dest.proofPhotoItems.isEmpty() && dest.proofPhotoUrl.isNotEmpty()) {
+                        if (dest.proofPhotoSj.isEmpty() && dest.proofPhotoItems.isEmpty() && dest.pendingProofPhotoUrl.isEmpty() && dest.proofPhotoUrl.isNotEmpty()) {
                             val legacyUrls = dest.proofPhotoUrl.split(",").map { it.trim() }.filter { it.isNotEmpty() }
                             itemsIndexed(legacyUrls) { idx, url ->
                                 Card(
@@ -434,9 +598,21 @@ fun DestinationItem(
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+            .then(
+                if (dest.status == "pending" && dest.pendingReason.isNotEmpty()) {
+                    Modifier.border(1.5.dp, Color(0xFFE11D48), RoundedCornerShape(16.dp))
+                } else Modifier
+            ),
         colors = CardDefaults.cardColors(
-            containerColor = if (dest.status == "done") MaterialTheme.colorScheme.primaryContainer.copy(0.4f) else MaterialTheme.colorScheme.surface
+            containerColor = when (dest.status) {
+                "done" -> MaterialTheme.colorScheme.primaryContainer.copy(0.4f)
+                "pending_approval" -> Color(0xFFFFF7ED) // Orange-tint
+                "pending" -> if (dest.pendingReason.isNotEmpty()) Color(0xFFFEF2F2) else MaterialTheme.colorScheme.surface // Red block if Klien Tutup
+                else -> MaterialTheme.colorScheme.surface
+            }
         ),
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(2.dp)
@@ -445,7 +621,12 @@ fun DestinationItem(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Surface(
                     shape = CircleShape,
-                    color = if (dest.status == "done") Color(0xFF43A047) else MaterialTheme.colorScheme.primary,
+                    color = when (dest.status) {
+                        "done" -> Color(0xFF43A047)
+                        "pending_approval" -> Color(0xFFEA580C)
+                        "pending" -> if (dest.pendingReason.isNotEmpty()) Color(0xFFE11D48) else MaterialTheme.colorScheme.primary
+                        else -> MaterialTheme.colorScheme.primary
+                    },
                     modifier = Modifier.size(24.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
@@ -492,6 +673,44 @@ fun DestinationItem(
                         Spacer(modifier = Modifier.width(12.dp))
                         TextButton(onClick = { showPhotoDialog = true }) {
                             Text("LIHAT FOTO ($count)", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            } else if (dest.status == "pending_approval") {
+                // Pending Approval State
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Surface(
+                        color = Color(0xFFEA580C).copy(alpha = 0.15f),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.HourglassTop, contentDescription = null, tint = Color(0xFFEA580C), modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("MENUNGGU APPROVAL ADMIN (KLIEN TUTUP)", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = Color(0xFFEA580C))
+                            }
+                            if (dest.pendingReason.isNotEmpty()) {
+                                Text("Alasan: ${dest.pendingReason}", style = MaterialTheme.typography.bodySmall, color = Color.Black, modifier = Modifier.padding(top = 4.dp))
+                            }
+                        }
+                    }
+                }
+            } else if (dest.status == "pending" && dest.pendingReason.isNotEmpty()) {
+                // Approved Pending State (Klien Tutup Verified)
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Surface(
+                        color = Color(0xFFE11D48).copy(alpha = 0.15f),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Cancel, contentDescription = null, tint = Color(0xFFE11D48), modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("PENDING - KLIEN TUTUP (APPROVED ADMIN)", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = Color(0xFFE11D48))
+                            }
+                            Text("Alasan: ${dest.pendingReason}", style = MaterialTheme.typography.bodySmall, color = Color.Black, modifier = Modifier.padding(top = 4.dp))
                         }
                     }
                 }
@@ -688,15 +907,20 @@ fun DestinationItem(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            TextButton(
+                            OutlinedButton(
                                 onClick = {
                                     validateSecurityAndLocation(context, client, dest.latitude, dest.longitude, radius) {
-                                        onUpdateStatus("done")
+                                        showPendingDialog = true
                                     }
                                 },
-                                enabled = !isUploading
+                                enabled = !isUploading,
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFE11D48)),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE11D48)),
+                                shape = RoundedCornerShape(12.dp)
                             ) {
-                                Text("Selesai Tanpa Foto", style = MaterialTheme.typography.labelSmall)
+                                Icon(Icons.Default.Warning, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("LAPOR KLIEN TUTUP", fontWeight = FontWeight.Bold)
                             }
 
                             Button(
@@ -713,7 +937,7 @@ fun DestinationItem(
                                 if (isUploading) {
                                     CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.Black, strokeWidth = 2.dp)
                                 } else {
-                                    Text("KIRIM ($totalPhotos FOTO) & SELESAI", fontWeight = FontWeight.Black)
+                                    Text("KIRIM ($totalPhotos FOTO)", fontWeight = FontWeight.Black)
                                 }
                             }
                         }
@@ -722,6 +946,32 @@ fun DestinationItem(
             }
         }
     }
+}
+
+private fun uploadPendingProofPhotoAndUpdate(
+    storage: FirebaseStorage,
+    db: FirebaseFirestore,
+    trip: Trip,
+    dest: Destination,
+    reason: String,
+    photoBitmap: Bitmap
+) {
+    Thread {
+        val bytes = compressBitmapToBytes(photoBitmap, maxDimension = 1200, quality = 75)
+        uploadSinglePhotoBytes(storage, bytes) { url ->
+            val updated = trip.destinations.map {
+                if (it.stopIndex == dest.stopIndex) {
+                    it.copy(
+                        status = "pending_approval",
+                        pendingReason = reason,
+                        pendingProofPhotoUrl = url ?: ""
+                    )
+                } else it
+            }
+            val map = mutableMapOf<String, Any>("destinations" to updated)
+            db.collection("trips").document(trip.tripId).update(map)
+        }
+    }.start()
 }
 
 private fun compressBitmapToBytes(source: Bitmap, maxDimension: Int = 1200, quality: Int = 75): ByteArray {

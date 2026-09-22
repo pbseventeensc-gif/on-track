@@ -600,12 +600,89 @@ function updateDynamicAlerts() {
                     </div>`;
             }
         }
+
+        // Pending Approval Alerts (Klien Tutup)
+        if (t.destinations) {
+            t.destinations.forEach((d) => {
+                if (d.status === 'pending_approval') {
+                    const alertId = `pending_app_${t.id}_${d.stopIndex}`;
+                    if (!dismissedAlertIds.has(alertId)) {
+                        const podBtn = d.pendingProofPhotoUrl ? `<button class="btn btn-xs btn-light border py-0.5 px-2 ms-1 extra-small rounded-pill text-danger fw-bold" onclick="openPoDModal('${d.pendingProofPhotoUrl}')"><i class="bi bi-camera me-1"></i>Foto Lokasi Tutup</button>` : '';
+                        container.innerHTML += `
+                            <div class="d-flex align-items-center justify-content-between p-2.5 px-3 rounded-3 mb-1" style="background: #FFF7ED; border-left: 4px solid #EA580C;">
+                                <div class="d-flex align-items-center gap-2 flex-grow-1">
+                                    <div class="text-warning fs-5 d-flex align-items-center me-1"><i class="bi bi-exclamation-triangle-fill"></i></div>
+                                    <div class="flex-grow-1">
+                                        <div class="fw-bold text-dark" style="font-size: 0.8125rem; line-height: 1.25;">Lapor Klien Tutup: ${d.locationName || 'Destination'} ${podBtn}</div>
+                                        <div class="text-danger fw-semibold" style="font-size: 0.725rem; margin-top: 1px;">Alasan: ${d.pendingReason || 'Klien Tutup'} (${cName})</div>
+                                        <div class="d-flex gap-1 mt-1.5">
+                                            <button class="btn btn-xs btn-success py-0.5 px-2.5 fw-bold" style="font-size: 0.7rem;" onclick="approveDestinationPending('${t.id}', ${d.stopIndex})"><i class="bi bi-check-circle me-1"></i>Setujui Pending</button>
+                                            <button class="btn btn-xs btn-outline-danger py-0.5 px-2.5 fw-bold" style="font-size: 0.7rem;" onclick="rejectDestinationPending('${t.id}', ${d.stopIndex})"><i class="bi bi-x-circle me-1"></i>Tolak</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button class="btn-close ms-2 align-self-start" style="font-size: 0.65rem;" onclick="dismissSingleAlert('${alertId}', event)" title="Hapus Peringatan Ini"></button>
+                            </div>`;
+                    }
+                }
+            });
+        }
     });
 
     if(container.innerHTML === '') {
         container.innerHTML = '<div class="text-center py-4 text-muted extra-small"><i class="bi bi-check-circle text-success me-1"></i> Tidak ada peringatan prioritas. Semua berjalan lancar.</div>';
     }
 }
+
+async function approveDestinationPending(tripId, stopIndex) {
+    try {
+        const activeDb = getDb();
+        if (!activeDb) return;
+        const tripRef = activeDb.collection('trips').doc(tripId);
+        const doc = await tripRef.get();
+        if (doc.exists) {
+            const trip = doc.data();
+            const updatedDests = (trip.destinations || []).map(d => {
+                if (d.stopIndex === stopIndex || (d.stopIndex === undefined && d.locationName)) {
+                    return { ...d, status: 'pending' };
+                }
+                return d;
+            });
+            await tripRef.update({ destinations: updatedDests });
+            showToast("✅ Permohonan Pending (Klien Tutup) Disetujui!");
+            if (typeof updateDynamicAlerts === 'function') updateDynamicAlerts();
+            if (typeof renderRecentShipments === 'function') renderRecentShipments();
+        }
+    } catch(e) {
+        alert("Gagal memproses approval: " + e.message);
+    }
+}
+window.approveDestinationPending = approveDestinationPending;
+
+async function rejectDestinationPending(tripId, stopIndex) {
+    try {
+        const activeDb = getDb();
+        if (!activeDb) return;
+        const tripRef = activeDb.collection('trips').doc(tripId);
+        const doc = await tripRef.get();
+        if (doc.exists) {
+            const trip = doc.data();
+            const updatedDests = (trip.destinations || []).map(d => {
+                if (d.stopIndex === stopIndex || (d.stopIndex === undefined && d.locationName)) {
+                    return { ...d, status: 'arrived' };
+                }
+                return d;
+            });
+            await tripRef.update({ destinations: updatedDests });
+            showToast("❌ Permohonan Pending Ditolak. Status dikembalikan ke Arrived.");
+            if (typeof updateDynamicAlerts === 'function') updateDynamicAlerts();
+            if (typeof renderRecentShipments === 'function') renderRecentShipments();
+        }
+    } catch(e) {
+        alert("Gagal menolak permohonan: " + e.message);
+    }
+}
+window.rejectDestinationPending = rejectDestinationPending;
 
 function toggleSidebar() {
     const sb = document.getElementById('sidebar');
@@ -1674,8 +1751,12 @@ function renderRecentShipments(filter = "") {
 
                 const uniqueShipmentId = `${tripIdShort}-${stopIdx}`;
 
-                const status = (d.status === 'done' || d.proofPhotoUrl) ? 'completed' : (d.status === 'arrived' ? 'in_progress' : t.status);
-                const statusClass = status === 'completed' ? 'delivered' : (status === 'assigned' ? 'pending' : 'transit');
+                const rawStatus = d.status || 'pending';
+                const isKlienTutupApproved = (rawStatus === 'pending' && d.pendingReason && d.pendingReason.length > 0);
+                const isPendingApproval = (rawStatus === 'pending_approval');
+
+                const status = (d.status === 'done' || d.proofPhotoUrl) ? 'completed' : (d.status === 'arrived' ? 'in_progress' : (isPendingApproval ? 'pending_approval' : (isKlienTutupApproved ? 'klien_tutup' : t.status)));
+                const statusClass = status === 'completed' ? 'delivered' : (status === 'assigned' ? 'pending' : (isKlienTutupApproved ? 'danger' : 'transit'));
 
                 let timeStr = 'Finished';
                 if (status !== 'completed') {
@@ -1688,7 +1769,7 @@ function renderRecentShipments(filter = "") {
                     timeStr = new Date(d.completedTime.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
                 }
 
-                const searchableText = `${uniqueShipmentId} ${tripIdShort} ${t.id} ${cName} ${locName} ${fullAddress} ${status} ${tripDateStr}`.toLowerCase();
+                const searchableText = `${uniqueShipmentId} ${tripIdShort} ${t.id} ${cName} ${locName} ${fullAddress} ${status} ${d.pendingReason || ''} ${tripDateStr}`.toLowerCase();
                 const terms = rawSearch.split(/\s+/).filter(x => x.length > 0);
                 const matchSearch = !rawSearch || terms.every(term => {
                     const cleanTerm = term.replace('#', '');
@@ -1700,6 +1781,8 @@ function renderRecentShipments(filter = "") {
                     matchStatus = true;
                 } else if (selectedStatus === 'active_all') {
                     matchStatus = (status !== 'completed');
+                } else if (selectedStatus === 'pending') {
+                    matchStatus = (status === 'pending' || isKlienTutupApproved || isPendingApproval);
                 } else if (selectedStatus === 'delayed') {
                     const lastUpdate = t.destinations ? t.destinations.filter(d => d.status === 'done' || d.status === 'arrived').reduce((max, d) => {
                         const time = (d.completedTime || d.arrivalTime)?.seconds * 1000 || 0;
@@ -1721,6 +1804,10 @@ function renderRecentShipments(filter = "") {
                         fullAddress: fullAddress,
                         status: status,
                         statusClass: statusClass,
+                        isKlienTutupApproved: isKlienTutupApproved,
+                        isPendingApproval: isPendingApproval,
+                        pendingReason: d.pendingReason || '',
+                        pendingProofPhotoUrl: d.pendingProofPhotoUrl || '',
                         carrier: cName,
                         eta: timeStr,
                         proofUrl: d.proofPhotoUrl || ''
@@ -1794,17 +1881,33 @@ function renderRecentShipments(filter = "") {
 
     const rowsHtml = [];
     shipmentRows.slice(0, 100).forEach(s => {
-        const podIcon = s.proofUrl ? `<i class="bi bi-camera-fill text-success ms-1 cursor-pointer" data-url="${s.proofUrl}" onclick="openPoDModal(this.dataset.url)" title="Lihat Foto PoD"></i>` : '';
+        const podIcon = s.proofUrl ? `<i class="bi bi-camera-fill text-success ms-1 cursor-pointer" data-url="${s.proofUrl}" onclick="openPoDModal(this.dataset.url)" title="Lihat Foto PoD"></i>` : (s.pendingProofPhotoUrl ? `<i class="bi bi-camera-fill text-danger ms-1 cursor-pointer" data-url="${s.pendingProofPhotoUrl}" onclick="openPoDModal(this.dataset.url)" title="Lihat Foto Lokasi Tutup"></i>` : '');
         const uploadBtn = `<button class="btn btn-sm btn-link text-primary p-0 ms-1 text-decoration-none" onclick="openManualUploadModal('${s.tripId}', ${s.stopIndex}, '${s.destinationName.replace(/'/g, "\\'")}')" title="Upload Foto PoD Manual Admin"><i class="bi bi-upload"></i></button>`;
 
-        rowsHtml.push(`<tr>
+        let statusBadgeHtml = `<span class="badge-pill badge-${s.statusClass} fw-normal">${s.status}</span>`;
+        let trStyle = '';
+
+        if (s.isKlienTutupApproved) {
+            trStyle = 'style="background: #FEF2F2 !important; border-left: 4px solid #EF4444 !important;"';
+            statusBadgeHtml = `<span class="badge bg-danger text-white fw-bold px-2 py-1"><i class="bi bi-x-circle me-1"></i> PENDING (KLIEN TUTUP)</span>`;
+        } else if (s.isPendingApproval) {
+            trStyle = 'style="background: #FFF7ED !important; border-left: 4px solid #F97316 !important;"';
+            statusBadgeHtml = `
+                <span class="badge bg-warning text-dark fw-bold px-2 py-1 mb-1 d-block"><i class="bi bi-hourglass-split me-1"></i> APPROVAL PENDING</span>
+                <div class="d-flex gap-1 mt-1">
+                    <button class="btn btn-xs btn-success py-0.5 px-2 fw-bold" style="font-size: 0.68rem;" onclick="approveDestinationPending('${s.tripId}', ${s.stopIndex})"><i class="bi bi-check me-1"></i>Setujui</button>
+                    <button class="btn btn-xs btn-outline-danger py-0.5 px-2 fw-bold" style="font-size: 0.68rem;" onclick="rejectDestinationPending('${s.tripId}', ${s.stopIndex})"><i class="bi bi-x me-1"></i>Tolak</button>
+                </div>`;
+        }
+
+        rowsHtml.push(`<tr ${trStyle}>
             <td class="fw-normal text-muted extra-small text-nowrap" style="white-space: nowrap;">${s.dateStr}</td>
             <td class="fw-bold text-dark text-nowrap" style="white-space: nowrap;">${s.displayId} ${podIcon} ${uploadBtn}</td>
             <td>
                 <div class="fw-bold text-dark text-truncate" style="max-width:240px">${s.destinationName}</div>
-                ${s.fullAddress ? `<small class="text-muted extra-small d-block text-truncate fw-normal" style="max-width:240px">${s.fullAddress}</small>` : ''}
+                ${s.pendingReason ? `<small class="text-danger extra-small d-block fw-bold text-truncate" style="max-width:240px"><i class="bi bi-exclamation-circle me-1"></i>${s.pendingReason}</small>` : (s.fullAddress ? `<small class="text-muted extra-small d-block text-truncate fw-normal" style="max-width:240px">${s.fullAddress}</small>` : '')}
             </td>
-            <td class="text-nowrap" style="white-space: nowrap;"><span class="badge-pill badge-${s.statusClass} fw-normal">${s.status}</span></td>
+            <td class="text-nowrap" style="white-space: nowrap;">${statusBadgeHtml}</td>
             <td class="fw-normal text-dark text-nowrap" style="white-space: nowrap;">${s.carrier}</td>
             <td class="text-nowrap" style="white-space: nowrap;"><small class="fw-normal text-secondary">${s.eta}</small></td>
             <td class="text-nowrap">

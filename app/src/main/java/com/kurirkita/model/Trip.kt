@@ -19,11 +19,13 @@ data class Destination(
     val address: String = "",
     val latitude: Double = 0.0,
     val longitude: Double = 0.0,
-    val status: String = "pending", // "pending" | "arrived" | "done"
+    val status: String = "pending", // "pending" | "arrived" | "pending_approval" | "done"
     val arrivalTime: Timestamp? = null,
     val completedTime: Timestamp? = null,
     val batteryOnArrival: Int? = null,
     val proofPhotoUrl: String = "",
     val proofPhotoSj: String = "",
-    val proofPhotoItems: List<String> = emptyList()
+    val proofPhotoItems: List<String> = emptyList(),
+    val pendingReason: String = "",
+    val pendingProofPhotoUrl: String = ""
 )
