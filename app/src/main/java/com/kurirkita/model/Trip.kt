@@ -23,5 +23,7 @@ data class Destination(
     val arrivalTime: Timestamp? = null,
     val completedTime: Timestamp? = null,
     val batteryOnArrival: Int? = null,
-    val proofPhotoUrl: String = ""
+    val proofPhotoUrl: String = "",
+    val proofPhotoSj: String = "",
+    val proofPhotoItems: List<String> = emptyList()
 )
