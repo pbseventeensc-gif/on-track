@@ -162,13 +162,69 @@ fun ActiveTripScreen(trip: Trip, onBack: () -> Unit, onChatClick: () -> Unit) {
 }
 
 @SuppressLint("MissingPermission")
-private fun validateSecurityAndLocation(context: android.content.Context, client: com.google.android.gms.location.FusedLocationProviderClient, targetLat: Double, targetLng: Double, radius: Float, onValid: () -> Unit) {
+private fun validateSecurityAndLocation(
+    context: android.content.Context,
+    client: com.google.android.gms.location.FusedLocationProviderClient,
+    targetLat: Double,
+    targetLng: Double,
+    radius: Float,
+    onValid: () -> Unit
+) {
+    if (targetLat == 0.0 && targetLng == 0.0) {
+        onValid()
+        return
+    }
+
     client.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, CancellationTokenSource().token).addOnSuccessListener { loc ->
-        if (loc == null) { Toast.makeText(context, "GPS tidak aktif", Toast.LENGTH_SHORT).show(); return@addOnSuccessListener }
-        val isMock = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) loc.isMock else @Suppress("DEPRECATION") loc.isFromMockProvider
-        if (isMock) { Toast.makeText(context, "🚨 Fake GPS terdeteksi!", Toast.LENGTH_LONG).show(); return@addOnSuccessListener }
-        val res = FloatArray(1); Location.distanceBetween(loc.latitude, loc.longitude, targetLat, targetLng, res)
-        if (res[0] > radius) Toast.makeText(context, "Terlalu Jauh! Jarak: %.0f m (Maks %.0f m)".format(res[0], radius), Toast.LENGTH_LONG).show() else onValid()
+        if (loc == null) {
+            client.lastLocation.addOnSuccessListener { lastLoc ->
+                if (lastLoc != null) {
+                    checkLocationAndExecute(context, lastLoc, targetLat, targetLng, radius, onValid)
+                } else {
+                    Toast.makeText(context, "GPS belum terdeteksi", Toast.LENGTH_SHORT).show()
+                }
+            }.addOnFailureListener {
+                Toast.makeText(context, "Gagal membaca GPS", Toast.LENGTH_SHORT).show()
+            }
+            return@addOnSuccessListener
+        }
+        checkLocationAndExecute(context, loc, targetLat, targetLng, radius, onValid)
+    }.addOnFailureListener {
+        client.lastLocation.addOnSuccessListener { lastLoc ->
+            if (lastLoc != null) {
+                checkLocationAndExecute(context, lastLoc, targetLat, targetLng, radius, onValid)
+            } else {
+                Toast.makeText(context, "Gagal membaca GPS", Toast.LENGTH_SHORT).show()
+            }
+        }.addOnFailureListener {
+            Toast.makeText(context, "Gagal membaca GPS", Toast.LENGTH_SHORT).show()
+        }
+    }
+}
+
+private fun checkLocationAndExecute(
+    context: android.content.Context,
+    loc: Location,
+    targetLat: Double,
+    targetLng: Double,
+    radius: Float,
+    onValid: () -> Unit
+) {
+    val isMock = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) loc.isMock else @Suppress("DEPRECATION") loc.isFromMockProvider
+    if (isMock) {
+        Toast.makeText(context, "🚨 Fake GPS terdeteksi!", Toast.LENGTH_LONG).show()
+        return
+    }
+    if (targetLat == 0.0 && targetLng == 0.0) {
+        onValid()
+        return
+    }
+    val res = FloatArray(1)
+    Location.distanceBetween(loc.latitude, loc.longitude, targetLat, targetLng, res)
+    if (res[0] > radius) {
+        Toast.makeText(context, "Terlalu Jauh dari Lokasi! Jarak: %.0f m (Maks %.0f m)".format(res[0], radius), Toast.LENGTH_LONG).show()
+    } else {
+        onValid()
     }
 }
 
@@ -668,6 +724,27 @@ fun DestinationItem(
     }
 }
 
+private fun compressBitmapToBytes(source: Bitmap, maxDimension: Int = 1200, quality: Int = 75): ByteArray {
+    val w = source.width
+    val h = source.height
+
+    val scaled = if (w > maxDimension || h > maxDimension) {
+        val ratio = w.toFloat() / h.toFloat()
+        val (finalW, finalH) = if (ratio > 1) {
+            maxDimension to (maxDimension / ratio).toInt()
+        } else {
+            (maxDimension * ratio).toInt() to maxDimension
+        }
+        Bitmap.createScaledBitmap(source, finalW, finalH, true)
+    } else {
+        source
+    }
+
+    val baos = ByteArrayOutputStream()
+    scaled.compress(Bitmap.CompressFormat.JPEG, quality, baos)
+    return baos.toByteArray()
+}
+
 private fun uploadCategorizedPhotosAndUpdate(
     storage: FirebaseStorage,
     db: FirebaseFirestore,
@@ -677,15 +754,15 @@ private fun uploadCategorizedPhotosAndUpdate(
     itemBitmaps: List<Bitmap>,
     status: String
 ) {
-    var sjUrl: String? = null
-    val itemUrls = java.util.Collections.synchronizedList(mutableListOf<String?>())
-    repeat(itemBitmaps.size) { itemUrls.add(null) }
-
     val totalToUpload = (if (sjBitmap != null) 1 else 0) + itemBitmaps.size
     if (totalToUpload == 0) {
         updateDestinationStatus(db, trip, dest, status, null)
         return
     }
+
+    var sjUrl: String? = null
+    val itemUrls = java.util.Collections.synchronizedList(mutableListOf<String?>())
+    repeat(itemBitmaps.size) { itemUrls.add(null) }
 
     var finishedCount = 0
 
@@ -706,30 +783,26 @@ private fun uploadCategorizedPhotosAndUpdate(
         }
     }
 
-    // Upload SJ photo
+    // Compress & Upload SJ photo in background thread for ultra-fast performance
     if (sjBitmap != null) {
-        val scaled = scaleBitmap(sjBitmap, 2500)
-        val baos = ByteArrayOutputStream()
-        scaled.compress(Bitmap.CompressFormat.JPEG, 100, baos)
-        val bytes = baos.toByteArray()
-
-        uploadSinglePhotoBytes(storage, bytes) { url ->
-            sjUrl = url
-            checkAndFinish()
-        }
+        Thread {
+            val bytes = compressBitmapToBytes(sjBitmap, maxDimension = 1200, quality = 75)
+            uploadSinglePhotoBytes(storage, bytes) { url ->
+                sjUrl = url
+                checkAndFinish()
+            }
+        }.start()
     }
 
-    // Upload Item photos
+    // Compress & Upload Item photos in background threads
     itemBitmaps.forEachIndexed { index, bitmap ->
-        val scaled = scaleBitmap(bitmap, 2500)
-        val baos = ByteArrayOutputStream()
-        scaled.compress(Bitmap.CompressFormat.JPEG, 100, baos)
-        val bytes = baos.toByteArray()
-
-        uploadSinglePhotoBytes(storage, bytes) { url ->
-            itemUrls[index] = url
-            checkAndFinish()
-        }
+        Thread {
+            val bytes = compressBitmapToBytes(bitmap, maxDimension = 1200, quality = 75)
+            uploadSinglePhotoBytes(storage, bytes) { url ->
+                itemUrls[index] = url
+                checkAndFinish()
+            }
+        }.start()
     }
 }
 
@@ -786,19 +859,7 @@ private fun updateDestinationStatus(
         } else it
     }
     val map = mutableMapOf<String, Any>("destinations" to updated)
-    if (trip.status == "accepted" && status == "arrived") map["status"] = "in_progress"
+    if (status == "arrived" && trip.status != "completed") map["status"] = "in_progress"
     if (updated.all { it.status == "done" }) map["status"] = "completed"
     db.collection("trips").document(trip.tripId).update(map)
-}
-
-private fun scaleBitmap(source: Bitmap, maxSize: Int): Bitmap {
-    val w = source.width
-    val h = source.height
-    if (w <= maxSize && h <= maxSize) return source
-
-    var finalW = w
-    var finalH = h
-    val ratio = w.toFloat() / h.toFloat()
-    if (ratio > 1) { finalW = maxSize; finalH = (maxSize / ratio).toInt() } else { finalH = maxSize; finalW = (maxSize * ratio).toInt() }
-    return Bitmap.createScaledBitmap(source, finalW, finalH, true)
 }
