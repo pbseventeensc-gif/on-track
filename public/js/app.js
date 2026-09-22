@@ -2371,16 +2371,30 @@ async function handleLogin(e) {
         }
         await firebaseAuth.signInWithEmailAndPassword(email, pass);
     } catch (e) {
-        console.error("Login Error:", e);
+        console.error("Login Error Details:", e);
         if (btn) {
             btn.disabled = false;
             btn.innerText = "SIGN IN";
         }
+
+        let friendlyMsg = e.message || String(e);
+        if (e.code === 'auth/invalid-credential' || e.code === 'auth/user-not-found' || e.code === 'auth/wrong-password') {
+            friendlyMsg = "Email (" + email + ") atau password yang Anda masukkan salah. Silakan periksa kembali password akun tersebut di Firebase Console.";
+        } else if (e.code === 'auth/invalid-email') {
+            friendlyMsg = "Format email tidak valid. Gunakan format email seperti adminlogistik@wellen.id";
+        } else if (e.code === 'auth/too-many-requests') {
+            friendlyMsg = "Akses terblokir sementara karena terlalu banyak percobaan login yang gagal. Silakan tunggu 2-3 menit.";
+        } else if (e.code === 'auth/network-request-failed') {
+            friendlyMsg = "Gagal terhubung ke Firebase. Periksa koneksi internet Anda.";
+        } else if (e.code === 'auth/unauthorized-domain') {
+            friendlyMsg = "Domain (" + window.location.hostname + ") belum diizinkan. Tambahkan di Firebase Console -> Authentication -> Settings -> Authorized Domains.";
+        }
+
         if (err) {
-            err.innerText = "Login Gagal: " + (e.message || e);
+            err.innerText = friendlyMsg + (e.code ? " [" + e.code + "]" : "");
             err.classList.remove('d-none');
         } else {
-            alert("Login Gagal: " + (e.message || e));
+            alert(friendlyMsg);
         }
     }
 }
