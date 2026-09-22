@@ -954,27 +954,20 @@
                                 <option value="all">Semua Kurir</option>
                             </select>
                         </div>
-                        <div class="col-md-3">
-                            <label class="extra-small text-muted fw-semibold mb-1 d-block">KATEGORI FOTO</label>
-                            <select id="archive-category-filter" class="form-select form-select-sm border fw-normal py-2" style="border-radius: 10px; font-size: 0.8rem; background: #f8fafc;" onchange="renderPoDArchiveView()">
-                                <option value="all">Semua Kategori</option>
-                                <option value="sj">📄 Surat Jalan (SJ)</option>
-                                <option value="item">📦 Foto Barang</option>
-                            </select>
-                        </div>
-                        <div class="col-md-3">
-                            <label class="extra-small text-muted fw-semibold mb-1 d-block">RENTANG TANGGAL</label>
+                        <div class="col-md-4">
+                            <label class="extra-small text-muted fw-semibold mb-1 d-block">RENTANG TANGGAL (KALENDER)</label>
                             <div class="d-flex align-items-center gap-1 bg-light border p-1 px-2" style="border-radius: 10px;">
-                                <input type="date" id="archive-start-date" class="form-control form-control-sm border-0 bg-transparent fw-normal py-1" style="font-size: 0.775rem;" onchange="renderPoDArchiveView()">
-                                <span class="extra-small text-muted">s/d</span>
-                                <input type="date" id="archive-end-date" class="form-control form-control-sm border-0 bg-transparent fw-normal py-1" style="font-size: 0.775rem;" onchange="renderPoDArchiveView()">
+                                <span class="extra-small text-muted fw-normal">Dari:</span>
+                                <input type="date" id="archive-start-date" class="form-control form-control-sm border-0 bg-transparent fw-normal py-1" style="width: 120px; font-size: 0.775rem;" onchange="renderPoDArchiveView()">
+                                <span class="extra-small text-muted fw-normal ms-1">Sampai:</span>
+                                <input type="date" id="archive-end-date" class="form-control form-control-sm border-0 bg-transparent fw-normal py-1" style="width: 120px; font-size: 0.775rem;" onchange="renderPoDArchiveView()">
                             </div>
                         </div>
-                        <div class="col-md-3">
-                            <label class="extra-small text-muted fw-semibold mb-1 d-block">CARI ID / KLIEN</label>
+                        <div class="col-md-5">
+                            <label class="extra-small text-muted fw-semibold mb-1 d-block">CARI ID / KLIEN / ALAMAT</label>
                             <div class="position-relative">
                                 <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" style="font-size: 0.85rem;"></i>
-                                <input type="text" id="archive-search-input" class="form-control form-control-sm ps-5 py-2 fw-normal" style="border-radius: 10px; background: #f8fafc; font-size: 0.8rem;" placeholder="Cari ID, Klien..." oninput="renderPoDArchiveView(this.value)" autocomplete="off">
+                                <input type="text" id="archive-search-input" class="form-control form-control-sm ps-5 py-2 fw-normal" style="border-radius: 10px; background: #f8fafc; font-size: 0.8rem;" placeholder="Cari Shipment ID, Nama Klien, Alamat..." oninput="renderPoDArchiveView(this.value)" autocomplete="off">
                             </div>
                         </div>
                     </div>

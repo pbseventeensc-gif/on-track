@@ -2709,8 +2709,6 @@ function renderPoDArchiveView(filter = "") {
         });
     }
 
-    const selectedCategory = document.getElementById('archive-category-filter')?.value || "all";
-
     const photos = [];
     allCurrentTrips.forEach(t => {
         if (typeof isTripInActiveBranch === 'function' && !isTripInActiveBranch(t)) return;
@@ -2731,25 +2729,19 @@ function renderPoDArchiveView(filter = "") {
 
         if (t.destinations) {
             t.destinations.forEach((d, idx) => {
-                const locName = d.locationName || 'Destination';
-                const fullAddress = d.address || '';
-                const stopIdx = d.stopIndex || (idx + 1);
-                const uniqueShipmentId = `${tripIdShort}-${stopIdx}`;
+                if (d.proofPhotoUrl) {
+                    const locName = d.locationName || 'Destination';
+                    const fullAddress = d.address || '';
+                    const stopIdx = d.stopIndex || (idx + 1);
+                    const uniqueShipmentId = `${tripIdShort}-${stopIdx}`;
 
-                const searchableText = `${uniqueShipmentId} ${tripIdShort} ${t.id} ${cName} ${locName} ${fullAddress} ${tripDateStr}`.toLowerCase();
-                const terms = rawSearch.split(/\s+/).filter(x => x.length > 0);
-                const matchSearch = !rawSearch || terms.every(term => searchableText.includes(term));
+                    const searchableText = `${uniqueShipmentId} ${tripIdShort} ${t.id} ${cName} ${locName} ${fullAddress} ${tripDateStr}`.toLowerCase();
+                    const terms = rawSearch.split(/\s+/).filter(x => x.length > 0);
+                    const matchSearch = !rawSearch || terms.every(term => searchableText.includes(term));
 
-                if (!matchSearch) return;
-
-                // 1. Process Surat Jalan (SJ) photo
-                if (d.proofPhotoSj) {
-                    if (selectedCategory === 'all' || selectedCategory === 'sj') {
+                    if (matchSearch) {
                         photos.push({
-                            url: d.proofPhotoSj,
-                            category: 'sj',
-                            categoryTag: '📄 Surat Jalan',
-                            badgeClass: 'bg-primary',
+                            url: d.proofPhotoUrl,
                             shipmentId: uniqueShipmentId,
                             clientName: locName,
                             fullAddress: fullAddress,
@@ -2759,53 +2751,6 @@ function renderPoDArchiveView(filter = "") {
                             stopIndex: stopIdx
                         });
                     }
-                }
-
-                // 2. Process Item / Barang photos
-                if (d.proofPhotoItems && Array.isArray(d.proofPhotoItems) && d.proofPhotoItems.length > 0) {
-                    if (selectedCategory === 'all' || selectedCategory === 'item') {
-                        d.proofPhotoItems.forEach((itemUrl, itemIdx) => {
-                            if (itemUrl) {
-                                photos.push({
-                                    url: itemUrl,
-                                    category: 'item',
-                                    categoryTag: `📦 Barang #${itemIdx + 1}`,
-                                    badgeClass: 'bg-success',
-                                    shipmentId: uniqueShipmentId,
-                                    clientName: locName,
-                                    fullAddress: fullAddress,
-                                    courierName: cName,
-                                    dateStr: tripDateStr,
-                                    tripMs: tripMs,
-                                    stopIndex: stopIdx
-                                });
-                            }
-                        });
-                    }
-                }
-
-                // 3. Fallback for legacy proofPhotoUrl
-                if (!d.proofPhotoSj && (!d.proofPhotoItems || d.proofPhotoItems.length === 0) && d.proofPhotoUrl) {
-                    const urls = d.proofPhotoUrl.split(',').map(s => s.trim()).filter(Boolean);
-                    urls.forEach((u, uIdx) => {
-                        const isSj = (uIdx === 0);
-                        const catKey = isSj ? 'sj' : 'item';
-                        if (selectedCategory === 'all' || selectedCategory === catKey) {
-                            photos.push({
-                                url: u,
-                                category: catKey,
-                                categoryTag: isSj ? '📄 Surat Jalan' : `📦 Barang #${uIdx}`,
-                                badgeClass: isSj ? 'bg-primary' : 'bg-success',
-                                shipmentId: uniqueShipmentId,
-                                clientName: locName,
-                                fullAddress: fullAddress,
-                                courierName: cName,
-                                dateStr: tripDateStr,
-                                tripMs: tripMs,
-                                stopIndex: stopIdx
-                            });
-                        }
-                    });
                 }
             });
         }
@@ -2832,7 +2777,6 @@ function renderPoDArchiveView(filter = "") {
                     <div class="position-relative" style="height: 120px; background: #f1f5f9;">
                         <img src="${p.url}" class="w-100 h-100 object-fit-cover cursor-pointer" onclick="openPoDModal('${p.url}')" title="Klik untuk memperbesar">
                         <span class="position-absolute top-0 start-0 m-1 badge bg-dark opacity-75 extra-small fw-normal">${p.shipmentId}</span>
-                        <span class="position-absolute bottom-0 start-0 m-1 badge ${p.badgeClass || 'bg-secondary'} extra-small fw-bold" style="font-size: 0.625rem;">${p.categoryTag || 'POD'}</span>
                     </div>
                     <div class="p-2 bg-white">
                         <div class="fw-semibold extra-small text-truncate text-dark" title="${p.clientName}">${p.clientName}</div>
@@ -2842,9 +2786,6 @@ function renderPoDArchiveView(filter = "") {
             </div>
         `);
     });
-
-    grid.innerHTML = gridHtml.join('');
-}
 
     grid.innerHTML = gridHtml.join('');
 }

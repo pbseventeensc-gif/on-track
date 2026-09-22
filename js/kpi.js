@@ -47,14 +47,12 @@ function openCourierPoDGallery(courierKey, courierName) {
     grid.innerHTML = '';
 
     list.forEach((pod) => {
-        const tagBadge = pod.tag ? `<span class="position-absolute bottom-0 start-0 m-1 badge ${pod.badgeClass || 'bg-dark'} extra-small fw-bold" style="font-size: 0.6rem;">${pod.tag}</span>` : '';
         grid.innerHTML += `
             <div class="col-6 col-sm-4 col-md-3">
                 <div class="card h-100 border shadow-sm overflow-hidden" style="border-radius: 10px;">
                     <div class="position-relative" style="height: 110px; background: #e2e8f0;">
                         <img src="${pod.url}" class="w-100 h-100 object-fit-cover cursor-pointer" onclick="openPoDModal('${pod.url}')" title="Klik untuk memperbesar">
                         <span class="position-absolute top-0 start-0 m-1 badge bg-dark opacity-75 extra-small fw-normal">Stop ${pod.stopIndex}</span>
-                        ${tagBadge}
                     </div>
                     <div class="p-1.5 px-2 bg-white">
                         <div class="extra-small text-truncate text-muted fw-normal" title="${pod.locationName}">${pod.locationName}</div>
@@ -337,44 +335,12 @@ function renderKPIView(filter = "") {
         filteredTrips.filter(t => t.courierId === courierId || registeredUsers[t.courierId] === c.name).forEach(trip => {
             if (trip.destinations) {
                 trip.destinations.forEach(d => {
-                    const locName = d.locationName || `Stop ${d.stopIndex}`;
-
-                    if (d.proofPhotoSj) {
+                    if (d.proofPhotoUrl) {
                         podList.push({
-                            url: d.proofPhotoSj,
-                            tag: '📄 Surat Jalan',
-                            badgeClass: 'bg-primary',
+                            url: d.proofPhotoUrl,
                             stopIndex: d.stopIndex,
-                            locationName: locName,
+                            locationName: d.locationName || `Stop ${d.stopIndex}`,
                             tripId: trip.tripId
-                        });
-                    }
-                    if (d.proofPhotoItems && Array.isArray(d.proofPhotoItems)) {
-                        d.proofPhotoItems.forEach((itemUrl, itemIdx) => {
-                            if (itemUrl) {
-                                podList.push({
-                                    url: itemUrl,
-                                    tag: `📦 Barang #${itemIdx + 1}`,
-                                    badgeClass: 'bg-success',
-                                    stopIndex: d.stopIndex,
-                                    locationName: locName,
-                                    tripId: trip.tripId
-                                });
-                            }
-                        });
-                    }
-                    if (!d.proofPhotoSj && (!d.proofPhotoItems || d.proofPhotoItems.length === 0) && d.proofPhotoUrl) {
-                        const urls = d.proofPhotoUrl.split(',').map(s => s.trim()).filter(Boolean);
-                        urls.forEach((u, uIdx) => {
-                            const isSj = (uIdx === 0);
-                            podList.push({
-                                url: u,
-                                tag: isSj ? '📄 Surat Jalan' : `📦 Barang #${uIdx}`,
-                                badgeClass: isSj ? 'bg-primary' : 'bg-success',
-                                stopIndex: d.stopIndex,
-                                locationName: locName,
-                                tripId: trip.tripId
-                            });
                         });
                     }
                 });

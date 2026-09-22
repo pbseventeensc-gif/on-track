@@ -101,7 +101,7 @@ fun DashboardScreen(
                 }
             }
 
-            // Main Delivery Tasks Card
+            // Main Earnings Card (Restored and set to Rp)
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -122,7 +122,7 @@ fun DashboardScreen(
                         modifier = Modifier.padding(bottom = 16.dp)
                     ) {
                         Text(
-                            "TOTAL TUGAS PENGANTARAN",
+                            "TODAY EARNING",
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                             style = MaterialTheme.typography.labelMedium.copy(
                                 fontWeight = FontWeight.ExtraBold,
@@ -132,14 +132,25 @@ fun DashboardScreen(
                         )
                     }
 
-                    Text(
-                        text = if (state.activeShipments == "-1") "0" else state.activeShipments,
-                        style = MaterialTheme.typography.displayMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = TextPrimary,
-                            fontSize = 48.sp
+                    Box(contentAlignment = Alignment.TopStart) {
+                        Text(
+                            "Rp",
+                            modifier = Modifier.padding(end = 4.dp).offset(x = (-24.dp), y = 8.dp),
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimary,
+                                fontSize = 20.sp
+                            )
                         )
-                    )
+                        Text(
+                            "0",
+                            style = MaterialTheme.typography.displayMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = TextPrimary,
+                                fontSize = 48.sp
+                            )
+                        )
+                    }
                 }
             }
 
