@@ -2817,9 +2817,6 @@ function renderPoDArchiveView(filter = "") {
 
     grid.innerHTML = gridHtml.join('');
 }
-
-    grid.innerHTML = gridHtml.join('');
-}
 window.renderPoDArchiveView = renderPoDArchiveView;
 
 function resetPoDArchiveFilter() {
