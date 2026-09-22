@@ -2371,23 +2371,32 @@ async function handleLogin(e) {
         }
         await firebaseAuth.signInWithEmailAndPassword(email, pass);
     } catch (e) {
-        console.error("Login Error:", e);
+        console.error("Login Error Details:", e);
         if (btn) {
             btn.disabled = false;
             btn.innerText = "SIGN IN";
         }
 
         let friendlyMsg = e.message || String(e);
-        if (e.code === 'auth/invalid-credential' || e.code === 'auth/user-not-found' || e.code === 'auth/wrong-password' || e.code === 'auth/invalid-email') {
-            friendlyMsg = "Email atau password yang Anda masukkan salah.";
+        if (e.code === 'auth/invalid-credential' || e.code === 'auth/user-not-found' || e.code === 'auth/wrong-password') {
+            friendlyMsg = "Email atau password yang Anda masukkan salah. Pastikan e-mail terdaftar di Firebase Authentication.";
+        } else if (e.code === 'auth/invalid-email') {
+            friendlyMsg = "Format email tidak valid (contoh: logistik@wellen.id).";
         } else if (e.code === 'auth/too-many-requests') {
-            friendlyMsg = "Akses terblokir sementara karena terlalu banyak percobaan login. Silakan tunggu beberapa menit.";
+            friendlyMsg = "Akses terblokir sementara karena terlalu banyak percobaan login yang gagal. Silakan tunggu beberapa menit.";
         } else if (e.code === 'auth/network-request-failed') {
-            friendlyMsg = "Koneksi internet terputus. Silakan periksa jaringan Anda.";
+            friendlyMsg = "Koneksi terputus. Silakan periksa jaringan internet Anda.";
+        } else if (e.code === 'auth/unauthorized-domain') {
+            friendlyMsg = "Domain ini belum diizinkan di Firebase Console. Tambahkan domain Vercel Anda di Firebase Console -> Authentication -> Settings -> Authorized Domains.";
         }
 
         if (err) {
-            err.innerText = friendlyMsg;
+            err.innerText = friendlyMsg + (e.code ? ` [${e.code}]` : '');
+            err.classList.remove('d-none');
+        } else {
+            alert(friendlyMsg);
+        }
+    }
             err.classList.remove('d-none');
         } else {
             alert(friendlyMsg);
