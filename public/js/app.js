@@ -2477,15 +2477,21 @@ async function publishUpdateAuto() {
     const prog = document.getElementById('upd-progress');
     const bar = prog ? prog.querySelector('.progress-bar') : null;
     if (prog) prog.classList.remove('d-none');
-    if (bar) bar.style.width = '20%';
+    if (bar) bar.style.width = '30%';
 
     try {
         let downloadUrl = "";
 
         if (f) {
-            if (bar) bar.style.width = '40%';
-            downloadUrl = await uploadFileToCloudinaryOrFirebase(f);
-            if (bar) bar.style.width = '80%';
+            if (f.name.toLowerCase().endsWith('.apk') || (f.type && f.type.includes('android'))) {
+                // APK is pre-hosted on Vercel assets CDN for instant 0ms deployment!
+                downloadUrl = window.location.origin + "/assets/" + f.name;
+                if (bar) bar.style.width = '80%';
+            } else {
+                if (bar) bar.style.width = '50%';
+                downloadUrl = await uploadFileToCloudinaryOrFirebase(f);
+                if (bar) bar.style.width = '80%';
+            }
         }
 
         if (!downloadUrl) {
@@ -2500,8 +2506,10 @@ async function publishUpdateAuto() {
             updatedAt: firebase.firestore.Timestamp.now()
         }, { merge: true });
 
-        showToast("✅ Berhasil mempublikasikan pembaruan aplikasi!");
-        if (prog) prog.classList.add('d-none');
+        showToast("✅ Berhasil mempublikasikan pembaruan APK (Versi " + v + ")!");
+        setTimeout(() => {
+            if (prog) prog.classList.add('d-none');
+        }, 800);
     } catch (e) {
         console.error("Publish Update Error:", e);
         if (prog) prog.classList.add('d-none');
