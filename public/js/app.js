@@ -709,10 +709,67 @@ function toggleCollapse() {
     }, 350);
 }
 
+function getRoleDisplayName(role) {
+    const r = (role || '').toLowerCase();
+    if (r === 'sales_admin' || r === 'sales') return 'Sales Admin';
+    if (r === 'admin_dm2' || r === 'dm2') return 'Admin DM2';
+    if (r === 'branch_admin' || r === 'branch') return 'Admin Cabang';
+    if (r === 'trafik' || r === 'traffic') return 'Trafik';
+    return 'Super Admin';
+}
+
+function isTabAllowedForRole(role, viewId) {
+    const r = (role || 'super_admin').toLowerCase();
+    if (r === 'sales_admin' || r === 'sales') {
+        return viewId === 'dashboard' || viewId === 'monitor';
+    }
+    if (r === 'admin_dm2' || r === 'dm2') {
+        return viewId === 'dashboard' || viewId === 'monitor' || viewId === 'dispatch' || viewId === 'pod-archive';
+    }
+    if (r === 'trafik' || r === 'traffic') {
+        return viewId !== 'fleet' && viewId !== 'reports' && viewId !== 'settings';
+    }
+    return true;
+}
+
+function applyRoleAccessControl() {
+    const r = (currentUserRole || 'super_admin').toLowerCase();
+
+    const navDashboard = document.getElementById('nav-dashboard');
+    const navMonitor = document.getElementById('nav-monitor');
+    const navDispatch = document.getElementById('nav-dispatch');
+    const navFleet = document.getElementById('nav-fleet');
+    const navChat = document.getElementById('nav-chat');
+    const navPodArchive = document.getElementById('nav-pod-archive');
+    const navReports = document.getElementById('nav-reports');
+    const navSettings = document.getElementById('nav-settings');
+
+    [navDashboard, navMonitor, navDispatch, navFleet, navChat, navPodArchive, navReports, navSettings].forEach(el => {
+        if (el) el.style.display = '';
+    });
+
+    if (r === 'sales_admin' || r === 'sales') {
+        if (navDispatch) navDispatch.style.display = 'none';
+        if (navFleet) navFleet.style.display = 'none';
+        if (navChat) navChat.style.display = 'none';
+        if (navPodArchive) navPodArchive.style.display = 'none';
+        if (navReports) navReports.style.display = 'none';
+        if (navSettings) navSettings.style.display = 'none';
+    } else if (r === 'admin_dm2' || r === 'dm2') {
+        if (navFleet) navFleet.style.display = 'none';
+        if (navChat) navChat.style.display = 'none';
+        if (navReports) navReports.style.display = 'none';
+        if (navSettings) navSettings.style.display = 'none';
+    } else if (r === 'trafik' || r === 'traffic') {
+        if (navFleet) navFleet.style.display = 'none';
+        if (navReports) navReports.style.display = 'none';
+        if (navSettings) navSettings.style.display = 'none';
+    }
+}
+
 function switchTab(viewId, el) {
-    const isTraffic = (currentUserRole === 'trafik' || currentUserRole === 'traffic');
-    if (isTraffic && (viewId === 'fleet' || viewId === 'reports' || viewId === 'settings')) {
-        showToast("Akses dibatasi untuk akun Trafik.");
+    if (!isTabAllowedForRole(currentUserRole, viewId)) {
+        showToast("⚠️ Akses dibatasi untuk " + getRoleDisplayName(currentUserRole) + ".");
         return;
     }
 
@@ -2694,32 +2751,54 @@ function initAuthListener() {
                 const currentDb = getDb();
                 if (currentDb) {
                     currentDb.collection('users').doc(user.uid).get().then(doc => {
-                        if (doc.exists) {
-                            const uData = doc.data();
-                            const uRole = (uData.role || 'admin').toLowerCase();
-                            currentUserRole = uRole;
-                            currentUserBranchId = (uData.branchId || 'pusat').toLowerCase();
+                        let uData = doc.exists ? doc.data() : {};
+                        let uRole = (uData.role || '').toLowerCase();
+                        let uEmail = (user.email || '').toLowerCase();
 
-                            const branchWrapper = document.getElementById('branch-selector-wrapper');
-                            const branchSelect = document.getElementById('header-branch-filter');
+                        if (!uRole) {
+                            if (uEmail.includes('sales')) uRole = 'sales_admin';
+                            else if (uEmail.includes('dm2')) uRole = 'admin_dm2';
+                            else uRole = 'super_admin';
+                        } else if (uEmail.includes('sales')) {
+                            uRole = 'sales_admin';
+                        } else if (uEmail.includes('dm2') && uRole !== 'sales_admin') {
+                            uRole = 'admin_dm2';
+                        }
 
-                            if (currentUserRole === 'branch_admin' || currentUserRole === 'branch') {
-                                const branchTitle = (uData.branchName || currentUserBranchId).toUpperCase();
-                                if (branchWrapper) {
-                                    branchWrapper.innerHTML = `<span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 fw-bold" style="font-size: 0.8rem;"><i class="bi bi-building me-1"></i> Cabang ${branchTitle}</span>`;
-                                }
-                            } else {
-                                if (branchSelect) branchSelect.value = 'all';
+                        currentUserRole = uRole;
+                        currentUserBranchId = (uData.branchId || (uRole === 'admin_dm2' || uRole === 'dm2' ? 'dm2' : 'pusat')).toLowerCase();
+
+                        applyRoleAccessControl();
+
+                        const branchWrapper = document.getElementById('branch-selector-wrapper');
+                        const branchSelect = document.getElementById('header-branch-filter');
+
+                        if (currentUserRole === 'admin_dm2' || currentUserRole === 'dm2' || currentUserRole === 'branch_admin' || currentUserRole === 'branch') {
+                            const branchTitle = (uData.branchName || currentUserBranchId || 'DM2').toUpperCase();
+                            if (branchWrapper) {
+                                branchWrapper.innerHTML = `<span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 fw-bold" style="font-size: 0.8rem;"><i class="bi bi-building me-1"></i> Cabang ${branchTitle}</span>`;
                             }
+                        } else {
+                            if (branchSelect) branchSelect.value = 'all';
+                        }
 
-                            if (typeof switchBranchFilter === 'function') {
-                                switchBranchFilter(getActiveBranchId());
-                            }
+                        if (typeof switchBranchFilter === 'function') {
+                            switchBranchFilter(getActiveBranchId());
+                        }
 
-                            const profileName = document.getElementById('profile-name');
-                            const profileRole = document.getElementById('profile-role');
-                            if (profileName) profileName.innerText = uData.name || "admin";
-                            if (profileRole) profileRole.innerHTML = `<span class="d-inline-block rounded-circle bg-success me-1" style="width: 7px; height: 7px;"></span>${currentUserRole === 'branch_admin' ? 'Admin Cabang' : 'Super Admin'}`;
+                        const profileName = document.getElementById('profile-name');
+                        const profileRole = document.getElementById('profile-role');
+                        if (profileName) profileName.innerText = uData.name || (uRole === 'sales_admin' ? 'Sales Admin' : (uRole === 'admin_dm2' ? 'Admin DM2' : 'admin'));
+                        if (profileRole) profileRole.innerHTML = `<span class="d-inline-block rounded-circle bg-success me-1" style="width: 7px; height: 7px;"></span>${getRoleDisplayName(currentUserRole)}`;
+
+                        if (!doc.exists || !doc.data().role) {
+                            currentDb.collection('users').doc(user.uid).set({
+                                email: user.email,
+                                name: uData.name || (uRole === 'sales_admin' ? 'Sales Admin' : (uRole === 'admin_dm2' ? 'Admin DM2' : 'admin')),
+                                role: uRole,
+                                branchId: currentUserBranchId,
+                                updatedAt: firebase.firestore.Timestamp.now()
+                            }, { merge: true });
                         }
                     }).catch(e => console.warn("Could not fetch user role:", e));
                 }
