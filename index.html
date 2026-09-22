@@ -88,9 +88,8 @@
         }
     </script>
 
-    <!-- Favicon & Custom CSS Styles -->
-    <link rel="icon" type="image/svg+xml" href="assets/wellen_logo.svg">
-    <link rel="stylesheet" href="css/style.css?v=107.0">
+    <!-- Custom CSS Styles -->
+    <link rel="stylesheet" href="/css/style.css?v=107.0">
     <style>
         :root {
             --primary: #111827;
@@ -249,7 +248,7 @@
 <!-- Login Screen -->
 <div id="login-screen">
     <div class="login-box">
-        <img src="assets/wellen_logo.svg" alt="Wellen Print" class="login-logo mb-3" style="height:60px; width:auto; object-fit:contain;">
+        <img src="/assets/wellen_logo.svg" alt="Wellen Print" class="login-logo mb-3" style="height:60px; width:auto; object-fit:contain;">
         <h5 class="fw-bold mb-1" style="color: #111827 !important;">Admin Logistik</h5>
         <p class="text-muted small mb-4">Silakan login untuk mengakses dashboard.</p>
 
@@ -281,7 +280,7 @@
             <i class="bi bi-chevron-left" style="font-size: 12px;"></i>
         </div>
         <div class="sidebar-header" style="padding: 20px 16px; min-height: 90px; justify-content: flex-start;">
-            <img src="assets/wellen_logo.svg" class="main-logo" alt="Wellen Print" style="height: 72px; width: auto; max-width: 100%; object-fit: contain;">
+            <img src="/assets/wellen_logo.svg" class="main-logo" alt="Wellen Print" style="height: 72px; width: auto; max-width: 100%; object-fit: contain;">
         </div>
 
         <nav class="nav-menu">
@@ -950,20 +949,27 @@
                                 <option value="all">Semua Kurir</option>
                             </select>
                         </div>
-                        <div class="col-md-4">
-                            <label class="extra-small text-muted fw-semibold mb-1 d-block">RENTANG TANGGAL (KALENDER)</label>
+                        <div class="col-md-3">
+                            <label class="extra-small text-muted fw-semibold mb-1 d-block">KATEGORI FOTO</label>
+                            <select id="archive-category-filter" class="form-select form-select-sm border fw-normal py-2" style="border-radius: 10px; font-size: 0.8rem; background: #f8fafc;" onchange="renderPoDArchiveView()">
+                                <option value="all">Semua Kategori</option>
+                                <option value="sj">📄 Surat Jalan (SJ)</option>
+                                <option value="item">📦 Foto Barang</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="extra-small text-muted fw-semibold mb-1 d-block">RENTANG TANGGAL</label>
                             <div class="d-flex align-items-center gap-1 bg-light border p-1 px-2" style="border-radius: 10px;">
-                                <span class="extra-small text-muted fw-normal">Dari:</span>
-                                <input type="date" id="archive-start-date" class="form-control form-control-sm border-0 bg-transparent fw-normal py-1" style="width: 120px; font-size: 0.775rem;" onchange="renderPoDArchiveView()">
-                                <span class="extra-small text-muted fw-normal ms-1">Sampai:</span>
-                                <input type="date" id="archive-end-date" class="form-control form-control-sm border-0 bg-transparent fw-normal py-1" style="width: 120px; font-size: 0.775rem;" onchange="renderPoDArchiveView()">
+                                <input type="date" id="archive-start-date" class="form-control form-control-sm border-0 bg-transparent fw-normal py-1" style="font-size: 0.775rem;" onchange="renderPoDArchiveView()">
+                                <span class="extra-small text-muted">s/d</span>
+                                <input type="date" id="archive-end-date" class="form-control form-control-sm border-0 bg-transparent fw-normal py-1" style="font-size: 0.775rem;" onchange="renderPoDArchiveView()">
                             </div>
                         </div>
-                        <div class="col-md-5">
-                            <label class="extra-small text-muted fw-semibold mb-1 d-block">CARI ID / KLIEN / ALAMAT</label>
+                        <div class="col-md-3">
+                            <label class="extra-small text-muted fw-semibold mb-1 d-block">CARI ID / KLIEN</label>
                             <div class="position-relative">
                                 <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" style="font-size: 0.85rem;"></i>
-                                <input type="text" id="archive-search-input" class="form-control form-control-sm ps-5 py-2 fw-normal" style="border-radius: 10px; background: #f8fafc; font-size: 0.8rem;" placeholder="Cari Shipment ID, Nama Klien, Alamat..." oninput="renderPoDArchiveView(this.value)" autocomplete="off">
+                                <input type="text" id="archive-search-input" class="form-control form-control-sm ps-5 py-2 fw-normal" style="border-radius: 10px; background: #f8fafc; font-size: 0.8rem;" placeholder="Cari ID, Klien..." oninput="renderPoDArchiveView(this.value)" autocomplete="off">
                             </div>
                         </div>
                     </div>
@@ -1044,8 +1050,8 @@
 
 <!-- Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<script src="js/maps.js?v=106.0"></script>
-<script src="js/kpi.js?v=106.0"></script>
-<script src="js/app.js?v=106.0"></script>
+<script src="/js/maps.js?v=106.0"></script>
+<script src="/js/kpi.js?v=106.0"></script>
+<script src="/js/app.js?v=106.0"></script>
 </body>
 </html>

@@ -2371,35 +2371,16 @@ async function handleLogin(e) {
         }
         await firebaseAuth.signInWithEmailAndPassword(email, pass);
     } catch (e) {
-        console.error("Login Error Details:", e);
+        console.error("Login Error:", e);
         if (btn) {
             btn.disabled = false;
             btn.innerText = "SIGN IN";
         }
-
-        let friendlyMsg = e.message || String(e);
-        if (e.code === 'auth/invalid-credential' || e.code === 'auth/user-not-found' || e.code === 'auth/wrong-password') {
-            friendlyMsg = "Email atau password yang Anda masukkan salah. Pastikan e-mail terdaftar di Firebase Authentication.";
-        } else if (e.code === 'auth/invalid-email') {
-            friendlyMsg = "Format email tidak valid (contoh: logistik@wellen.id).";
-        } else if (e.code === 'auth/too-many-requests') {
-            friendlyMsg = "Akses terblokir sementara karena terlalu banyak percobaan login yang gagal. Silakan tunggu beberapa menit.";
-        } else if (e.code === 'auth/network-request-failed') {
-            friendlyMsg = "Koneksi terputus. Silakan periksa jaringan internet Anda.";
-        } else if (e.code === 'auth/unauthorized-domain') {
-            friendlyMsg = "Domain ini belum diizinkan di Firebase Console. Tambahkan domain Vercel Anda di Firebase Console -> Authentication -> Settings -> Authorized Domains.";
-        }
-
         if (err) {
-            err.innerText = friendlyMsg + (e.code ? ` [${e.code}]` : '');
+            err.innerText = "Login Gagal: " + (e.message || e);
             err.classList.remove('d-none');
         } else {
-            alert(friendlyMsg);
-        }
-    }
-            err.classList.remove('d-none');
-        } else {
-            alert(friendlyMsg);
+            alert("Login Gagal: " + (e.message || e));
         }
     }
 }
@@ -2411,34 +2392,21 @@ function initAuthListener() {
         firebaseAuth.onAuthStateChanged(user => {
             const loginScreen = document.getElementById('login-screen');
             const mainWrapper = document.getElementById('main-wrapper');
-            const err = document.getElementById('login-error');
 
             if (user) {
+                if (loginScreen) loginScreen.style.setProperty('display', 'none', 'important');
+                if (mainWrapper) mainWrapper.style.setProperty('display', 'flex', 'important');
+
+                removeBaliClientsFromMaster();
+
                 const currentDb = getDb();
                 if (currentDb) {
                     currentDb.collection('users').doc(user.uid).get().then(doc => {
                         if (doc.exists) {
                             const uData = doc.data();
                             const uRole = (uData.role || 'admin').toLowerCase();
-
-                            if (uRole === 'courier' || uRole === 'kurir') {
-                                if (firebaseAuth) firebaseAuth.signOut();
-                                if (loginScreen) loginScreen.style.setProperty('display', 'flex', 'important');
-                                if (mainWrapper) mainWrapper.style.setProperty('display', 'none', 'important');
-                                if (err) {
-                                    err.innerText = "Akses Ditolak: Akun Kurir hanya dapat digunakan pada Aplikasi Mobile HP.";
-                                    err.classList.remove('d-none');
-                                }
-                                return;
-                            }
-
                             currentUserRole = uRole;
                             currentUserBranchId = (uData.branchId || 'pusat').toLowerCase();
-
-                            if (loginScreen) loginScreen.style.setProperty('display', 'none', 'important');
-                            if (mainWrapper) mainWrapper.style.setProperty('display', 'flex', 'important');
-
-                            removeBaliClientsFromMaster();
 
                             const branchWrapper = document.getElementById('branch-selector-wrapper');
                             const branchSelect = document.getElementById('header-branch-filter');
@@ -2460,18 +2428,8 @@ function initAuthListener() {
                             const profileRole = document.getElementById('profile-role');
                             if (profileName) profileName.innerText = uData.name || "admin";
                             if (profileRole) profileRole.innerHTML = `<span class="d-inline-block rounded-circle bg-success me-1" style="width: 7px; height: 7px;"></span>${currentUserRole === 'branch_admin' ? 'Admin Cabang' : 'Super Admin'}`;
-                        } else {
-                            if (loginScreen) loginScreen.style.setProperty('display', 'none', 'important');
-                            if (mainWrapper) mainWrapper.style.setProperty('display', 'flex', 'important');
                         }
-                    }).catch(e => {
-                        console.warn("Could not fetch user role:", e);
-                        if (loginScreen) loginScreen.style.setProperty('display', 'none', 'important');
-                        if (mainWrapper) mainWrapper.style.setProperty('display', 'flex', 'important');
-                    });
-                } else {
-                    if (loginScreen) loginScreen.style.setProperty('display', 'none', 'important');
-                    if (mainWrapper) mainWrapper.style.setProperty('display', 'flex', 'important');
+                    }).catch(e => console.warn("Could not fetch user role:", e));
                 }
 
                 setTimeout(() => {
@@ -2709,6 +2667,8 @@ function renderPoDArchiveView(filter = "") {
         });
     }
 
+    const selectedCategory = document.getElementById('archive-category-filter')?.value || "all";
+
     const photos = [];
     allCurrentTrips.forEach(t => {
         if (typeof isTripInActiveBranch === 'function' && !isTripInActiveBranch(t)) return;
@@ -2729,19 +2689,25 @@ function renderPoDArchiveView(filter = "") {
 
         if (t.destinations) {
             t.destinations.forEach((d, idx) => {
-                if (d.proofPhotoUrl) {
-                    const locName = d.locationName || 'Destination';
-                    const fullAddress = d.address || '';
-                    const stopIdx = d.stopIndex || (idx + 1);
-                    const uniqueShipmentId = `${tripIdShort}-${stopIdx}`;
+                const locName = d.locationName || 'Destination';
+                const fullAddress = d.address || '';
+                const stopIdx = d.stopIndex || (idx + 1);
+                const uniqueShipmentId = `${tripIdShort}-${stopIdx}`;
 
-                    const searchableText = `${uniqueShipmentId} ${tripIdShort} ${t.id} ${cName} ${locName} ${fullAddress} ${tripDateStr}`.toLowerCase();
-                    const terms = rawSearch.split(/\s+/).filter(x => x.length > 0);
-                    const matchSearch = !rawSearch || terms.every(term => searchableText.includes(term));
+                const searchableText = `${uniqueShipmentId} ${tripIdShort} ${t.id} ${cName} ${locName} ${fullAddress} ${tripDateStr}`.toLowerCase();
+                const terms = rawSearch.split(/\s+/).filter(x => x.length > 0);
+                const matchSearch = !rawSearch || terms.every(term => searchableText.includes(term));
 
-                    if (matchSearch) {
+                if (!matchSearch) return;
+
+                // 1. Process Surat Jalan (SJ) photo
+                if (d.proofPhotoSj) {
+                    if (selectedCategory === 'all' || selectedCategory === 'sj') {
                         photos.push({
-                            url: d.proofPhotoUrl,
+                            url: d.proofPhotoSj,
+                            category: 'sj',
+                            categoryTag: '📄 Surat Jalan',
+                            badgeClass: 'bg-primary',
                             shipmentId: uniqueShipmentId,
                             clientName: locName,
                             fullAddress: fullAddress,
@@ -2751,6 +2717,53 @@ function renderPoDArchiveView(filter = "") {
                             stopIndex: stopIdx
                         });
                     }
+                }
+
+                // 2. Process Item / Barang photos
+                if (d.proofPhotoItems && Array.isArray(d.proofPhotoItems) && d.proofPhotoItems.length > 0) {
+                    if (selectedCategory === 'all' || selectedCategory === 'item') {
+                        d.proofPhotoItems.forEach((itemUrl, itemIdx) => {
+                            if (itemUrl) {
+                                photos.push({
+                                    url: itemUrl,
+                                    category: 'item',
+                                    categoryTag: `📦 Barang #${itemIdx + 1}`,
+                                    badgeClass: 'bg-success',
+                                    shipmentId: uniqueShipmentId,
+                                    clientName: locName,
+                                    fullAddress: fullAddress,
+                                    courierName: cName,
+                                    dateStr: tripDateStr,
+                                    tripMs: tripMs,
+                                    stopIndex: stopIdx
+                                });
+                            }
+                        });
+                    }
+                }
+
+                // 3. Fallback for legacy proofPhotoUrl
+                if (!d.proofPhotoSj && (!d.proofPhotoItems || d.proofPhotoItems.length === 0) && d.proofPhotoUrl) {
+                    const urls = d.proofPhotoUrl.split(',').map(s => s.trim()).filter(Boolean);
+                    urls.forEach((u, uIdx) => {
+                        const isSj = (uIdx === 0);
+                        const catKey = isSj ? 'sj' : 'item';
+                        if (selectedCategory === 'all' || selectedCategory === catKey) {
+                            photos.push({
+                                url: u,
+                                category: catKey,
+                                categoryTag: isSj ? '📄 Surat Jalan' : `📦 Barang #${uIdx}`,
+                                badgeClass: isSj ? 'bg-primary' : 'bg-success',
+                                shipmentId: uniqueShipmentId,
+                                clientName: locName,
+                                fullAddress: fullAddress,
+                                courierName: cName,
+                                dateStr: tripDateStr,
+                                tripMs: tripMs,
+                                stopIndex: stopIdx
+                            });
+                        }
+                    });
                 }
             });
         }
@@ -2777,6 +2790,7 @@ function renderPoDArchiveView(filter = "") {
                     <div class="position-relative" style="height: 120px; background: #f1f5f9;">
                         <img src="${p.url}" class="w-100 h-100 object-fit-cover cursor-pointer" onclick="openPoDModal('${p.url}')" title="Klik untuk memperbesar">
                         <span class="position-absolute top-0 start-0 m-1 badge bg-dark opacity-75 extra-small fw-normal">${p.shipmentId}</span>
+                        <span class="position-absolute bottom-0 start-0 m-1 badge ${p.badgeClass || 'bg-secondary'} extra-small fw-bold" style="font-size: 0.625rem;">${p.categoryTag || 'POD'}</span>
                     </div>
                     <div class="p-2 bg-white">
                         <div class="fw-semibold extra-small text-truncate text-dark" title="${p.clientName}">${p.clientName}</div>
@@ -2786,6 +2800,9 @@ function renderPoDArchiveView(filter = "") {
             </div>
         `);
     });
+
+    grid.innerHTML = gridHtml.join('');
+}
 
     grid.innerHTML = gridHtml.join('');
 }
