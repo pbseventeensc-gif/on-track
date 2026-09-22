@@ -974,7 +974,7 @@ private fun uploadPendingProofPhotoAndUpdate(
     }.start()
 }
 
-private fun compressBitmapToBytes(source: Bitmap, maxDimension: Int = 1200, quality: Int = 75): ByteArray {
+private fun compressBitmapToBytes(source: Bitmap, maxDimension: Int = 1000, quality: Int = 65): ByteArray {
     val w = source.width
     val h = source.height
 
@@ -1033,10 +1033,10 @@ private fun uploadCategorizedPhotosAndUpdate(
         }
     }
 
-    // Compress & Upload SJ photo in background thread for ultra-fast performance
+    // Compress & Upload SJ photo in background thread for sub-second speed
     if (sjBitmap != null) {
         Thread {
-            val bytes = compressBitmapToBytes(sjBitmap, maxDimension = 1200, quality = 75)
+            val bytes = compressBitmapToBytes(sjBitmap, maxDimension = 1000, quality = 65)
             uploadSinglePhotoBytes(storage, bytes) { url ->
                 sjUrl = url
                 checkAndFinish()
@@ -1047,7 +1047,7 @@ private fun uploadCategorizedPhotosAndUpdate(
     // Compress & Upload Item photos in background threads
     itemBitmaps.forEachIndexed { index, bitmap ->
         Thread {
-            val bytes = compressBitmapToBytes(bitmap, maxDimension = 1200, quality = 75)
+            val bytes = compressBitmapToBytes(bitmap, maxDimension = 1000, quality = 65)
             uploadSinglePhotoBytes(storage, bytes) { url ->
                 itemUrls[index] = url
                 checkAndFinish()
@@ -1057,34 +1057,33 @@ private fun uploadCategorizedPhotosAndUpdate(
 }
 
 private fun uploadSinglePhotoBytes(storage: FirebaseStorage, bytes: ByteArray, onComplete: (String?) -> Unit) {
+    val ref = storage.reference.child("proofs/${UUID.randomUUID()}.jpg")
+    ref.putBytes(bytes).addOnSuccessListener {
+        ref.downloadUrl.addOnSuccessListener { uri ->
+            onComplete(uri.toString())
+        }.addOnFailureListener {
+            uploadToCloudinaryFallback(bytes, onComplete)
+        }
+    }.addOnFailureListener {
+        uploadToCloudinaryFallback(bytes, onComplete)
+    }
+}
+
+private fun uploadToCloudinaryFallback(bytes: ByteArray, onComplete: (String?) -> Unit) {
     try {
         MediaManager.get().upload(bytes).unsigned("KurirTrack").option("folder", "wellen_proofs").callback(object : UploadCallback {
             override fun onStart(id: String?) {}
             override fun onProgress(id: String?, b: Long, t: Long) {}
             override fun onSuccess(id: String?, res: Map<*, *>?) {
                 val url = res?.get("secure_url") as? String
-                if (url != null) {
-                    onComplete(url)
-                } else {
-                    uploadSingleToFirebase(storage, bytes, onComplete)
-                }
+                onComplete(url)
             }
-            override fun onError(id: String?, e: ErrorInfo?) {
-                uploadSingleToFirebase(storage, bytes, onComplete)
-            }
-            override fun onReschedule(id: String?, e: ErrorInfo?) {}
+            override fun onError(id: String?, e: ErrorInfo?) { onComplete(null) }
+            override fun onReschedule(id: String?, e: ErrorInfo?) { onComplete(null) }
         }).dispatch()
     } catch (e: Exception) {
-        uploadSingleToFirebase(storage, bytes, onComplete)
+        onComplete(null)
     }
-}
-
-private fun uploadSingleToFirebase(storage: FirebaseStorage, bytes: ByteArray, onComplete: (String?) -> Unit) {
-    val ref = storage.reference.child("proofs/${UUID.randomUUID()}.jpg")
-    ref.putBytes(bytes).addOnSuccessListener {
-        ref.downloadUrl.addOnSuccessListener { uri -> onComplete(uri.toString()) }
-            .addOnFailureListener { onComplete(null) }
-    }.addOnFailureListener { onComplete(null) }
 }
 
 private fun updateDestinationStatus(
