@@ -643,6 +643,12 @@
                                 <div id="dispatch-queue" class="d-flex flex-column gap-2 overflow-y-auto pe-1" style="min-height: 180px; max-height: 380px;"></div>
                             </div>
 
+                            <div class="mb-3 p-3 bg-light border rounded-3">
+                                <label class="extra-small fw-bold text-dark text-uppercase mb-1 d-block"><i class="bi bi-camera-fill me-1 text-primary"></i> 📷 Foto Bulk Surat Jalan (SJ) Kantor (Opsional)</label>
+                                <small class="text-muted extra-small d-block mb-2">Foto tumpukan SJ fisik sebelum diserahkan ke kurir untuk dicocokkan pada audit H+1.</small>
+                                <input type="file" id="dispatch-bulk-sj-file" accept="image/*" class="form-control form-control-sm py-1.5" style="border-radius: 8px;">
+                            </div>
+
                             <button class="btn btn-dark w-100 py-3 fw-bold shadow-sm" style="border-radius:12px;" onclick="submitTrip()">
                                 <i class="bi bi-send-plus-fill me-2"></i> CONFIRM & DISPATCH
                             </button>
@@ -957,7 +963,8 @@
                             <label class="extra-small text-muted fw-semibold mb-1 d-block">KATEGORI FOTO</label>
                             <select id="archive-category-filter" class="form-select form-select-sm border fw-normal py-2" style="border-radius: 10px; font-size: 0.8rem; background: #f8fafc;" onchange="renderPoDArchiveView()">
                                 <option value="all">Semua Kategori</option>
-                                <option value="sj">📄 Surat Jalan (SJ)</option>
+                                <option value="admin_bulk">📄 Bulk SJ Admin (Kantor)</option>
+                                <option value="sj">📄 Surat Jalan Ttd (Kurir)</option>
                                 <option value="item">📦 Foto Barang</option>
                             </select>
                         </div>
@@ -1047,6 +1054,43 @@
                 <button type="button" id="upload-modal-submit-btn" class="btn btn-dark w-100 py-3 fw-bold shadow-sm" style="border-radius: 12px;" onclick="submitManualUploadPhoto()">
                     <i class="bi bi-upload me-2"></i> UNGGAH & SELESAIKAN
                 </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Side-by-Side Audit Modal (H+1 SJ Matching) -->
+<div class="modal fade" id="auditSjModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
+            <div class="modal-header border-bottom py-3">
+                <div>
+                    <h6 class="modal-title fw-bold text-dark m-0" id="auditSjModalTitle"><i class="bi bi-file-earmark-check-fill text-primary me-2"></i>Audit & Pencocokan Surat Jalan (H+1)</h6>
+                    <small class="text-muted extra-small" id="auditSjModalSubtitle">Sandingkan Foto Bulk SJ Admin dengan Foto POD Kurir</small>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 bg-light">
+                <div class="row g-4">
+                    <!-- Left: Bulk SJ Photo from Admin -->
+                    <div class="col-md-6 border-end">
+                        <div class="p-3 bg-white border rounded-3 mb-3 shadow-2fs">
+                            <span class="badge bg-primary px-3 py-1.5 fw-bold text-white extra-small mb-2 d-inline-block"><i class="bi bi-camera me-1"></i> 1. FOTO BULK SJ AWAL KANTOR (ADMIN)</span>
+                            <div id="audit-admin-sj-container" class="position-relative text-center bg-dark rounded-3 overflow-hidden" style="min-height: 350px;">
+                                <div class="text-muted extra-small py-5 text-white">Memuat foto...</div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Right: Signed POD SJ Photos from Courier -->
+                    <div class="col-md-6">
+                        <div class="p-3 bg-white border rounded-3 mb-3 shadow-2fs">
+                            <span class="badge bg-success px-3 py-1.5 fw-bold text-white extra-small mb-2 d-inline-block"><i class="bi bi-check-circle me-1"></i> 2. FOTO POD SJ TERKIRIM (KURIR)</span>
+                            <div id="audit-courier-pod-container" class="d-flex flex-column gap-3 overflow-y-auto pe-1" style="max-height: 480px;">
+                                <div class="text-muted extra-small py-5 text-center">Memuat foto POD kurir...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
