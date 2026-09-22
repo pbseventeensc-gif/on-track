@@ -2469,18 +2469,44 @@ async function resetConfigToDefault() {
 window.resetConfigToDefault = resetConfigToDefault;
 
 async function publishUpdateAuto() {
-    const activeStorage = getStorage();
     const activeDb = getDb();
-    if (!activeStorage || !activeDb) return alert("Firebase belum siap.");
+    if (!activeDb) return alert("Firebase belum siap.");
     const v = document.getElementById('upd-version').value, f = document.getElementById('upd-file').files[0];
-    if (!v || !f) return alert("Select version and file!");
-    const prog = document.getElementById('upd-progress'); prog.classList.remove('d-none');
-    const task = activeStorage.ref('updates/' + f.name).put(f);
-    task.on('state_changed', s => { prog.querySelector('.progress-bar').style.width = (s.bytesTransferred/s.totalBytes)*100 + '%'; }, e => alert(e.message), async () => {
-        const url = await task.snapshot.ref.getDownloadURL();
-        await activeDb.collection('config').doc('app_status').set({ versionCode: parseInt(v), downloadUrl: url, updatedAt: firebase.firestore.Timestamp.now() }, { merge: true });
-        showToast("Update published!"); prog.classList.add('d-none');
-    });
+    if (!v) return alert("Masukkan Version Code terlebih dahulu (contoh: 10)!");
+
+    const prog = document.getElementById('upd-progress');
+    const bar = prog ? prog.querySelector('.progress-bar') : null;
+    if (prog) prog.classList.remove('d-none');
+    if (bar) bar.style.width = '20%';
+
+    try {
+        let downloadUrl = "";
+
+        if (f) {
+            if (bar) bar.style.width = '40%';
+            downloadUrl = await uploadFileToCloudinaryOrFirebase(f);
+            if (bar) bar.style.width = '80%';
+        }
+
+        if (!downloadUrl) {
+            downloadUrl = window.location.origin + "/assets/KurirKita_v10.apk";
+        }
+
+        if (bar) bar.style.width = '100%';
+
+        await activeDb.collection('config').doc('app_status').set({
+            versionCode: parseInt(v),
+            downloadUrl: downloadUrl,
+            updatedAt: firebase.firestore.Timestamp.now()
+        }, { merge: true });
+
+        showToast("✅ Berhasil mempublikasikan pembaruan aplikasi!");
+        if (prog) prog.classList.add('d-none');
+    } catch (e) {
+        console.error("Publish Update Error:", e);
+        if (prog) prog.classList.add('d-none');
+        alert("Gagal mempublikasikan pembaruan: " + e.message);
+    }
 }
 
 function loadChatList(filter = "") {
