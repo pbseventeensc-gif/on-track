@@ -2376,11 +2376,21 @@ async function handleLogin(e) {
             btn.disabled = false;
             btn.innerText = "SIGN IN";
         }
+
+        let friendlyMsg = e.message || String(e);
+        if (e.code === 'auth/invalid-credential' || e.code === 'auth/user-not-found' || e.code === 'auth/wrong-password' || e.code === 'auth/invalid-email') {
+            friendlyMsg = "Email atau password yang Anda masukkan salah.";
+        } else if (e.code === 'auth/too-many-requests') {
+            friendlyMsg = "Akses terblokir sementara karena terlalu banyak percobaan login. Silakan tunggu beberapa menit.";
+        } else if (e.code === 'auth/network-request-failed') {
+            friendlyMsg = "Koneksi internet terputus. Silakan periksa jaringan Anda.";
+        }
+
         if (err) {
-            err.innerText = "Login Gagal: " + (e.message || e);
+            err.innerText = friendlyMsg;
             err.classList.remove('d-none');
         } else {
-            alert("Login Gagal: " + (e.message || e));
+            alert(friendlyMsg);
         }
     }
 }
@@ -2392,21 +2402,34 @@ function initAuthListener() {
         firebaseAuth.onAuthStateChanged(user => {
             const loginScreen = document.getElementById('login-screen');
             const mainWrapper = document.getElementById('main-wrapper');
+            const err = document.getElementById('login-error');
 
             if (user) {
-                if (loginScreen) loginScreen.style.setProperty('display', 'none', 'important');
-                if (mainWrapper) mainWrapper.style.setProperty('display', 'flex', 'important');
-
-                removeBaliClientsFromMaster();
-
                 const currentDb = getDb();
                 if (currentDb) {
                     currentDb.collection('users').doc(user.uid).get().then(doc => {
                         if (doc.exists) {
                             const uData = doc.data();
                             const uRole = (uData.role || 'admin').toLowerCase();
+
+                            if (uRole === 'courier' || uRole === 'kurir') {
+                                if (firebaseAuth) firebaseAuth.signOut();
+                                if (loginScreen) loginScreen.style.setProperty('display', 'flex', 'important');
+                                if (mainWrapper) mainWrapper.style.setProperty('display', 'none', 'important');
+                                if (err) {
+                                    err.innerText = "Akses Ditolak: Akun Kurir hanya dapat digunakan pada Aplikasi Mobile HP.";
+                                    err.classList.remove('d-none');
+                                }
+                                return;
+                            }
+
                             currentUserRole = uRole;
                             currentUserBranchId = (uData.branchId || 'pusat').toLowerCase();
+
+                            if (loginScreen) loginScreen.style.setProperty('display', 'none', 'important');
+                            if (mainWrapper) mainWrapper.style.setProperty('display', 'flex', 'important');
+
+                            removeBaliClientsFromMaster();
 
                             const branchWrapper = document.getElementById('branch-selector-wrapper');
                             const branchSelect = document.getElementById('header-branch-filter');
@@ -2428,8 +2451,18 @@ function initAuthListener() {
                             const profileRole = document.getElementById('profile-role');
                             if (profileName) profileName.innerText = uData.name || "admin";
                             if (profileRole) profileRole.innerHTML = `<span class="d-inline-block rounded-circle bg-success me-1" style="width: 7px; height: 7px;"></span>${currentUserRole === 'branch_admin' ? 'Admin Cabang' : 'Super Admin'}`;
+                        } else {
+                            if (loginScreen) loginScreen.style.setProperty('display', 'none', 'important');
+                            if (mainWrapper) mainWrapper.style.setProperty('display', 'flex', 'important');
                         }
-                    }).catch(e => console.warn("Could not fetch user role:", e));
+                    }).catch(e => {
+                        console.warn("Could not fetch user role:", e);
+                        if (loginScreen) loginScreen.style.setProperty('display', 'none', 'important');
+                        if (mainWrapper) mainWrapper.style.setProperty('display', 'flex', 'important');
+                    });
+                } else {
+                    if (loginScreen) loginScreen.style.setProperty('display', 'none', 'important');
+                    if (mainWrapper) mainWrapper.style.setProperty('display', 'flex', 'important');
                 }
 
                 setTimeout(() => {
