@@ -78,8 +78,14 @@ class TripViewModel : ViewModel() {
                     Log.d("TripVM", "SUCCESS: Found ${tripList.size} active trips out of ${allTrips.size} total trips in DB for user ($userId)")
                     _trips.value = tripList
 
+                    val pendingStopsCount = tripList.sumOf { t ->
+                        if (t.destinations.isEmpty()) 1
+                        else t.destinations.count { d -> d.status != "done" }
+                    }
+
                     _dashboardState.value = _dashboardState.value.copy(
                         activeShipments = tripList.size.toString(),
+                        pendingShipments = pendingStopsCount.toString(),
                         courierId = userId
                     )
                 } catch (err: Exception) {

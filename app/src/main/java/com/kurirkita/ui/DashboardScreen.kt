@@ -27,6 +27,7 @@ data class DashboardState(
     val totalOrderDelivered: String = "0",
     val totalOrderRejected: String = "0",
     val activeShipments: String = "0",
+    val pendingShipments: String = "0",
     val courierId: String = "",
     val statusMessage: String = "Waiting for orders..."
 )
@@ -158,8 +159,8 @@ fun DashboardScreen(
                     Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
                         StatItem(
                             modifier = Modifier.weight(1f),
-                            label = "Active Shipments",
-                            value = state.activeShipments
+                            label = "Pending Shipments",
+                            value = if (state.activeShipments == "-1") "0" else state.pendingShipments
                         )
                         VerticalDivider(thickness = 0.5.dp, color = Color.LightGray.copy(alpha = 0.5f))
                         StatItem(
