@@ -2432,23 +2432,31 @@ async function updateConfig() {
     const activeDb = getDb();
     if (!activeDb) return alert("Firebase database belum siap.");
 
-    const mins = parseFloat(document.getElementById('cfg-interval')?.value || "30");
-    const geofence = parseFloat(document.getElementById('cfg-geofence')?.value || "200");
+    const minsInput = document.getElementById('cfg-interval');
+    const geofenceInput = document.getElementById('cfg-geofence');
 
-    const validMins = (!isNaN(mins) && mins > 0) ? mins : 30;
-    const validGeofence = (!isNaN(geofence) && geofence >= 200) ? geofence : 200;
+    let mins = parseFloat(minsInput?.value || "30");
+    let geofence = parseFloat(geofenceInput?.value || "200");
 
-    const intervalMs = validMins * 60 * 1000;
+    if (isNaN(mins) || mins < 1) mins = 30;
+    if (isNaN(geofence) || geofence < 200) {
+        geofence = 200;
+    }
+
+    if (minsInput) minsInput.value = mins;
+    if (geofenceInput) geofenceInput.value = geofence;
+
+    const intervalMs = mins * 60 * 1000;
 
     try {
         await activeDb.collection('config').doc('tracking').set({
             intervalMs: intervalMs,
-            geofenceRadius: validGeofence,
-            minDistance: validGeofence,
+            geofenceRadius: geofence,
+            minDistance: geofence,
             updatedAt: firebase.firestore.Timestamp.now()
         }, { merge: true });
 
-        showToast(`Konfigurasi tersimpan: ${validMins} Menit / ${validGeofence} Meter.`);
+        showToast(`Konfigurasi tersimpan: ${mins} Menit / ${geofence} Meter.`);
     } catch (e) {
         alert("Gagal menyimpan konfigurasi: " + e.message);
     }

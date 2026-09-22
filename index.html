@@ -915,7 +915,7 @@
                             <div class="mb-4">
                                 <label class="extra-small fw-semibold text-muted text-uppercase mb-2 d-block">GEOFENCE RADIUS (METERS) — MINIMAL 200 METER</label>
                                 <div class="input-group">
-                                    <input type="number" id="cfg-geofence" class="form-control border fw-normal" value="200" min="200" step="10" oninput="if(this.value !== '' && parseFloat(this.value) < 200) this.value = 200" onchange="if(this.value < 200) this.value = 200" style="border-radius: 10px 0 0 10px;">
+                                    <input type="number" id="cfg-geofence" class="form-control border fw-normal" value="200" min="200" step="10" onblur="if(this.value !== '' && parseFloat(this.value) < 200) this.value = 200" style="border-radius: 10px 0 0 10px;">
                                     <span class="input-group-text bg-light text-muted extra-small fw-normal border-start-0" style="border-radius: 0 10px 10px 0;">Meter</span>
                                 </div>
                             </div>
