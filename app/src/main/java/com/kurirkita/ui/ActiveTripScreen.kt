@@ -321,7 +321,7 @@ fun DestinationItem(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("⚠️ Lapor Klien Tutup / Tunda", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text("⚠️ Pending Shipment / Tunda", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         IconButton(onClick = { showPendingDialog = false }) {
                             Icon(Icons.Default.Close, contentDescription = "Tutup")
                         }
@@ -920,7 +920,7 @@ fun DestinationItem(
                             ) {
                                 Icon(Icons.Default.Warning, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("LAPOR KLIEN TUTUP", fontWeight = FontWeight.Bold)
+                                Text("PENDING SHIPMENT", fontWeight = FontWeight.Bold)
                             }
 
                             Button(

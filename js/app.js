@@ -2416,7 +2416,8 @@ function initTrackingConfigListener() {
 
         if (cfgGeofenceEl) {
             if (data.geofenceRadius) {
-                cfgGeofenceEl.value = data.geofenceRadius;
+                const val = parseFloat(data.geofenceRadius);
+                cfgGeofenceEl.value = val >= 200 ? val : 200;
             } else {
                 cfgGeofenceEl.value = 200;
             }
@@ -2435,7 +2436,7 @@ async function updateConfig() {
     const geofence = parseFloat(document.getElementById('cfg-geofence')?.value || "200");
 
     const validMins = (!isNaN(mins) && mins > 0) ? mins : 30;
-    const validGeofence = (!isNaN(geofence) && geofence > 0) ? geofence : 200;
+    const validGeofence = (!isNaN(geofence) && geofence >= 200) ? geofence : 200;
 
     const intervalMs = validMins * 60 * 1000;
 
@@ -2443,6 +2444,7 @@ async function updateConfig() {
         await activeDb.collection('config').doc('tracking').set({
             intervalMs: intervalMs,
             geofenceRadius: validGeofence,
+            minDistance: validGeofence,
             updatedAt: firebase.firestore.Timestamp.now()
         }, { merge: true });
 

@@ -37,7 +37,8 @@ class TrackingService : Service() {
         FirebaseFirestore.getInstance().collection("config").document("tracking")
             .addSnapshotListener { snapshot, _ ->
                 val newInterval = snapshot?.getLong("intervalMs")
-                val newDistance = snapshot?.getDouble("minDistance")?.toFloat()
+                val newDistance = snapshot?.getDouble("geofenceRadius")?.toFloat()
+                    ?: snapshot?.getDouble("minDistance")?.toFloat()
                 
                 var changed = false
                 if (newInterval != null && newInterval != trackingIntervalMs) {
