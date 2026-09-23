@@ -1387,11 +1387,67 @@ function renderQueue() {
     }
 }
 
+async function compressImageFile(file, maxDimension = 1000, quality = 0.7) {
+    return new Promise((resolve) => {
+        if (!file || !file.type || !file.type.startsWith('image/') || file.size < 120 * 1024) {
+            return resolve(file);
+        }
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+                let width = img.width;
+                let height = img.height;
+
+                if (width > maxDimension || height > maxDimension) {
+                    if (width > height) {
+                        height = Math.round((height * maxDimension) / width);
+                        width = maxDimension;
+                    } else {
+                        width = Math.round((width * maxDimension) / height);
+                        height = maxDimension;
+                    }
+                }
+
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+
+                canvas.toBlob(
+                    (blob) => {
+                        if (blob) {
+                            const compressedFile = new File([blob], file.name.replace(/\.[^/.]+$/, ".jpg"), {
+                                type: 'image/jpeg',
+                                lastModified: Date.now()
+                            });
+                            console.log(`[JS Compress] Compressed ${file.size} -> ${compressedFile.size} bytes`);
+                            resolve(compressedFile);
+                        } else {
+                            resolve(file);
+                        }
+                    },
+                    'image/jpeg',
+                    quality
+                );
+            };
+            img.onerror = () => resolve(file);
+            img.src = e.target.result;
+        };
+        reader.onerror = () => resolve(file);
+        reader.readAsDataURL(file);
+    });
+}
+
 async function uploadFileToCloudinaryOrFirebase(file) {
+    const targetFile = (file && file.type && file.type.startsWith('image/')) ? await compressImageFile(file, 1000, 0.7) : file;
+
     return new Promise((resolve) => {
         try {
             const formData = new FormData();
-            formData.append("file", file);
+            formData.append("file", targetFile);
             formData.append("upload_preset", "KurirTrack");
             formData.append("folder", "wellen_proofs");
 
@@ -1402,13 +1458,13 @@ async function uploadFileToCloudinaryOrFirebase(file) {
                 if (data && data.secure_url) {
                     resolve(data.secure_url);
                 } else {
-                    uploadFileToFirebaseStorage(file, resolve);
+                    uploadFileToFirebaseStorage(targetFile, resolve);
                 }
             }).catch(() => {
-                uploadFileToFirebaseStorage(file, resolve);
+                uploadFileToFirebaseStorage(targetFile, resolve);
             });
         } catch(e) {
-            uploadFileToFirebaseStorage(file, resolve);
+            uploadFileToFirebaseStorage(targetFile, resolve);
         }
     });
 }
@@ -2167,13 +2223,15 @@ async function submitManualUploadPhoto() {
         const activeDb = getDb();
         if (!activeStorage || !activeDb) throw new Error("Firebase Storage/Firestore belum siap.");
 
+        const targetFile = await compressImageFile(file, 1000, 0.7);
+
         const cleanTripId = tripId.replace(/[^a-zA-Z0-9]/g, '_');
         const locName = document.getElementById('upload-modal-location-name')?.innerText || 'Client';
         const cleanClientName = locName.replace(/[^a-zA-Z0-9]/g, '_');
         const customFileName = `${cleanTripId}_Stop${stopIndex}_${cleanClientName}_${Date.now()}.jpg`;
 
         const ref = activeStorage.ref(`proofs/${customFileName}`);
-        const task = await ref.put(file);
+        const task = await ref.put(targetFile);
         const photoUrl = await task.ref.getDownloadURL();
 
         const tripDocRef = activeDb.collection('trips').doc(tripId);
