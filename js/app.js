@@ -1681,7 +1681,24 @@ function renderMonitorUI(filter = "") {
         const pendingBadgeHtml = pendingStops > 0 ? `<span class="badge rounded-pill bg-danger text-white extra-small py-1 px-2 fw-bold ms-1" style="font-size:0.65rem"><i class="bi bi-exclamation-triangle-fill me-1"></i>${pendingStops} Pending / Tutup</span>` : '';
 
         const bulkSjTrip = c.trips.find(t => t.adminBulkSjUrl && t.adminBulkSjUrl.length > 0);
-        const bulkSjBtnHtml = bulkSjTrip ? `<button class="btn btn-xs btn-outline-primary w-100 py-1.5 fw-bold mt-2" style="border-radius: 8px; font-size:0.725rem;" onclick="openAuditSjModal('${bulkSjTrip.id}')"><i class="bi bi-file-earmark-text-fill me-1"></i> 📄 Foto Bulk SJ Kantor</button>` : '';
+        const activeTrip = c.trips[0];
+
+        let bulkSjSectionHtml = '';
+        if (bulkSjTrip) {
+            bulkSjSectionHtml = `
+                <button class="btn btn-xs btn-outline-primary w-100 py-1.5 fw-bold mt-2" style="border-radius: 8px; font-size:0.725rem;" onclick="openAuditSjModal('${bulkSjTrip.id}')">
+                    <i class="bi bi-file-earmark-text-fill me-1"></i> 📄 Lihat Bulk SJ Awal (${c.totalStops} SJ)
+                </button>`;
+        } else if (activeTrip) {
+            bulkSjSectionHtml = `
+                <div class="mt-2 p-2 bg-light border rounded-3 text-start">
+                    <small class="text-muted extra-small fw-bold text-uppercase d-block mb-1"><i class="bi bi-camera-fill me-1 text-primary"></i> Foto Bulk SJ Awal Kantor</small>
+                    <div class="d-flex gap-1 align-items-center">
+                        <input type="file" id="card-bulk-file-${activeTrip.id}" accept="image/*" class="form-control form-control-sm py-1 px-2 extra-small bg-white" style="border-radius: 6px; font-size: 0.68rem;">
+                        <button class="btn btn-xs btn-primary fw-bold text-nowrap px-2 py-1" style="font-size: 0.68rem; border-radius: 6px;" onclick="uploadBulkSjFromCard('${activeTrip.id}')">Upload</button>
+                    </div>
+                </div>`;
+        }
 
         cardsHtml.push(`
             <div class="col-sm-6 col-md-4 col-lg-3 col-xl-3 mb-2">
@@ -1716,8 +1733,40 @@ function renderMonitorUI(filter = "") {
                     <button class="btn btn-sm btn-dark w-100 py-1.5 fw-bold" style="border-radius: 8px; font-size:0.75rem" data-id="${c.id}" onclick="focusOnCourier(this.dataset.id, true)">
                         <i class="bi bi-geo-alt-fill me-1"></i> FOCUS TRACKING
                     </button>
-                    ${bulkSjBtnHtml}
+                    ${bulkSjSectionHtml}
                 </div>
+            </div>`);
+    });
+    mList.innerHTML = cardsHtml.join('');
+}
+
+async function uploadBulkSjFromCard(tripId) {
+    const fileEl = document.getElementById(`card-bulk-file-${tripId}`);
+    const file = fileEl?.files?.[0];
+    if (!file) return alert("Pilih file foto Bulk SJ terlebih dahulu!");
+
+    try {
+        const activeDb = getDb();
+        if (!activeDb) throw new Error("Firestore Database belum siap.");
+
+        showToast("⏳ Mengompres & mengunggah foto Bulk SJ...");
+        const targetFile = await compressImageFile(file, 1000, 0.7);
+
+        const photoUrl = await uploadFileToCloudinaryOrFirebase(targetFile);
+        if (!photoUrl) throw new Error("Gagal mengunggah foto.");
+
+        await activeDb.collection('trips').doc(tripId).update({
+            adminBulkSjUrl: photoUrl
+        });
+
+        showToast("✅ Foto Bulk SJ Awal Kantor berhasil disimpan!");
+        if (typeof renderMonitorUI === 'function') renderMonitorUI();
+    } catch (e) {
+        console.error("Upload Bulk SJ error:", e);
+        alert("Gagal menyimpan foto Bulk SJ: " + e.message);
+    }
+}
+window.uploadBulkSjFromCard = uploadBulkSjFromCard;
             </div>`);
     });
     mList.innerHTML = cardsHtml.join('');
