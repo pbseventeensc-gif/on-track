@@ -16,6 +16,7 @@ class TripViewModel : ViewModel() {
     private val auth = FirebaseAuth.getInstance()
     private var listener: ListenerRegistration? = null
     private var historyListener: ListenerRegistration? = null
+    private var cachedAllTrips: List<Trip> = emptyList()
 
     private val _trips = MutableStateFlow<List<Trip>>(emptyList())
     val trips: StateFlow<List<Trip>> = _trips
@@ -36,22 +37,61 @@ class TripViewModel : ViewModel() {
         fetchHistoryAndStats()
     }
 
+    private fun cleanString(s: String): String {
+        return s.replace("[^a-zA-Z0-9]".toRegex(), "").lowercase()
+    }
+
+    private fun filterAndPublishTrips(
+        allTrips: List<Trip>,
+        userId: String,
+        userEmail: String,
+        userEmailPrefix: String,
+        courierName: String
+    ) {
+        val cleanUid = cleanString(userId)
+        val cleanEmail = cleanString(userEmail)
+        val cleanPrefix = cleanString(userEmailPrefix)
+        val cleanName = cleanString(courierName)
+
+        val tripList = allTrips.filter { t ->
+            val cleanCId = cleanString(t.courierId)
+            t.status != "completed" && (
+                t.courierId == userId ||
+                cleanCId == cleanUid ||
+                (cleanName.isNotEmpty() && (cleanCId == cleanName || cleanCId.contains(cleanName) || cleanName.contains(cleanCId))) ||
+                (cleanEmail.isNotEmpty() && (cleanCId == cleanEmail || cleanCId.contains(cleanEmail))) ||
+                (cleanPrefix.isNotEmpty() && (cleanCId == cleanPrefix || cleanCId.contains(cleanPrefix) || cleanPrefix.contains(cleanCId)))
+            )
+        }
+
+        Log.d("TripVM", "SUCCESS: Found ${tripList.size} active trips for user ($userId / $courierName)")
+        _trips.value = tripList
+
+        val pendingStopsCount = tripList.sumOf { t ->
+            if (t.destinations.isEmpty()) 1
+            else t.destinations.count { d -> d.status != "done" }
+        }
+
+        _dashboardState.value = _dashboardState.value.copy(
+            activeShipments = tripList.size.toString(),
+            pendingShipments = pendingStopsCount.toString(),
+            courierId = userId
+        )
+    }
+
     private fun fetchAssignedTrips() {
         val userId = auth.currentUser?.uid ?: return
         val userEmail = auth.currentUser?.email ?: ""
         val userEmailPrefix = if (userEmail.contains("@")) userEmail.substringBefore("@") else userEmail
-        Log.d("TripVM", "Fetching trips for user: $userId ($userEmail)")
-
         var courierName = ""
+
         db.collection("users").document(userId).get().addOnSuccessListener { userDoc ->
             if (userDoc != null && userDoc.exists()) {
                 val nameFromDoc = userDoc.getString("name") ?: ""
-                if (nameFromDoc.isNotEmpty() && nameFromDoc != courierName) {
+                if (nameFromDoc.isNotEmpty()) {
                     courierName = nameFromDoc
-                    // Refresh snapshot filter with updated courierName
-                    _trips.value.let { currentTrips ->
-                        val updatedList = currentTrips.filter { t -> t.status != "completed" }
-                        _trips.value = updatedList
+                    if (cachedAllTrips.isNotEmpty()) {
+                        filterAndPublishTrips(cachedAllTrips, userId, userEmail, userEmailPrefix, courierName)
                     }
                 }
             }
@@ -71,39 +111,8 @@ class TripViewModel : ViewModel() {
 
                 try {
                     val allTrips = snapshot.toObjects(Trip::class.java)
-                    
-                    // Match trip if courierId equals UID OR email OR courierName OR email prefix
-                    val tripList = allTrips.filter { t ->
-                        t.status != "completed" && (
-                            t.courierId == userId ||
-                            (courierName.isNotEmpty() && (
-                                t.courierId.equals(courierName, ignoreCase = true) ||
-                                t.courierId.contains(courierName, ignoreCase = true) ||
-                                courierName.contains(t.courierId, ignoreCase = true)
-                            )) ||
-                            (userEmail.isNotEmpty() && t.courierId.equals(userEmail, ignoreCase = true)) ||
-                            (userEmailPrefix.isNotEmpty() && (
-                                t.courierId.equals(userEmailPrefix, ignoreCase = true) ||
-                                t.courierId.contains(userEmailPrefix, ignoreCase = true) ||
-                                userEmailPrefix.contains(t.courierId, ignoreCase = true)
-                            )) ||
-                            t.courierId.contains(userId, ignoreCase = true)
-                        )
-                    }
-
-                    Log.d("TripVM", "SUCCESS: Found ${tripList.size} active trips out of ${allTrips.size} total trips in DB for user ($userId)")
-                    _trips.value = tripList
-
-                    val pendingStopsCount = tripList.sumOf { t ->
-                        if (t.destinations.isEmpty()) 1
-                        else t.destinations.count { d -> d.status != "done" }
-                    }
-
-                    _dashboardState.value = _dashboardState.value.copy(
-                        activeShipments = tripList.size.toString(),
-                        pendingShipments = pendingStopsCount.toString(),
-                        courierId = userId
-                    )
+                    cachedAllTrips = allTrips
+                    filterAndPublishTrips(allTrips, userId, userEmail, userEmailPrefix, courierName)
                 } catch (err: Exception) {
                     Log.e("TripVM", "Mapping Error: ${err.message}")
                 }
@@ -111,7 +120,6 @@ class TripViewModel : ViewModel() {
     }
 
     private fun fetchHistoryAndStats() {
-        // Stop calculating real stats for now as requested
         _dashboardState.value = DashboardState()
     }
 
