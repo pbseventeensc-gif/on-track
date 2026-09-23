@@ -297,12 +297,12 @@ function extractDestinationPhotos(d) {
     let sjUrl = '';
     let itemUrls = [];
 
-    // 1. Explicit proofPhotoSj
+    // 1. Explicit proofPhotoSj (Surat Jalan Document)
     if (d.proofPhotoSj && typeof d.proofPhotoSj === 'string' && d.proofPhotoSj.trim().length > 0) {
         sjUrl = d.proofPhotoSj.trim();
     }
 
-    // 2. Explicit proofPhotoItems (Array or String)
+    // 2. Explicit proofPhotoItems (Fisik Barang - Array or String)
     if (d.proofPhotoItems) {
         if (Array.isArray(d.proofPhotoItems)) {
             itemUrls = d.proofPhotoItems.map(u => String(u).trim()).filter(Boolean);
@@ -322,23 +322,20 @@ function extractDestinationPhotos(d) {
         }
     }
 
-    // 4. Always parse rawUrls into sjUrl and itemUrls
+    // 4. Smart parsing if SJ or Items are missing from explicit fields
     if (rawUrls.length > 0) {
         if (!sjUrl && itemUrls.length === 0) {
             sjUrl = rawUrls[0];
             if (rawUrls.length > 1) {
                 itemUrls = rawUrls.slice(1);
-            } else {
-                itemUrls = [rawUrls[0]];
             }
         } else if (sjUrl && itemUrls.length === 0) {
             itemUrls = rawUrls.filter(u => u !== sjUrl);
-            if (itemUrls.length === 0) {
-                itemUrls = [sjUrl];
-            }
         } else if (!sjUrl && itemUrls.length > 0) {
             const nonItem = rawUrls.find(u => !itemUrls.includes(u));
-            sjUrl = nonItem || itemUrls[0];
+            if (nonItem) {
+                sjUrl = nonItem;
+            }
         }
     }
 
@@ -3139,7 +3136,9 @@ async function restoreBayhaqiTrip() {
                 latitude: -6.1931,
                 longitude: 106.8218,
                 status: "done",
-                proofPhotoUrl: "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&q=80"
+                proofPhotoSj: "https://images.unsplash.com/photo-1568667256549-094345857637?auto=format&fit=crop&w=800&q=80",
+                proofPhotoItems: ["https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&q=80"],
+                proofPhotoUrl: "https://images.unsplash.com/photo-1568667256549-094345857637?auto=format&fit=crop&w=800&q=80,https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&q=80"
             },
             {
                 stopIndex: 2,
@@ -3148,7 +3147,9 @@ async function restoreBayhaqiTrip() {
                 latitude: -6.2155,
                 longitude: 106.8180,
                 status: "done",
-                proofPhotoUrl: "https://images.unsplash.com/photo-1580674684081-7617fbf3d745?auto=format&fit=crop&w=800&q=80"
+                proofPhotoSj: "https://images.unsplash.com/photo-1568667256549-094345857637?auto=format&fit=crop&w=800&q=80",
+                proofPhotoItems: ["https://images.unsplash.com/photo-1580674684081-7617fbf3d745?auto=format&fit=crop&w=800&q=80"],
+                proofPhotoUrl: "https://images.unsplash.com/photo-1568667256549-094345857637?auto=format&fit=crop&w=800&q=80,https://images.unsplash.com/photo-1580674684081-7617fbf3d745?auto=format&fit=crop&w=800&q=80"
             },
             {
                 stopIndex: 3,
@@ -3157,7 +3158,9 @@ async function restoreBayhaqiTrip() {
                 latitude: -6.2155,
                 longitude: 106.8180,
                 status: "done",
-                proofPhotoUrl: "https://images.unsplash.com/photo-1578575437130-527eed3abbec?auto=format&fit=crop&w=800&q=80"
+                proofPhotoSj: "https://images.unsplash.com/photo-1568667256549-094345857637?auto=format&fit=crop&w=800&q=80",
+                proofPhotoItems: ["https://images.unsplash.com/photo-1578575437130-527eed3abbec?auto=format&fit=crop&w=800&q=80"],
+                proofPhotoUrl: "https://images.unsplash.com/photo-1568667256549-094345857637?auto=format&fit=crop&w=800&q=80,https://images.unsplash.com/photo-1578575437130-527eed3abbec?auto=format&fit=crop&w=800&q=80"
             },
             {
                 stopIndex: 4,
@@ -3166,7 +3169,9 @@ async function restoreBayhaqiTrip() {
                 latitude: -6.2258,
                 longitude: 106.8093,
                 status: "done",
-                proofPhotoUrl: "https://images.unsplash.com/photo-1566576721346-d4a3b4eaeb55?auto=format&fit=crop&w=800&q=80"
+                proofPhotoSj: "https://images.unsplash.com/photo-1568667256549-094345857637?auto=format&fit=crop&w=800&q=80",
+                proofPhotoItems: ["https://images.unsplash.com/photo-1566576721346-d4a3b4eaeb55?auto=format&fit=crop&w=800&q=80"],
+                proofPhotoUrl: "https://images.unsplash.com/photo-1568667256549-094345857637?auto=format&fit=crop&w=800&q=80,https://images.unsplash.com/photo-1566576721346-d4a3b4eaeb55?auto=format&fit=crop&w=800&q=80"
             },
             {
                 stopIndex: 5,
