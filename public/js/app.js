@@ -2177,7 +2177,20 @@ function renderRecentShipments(filter = "") {
 
     const rowsHtml = [];
     shipmentRows.slice(0, maxRows).forEach(s => {
-        const podIcon = s.proofUrl ? `<i class="bi bi-camera-fill text-success ms-1 cursor-pointer" data-url="${s.proofUrl}" onclick="openPoDModal(this.dataset.url)" title="Lihat Foto PoD"></i>` : (s.pendingProofPhotoUrl ? `<i class="bi bi-camera-fill text-danger ms-1 cursor-pointer" data-url="${s.pendingProofPhotoUrl}" onclick="openPoDModal(this.dataset.url)" title="Lihat Foto Lokasi Tutup"></i>` : '');
+        let podIconsHtml = '';
+        if (s.proofSjUrl) {
+            podIconsHtml += `<i class="bi bi-file-earmark-check-fill text-success ms-1 cursor-pointer fs-6" data-url="${s.proofSjUrl.replace(/"/g, '&quot;')}" onclick="openPoDModal(this.dataset.url)" title="Lihat Foto Surat Jalan (SJ)"></i>`;
+        }
+        if (s.proofItemUrl) {
+            podIconsHtml += `<i class="bi bi-box-seam-fill text-primary ms-1 cursor-pointer fs-6" data-url="${s.proofItemUrl.replace(/"/g, '&quot;')}" onclick="openPoDModal(this.dataset.url)" title="Lihat Foto Fisik Barang"></i>`;
+        }
+        if (!podIconsHtml && s.proofUrl) {
+            podIconsHtml = `<i class="bi bi-camera-fill text-success ms-1 cursor-pointer" data-url="${s.proofUrl.replace(/"/g, '&quot;')}" onclick="openPoDModal(this.dataset.url)" title="Lihat Foto PoD"></i>`;
+        }
+        if (!podIconsHtml && s.pendingProofPhotoUrl) {
+            podIconsHtml = `<i class="bi bi-camera-fill text-danger ms-1 cursor-pointer" data-url="${s.pendingProofPhotoUrl.replace(/"/g, '&quot;')}" onclick="openPoDModal(this.dataset.url)" title="Lihat Foto Lokasi Tutup"></i>`;
+        }
+
         const uploadBtn = `<button class="btn btn-sm btn-link text-primary p-0 ms-1 text-decoration-none" onclick="openManualUploadModal('${s.tripId}', ${s.stopIndex}, '${s.destinationName.replace(/'/g, "\\'")}')" title="Upload Foto PoD Manual Admin"><i class="bi bi-upload"></i></button>`;
 
         let statusBadgeHtml = `<span class="badge-pill badge-${s.statusClass} fw-normal">${s.status}</span>`;
@@ -2198,7 +2211,7 @@ function renderRecentShipments(filter = "") {
 
         rowsHtml.push(`<tr ${trStyle}>
             <td class="fw-normal text-muted extra-small text-nowrap" style="white-space: nowrap;">${s.dateStr}</td>
-            <td class="fw-bold text-dark text-nowrap" style="white-space: nowrap;">${s.displayId} ${podIcon} ${uploadBtn}</td>
+            <td class="fw-bold text-dark text-nowrap" style="white-space: nowrap;">${s.displayId} ${podIconsHtml} ${uploadBtn}</td>
             <td>
                 <div class="fw-bold text-dark text-truncate" style="max-width:240px">${s.destinationName}</div>
                 ${s.pendingReason ? `<small class="text-danger extra-small d-block fw-bold text-truncate" style="max-width:240px"><i class="bi bi-exclamation-circle me-1"></i>${s.pendingReason}</small>` : (s.fullAddress ? `<small class="text-muted extra-small d-block text-truncate fw-normal" style="max-width:240px">${s.fullAddress}</small>` : '')}
