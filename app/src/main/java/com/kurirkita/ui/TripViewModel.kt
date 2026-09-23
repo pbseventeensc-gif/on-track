@@ -45,7 +45,15 @@ class TripViewModel : ViewModel() {
         var courierName = ""
         db.collection("users").document(userId).get().addOnSuccessListener { userDoc ->
             if (userDoc != null && userDoc.exists()) {
-                courierName = userDoc.getString("name") ?: ""
+                val nameFromDoc = userDoc.getString("name") ?: ""
+                if (nameFromDoc.isNotEmpty() && nameFromDoc != courierName) {
+                    courierName = nameFromDoc
+                    // Refresh snapshot filter with updated courierName
+                    _trips.value.let { currentTrips ->
+                        val updatedList = currentTrips.filter { t -> t.status != "completed" }
+                        _trips.value = updatedList
+                    }
+                }
             }
         }
 
@@ -68,9 +76,17 @@ class TripViewModel : ViewModel() {
                     val tripList = allTrips.filter { t ->
                         t.status != "completed" && (
                             t.courierId == userId ||
-                            (courierName.isNotEmpty() && t.courierId.equals(courierName, ignoreCase = true)) ||
+                            (courierName.isNotEmpty() && (
+                                t.courierId.equals(courierName, ignoreCase = true) ||
+                                t.courierId.contains(courierName, ignoreCase = true) ||
+                                courierName.contains(t.courierId, ignoreCase = true)
+                            )) ||
                             (userEmail.isNotEmpty() && t.courierId.equals(userEmail, ignoreCase = true)) ||
-                            (userEmailPrefix.isNotEmpty() && t.courierId.equals(userEmailPrefix, ignoreCase = true)) ||
+                            (userEmailPrefix.isNotEmpty() && (
+                                t.courierId.equals(userEmailPrefix, ignoreCase = true) ||
+                                t.courierId.contains(userEmailPrefix, ignoreCase = true) ||
+                                userEmailPrefix.contains(t.courierId, ignoreCase = true)
+                            )) ||
                             t.courierId.contains(userId, ignoreCase = true)
                         )
                     }
