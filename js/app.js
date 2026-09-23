@@ -2123,8 +2123,10 @@ function renderRecentShipments(filter = "") {
         }
     });
 
+    const maxRows = (startDateVal || endDateVal || selectedStatus !== 'all' || selectedCarrier !== 'all' || rawSearch.length > 0) ? 1000 : 200;
+
     const rowsHtml = [];
-    shipmentRows.slice(0, 100).forEach(s => {
+    shipmentRows.slice(0, maxRows).forEach(s => {
         const podIcon = s.proofUrl ? `<i class="bi bi-camera-fill text-success ms-1 cursor-pointer" data-url="${s.proofUrl}" onclick="openPoDModal(this.dataset.url)" title="Lihat Foto PoD"></i>` : (s.pendingProofPhotoUrl ? `<i class="bi bi-camera-fill text-danger ms-1 cursor-pointer" data-url="${s.pendingProofPhotoUrl}" onclick="openPoDModal(this.dataset.url)" title="Lihat Foto Lokasi Tutup"></i>` : '');
         const uploadBtn = `<button class="btn btn-sm btn-link text-primary p-0 ms-1 text-decoration-none" onclick="openManualUploadModal('${s.tripId}', ${s.stopIndex}, '${s.destinationName.replace(/'/g, "\\'")}')" title="Upload Foto PoD Manual Admin"><i class="bi bi-upload"></i></button>`;
 
