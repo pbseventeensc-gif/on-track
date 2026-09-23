@@ -297,12 +297,12 @@ function extractDestinationPhotos(d) {
     let explicitSj = '';
     let explicitItems = [];
 
-    // 1. Explicit proofPhotoSj (Surat Jalan Paper Document)
+    // 1. Explicit proofPhotoSj
     if (d.proofPhotoSj && typeof d.proofPhotoSj === 'string' && d.proofPhotoSj.trim().length > 0) {
         explicitSj = d.proofPhotoSj.trim();
     }
 
-    // 2. Explicit proofPhotoItems (Fisik Barang - Array or String)
+    // 2. Explicit proofPhotoItems
     if (d.proofPhotoItems) {
         if (Array.isArray(d.proofPhotoItems)) {
             explicitItems = d.proofPhotoItems.map(u => String(u).trim()).filter(Boolean);
@@ -311,33 +311,38 @@ function extractDestinationPhotos(d) {
         }
     }
 
-    // 3. Fallback raw URLs from proofPhotoUrl or proofUrl
-    let rawUrls = [];
-    const sourceUrl = d.proofPhotoUrl || d.proofUrl || '';
-    if (sourceUrl) {
-        if (Array.isArray(sourceUrl)) {
-            rawUrls = sourceUrl.map(u => String(u).trim()).filter(Boolean);
-        } else if (typeof sourceUrl === 'string' && sourceUrl.trim().length > 0) {
-            rawUrls = sourceUrl.split(',').map(u => u.trim()).filter(Boolean);
+    // 3. Collect ALL available photo URLs from all fields
+    const allUrls = [];
+    const addUrl = (val) => {
+        if (!val) return;
+        if (Array.isArray(val)) {
+            val.forEach(u => addUrl(u));
+        } else if (typeof val === 'string') {
+            val.split(',').forEach(u => {
+                const clean = u.trim();
+                if (clean && !allUrls.includes(clean)) allUrls.push(clean);
+            });
         }
+    };
+
+    if (explicitSj) addUrl(explicitSj);
+    if (explicitItems.length > 0) addUrl(explicitItems);
+    if (d.proofPhotoUrl) addUrl(d.proofPhotoUrl);
+    if (d.proofUrl) addUrl(d.proofUrl);
+
+    if (allUrls.length === 0) {
+        return { sjUrl: '', itemUrl: '', itemUrls: [] };
     }
 
     // 4. Assign SJ URL and Item URLs
-    let sjUrl = explicitSj;
-    let itemUrls = explicitItems;
+    // Rule: Every completed shipment with photos MUST have a Surat Jalan URL (sjUrl)
+    let sjUrl = explicitSj || allUrls[0];
+    let itemUrls = explicitItems.length > 0 ? explicitItems : allUrls.filter(u => u !== sjUrl);
 
-    if (!sjUrl && itemUrls.length === 0 && rawUrls.length > 0) {
-        sjUrl = rawUrls[0];
-        if (rawUrls.length > 1) {
-            itemUrls = rawUrls.slice(1);
-        }
-    } else if (sjUrl && itemUrls.length === 0 && rawUrls.length > 1) {
-        itemUrls = rawUrls.filter(u => u !== sjUrl);
-    } else if (!sjUrl && itemUrls.length > 0 && rawUrls.length > 0) {
-        const nonItem = rawUrls.find(u => !itemUrls.includes(u));
-        if (nonItem) {
-            sjUrl = nonItem;
-        }
+    if (itemUrls.length === 0 && explicitItems.length > 0) {
+        itemUrls = explicitItems;
+    } else if (itemUrls.length === 0 && sjUrl) {
+        itemUrls = [sjUrl];
     }
 
     return {
