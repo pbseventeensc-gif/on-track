@@ -1241,6 +1241,12 @@ function initTripsSnapshot() {
         setTimeout(initTripsSnapshot, 300);
         return;
     }
+
+    // Auto-update sample Firestore data with separate SJ document & Barang photos
+    if (typeof restoreBayhaqiTrip === 'function') {
+        restoreBayhaqiTrip();
+    }
+
     activeDb.collection('trips').onSnapshot(snap => {
         allCurrentTrips = [];
         snap.forEach(doc => {
