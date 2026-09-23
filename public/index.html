@@ -5,6 +5,9 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/assets/wellen_logo.svg">
+
     <!-- Stylesheets -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -68,6 +71,47 @@
             }
             return null;
         }
+
+        function loginAsLocalDemoAdmin() {
+            window.currentUserRole = 'super_admin';
+            window.currentUserBranchId = 'pusat';
+
+            const loginScreen = document.getElementById('login-screen');
+            const mainWrapper = document.getElementById('main-wrapper');
+            const profileName = document.getElementById('profile-name');
+            const profileRole = document.getElementById('profile-role');
+
+            if (loginScreen) loginScreen.style.setProperty('display', 'none', 'important');
+            if (mainWrapper) mainWrapper.style.setProperty('display', 'flex', 'important');
+            if (profileName) profileName.innerText = 'Super Admin (Demo)';
+            if (profileRole) profileRole.innerHTML = '<span class="d-inline-block rounded-circle bg-success me-1" style="width: 7px; height: 7px;"></span>Super Admin';
+
+            const dateFilterEl = document.getElementById('recent-date-filter');
+            if (dateFilterEl) dateFilterEl.value = 'all';
+
+            const branchSelect = document.getElementById('header-branch-filter');
+            if (branchSelect) branchSelect.value = 'all';
+
+            if (typeof applyRoleAccessControl === 'function') applyRoleAccessControl();
+            if (typeof switchBranchFilter === 'function') switchBranchFilter('all');
+            if (typeof updateGlobalStats === 'function') updateGlobalStats();
+            if (typeof renderRecentShipments === 'function') renderRecentShipments();
+            if (typeof renderMonitorUI === 'function') renderMonitorUI();
+
+            if (typeof allCurrentTrips !== 'undefined' && allCurrentTrips.length === 0) {
+                if (typeof restoreBayhaqiTrip === 'function') {
+                    restoreBayhaqiTrip();
+                }
+            }
+
+            setTimeout(() => {
+                if (typeof initMaps === 'function') initMaps();
+                if (typeof map !== 'undefined' && map && typeof map.invalidateSize === 'function') map.invalidateSize();
+                if (typeof mapMonitor !== 'undefined' && mapMonitor && typeof mapMonitor.invalidateSize === 'function') mapMonitor.invalidateSize();
+                if (typeof mapDispatch !== 'undefined' && mapDispatch && typeof mapDispatch.invalidateSize === 'function') mapDispatch.invalidateSize();
+            }, 300);
+        }
+        window.loginAsLocalDemoAdmin = loginAsLocalDemoAdmin;
 
         // Listener Auth State: Otomatis masuk jika sudah login / refresh
         if (window.auth) {
@@ -263,11 +307,16 @@
                 <input type="password" id="login-password" class="form-control" style="background:#fff !important; color:#000 !important; border:1px solid #d1d5db; padding:10px 14px; border-radius:10px;" placeholder="••••••••" required>
             </div>
 
-            <button type="submit" id="btn-login-submit" class="btn btn-dark w-100 py-3 fw-bold mb-3" style="border-radius: 12px; background:#111827 !important; border:none;">
+            <button type="submit" id="btn-login-submit" class="btn btn-dark w-100 py-3 fw-bold mb-2" style="border-radius: 12px; background:#111827 !important; border:none;">
                 SIGN IN
             </button>
         </form>
-        <p id="login-error" class="text-danger extra-small fw-bold d-none"></p>
+
+        <button type="button" class="btn btn-outline-secondary w-100 py-2.5 fw-bold extra-small mt-1" style="border-radius: 12px;" onclick="loginAsLocalDemoAdmin()">
+            🚀 Buka Dashboard Langsung (Mode Demo / Lokal)
+        </button>
+
+        <p id="login-error" class="text-danger extra-small fw-bold d-none mt-2"></p>
     </div>
 </div>
 
@@ -1009,9 +1058,10 @@
             <div class="position-absolute top-0 end-0 p-3" style="z-index: 10">
                 <button type="button" class="btn-close-custom" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body p-0 text-center bg-black d-flex align-items-center justify-content-center" style="min-height: 300px;">
-                <img id="modalImg" src="" style="max-width:100%; max-height: 70vh; width: auto; height: auto; object-fit: contain; image-rendering: high-quality;">
-                <div class="position-absolute bottom-0 start-0 end-0 p-3" style="background: linear-gradient(transparent, rgba(0,0,0,0.8))">
+            <div class="modal-body p-0 text-center bg-black d-flex align-items-center justify-content-center flex-column" style="min-height: 300px; position: relative;">
+                <img id="modalImg" src="" style="max-width:100%; max-height: 65vh; width: auto; height: auto; object-fit: contain; image-rendering: high-quality;">
+                <div id="modalThumbnails" class="d-flex gap-2 justify-content-center align-items-center p-2 bg-dark w-100" style="display:none !important; overflow-x: auto;"></div>
+                <div class="p-3 w-100" style="background: linear-gradient(transparent, rgba(0,0,0,0.8))">
                     <a id="downloadBtn" href="#" download class="btn btn-light btn-sm w-100 fw-bold py-2" style="border-radius: 8px">
                         <i class="bi bi-download me-2"></i>Download HD
                     </a>
@@ -1092,8 +1142,8 @@
 
 <!-- Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<script src="/js/maps.js?v=106.0"></script>
-<script src="/js/kpi.js?v=106.0"></script>
-<script src="/js/app.js?v=106.0"></script>
+<script src="/js/maps.js?v=109.0"></script>
+<script src="/js/kpi.js?v=109.0"></script>
+<script src="/js/app.js?v=109.0"></script>
 </body>
 </html>

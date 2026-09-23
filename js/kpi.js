@@ -349,8 +349,15 @@ function renderKPIView(filter = "") {
                             tripId: trip.tripId
                         });
                     }
-                    if (d.proofPhotoItems && Array.isArray(d.proofPhotoItems)) {
-                        d.proofPhotoItems.forEach((itemUrl, itemIdx) => {
+                    let itemArr = [];
+                    if (Array.isArray(d.proofPhotoItems)) {
+                        itemArr = d.proofPhotoItems.filter(Boolean);
+                    } else if (typeof d.proofPhotoItems === 'string' && d.proofPhotoItems.trim().length > 0) {
+                        itemArr = d.proofPhotoItems.split(',').map(s => s.trim()).filter(Boolean);
+                    }
+
+                    if (itemArr.length > 0) {
+                        itemArr.forEach((itemUrl, itemIdx) => {
                             if (itemUrl) {
                                 podList.push({
                                     url: itemUrl,

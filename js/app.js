@@ -291,16 +291,107 @@ function showToast(msg) {
     setTimeout(() => toast.remove(), 3000);
 }
 
+function extractDestinationPhotos(d) {
+    if (!d) return { sjUrl: '', itemUrl: '', itemUrls: [] };
+
+    let sjUrl = '';
+    let itemUrls = [];
+
+    // 1. Explicit proofPhotoSj
+    if (d.proofPhotoSj && typeof d.proofPhotoSj === 'string' && d.proofPhotoSj.trim().length > 0) {
+        sjUrl = d.proofPhotoSj.trim();
+    }
+
+    // 2. Explicit proofPhotoItems (Array or String)
+    if (d.proofPhotoItems) {
+        if (Array.isArray(d.proofPhotoItems)) {
+            itemUrls = d.proofPhotoItems.map(u => String(u).trim()).filter(Boolean);
+        } else if (typeof d.proofPhotoItems === 'string' && d.proofPhotoItems.trim().length > 0) {
+            itemUrls = d.proofPhotoItems.split(',').map(u => u.trim()).filter(Boolean);
+        }
+    }
+
+    // 3. Fallback raw URLs from proofPhotoUrl
+    let rawUrls = [];
+    const sourceUrl = d.proofPhotoUrl || d.proofUrl || '';
+    if (sourceUrl) {
+        if (Array.isArray(sourceUrl)) {
+            rawUrls = sourceUrl.map(u => String(u).trim()).filter(Boolean);
+        } else if (typeof sourceUrl === 'string' && sourceUrl.trim().length > 0) {
+            rawUrls = sourceUrl.split(',').map(u => u.trim()).filter(Boolean);
+        }
+    }
+
+    // 4. Always parse rawUrls into sjUrl and itemUrls
+    if (rawUrls.length > 0) {
+        if (!sjUrl && itemUrls.length === 0) {
+            sjUrl = rawUrls[0];
+            if (rawUrls.length > 1) {
+                itemUrls = rawUrls.slice(1);
+            } else {
+                itemUrls = [rawUrls[0]];
+            }
+        } else if (sjUrl && itemUrls.length === 0) {
+            itemUrls = rawUrls.filter(u => u !== sjUrl);
+            if (itemUrls.length === 0) {
+                itemUrls = [sjUrl];
+            }
+        } else if (!sjUrl && itemUrls.length > 0) {
+            const nonItem = rawUrls.find(u => !itemUrls.includes(u));
+            sjUrl = nonItem || itemUrls[0];
+        }
+    }
+
+    return {
+        sjUrl: sjUrl,
+        itemUrl: itemUrls.join(','),
+        itemUrls: itemUrls
+    };
+}
+
 function openPoDModal(url) {
     if (!url) return;
     const urls = url.split(',').map(s => s.trim()).filter(Boolean);
     if (urls.length === 0) return;
 
-    const firstUrl = urls[0];
     const img = document.getElementById('modalImg');
     const btn = document.getElementById('downloadBtn');
-    if (img) img.src = firstUrl;
-    if (btn) btn.href = firstUrl;
+    const thumbContainer = document.getElementById('modalThumbnails');
+
+    function setActiveImage(idx) {
+        const targetUrl = urls[idx];
+        if (img) img.src = targetUrl;
+        if (btn) btn.href = targetUrl;
+
+        if (thumbContainer && urls.length > 1) {
+            const thumbs = thumbContainer.querySelectorAll('img');
+            thumbs.forEach((t, i) => {
+                if (i === idx) {
+                    t.style.border = '2px solid #3B82F6';
+                    t.style.opacity = '1';
+                } else {
+                    t.style.border = '2px solid transparent';
+                    t.style.opacity = '0.5';
+                }
+            });
+        }
+    }
+
+    if (thumbContainer) {
+        if (urls.length > 1) {
+            thumbContainer.style.setProperty('display', 'flex', 'important');
+            thumbContainer.innerHTML = urls.map((u, i) => `
+                <img src="${u}" class="rounded cursor-pointer" style="width: 44px; height: 44px; object-fit: cover; transition: all 0.2s;" onclick="window._setActivePoDImage(${i})" title="Foto #${i + 1}">
+            `).join('');
+            window._setActivePoDImage = setActiveImage;
+        } else {
+            thumbContainer.style.setProperty('display', 'none', 'important');
+            thumbContainer.innerHTML = '';
+        }
+    }
+
+    setActiveImage(0);
+
     const modalEl = document.getElementById('imageModal');
     if (modalEl && typeof bootstrap !== 'undefined') {
         let instance = bootstrap.Modal.getInstance(modalEl);
@@ -1764,10 +1855,6 @@ async function uploadBulkSjFromCard(tripId) {
     }
 }
 window.uploadBulkSjFromCard = uploadBulkSjFromCard;
-            </div>`);
-    });
-    mList.innerHTML = cardsHtml.join('');
-}
 
 function openAuditSjModal(tripId) {
     const trip = allCurrentTrips.find(t => t.id === tripId);
@@ -2091,8 +2178,7 @@ function renderRecentShipments(filter = "") {
                 }
 
                 if (matchSearch && matchStatus) {
-                    const sjUrl = d.proofPhotoSj || (d.proofPhotoUrl ? d.proofPhotoUrl.split(',')[0].trim() : '');
-                    const itemUrl = (d.proofPhotoItems && d.proofPhotoItems.length > 0) ? d.proofPhotoItems.join(',') : (d.proofPhotoUrl && d.proofPhotoUrl.includes(',') ? d.proofPhotoUrl.split(',').slice(1).join(',').trim() : '');
+                    const photos = extractDestinationPhotos(d);
 
                     shipmentRows.push({
                         tripId: t.id,
@@ -2110,9 +2196,9 @@ function renderRecentShipments(filter = "") {
                         pendingProofPhotoUrl: d.pendingProofPhotoUrl || '',
                         carrier: cName,
                         eta: timeStr,
-                        proofSjUrl: sjUrl,
-                        proofItemUrl: itemUrl,
-                        proofUrl: d.proofPhotoUrl || sjUrl || itemUrl || ''
+                        proofSjUrl: photos.sjUrl,
+                        proofItemUrl: photos.itemUrl,
+                        proofUrl: d.proofPhotoUrl || photos.sjUrl || photos.itemUrl || ''
                     });
                 }
             });
@@ -2190,7 +2276,9 @@ function renderRecentShipments(filter = "") {
             podIconsHtml += `<i class="bi bi-file-earmark-check-fill text-success ms-1 cursor-pointer fs-6" data-url="${s.proofSjUrl.replace(/"/g, '&quot;')}" onclick="openPoDModal(this.dataset.url)" title="Lihat Foto Surat Jalan (SJ)"></i>`;
         }
         if (s.proofItemUrl) {
-            podIconsHtml += `<i class="bi bi-box-seam-fill text-primary ms-1 cursor-pointer fs-6" data-url="${s.proofItemUrl.replace(/"/g, '&quot;')}" onclick="openPoDModal(this.dataset.url)" title="Lihat Foto Fisik Barang"></i>`;
+            const itemCount = s.proofItemUrl.split(',').length;
+            const itemBadgeTitle = itemCount > 1 ? `Lihat Foto Fisik Barang (${itemCount} Foto)` : `Lihat Foto Fisik Barang`;
+            podIconsHtml += `<i class="bi bi-box-seam-fill text-primary ms-1 cursor-pointer fs-6" data-url="${s.proofItemUrl.replace(/"/g, '&quot;')}" onclick="openPoDModal(this.dataset.url)" title="${itemBadgeTitle}"></i>`;
         }
         if (!podIconsHtml && s.proofUrl) {
             podIconsHtml = `<i class="bi bi-camera-fill text-success ms-1 cursor-pointer" data-url="${s.proofUrl.replace(/"/g, '&quot;')}" onclick="openPoDModal(this.dataset.url)" title="Lihat Foto PoD"></i>`;
@@ -2810,7 +2898,10 @@ async function handleLogin(e) {
     const err = document.getElementById('login-error');
     const btn = document.getElementById('btn-login-submit');
 
-    if (!emailEl || !passEl) return;
+    if (!emailEl || !passEl) {
+        alert("Form login tidak ditemukan pada halaman.");
+        return;
+    }
 
     const email = emailEl.value.trim();
     const pass = passEl.value;
@@ -2818,10 +2909,12 @@ async function handleLogin(e) {
     if (err) err.classList.add('d-none');
 
     if (!email || !pass) {
+        const msg = "Email dan password wajib diisi.";
         if (err) {
-            err.innerText = "Email dan password wajib diisi.";
+            err.innerText = msg;
             err.classList.remove('d-none');
         }
+        alert(msg);
         return;
     }
 
@@ -2835,7 +2928,9 @@ async function handleLogin(e) {
         if (!firebaseAuth) {
             throw new Error("Sistem Autentikasi Firebase belum siap. Silakan refresh halaman.");
         }
+        console.log("Mencoba login dengan email:", email);
         await firebaseAuth.signInWithEmailAndPassword(email, pass);
+        console.log("Login Firebase berhasil!");
     } catch (e) {
         console.error("Login Error Details:", e);
         if (btn) {
@@ -2853,17 +2948,42 @@ async function handleLogin(e) {
         } else if (e.code === 'auth/network-request-failed') {
             friendlyMsg = "Gagal terhubung ke Firebase. Periksa koneksi internet Anda.";
         } else if (e.code === 'auth/unauthorized-domain') {
-            friendlyMsg = "Domain (" + window.location.hostname + ") belum diizinkan. Tambahkan di Firebase Console -> Authentication -> Settings -> Authorized Domains.";
+            friendlyMsg = "Domain (" + window.location.hostname + ") belum diizinkan. Buka web menggunakan URL http://localhost:3000 atau tambahkan domain di Firebase Console -> Authentication -> Settings -> Authorized Domains.";
         }
 
+        const fullErrText = friendlyMsg + (e.code ? " [" + e.code + "]" : "");
         if (err) {
-            err.innerText = friendlyMsg + (e.code ? " [" + e.code + "]" : "");
+            err.innerText = fullErrText;
             err.classList.remove('d-none');
-        } else {
-            alert(friendlyMsg);
         }
+        alert(fullErrText);
     }
 }
+
+function loginAsLocalDemoAdmin() {
+    currentUserRole = 'super_admin';
+    currentUserBranchId = 'pusat';
+
+    const loginScreen = document.getElementById('login-screen');
+    const mainWrapper = document.getElementById('main-wrapper');
+    const profileName = document.getElementById('profile-name');
+    const profileRole = document.getElementById('profile-role');
+
+    if (loginScreen) loginScreen.style.setProperty('display', 'none', 'important');
+    if (mainWrapper) mainWrapper.style.setProperty('display', 'flex', 'important');
+    if (profileName) profileName.innerText = 'Super Admin (Demo)';
+    if (profileRole) profileRole.innerHTML = `<span class="d-inline-block rounded-circle bg-success me-1" style="width: 7px; height: 7px;"></span>Super Admin`;
+
+    applyRoleAccessControl();
+
+    setTimeout(() => {
+        if (typeof initMaps === 'function') initMaps();
+        if (typeof map !== 'undefined' && map && typeof map.invalidateSize === 'function') map.invalidateSize();
+        if (typeof mapMonitor !== 'undefined' && mapMonitor && typeof mapMonitor.invalidateSize === 'function') mapMonitor.invalidateSize();
+        if (typeof mapDispatch !== 'undefined' && mapDispatch && typeof mapDispatch.invalidateSize === 'function') mapDispatch.invalidateSize();
+    }, 300);
+}
+window.loginAsLocalDemoAdmin = loginAsLocalDemoAdmin;
 
 function initAuthListener() {
     ensureFirebaseApp();
@@ -3222,9 +3342,16 @@ function renderPoDArchiveView(filter = "") {
                 }
 
                 // 2. Process Item / Barang photos
-                if (d.proofPhotoItems && Array.isArray(d.proofPhotoItems) && d.proofPhotoItems.length > 0) {
+                let itemArr = [];
+                if (Array.isArray(d.proofPhotoItems)) {
+                    itemArr = d.proofPhotoItems.filter(Boolean);
+                } else if (typeof d.proofPhotoItems === 'string' && d.proofPhotoItems.trim().length > 0) {
+                    itemArr = d.proofPhotoItems.split(',').map(s => s.trim()).filter(Boolean);
+                }
+
+                if (itemArr.length > 0) {
                     if (selectedCategory === 'all' || selectedCategory === 'item') {
-                        d.proofPhotoItems.forEach((itemUrl, itemIdx) => {
+                        itemArr.forEach((itemUrl, itemIdx) => {
                             if (itemUrl) {
                                 photos.push({
                                     url: itemUrl,
