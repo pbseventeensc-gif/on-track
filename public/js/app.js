@@ -292,13 +292,20 @@ function showToast(msg) {
 }
 
 function openPoDModal(url) {
+    if (!url) return;
+    const urls = url.split(',').map(s => s.trim()).filter(Boolean);
+    if (urls.length === 0) return;
+
+    const firstUrl = urls[0];
     const img = document.getElementById('modalImg');
     const btn = document.getElementById('downloadBtn');
-    if (img) img.src = url;
-    if (btn) btn.href = url;
+    if (img) img.src = firstUrl;
+    if (btn) btn.href = firstUrl;
     const modalEl = document.getElementById('imageModal');
     if (modalEl && typeof bootstrap !== 'undefined') {
-        new bootstrap.Modal(modalEl).show();
+        let instance = bootstrap.Modal.getInstance(modalEl);
+        if (!instance) instance = new bootstrap.Modal(modalEl);
+        instance.show();
     }
 }
 
@@ -2038,6 +2045,7 @@ function renderRecentShipments(filter = "") {
                 }
 
                 if (matchSearch && matchStatus) {
+                    const rawProofUrl = d.proofPhotoSj || (d.proofPhotoItems && d.proofPhotoItems.length > 0 ? d.proofPhotoItems.join(',') : d.proofPhotoUrl) || '';
                     shipmentRows.push({
                         tripId: t.id,
                         displayId: uniqueShipmentId,
@@ -2054,7 +2062,7 @@ function renderRecentShipments(filter = "") {
                         pendingProofPhotoUrl: d.pendingProofPhotoUrl || '',
                         carrier: cName,
                         eta: timeStr,
-                        proofUrl: d.proofPhotoUrl || ''
+                        proofUrl: rawProofUrl
                     });
                 }
             });
