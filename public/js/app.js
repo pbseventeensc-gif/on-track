@@ -1452,40 +1452,37 @@ async function uploadFileToCloudinaryOrFirebase(file) {
     const targetFile = (file && file.type && file.type.startsWith('image/')) ? await compressImageFile(file, 1000, 0.7) : file;
 
     return new Promise((resolve) => {
-        try {
-            const formData = new FormData();
-            formData.append("file", targetFile);
-            formData.append("upload_preset", "KurirTrack");
-            formData.append("folder", "wellen_proofs");
+        if (!targetFile) return resolve("");
 
-            fetch("https://api.cloudinary.com/v1_1/wellen_proofs/image/upload", {
-                method: "POST",
-                body: formData
-            }).then(res => res.json()).then(data => {
-                if (data && data.secure_url) {
-                    resolve(data.secure_url);
-                } else {
-                    uploadFileToFirebaseStorage(targetFile, resolve);
-                }
-            }).catch(() => {
-                uploadFileToFirebaseStorage(targetFile, resolve);
-            });
-        } catch(e) {
-            uploadFileToFirebaseStorage(targetFile, resolve);
-        }
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            const dataUrl = evt.target.result;
+
+            try {
+                const formData = new FormData();
+                formData.append("file", targetFile);
+                formData.append("upload_preset", "KurirTrack");
+                formData.append("folder", "wellen_proofs");
+
+                fetch("https://api.cloudinary.com/v1_1/wellen_proofs/image/upload", {
+                    method: "POST",
+                    body: formData
+                }).then(res => res.json()).then(data => {
+                    if (data && data.secure_url) {
+                        resolve(data.secure_url);
+                    } else {
+                        resolve(dataUrl);
+                    }
+                }).catch(() => {
+                    resolve(dataUrl);
+                });
+            } catch(e) {
+                resolve(dataUrl);
+            }
+        };
+        reader.onerror = () => resolve("");
+        reader.readAsDataURL(targetFile);
     });
-}
-
-function uploadFileToFirebaseStorage(file, resolve) {
-    try {
-        const storage = firebase.storage();
-        const ref = storage.ref().child('proofs/' + Date.now() + '_' + file.name);
-        ref.put(file).then(snapshot => {
-            snapshot.ref.getDownloadURL().then(url => resolve(url)).catch(() => resolve(""));
-        }).catch(() => resolve(""));
-    } catch(e) {
-        resolve("");
-    }
 }
 
 async function submitTrip() {
