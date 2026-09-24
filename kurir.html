@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <title>Wellen Kita - Portal Kurir Web</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/assets/wellen_logo.svg">
+    <link rel="apple-touch-icon" href="/assets/wellen_logo.svg">
+
+    <!-- Stylesheets -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+    <style>
+        :root {
+            --primary: #10B981;
+            --primary-dark: #059669;
+            --bg-body: #F8FAFC;
+            --card-bg: #FFFFFF;
+            --text-dark: #0F172A;
+        }
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-dark);
+            padding-bottom: 80px;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        .header-bar {
+            background: #FFFFFF;
+            border-bottom: 1px solid #E2E8F0;
+            padding: 12px 16px;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+        .trip-card {
+            background: #FFFFFF;
+            border-radius: 18px;
+            border: 1px solid #E2E8F0;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+            margin-bottom: 16px;
+            overflow: hidden;
+        }
+        .stop-item {
+            background: #F8FAFC;
+            border-radius: 14px;
+            border: 1px solid #E2E8F0;
+            padding: 14px;
+            margin-bottom: 12px;
+        }
+        .stop-item.status-done {
+            background: #F0FDF4;
+            border-color: #BBF7D0;
+        }
+        .stop-item.status-arrived {
+            background: #FFFBEB;
+            border-color: #FDE68A;
+        }
+        .btn-action {
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 0.8rem;
+            padding: 10px 14px;
+        }
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #FFFFFF;
+            border-top: 1px solid #E2E8F0;
+            display: flex;
+            justify-content: space-around;
+            padding: 10px 0;
+            z-index: 1000;
+        }
+        .nav-item-btn {
+            color: #64748B;
+            text-decoration: none;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-align: center;
+            flex: 1;
+        }
+        .nav-item-btn.active {
+            color: var(--primary);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header Bar -->
+    <div class="header-bar d-flex align-items-center justify-content-between shadow-sm">
+        <div class="d-flex align-items-center gap-2">
+            <img src="/assets/wellen_logo.svg" height="32" alt="Logo" onerror="this.src='https://ui-avatars.com/api/?name=Wellen+Print&background=10B981&color=fff'">
+            <div>
+                <h6 class="fw-extrabold m-0 text-dark" style="font-size: 0.95rem; line-height: 1.1;">Wellen Kita</h6>
+                <small class="text-success extra-small fw-bold"><i class="bi bi-circle-fill me-1" style="font-size: 0.5rem;"></i>Portal Kurir Web</small>
+            </div>
+        </div>
+        <button class="btn btn-sm btn-light border rounded-circle p-2" onclick="refreshData()" title="Refresh Data">
+            <i class="bi bi-arrow-clockwise fs-6 text-dark"></i>
+        </button>
+    </div>
+
+    <div class="container py-3" style="max-width: 500px;">
+
+        <!-- Courier Selector Card -->
+        <div class="p-3 bg-white rounded-4 border shadow-sm mb-3">
+            <label class="extra-small fw-extrabold text-muted text-uppercase mb-1 d-block"><i class="bi bi-person-badge me-1"></i> Identitas Kurir Logistik</label>
+            <select id="courier-select" class="form-select form-select-sm fw-bold border-success-subtle py-2" style="border-radius: 12px; background-color: #F0FDF4;" onchange="onCourierChanged(this.value)">
+                <option value="pbseventeensc">🚚 pbseventeensc (Kurir Utama)</option>
+                <option value="UP70R51X">🚚 UP70R51X (ID HP)</option>
+                <option value="Beto">🚚 Beto</option>
+                <option value="Bayhaqi">🚚 Bayhaqi</option>
+                <option value="Ahmad">🚚 Ahmad</option>
+            </select>
+        </div>
+
+        <!-- View Tabs -->
+        <div id="view-active-tasks">
+            <div id="tasks-container">
+                <div class="text-center py-5 text-muted">
+                    <div class="spinner-border text-success mb-2" role="status"></div>
+                    <div class="extra-small fw-bold">Memuat daftar tugas kurir...</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="view-history-tasks" class="d-none">
+            <div id="history-container">
+                <div class="text-center py-5 text-muted extra-small fw-bold">
+                    Memuat riwayat selesai hari ini...
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Bottom Navigation Bar -->
+    <div class="bottom-nav">
+        <a href="javascript:void(0)" class="nav-item-btn active" id="tab-active-btn" onclick="switchNavTab('active')">
+            <i class="bi bi-truck fs-5 d-block"></i>
+            Tugas Hari Ini
+        </a>
+        <a href="javascript:void(0)" class="nav-item-btn" id="tab-history-btn" onclick="switchNavTab('history')">
+            <i class="bi bi-check-circle-fill fs-5 d-block"></i>
+            Riwayat Selesai
+        </a>
+    </div>
+
+    <!-- Upload Photo Modal -->
+    <div class="modal fade" id="uploadModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" style="max-width: 420px;">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 24px; overflow: hidden;">
+                <div class="modal-header border-0 pb-0">
+                    <h6 class="fw-bold text-dark m-0"><i class="bi bi-camera-fill text-success me-2"></i>Selesaikan Pengantaran</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <input type="hidden" id="modal-trip-id">
+                    <input type="hidden" id="modal-stop-index">
+
+                    <div class="p-3 bg-light rounded-3 border mb-3">
+                        <small class="text-muted extra-small fw-bold text-uppercase d-block mb-1">Toko / Tujuan:</small>
+                        <div class="fw-bold text-dark" id="modal-location-name">Nama Toko</div>
+                    </div>
+
+                    <!-- 1. Foto Surat Jalan -->
+                    <div class="mb-3 p-3 bg-light rounded-3 border">
+                        <label class="extra-small fw-bold text-primary text-uppercase mb-2 d-block"><i class="bi bi-file-earmark-text me-1"></i> 1. Foto Surat Jalan (SJ) - Opsional</label>
+                        <input type="file" id="modal-sj-file" accept="image/*" capture="environment" class="form-control py-2" style="border-radius: 10px;">
+                    </div>
+
+                    <!-- 2. Foto Barang -->
+                    <div class="mb-3 p-3 bg-light rounded-3 border">
+                        <label class="extra-small fw-bold text-success text-uppercase mb-2 d-block"><i class="bi bi-box-seam me-1"></i> 2. Foto Fisik Barang - Opsional</label>
+                        <input type="file" id="modal-item-file" accept="image/*" capture="environment" class="form-control py-2" style="border-radius: 10px;">
+                    </div>
+
+                    <div id="modal-status-text" class="extra-small fw-bold text-primary mb-3"></div>
+
+                    <button type="button" id="modal-submit-btn" class="btn btn-success w-100 py-3 fw-extrabold shadow-sm" style="border-radius: 14px;" onclick="submitStopCompletion()">
+                        <i class="bi bi-check-circle me-1"></i> SIMPAN & SELESAIKAN
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pending Report Modal -->
+    <div class="modal fade" id="pendingModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" style="max-width: 420px;">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 24px; overflow: hidden;">
+                <div class="modal-header border-0 pb-0">
+                    <h6 class="fw-bold text-danger m-0"><i class="bi bi-exclamation-triangle-fill me-2"></i>Lapor Toko Tutup / Pending</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <input type="hidden" id="pending-modal-trip-id">
+                    <input type="hidden" id="pending-modal-stop-index">
+
+                    <div class="p-3 bg-light rounded-3 border mb-3">
+                        <small class="text-muted extra-small fw-bold text-uppercase d-block mb-1">Toko / Tujuan:</small>
+                        <div class="fw-bold text-dark" id="pending-modal-location-name">Nama Toko</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="extra-small fw-bold text-muted text-uppercase mb-1 d-block">Alasan Pending / Klien Tutup:</label>
+                        <input type="text" id="pending-reason-input" class="form-control py-2" style="border-radius: 10px;" placeholder="Misal: Toko Tutup / Klien Libur">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="extra-small fw-bold text-muted text-uppercase mb-1 d-block">Foto Bukti Toko Tutup (Opsional):</label>
+                        <input type="file" id="pending-file-input" accept="image/*" capture="environment" class="form-control py-2" style="border-radius: 10px;">
+                    </div>
+
+                    <div id="pending-status-text" class="extra-small fw-bold text-danger mb-3"></div>
+
+                    <button type="button" id="pending-submit-btn" class="btn btn-danger w-100 py-3 fw-extrabold shadow-sm" style="border-radius: 14px;" onclick="submitPendingReport()">
+                        <i class="bi bi-send-fill me-1"></i> KIRIM LAPORAN PENDING
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        // Firebase Config
+        const firebaseConfig = {
+            apiKey: "AIzaSyCAR9bhj6u72OpTqYLEuBvBGvCaaFSPUGQ",
+            authDomain: "ontrack-fccb8.firebaseapp.com",
+            databaseURL: "https://ontrack-fccb8-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "ontrack-fccb8",
+            storageBucket: "ontrack-fccb8.firebasestorage.app",
+            messagingSenderId: "180144218738",
+            appId: "1:180144218738:web:f6751f383bf7f65b3ed8eb"
+        };
+
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const db = firebase.firestore();
+
+        let currentCourierId = localStorage.getItem('kurir_selected_cid') || 'pbseventeensc';
+        let allTrips = [];
+        let tripListener = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const selectEl = document.getElementById('courier-select');
+            if (selectEl) selectEl.value = currentCourierId;
+            initTripsListener();
+        });
+
+        function cleanStr(s) {
+            return (s || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+        }
+
+        function onCourierChanged(cid) {
+            currentCourierId = cid;
+            localStorage.setItem('kurir_selected_cid', cid);
+            renderTasks();
+        }
+
+        function switchNavTab(tab) {
+            const activeDiv = document.getElementById('view-active-tasks');
+            const historyDiv = document.getElementById('view-history-tasks');
+            const activeBtn = document.getElementById('tab-active-btn');
+            const historyBtn = document.getElementById('tab-history-btn');
+
+            if (tab === 'active') {
+                activeDiv.classList.remove('d-none');
+                historyDiv.classList.add('d-none');
+                activeBtn.classList.add('active');
+                historyBtn.classList.remove('active');
+            } else {
+                activeDiv.classList.add('d-none');
+                historyDiv.classList.remove('d-none');
+                activeBtn.classList.remove('active');
+                historyBtn.classList.add('active');
+                renderHistory();
+            }
+        }
+
+        function refreshData() {
+            initTripsListener();
+        }
+
+        function initTripsListener() {
+            if (tripListener) tripListener();
+            tripListener = db.collection('trips').onSnapshot(snap => {
+                allTrips = [];
+                snap.forEach(doc => {
+                    const t = doc.data();
+                    t.id = doc.id;
+
+                    // Direct Order Mode: Auto-convert assigned -> in_progress
+                    if (t.status === 'assigned') {
+                        t.status = 'in_progress';
+                        db.collection('trips').doc(t.id).update({
+                            status: 'in_progress',
+                            acceptedTime: firebase.firestore.Timestamp.now()
+                        }).catch(() => {});
+                    }
+                    allTrips.push(t);
+                });
+                renderTasks();
+                renderHistory();
+            }, err => {
+                console.error("Firestore error:", err);
+            });
+        }
+
+        function isMatchCourier(tCid, myCid) {
+            if (!tCid) return false;
+            const cTCid = cleanStr(tCid);
+            const cMyCid = cleanStr(myCid);
+            if (cTCid === cMyCid) return true;
+            if (cMyCid === 'pbseventeensc' || cMyCid === 'up70r51x') {
+                return cTCid.includes('pbseventeensc') || cTCid.includes('up70r51x');
+            }
+            return cTCid.contains(cMyCid) || cMyCid.contains(cTCid);
+        }
+
+        function renderTasks() {
+            const container = document.getElementById('tasks-container');
+            if (!container) return;
+
+            const myTrips = allTrips.filter(t => t.status !== 'completed' && isMatchCourier(t.courierId, currentCourierId));
+
+            if (myTrips.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-5 bg-white rounded-4 border p-4 shadow-sm">
+                        <i class="bi bi-truck fs-1 text-muted d-block mb-2"></i>
+                        <h6 class="fw-bold text-dark">Belum Ada Tugas Aktif</h6>
+                        <small class="text-muted extra-small">Tugas pengiriman yang diberikan admin akan muncul di sini secara otomatis.</small>
+                    </div>`;
+                return;
+            }
+
+            let html = '';
+            myTrips.forEach(t => {
+                const dests = t.destinations || [];
+                const doneCount = dests.filter(d => d.status === 'done' || d.status === 'arrived' || (d.proofPhotoUrl && d.proofPhotoUrl.length > 0)).length;
+                const totalCount = dests.length || 1;
+                const progressPct = Math.round((doneCount / totalCount) * 100);
+
+                html += `
+                    <div class="trip-card">
+                        <div class="p-3 border-bottom bg-light d-flex align-items-center justify-content-between">
+                            <div>
+                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1 fw-bold extra-small">TUGAS HARI INI</span>
+                                <h6 class="fw-extrabold text-dark m-0 mt-1" style="font-size:0.9rem;">#${t.id.substring(Math.max(0, t.id.length - 8))}</h6>
+                            </div>
+                            <div class="text-end">
+                                <small class="text-muted extra-small fw-bold d-block">Progress Stop</small>
+                                <span class="fw-extrabold text-dark" style="font-size:0.85rem;">${doneCount}/${totalCount} Selesai</span>
+                            </div>
+                        </div>
+
+                        <div class="p-3">
+                            <div class="progress mb-3" style="height: 8px; border-radius: 10px;">
+                                <div class="progress-bar bg-success" role="progressbar" style="width: ${progressPct}%;"></div>
+                            </div>
+
+                            <div class="stops-list">`;
+
+                dests.forEach((d, idx) => {
+                    const isDone = d.status === 'done' || (d.proofPhotoUrl && d.proofPhotoUrl.length > 0);
+                    const isArrived = d.status === 'arrived';
+                    const isPending = d.status === 'pending_approval';
+
+                    let itemClass = 'stop-item';
+                    let badgeHtml = '<span class="badge bg-secondary-subtle text-secondary extra-small fw-bold">PENDING</span>';
+
+                    if (isDone) {
+                        itemClass += ' status-done';
+                        badgeHtml = '<span class="badge bg-success text-white extra-small fw-bold"><i class="bi bi-check-circle-fill me-1"></i>SELESAI</span>';
+                    } else if (isArrived) {
+                        itemClass += ' status-arrived';
+                        badgeHtml = '<span class="badge bg-warning text-dark extra-small fw-bold"><i class="bi bi-geo-fill me-1"></i>TIBA DI LOKASI</span>';
+                    } else if (isPending) {
+                        badgeHtml = '<span class="badge bg-danger text-white extra-small fw-bold"><i class="bi bi-exclamation-triangle-fill me-1"></i>KLIEN TUTUP</span>';
+                    }
+
+                    const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${d.latitude || -6.2088},${d.longitude || 106.8456}`;
+
+                    html += `
+                        <div class="${itemClass}">
+                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="badge bg-dark text-white rounded-circle p-0 d-flex align-items-center justify-content-center" style="width:22px; height:22px; font-size:0.75rem;">${idx + 1}</span>
+                                    <h6 class="fw-bold text-dark m-0" style="font-size:0.85rem;">${d.locationName || 'Tujuan'}</h6>
+                                </div>
+                                ${badgeHtml}
+                            </div>
+                            <p class="text-muted extra-small mb-2" style="font-size:0.75rem; line-height:1.3;">${d.address || 'Alamat lokasi'}</p>
+
+                            <a href="${mapsUrl}" target="_blank" class="btn btn-sm btn-outline-primary extra-small py-1 px-2 mb-3 fw-bold rounded-3 text-decoration-none">
+                                <i class="bi bi-compass-fill me-1"></i> Buka Google Maps Navigation
+                            </a>
+
+                            ${!isDone ? `
+                            <div class="d-flex flex-column gap-2 mt-2 pt-2 border-top">
+                                ${!isArrived ? `
+                                <button class="btn btn-warning btn-action w-100 text-dark shadow-sm" onclick="setStopArrived('${t.id}', ${d.stopIndex || (idx + 1)})">
+                                    <i class="bi bi-geo-alt-fill me-1"></i> 1. SAYA SUDAH TIBA (ARRIVED)
+                                </button>` : ''}
+
+                                <button class="btn btn-success btn-action w-100 shadow-sm" onclick="openUploadModal('${t.id}', ${d.stopIndex || (idx + 1)}, '${(d.locationName || 'Tujuan').replace(/'/g, "\\'")}')">
+                                    <i class="bi bi-camera-fill me-1"></i> 2. UNGGAH FOTO & SELESAI
+                                </button>
+
+                                <button class="btn btn-outline-danger btn-action w-100" onclick="openPendingModal('${t.id}', ${d.stopIndex || (idx + 1)}, '${(d.locationName || 'Tujuan').replace(/'/g, "\\'")}')">
+                                    <i class="bi bi-exclamation-octagon me-1"></i> LAPOR KLIEN TUTUP / PENDING
+                                </button>
+                            </div>` : ''}
+                        </div>`;
+                });
+
+                html += `
+                            </div>
+                        </div>
+                    </div>`;
+            });
+
+            container.innerHTML = html;
+        }
+
+        function renderHistory() {
+            const container = document.getElementById('history-container');
+            if (!container) return;
+
+            const completedTrips = allTrips.filter(t => isMatchCourier(t.courierId, currentCourierId) && (t.status === 'completed' || (t.destinations && t.destinations.every(d => d.status === 'done'))));
+
+            if (completedTrips.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-5 bg-white rounded-4 border p-4 shadow-sm">
+                        <i class="bi bi-check2-circle fs-1 text-muted d-block mb-2"></i>
+                        <h6 class="fw-bold text-dark">Belum Ada Riwayat Selesai</h6>
+                        <small class="text-muted extra-small">Daftar pengiriman yang selesai akan tersimpan di sini.</small>
+                    </div>`;
+                return;
+            }
+
+            let html = '';
+            completedTrips.forEach(t => {
+                html += `
+                    <div class="trip-card p-3">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <h6 class="fw-bold text-dark m-0">#${t.id.substring(Math.max(0, t.id.length - 8))}</h6>
+                            <span class="badge bg-success text-white extra-small fw-bold">SELESAI</span>
+                        </div>
+                        <small class="text-muted extra-small d-block mb-2">Total Stop: ${(t.destinations || []).length} Titik Pengantaran</small>
+                    </div>`;
+            });
+            container.innerHTML = html;
+        }
+
+        async function setStopArrived(tripId, stopIndex) {
+            try {
+                const tripRef = db.collection('trips').doc(tripId);
+                const snap = await tripRef.get();
+                if (snap.exists) {
+                    const tData = snap.data();
+                    const updatedDests = (tData.destinations || []).map(d => {
+                        if (d.stopIndex === stopIndex) {
+                            return { ...d, status: 'arrived', arrivalTime: firebase.firestore.Timestamp.now() };
+                        }
+                        return d;
+                    });
+                    await tripRef.update({ destinations: updatedDests });
+                }
+            } catch(e) {
+                alert("Gagal meng-update status tiba: " + e.message);
+            }
+        }
+
+        function openUploadModal(tripId, stopIndex, locName) {
+            document.getElementById('modal-trip-id').value = tripId;
+            document.getElementById('modal-stop-index').value = stopIndex;
+            document.getElementById('modal-location-name').innerText = locName;
+            document.getElementById('modal-sj-file').value = '';
+            document.getElementById('modal-item-file').value = '';
+            document.getElementById('modal-status-text').innerText = '';
+
+            const modal = new bootstrap.Modal(document.getElementById('uploadModal'));
+            modal.show();
+        }
+
+        function openPendingModal(tripId, stopIndex, locName) {
+            document.getElementById('pending-modal-trip-id').value = tripId;
+            document.getElementById('pending-modal-stop-index').value = stopIndex;
+            document.getElementById('pending-modal-location-name').innerText = locName;
+            document.getElementById('pending-reason-input').value = '';
+            document.getElementById('pending-file-input').value = '';
+            document.getElementById('pending-status-text').innerText = '';
+
+            const modal = new bootstrap.Modal(document.getElementById('pendingModal'));
+            modal.show();
+        }
+
+        function compressFileToBase64(file, maxDim = 800, quality = 0.65) {
+            return new Promise((resolve) => {
+                if (!file) return resolve("");
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        let w = img.width, h = img.height;
+                        if (w > maxDim || h > maxDim) {
+                            if (w > h) { h = Math.round((h * maxDim) / w); w = maxDim; }
+                            else { w = Math.round((w * maxDim) / h); h = maxDim; }
+                        }
+                        const canvas = document.createElement('canvas');
+                        canvas.width = w;
+                        canvas.height = h;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, w, h);
+                        resolve(canvas.toDataURL('image/jpeg', quality));
+                    };
+                    img.onerror = () => resolve(e.target.result);
+                    img.src = e.target.result;
+                };
+                reader.onerror = () => resolve("");
+                reader.readAsDataURL(file);
+            });
+        }
+
+        async function submitStopCompletion() {
+            const tripId = document.getElementById('modal-trip-id').value;
+            const stopIndex = parseInt(document.getElementById('modal-stop-index').value);
+            const sjFile = document.getElementById('modal-sj-file').files[0];
+            const itemFile = document.getElementById('modal-item-file').files[0];
+            const statusEl = document.getElementById('modal-status-text');
+            const btn = document.getElementById('modal-submit-btn');
+
+            if (!tripId) return;
+
+            if (btn) { btn.disabled = true; btn.innerText = "MEMPROSES..."; }
+            if (statusEl) statusEl.innerText = "Mengompres & menyimpan foto bukti...";
+
+            try {
+                let sjUrl = "";
+                let itemUrl = "";
+
+                if (sjFile) sjUrl = await compressFileToBase64(sjFile);
+                if (itemFile) itemUrl = await compressFileToBase64(itemFile);
+
+                const combinedList = [];
+                if (sjUrl) combinedList.push(sjUrl);
+                if (itemUrl) combinedList.push(itemUrl);
+                const combinedUrl = combinedList.join(',');
+
+                const tripRef = db.collection('trips').doc(tripId);
+                const snap = await tripRef.get();
+
+                if (snap.exists) {
+                    const tData = snap.data();
+                    const updatedDests = (tData.destinations || []).map(d => {
+                        if (d.stopIndex === stopIndex) {
+                            return {
+                                ...d,
+                                status: 'done',
+                                completedTime: firebase.firestore.Timestamp.now(),
+                                proofPhotoSj: sjUrl || d.proofPhotoSj || "",
+                                proofPhotoItems: itemUrl ? [itemUrl] : (d.proofPhotoItems || []),
+                                proofPhotoUrl: combinedUrl || d.proofPhotoUrl || ""
+                            };
+                        }
+                        return d;
+                    });
+
+                    const allDone = updatedDests.every(d => d.status === 'done' || (d.proofPhotoUrl && d.proofPhotoUrl.length > 0));
+                    const updateMap = { destinations: updatedDests };
+                    if (allDone) updateMap.status = "completed";
+                    else updateMap.status = "in_progress";
+
+                    await tripRef.update(updateMap);
+
+                    const modalEl = document.getElementById('uploadModal');
+                    const modal = bootstrap.Modal.getInstance(modalEl);
+                    if (modal) modal.hide();
+                }
+            } catch(e) {
+                alert("Gagal menyimpan penyelesaian: " + e.message);
+            } finally {
+                if (btn) { btn.disabled = false; btn.innerText = "SIMPAN & SELESAIKAN"; }
+                if (statusEl) statusEl.innerText = "";
+            }
+        }
+
+        async function submitPendingReport() {
+            const tripId = document.getElementById('pending-modal-trip-id').value;
+            const stopIndex = parseInt(document.getElementById('pending-modal-stop-index').value);
+            const reasonInput = document.getElementById('pending-reason-input').value.trim();
+            const pendingFile = document.getElementById('pending-file-input').files[0];
+            const statusEl = document.getElementById('pending-status-text');
+            const btn = document.getElementById('pending-submit-btn');
+
+            if (!tripId) return;
+            const reason = reasonInput || "Klien Tutup";
+
+            if (btn) { btn.disabled = true; btn.innerText = "MENGIRIM LAPORAN..."; }
+            if (statusEl) statusEl.innerText = "Mengompres foto & mengirim laporan...";
+
+            try {
+                let pendingUrl = "";
+                if (pendingFile) pendingUrl = await compressFileToBase64(pendingFile);
+
+                const tripRef = db.collection('trips').doc(tripId);
+                const snap = await tripRef.get();
+
+                if (snap.exists) {
+                    const tData = snap.data();
+                    const updatedDests = (tData.destinations || []).map(d => {
+                        if (d.stopIndex === stopIndex) {
+                            return {
+                                ...d,
+                                status: 'pending_approval',
+                                pendingReason: reason,
+                                pendingProofPhotoUrl: pendingUrl
+                            };
+                        }
+                        return d;
+                    });
+
+                    await tripRef.update({ destinations: updatedDests });
+
+                    const modalEl = document.getElementById('pendingModal');
+                    const modal = bootstrap.Modal.getInstance(modalEl);
+                    if (modal) modal.hide();
+                }
+            } catch(e) {
+                alert("Gagal mengirim laporan pending: " + e.message);
+            } finally {
+                if (btn) { btn.disabled = false; btn.innerText = "KIRIM LAPORAN PENDING"; }
+                if (statusEl) statusEl.innerText = "";
+            }
+        }
+    </script>
+</body>
+</html>
