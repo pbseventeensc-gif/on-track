@@ -188,7 +188,7 @@ window.isCourierInActiveBranch = isCourierInActiveBranch;
 
 function switchBranchFilter(branchVal) {
     if (typeof showToast === 'function') {
-        const branchNames = { 'all': 'Semua Cabang', 'pusat': 'Cabang Pusat', 'cikokol': 'Cabang Cikokol', 'serang': 'Cabang Serang (Banten)' };
+        const branchNames = { 'all': 'Semua Cabang', 'pusat': 'Cabang Pusat', 'cikokol': 'Cabang Cikokol' };
         showToast(`Memfilter tampilan ke: ${branchNames[branchVal] || branchVal}`);
     }
     if (typeof updateGlobalStats === 'function') updateGlobalStats();
