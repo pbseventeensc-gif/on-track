@@ -1852,16 +1852,21 @@ function renderMonitorUI(filter = "") {
         const pendingStops = c.trips.reduce((acc, t) => acc + (t.destinations ? t.destinations.filter(d => d.status === 'pending_approval' || (d.status === 'pending' && d.pendingReason)).length : 0), 0);
         const pendingBadgeHtml = pendingStops > 0 ? `<span class="badge rounded-pill bg-danger text-white extra-small py-1 px-2 fw-bold ms-1" style="font-size:0.65rem"><i class="bi bi-exclamation-triangle-fill me-1"></i>${pendingStops} Pending / Tutup</span>` : '';
 
-        const bulkSjTrip = c.trips.find(t => t.adminBulkSjUrl && t.adminBulkSjUrl.length > 0);
+        const bulkSjTrip = c.trips.find(t => t.adminBulkSjUrl && splitSjUrls(t.adminBulkSjUrl).length > 0);
         const activeTrip = c.trips[0];
 
         let bulkSjSectionHtml = '';
         if (bulkSjTrip) {
-            const sjCount = bulkSjTrip.adminBulkSjUrl.split(',').length;
+            const sjCount = splitSjUrls(bulkSjTrip.adminBulkSjUrl).length;
             bulkSjSectionHtml = `
-                <button class="btn btn-xs btn-outline-primary w-100 py-1.5 fw-bold mt-2" style="border-radius: 8px; font-size:0.725rem;" onclick="openAuditSjModal('${bulkSjTrip.id}')">
-                    <i class="bi bi-file-earmark-text-fill me-1"></i> 📄 Lihat Bulk SJ Awal (${sjCount} Foto)
-                </button>`;
+                <div class="d-flex gap-1 mt-2">
+                    <button class="btn btn-xs btn-outline-primary flex-grow-1 py-1.5 fw-bold" style="border-radius: 8px; font-size:0.725rem;" onclick="openAuditSjModal('${bulkSjTrip.id}')">
+                        <i class="bi bi-file-earmark-text-fill me-1"></i> 📄 Lihat Bulk SJ (${sjCount} Foto)
+                    </button>
+                    <button class="btn btn-xs btn-outline-danger py-1.5 fw-bold px-2" style="border-radius: 8px; font-size:0.725rem;" onclick="deleteBulkSj('${bulkSjTrip.id}')" title="Hapus Foto Bulk SJ">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>`;
         } else if (activeTrip) {
             bulkSjSectionHtml = `
                 <div class="mt-2 p-2 bg-light border rounded-3 text-start">
@@ -1937,7 +1942,7 @@ async function uploadBulkSjFromCard(tripId) {
         const validUrls = urls.filter(u => u && u.length > 0);
         if (validUrls.length === 0) throw new Error("Gagal mengunggah foto Bulk SJ.");
 
-        const combinedUrl = validUrls.join(',');
+        const combinedUrl = validUrls.join('|||');
 
         await activeDb.collection('trips').doc(tripId).update({
             adminBulkSjUrl: combinedUrl
@@ -1992,27 +1997,23 @@ function openAuditSjModal(tripId) {
     const courierContainer = document.getElementById('audit-courier-pod-container');
 
     if (adminContainer) {
-        if (trip.adminBulkSjUrl && trip.adminBulkSjUrl.trim().length > 0 && trip.adminBulkSjUrl !== 'undefined') {
-            const urls = trip.adminBulkSjUrl.split(',').map(u => u.trim()).filter(u => u.length > 0 && u !== 'undefined');
-            if (urls.length > 0) {
-                adminContainer.innerHTML = `
-                    <div class="mb-2 text-end">
-                        <button class="btn btn-xs btn-outline-danger fw-bold py-1 px-2" onclick="deleteBulkSj('${trip.id}')">
-                            <i class="bi bi-trash me-1"></i> Hapus Foto Bulk SJ
-                        </button>
-                    </div>
-                    <div class="d-flex flex-column gap-2 overflow-y-auto pe-1" style="max-height: 420px;">
-                        ${urls.map((u, i) => `
-                            <div class="p-1 border bg-dark rounded-3 mb-2 text-center">
-                                <small class="text-white extra-small fw-bold d-block mb-1">Bulk SJ Kantor #${i + 1}</small>
-                                <img src="${u}" class="w-100 rounded-3 cursor-pointer border shadow-sm" style="max-height: 280px; object-fit: contain; background: #000;" onclick="openPoDModal('${u}')" title="Klik untuk memperbesar">
-                                <a href="${u}" target="_blank" download class="btn btn-xs btn-outline-light w-100 mt-1 fw-bold"><i class="bi bi-download me-1"></i> Download HD #${i + 1}</a>
-                            </div>
-                        `).join('')}
-                    </div>`;
-            } else {
-                adminContainer.innerHTML = `<div class="text-white extra-small py-5 text-center"><i class="bi bi-image fs-1 d-block mb-2 opacity-50"></i> Belum ada Foto Bulk SJ Kantor dari Admin untuk tugas ini.</div>`;
-            }
+        const urls = splitSjUrls(trip.adminBulkSjUrl);
+        if (urls.length > 0) {
+            adminContainer.innerHTML = `
+                <div class="mb-2 text-end">
+                    <button class="btn btn-xs btn-outline-danger fw-bold py-1 px-2" onclick="deleteBulkSj('${trip.id}')">
+                        <i class="bi bi-trash me-1"></i> Hapus Foto Bulk SJ
+                    </button>
+                </div>
+                <div class="d-flex flex-column gap-2 overflow-y-auto pe-1" style="max-height: 420px;">
+                    ${urls.map((u, i) => `
+                        <div class="p-1 border bg-dark rounded-3 mb-2 text-center">
+                            <small class="text-white extra-small fw-bold d-block mb-1">Bulk SJ Kantor #${i + 1}</small>
+                            <img src="${u}" class="w-100 rounded-3 cursor-pointer border shadow-sm" style="max-height: 280px; object-fit: contain; background: #000;" onclick="openPoDModal('${u}')" title="Klik untuk memperbesar">
+                            <a href="${u}" target="_blank" download class="btn btn-xs btn-outline-light w-100 mt-1 fw-bold"><i class="bi bi-download me-1"></i> Download HD #${i + 1}</a>
+                        </div>
+                    `).join('')}
+                </div>`;
         } else {
             adminContainer.innerHTML = `<div class="text-white extra-small py-5 text-center"><i class="bi bi-image fs-1 d-block mb-2 opacity-50"></i> Belum ada Foto Bulk SJ Kantor dari Admin untuk tugas ini.</div>`;
         }
