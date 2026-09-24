@@ -92,6 +92,24 @@ fun ActiveTripScreen(trip: Trip, onBack: () -> Unit, onChatClick: () -> Unit) {
         Column(
             modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(innerPadding).padding(horizontal = 16.dp)
         ) {
+            // Auto-activate assigned trip directly without requiring "ACCEPT" button click
+            LaunchedEffect(currentTrip.tripId, currentTrip.status) {
+                if (currentTrip.status == "assigned") {
+                    db.collection("trips").document(currentTrip.tripId).update(
+                        "status", "in_progress",
+                        "acceptedTime", Timestamp.now()
+                    )
+                    fusedLocationClient.lastLocation.addOnSuccessListener { loc ->
+                        if (loc != null) {
+                            db.collection("trips").document(currentTrip.tripId).update(
+                                "acceptLatitude", loc.latitude,
+                                "acceptLongitude", loc.longitude
+                            )
+                        }
+                    }
+                }
+            }
+
             Card(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
@@ -100,42 +118,11 @@ fun ActiveTripScreen(trip: Trip, onBack: () -> Unit, onChatClick: () -> Unit) {
                 Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text("STATUS SAAT INI", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
-                        Text(currentTrip.status.replace("_", " ").uppercase(), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Black)
-                    }
-                    if (currentTrip.status == "assigned") {
-                        Button(
-                            onClick = {
-                                val map = mutableMapOf<String, Any>(
-                                    "status" to "accepted",
-                                    "acceptedTime" to Timestamp.now()
-                                )
-                                db.collection("trips").document(currentTrip.tripId).update(map)
-                                    .addOnSuccessListener {
-                                        Toast.makeText(context, "Tugas berhasil diterima!", Toast.LENGTH_SHORT).show()
-                                    }
-
-                                fusedLocationClient.lastLocation.addOnSuccessListener { loc ->
-                                    if (loc != null) {
-                                        db.collection("trips").document(currentTrip.tripId).update(
-                                            "acceptLatitude", loc.latitude,
-                                            "acceptLongitude", loc.longitude
-                                        )
-                                    } else {
-                                        fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, CancellationTokenSource().token)
-                                            .addOnSuccessListener { loc2 ->
-                                                if (loc2 != null) {
-                                                    db.collection("trips").document(currentTrip.tripId).update(
-                                                        "acceptLatitude", loc2.latitude,
-                                                        "acceptLongitude", loc2.longitude
-                                                    )
-                                                }
-                                            }
-                                    }
-                                }
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF1C40F), contentColor = Color.Black),
-                            shape = RoundedCornerShape(8.dp)
-                        ) { Text("TERIMA", fontWeight = FontWeight.Bold) }
+                        Text(
+                            if (currentTrip.status == "assigned") "TUGAS HARI INI" else currentTrip.status.replace("_", " ").uppercase(),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Black
+                        )
                     }
                 }
             }
@@ -930,14 +917,14 @@ fun DestinationItem(
                                         onUpdateWithCategorizedPhotos("done", capturedSjBitmap, capturedItemBitmaps.toList())
                                     }
                                 },
-                                enabled = totalPhotos > 0 && !isUploading,
+                                enabled = !isUploading,
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF1C40F), contentColor = Color.Black),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
                                 if (isUploading) {
                                     CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.Black, strokeWidth = 2.dp)
                                 } else {
-                                    Text("KIRIM ($totalPhotos FOTO)", fontWeight = FontWeight.Black)
+                                    Text(if (totalPhotos > 0) "KIRIM ($totalPhotos FOTO)" else "SELESAI (TANPA FOTO)", fontWeight = FontWeight.Black)
                                 }
                             }
                         }
