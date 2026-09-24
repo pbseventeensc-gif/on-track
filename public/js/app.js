@@ -813,6 +813,7 @@ function toggleCollapse() {
 function getRoleDisplayName(role) {
     const r = (role || '').toLowerCase();
     if (r === 'sales_admin' || r === 'sales') return 'Sales Admin';
+    if (r === 'admin_logistik' || r === 'adminlogistik') return 'Admin Logistik';
     if (r === 'admin_dm2' || r === 'dm2') return 'Admin DM2';
     if (r === 'branch_admin' || r === 'branch') return 'Admin Cabang';
     if (r === 'trafik' || r === 'traffic') return 'Trafik';
@@ -822,7 +823,10 @@ function getRoleDisplayName(role) {
 function isTabAllowedForRole(role, viewId) {
     const r = (role || 'super_admin').toLowerCase();
     if (r === 'sales_admin' || r === 'sales') {
-        return viewId === 'dashboard' || viewId === 'monitor';
+        return viewId === 'dashboard' || viewId === 'monitor' || viewId === 'pod-archive';
+    }
+    if (r === 'admin_logistik' || r === 'adminlogistik') {
+        return viewId !== 'fleet' && viewId !== 'reports' && viewId !== 'settings';
     }
     if (r === 'admin_dm2' || r === 'dm2') {
         return viewId === 'dashboard' || viewId === 'monitor' || viewId === 'dispatch' || viewId === 'pod-archive';
@@ -853,7 +857,10 @@ function applyRoleAccessControl() {
         if (navDispatch) navDispatch.style.display = 'none';
         if (navFleet) navFleet.style.display = 'none';
         if (navChat) navChat.style.display = 'none';
-        if (navPodArchive) navPodArchive.style.display = 'none';
+        if (navReports) navReports.style.display = 'none';
+        if (navSettings) navSettings.style.display = 'none';
+    } else if (r === 'admin_logistik' || r === 'adminlogistik') {
+        if (navFleet) navFleet.style.display = 'none';
         if (navReports) navReports.style.display = 'none';
         if (navSettings) navSettings.style.display = 'none';
     } else if (r === 'admin_dm2' || r === 'dm2') {
@@ -3053,14 +3060,14 @@ function initAuthListener() {
                         let uRole = (uData.role || '').toLowerCase();
                         let uEmail = (user.email || '').toLowerCase();
 
-                        if (!uRole) {
-                            if (uEmail.includes('sales')) uRole = 'sales_admin';
-                            else if (uEmail.includes('dm2')) uRole = 'admin_dm2';
-                            else uRole = 'super_admin';
-                        } else if (uEmail.includes('sales')) {
+                        if (uEmail.includes('sales')) {
                             uRole = 'sales_admin';
+                        } else if (uEmail.includes('adminlogistik') || uEmail.includes('admin_logistik')) {
+                            uRole = 'admin_logistik';
                         } else if (uEmail.includes('dm2') && uRole !== 'sales_admin') {
                             uRole = 'admin_dm2';
+                        } else if (!uRole) {
+                            uRole = 'super_admin';
                         }
 
                         currentUserRole = uRole;
@@ -3086,8 +3093,15 @@ function initAuthListener() {
 
                         const profileName = document.getElementById('profile-name');
                         const profileRole = document.getElementById('profile-role');
-                        if (profileName) profileName.innerText = uData.name || (uRole === 'sales_admin' ? 'Sales Admin' : (uRole === 'admin_dm2' ? 'Admin DM2' : 'admin'));
-                        if (profileRole) profileRole.innerHTML = `<span class="d-inline-block rounded-circle bg-success me-1" style="width: 7px; height: 7px;"></span>${getRoleDisplayName(currentUserRole)}`;
+
+                        const roleDisplayName = getRoleDisplayName(currentUserRole);
+                        let nameText = uData.name;
+                        if (!nameText || nameText.toLowerCase() === 'admin' || nameText.toLowerCase() === 'admin logistik' || currentUserRole === 'super_admin') {
+                            nameText = roleDisplayName;
+                        }
+
+                        if (profileName) profileName.innerText = nameText;
+                        if (profileRole) profileRole.innerHTML = `<span class="d-inline-block rounded-circle bg-success me-1" style="width: 7px; height: 7px;"></span>${roleDisplayName}`;
 
                         if (!doc.exists || !doc.data().role) {
                             currentDb.collection('users').doc(user.uid).set({
