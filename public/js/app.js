@@ -2422,45 +2422,53 @@ function openManualUploadModal(tripId, stopIndex, locationName) {
 }
 
 async function submitManualUploadPhoto() {
-    const tripId = document.getElementById('upload-modal-trip-id').value;
-    const stopIndex = parseInt(document.getElementById('upload-modal-stop-index').value);
-    const file = document.getElementById('upload-modal-file').files[0];
+    const tripId = document.getElementById('upload-modal-trip-id')?.value;
+    const stopIndex = parseInt(document.getElementById('upload-modal-stop-index')?.value || "1");
+    const sjFile = document.getElementById('upload-modal-sj-file')?.files?.[0] || document.getElementById('upload-modal-file')?.files?.[0];
+    const itemFile = document.getElementById('upload-modal-item-file')?.files?.[0];
     const statusEl = document.getElementById('upload-modal-status');
     const btn = document.getElementById('upload-modal-submit-btn');
 
-    if (!tripId || !file) return alert("Pilih file foto bukti terlebih dahulu!");
+    if (!tripId) return alert("ID Pengiriman tidak ditemukan.");
 
     if (btn) { btn.disabled = true; btn.innerText = "UPLOADING..."; }
-    if (statusEl) statusEl.innerText = "Mengunggah foto bukti...";
+    if (statusEl) statusEl.innerText = "Memproses & mengunggah foto bukti...";
 
     try {
-        const activeStorage = getStorage();
         const activeDb = getDb();
-        if (!activeStorage || !activeDb) throw new Error("Firebase Storage/Firestore belum siap.");
+        if (!activeDb) throw new Error("Firestore Database belum terhubung.");
 
-        const targetFile = await compressImageFile(file, 1000, 0.7);
+        let sjUrl = "";
+        let itemUrl = "";
 
-        const cleanTripId = tripId.replace(/[^a-zA-Z0-9]/g, '_');
-        const locName = document.getElementById('upload-modal-location-name')?.innerText || 'Client';
-        const cleanClientName = locName.replace(/[^a-zA-Z0-9]/g, '_');
-        const customFileName = `${cleanTripId}_Stop${stopIndex}_${cleanClientName}_${Date.now()}.jpg`;
+        if (sjFile) {
+            sjUrl = await uploadFileToCloudinaryOrFirebase(sjFile);
+        }
+        if (itemFile) {
+            itemUrl = await uploadFileToCloudinaryOrFirebase(itemFile);
+        }
 
-        const ref = activeStorage.ref(`proofs/${customFileName}`);
-        const task = await ref.put(targetFile);
-        const photoUrl = await task.ref.getDownloadURL();
+        const combinedList = [];
+        if (sjUrl) combinedList.push(sjUrl);
+        if (itemUrl) combinedList.push(itemUrl);
+        const combinedUrl = combinedList.join(',');
 
         const tripDocRef = activeDb.collection('trips').doc(tripId);
         const tripSnap = await tripDocRef.get();
 
         if (tripSnap.exists) {
             const tData = tripSnap.data();
+            const locName = document.getElementById('upload-modal-location-name')?.innerText;
+
             const updatedDests = (tData.destinations || []).map(d => {
-                if (d.stopIndex === stopIndex || (d.stopIndex === undefined && d.locationName === document.getElementById('upload-modal-location-name').innerText)) {
+                if (d.stopIndex === stopIndex || (d.stopIndex === undefined && d.locationName === locName)) {
                     return {
                         ...d,
                         status: "done",
                         completedTime: firebase.firestore.Timestamp.now(),
-                        proofPhotoUrl: photoUrl
+                        proofPhotoSj: sjUrl || d.proofPhotoSj || "",
+                        proofPhotoItems: itemUrl ? [itemUrl] : (d.proofPhotoItems || []),
+                        proofPhotoUrl: combinedUrl || d.proofPhotoUrl || ""
                     };
                 }
                 return d;
@@ -2469,23 +2477,81 @@ async function submitManualUploadPhoto() {
             const allDone = updatedDests.every(d => d.status === 'done' || (d.proofPhotoUrl && d.proofPhotoUrl.length > 0));
             const updateMap = { destinations: updatedDests };
             if (allDone) updateMap.status = "completed";
-            else if (tData.status === "assigned" || tData.status === "accepted") updateMap.status = "in_progress";
+            else updateMap.status = "in_progress";
 
             await tripDocRef.update(updateMap);
 
-            showToast("BUKTI FOTO BERHASIL DIUNGGAH! Status pengiriman di-update ke Selesai.");
+            showToast("✅ BUKTI FOTO BERHASIL DISIMPAN! Status pengiriman di-update ke Selesai.");
             const modalEl = document.getElementById('manualUploadModal');
             if (modalEl && typeof bootstrap !== 'undefined') {
                 bootstrap.Modal.getInstance(modalEl)?.hide();
             }
         }
     } catch(e) {
-        console.error("Manual upload error:", e);
+        console.error("Upload photo error:", e);
         alert("Gagal mengunggah foto: " + e.message);
     } finally {
         if (btn) { btn.disabled = false; btn.innerText = "UNGGAH & SELESAIKAN"; }
+        if (statusEl) statusEl.innerText = "";
     }
 }
+
+async function submitManualPendingPhoto() {
+    const tripId = document.getElementById('upload-modal-trip-id')?.value;
+    const stopIndex = parseInt(document.getElementById('upload-modal-stop-index')?.value || "1");
+    const reasonInput = document.getElementById('upload-modal-pending-reason')?.value?.trim();
+    const pendingFile = document.getElementById('upload-modal-pending-file')?.files?.[0];
+    const statusEl = document.getElementById('upload-modal-status');
+
+    if (!tripId) return alert("ID Pengiriman tidak ditemukan.");
+    const reason = reasonInput || "Klien Tutup";
+
+    if (statusEl) statusEl.innerText = "Melaporkan Klien Tutup / Pending...";
+
+    try {
+        const activeDb = getDb();
+        if (!activeDb) throw new Error("Firestore Database belum terhubung.");
+
+        let pendingPhotoUrl = "";
+        if (pendingFile) {
+            pendingPhotoUrl = await uploadFileToCloudinaryOrFirebase(pendingFile);
+        }
+
+        const tripDocRef = activeDb.collection('trips').doc(tripId);
+        const tripSnap = await tripDocRef.get();
+
+        if (tripSnap.exists) {
+            const tData = tripSnap.data();
+            const locName = document.getElementById('upload-modal-location-name')?.innerText;
+
+            const updatedDests = (tData.destinations || []).map(d => {
+                if (d.stopIndex === stopIndex || (d.stopIndex === undefined && d.locationName === locName)) {
+                    return {
+                        ...d,
+                        status: "pending_approval",
+                        pendingReason: reason,
+                        pendingProofPhotoUrl: pendingPhotoUrl
+                    };
+                }
+                return d;
+            });
+
+            await tripDocRef.update({ destinations: updatedDests });
+
+            showToast("🚨 LAPORAN KLIEN TUTUP BERHASIL DIKIRIM!");
+            const modalEl = document.getElementById('manualUploadModal');
+            if (modalEl && typeof bootstrap !== 'undefined') {
+                bootstrap.Modal.getInstance(modalEl)?.hide();
+            }
+        }
+    } catch(e) {
+        console.error("Pending report error:", e);
+        alert("Gagal melaporkan status pending: " + e.message);
+    } finally {
+        if (statusEl) statusEl.innerText = "";
+    }
+}
+window.submitManualPendingPhoto = submitManualPendingPhoto;
 
 function exportRecentShipmentsToExcel() {
     if (typeof XLSX === 'undefined') return alert("SheetJS library not loaded!");
