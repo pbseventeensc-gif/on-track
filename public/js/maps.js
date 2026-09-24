@@ -409,10 +409,10 @@ async function initAutocomplete() {
             autocomplete = new google.maps.places.Autocomplete(input, {
                 componentRestrictions: { country: "id" },
                 bounds: new google.maps.LatLngBounds(
-                    { lat: -6.8000, lng: 106.3000 },
-                    { lat: -5.8000, lng: 107.5000 }
+                    { lat: -7.2000, lng: 105.3000 },
+                    { lat: -5.5000, lng: 107.8000 }
                 ),
-                strictBounds: true,
+                strictBounds: false,
                 fields: ["geometry", "name", "formatted_address"]
             });
         } else if (window.google && google.maps && google.maps.importLibrary) {
