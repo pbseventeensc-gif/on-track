@@ -427,10 +427,11 @@
                     </div>
                 </div>
                 <div id="branch-selector-wrapper" class="d-flex align-items-center gap-2 me-2">
-                    <select id="header-branch-filter" class="form-select form-select-sm fw-bold border-success-subtle" style="border-radius: 10px; width: 140px; font-size: 0.8rem; background: #f0fdf4; color: #15803d; cursor: pointer;" onchange="switchBranchFilter(this.value)">
+                    <select id="header-branch-filter" class="form-select form-select-sm fw-bold border-success-subtle" style="border-radius: 10px; width: 160px; font-size: 0.8rem; background: #f0fdf4; color: #15803d; cursor: pointer;" onchange="switchBranchFilter(this.value)">
                         <option value="all">🏢 Semua Cabang</option>
                         <option value="pusat">📍 Pusat</option>
                         <option value="cikokol">📍 Cikokol</option>
+                        <option value="serang">📍 Serang (Banten)</option>
                     </select>
                 </div>
                 <button class="btn-new-shipment" onclick="switchTab('dispatch', document.querySelector('[onclick*=\'dispatch\']'))">
@@ -642,9 +643,11 @@
                                             <select id="region-filter" class="form-select form-select-sm w-auto border-0 bg-white shadow-sm fw-bold text-primary" onchange="loadClientsByRegion(this.value)">
                                                 <option value="">All Regions</option>
                                                 <option value="Auto-detected">Auto-detected</option>
+                                                <option value="Banten">Banten</option>
                                                 <option value="Bekasi">Bekasi</option>
                                                 <option value="Bogor">Bogor</option>
                                                 <option value="Cikarang">Cikarang</option>
+                                                <option value="Cilegon">Cilegon</option>
                                                 <option value="Depok">Depok</option>
                                                 <option value="Jakarta Barat">Jakarta Barat</option>
                                                 <option value="Jakarta Pusat">Jakarta Pusat</option>
@@ -652,6 +655,7 @@
                                                 <option value="Jakarta Timur">Jakarta Timur</option>
                                                 <option value="Jakarta Utara">Jakarta Utara</option>
                                                 <option value="Karawang">Karawang</option>
+                                                <option value="Serang">Serang</option>
                                                 <option value="Tangerang">Tangerang</option>
                                             </select>
                                         </div>
@@ -1137,8 +1141,8 @@
 
 <!-- Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<script src="/js/maps.js?v=117.0"></script>
-<script src="/js/kpi.js?v=117.0"></script>
-<script src="/js/app.js?v=117.0"></script>
+<script src="/js/maps.js?v=118.0"></script>
+<script src="/js/kpi.js?v=118.0"></script>
+<script src="/js/app.js?v=118.0"></script>
 </body>
 </html>

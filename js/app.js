@@ -188,7 +188,7 @@ window.isCourierInActiveBranch = isCourierInActiveBranch;
 
 function switchBranchFilter(branchVal) {
     if (typeof showToast === 'function') {
-        const branchNames = { 'all': 'Semua Cabang', 'pusat': 'Cabang Pusat', 'cikokol': 'Cabang Cikokol' };
+        const branchNames = { 'all': 'Semua Cabang', 'pusat': 'Cabang Pusat', 'cikokol': 'Cabang Cikokol', 'serang': 'Cabang Serang (Banten)' };
         showToast(`Memfilter tampilan ke: ${branchNames[branchVal] || branchVal}`);
     }
     if (typeof updateGlobalStats === 'function') updateGlobalStats();
@@ -1667,10 +1667,16 @@ async function syncDestinationsToMasterClients(destinations) {
             else if (addrLower.includes("jakarta selatan")) region = "Jakarta Selatan";
             else if (addrLower.includes("jakarta timur")) region = "Jakarta Timur";
             else if (addrLower.includes("jakarta utara")) region = "Jakarta Utara";
+            else if (addrLower.includes("serang")) region = "Serang";
+            else if (addrLower.includes("cilegon")) region = "Cilegon";
+            else if (addrLower.includes("pandeglang")) region = "Banten";
+            else if (addrLower.includes("lebak")) region = "Banten";
+            else if (addrLower.includes("banten")) region = "Banten";
             else if (addrLower.includes("bogor")) region = "Bogor";
             else if (addrLower.includes("cikarang")) region = "Cikarang";
             else if (addrLower.includes("tangerang")) region = "Tangerang";
             else if (addrLower.includes("bekasi")) region = "Bekasi";
+            else if (addrLower.includes("karawang")) region = "Karawang";
 
             const clientDocId = "CLIENT_" + name.replace(/[^a-zA-Z0-9]/g, "_").toUpperCase();
 
