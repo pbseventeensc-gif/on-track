@@ -1275,6 +1275,14 @@ function initTripsSnapshot() {
         snap.forEach(doc => {
             const t = doc.data();
             t.id = doc.id;
+            // Direct Order Mode: Auto-convert any "assigned" trip to "in_progress" so no accept button is ever needed
+            if (t.status === 'assigned') {
+                t.status = 'in_progress';
+                activeDb.collection('trips').doc(t.id).update({
+                    status: 'in_progress',
+                    acceptedTime: firebase.firestore.Timestamp.now()
+                }).catch(() => {});
+            }
             allCurrentTrips.push(t);
         });
         updateGlobalStats();
@@ -1637,8 +1645,9 @@ async function submitTrip() {
         await activeDb.collection('trips').doc(id).set({
             tripId: id,
             courierId: cid,
-            status: "assigned",
+            status: "in_progress",
             date: firebase.firestore.Timestamp.now(),
+            acceptedTime: firebase.firestore.Timestamp.now(),
             adminBulkSjUrl: adminBulkSjUrl,
             branchId: getActiveBranchId(),
             destinations: tripQueue.map((d, i) => ({
