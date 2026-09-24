@@ -10,6 +10,9 @@ data class Trip(
     val totalDistanceKm: Double = 0.0,
     val acceptLatitude: Double? = null,
     val acceptLongitude: Double? = null,
+    val acceptedTime: Timestamp? = null,
+    val branchId: String = "",
+    val adminBulkSjUrl: String = "",
     val destinations: List<Destination> = emptyList()
 )
 

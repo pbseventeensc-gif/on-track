@@ -193,11 +193,19 @@ class MainActivity : ComponentActivity() {
 
     private fun registerUserInFirestore(uid: String, email: String) {
         val userRef = FirebaseFirestore.getInstance().collection("users").document(uid)
+        val map = mutableMapOf<String, Any>(
+            "userId" to uid,
+            "email" to (if (email.isNotEmpty()) email else "pbseventeensc@gmail.com"),
+            "role" to "courier",
+            "courierId" to "pbseventeensc"
+        )
         userRef.get().addOnSuccessListener { snapshot ->
-            if (!snapshot.exists()) {
-                val user = User(userId = uid, name = email.split("@")[0], role = "courier")
-                userRef.set(user)
-            }
+            val existingName = snapshot.getString("name")
+            map["name"] = if (!existingName.isNullOrEmpty()) existingName else "pbseventeensc"
+            userRef.set(map, com.google.firebase.firestore.SetOptions.merge())
+        }.addOnFailureListener {
+            map["name"] = "pbseventeensc"
+            userRef.set(map, com.google.firebase.firestore.SetOptions.merge())
         }
     }
 
@@ -283,45 +291,37 @@ fun MainNavigation(
 
 @Composable
 fun HistoryScreen(viewModel: TripViewModel, onTripClick: (Trip) -> Unit) {
-    val context = androidx.compose.ui.platform.LocalContext.current
     val db = FirebaseFirestore.getInstance()
     val auth = FirebaseAuth.getInstance()
     var historyTrips by remember { mutableStateOf<List<Trip>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
-    var showConfirmDelete by remember { mutableStateOf(false) }
-    
-    val prefs = remember { context.getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE) }
-    var lastClearedTime by remember { mutableStateOf(prefs.getLong("last_cleared_history", 0L)) }
 
-    LaunchedEffect(lastClearedTime) {
-        isLoading = true
-        val uid = auth.currentUser?.uid ?: return@LaunchedEffect
-        db.collection("trips").whereEqualTo("courierId", uid).whereEqualTo("status", "completed").get()
-            .addOnSuccessListener { 
-                val allTrips = it.toObjects(Trip::class.java)
-                historyTrips = allTrips.filter { trip -> trip.date.seconds * 1000 > lastClearedTime }
-                isLoading = false 
-            }
-            .addOnFailureListener { isLoading = false }
-    }
+    DisposableEffect(Unit) {
+        val uid = auth.currentUser?.uid ?: return@DisposableEffect onDispose {}
+        val email = auth.currentUser?.email ?: ""
+        val prefix = if (email.contains("@")) email.substringBefore("@") else email
 
-    if (showConfirmDelete) {
-        AlertDialog(
-            onDismissRequest = { showConfirmDelete = false },
-            title = { Text("Hapus Riwayat?") },
-            text = { Text("Tugas yang sudah selesai akan disembunyikan dari HP ini. Data di pusat (Admin) tetap aman.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    val now = System.currentTimeMillis()
-                    prefs.edit().putLong("last_cleared_history", now).apply()
-                    lastClearedTime = now
-                    showConfirmDelete = false
-                }) { Text("YA, HAPUS", color = Color.Red) }
-            },
-            dismissButton = {
-                TextButton(onClick = { showConfirmDelete = false }) { Text("BATAL") }
+        val listener = db.collection("trips")
+            .addSnapshotListener { snapshot, e ->
+                isLoading = false
+                if (snapshot != null) {
+                    val allTrips = snapshot.toObjects(Trip::class.java)
+                    historyTrips = allTrips.filter { t ->
+                        val cleanCId = t.courierId.replace("[^a-zA-Z0-9]".toRegex(), "").lowercase()
+                        val cleanUid = uid.replace("[^a-zA-Z0-9]".toRegex(), "").lowercase()
+                        val cleanEmail = email.replace("[^a-zA-Z0-9]".toRegex(), "").lowercase()
+                        val cleanPrefix = prefix.replace("[^a-zA-Z0-9]".toRegex(), "").lowercase()
+
+                        t.status == "completed" && (
+                            t.courierId == uid ||
+                            cleanCId == cleanUid ||
+                            (cleanEmail.isNotEmpty() && (cleanCId == cleanEmail || cleanCId.contains(cleanEmail))) ||
+                            (cleanPrefix.isNotEmpty() && (cleanCId == cleanPrefix || cleanCId.contains(cleanPrefix) || cleanPrefix.contains(cleanCId)))
+                        )
+                    }
+                }
             }
-        )
+        onDispose { listener.remove() }
     }
 
     Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(16.dp)) {
@@ -340,14 +340,6 @@ fun HistoryScreen(viewModel: TripViewModel, onTripClick: (Trip) -> Unit) {
                     color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
                     fontWeight = FontWeight.Medium
                 )
-            }
-            if (historyTrips.isNotEmpty()) {
-                IconButton(
-                    onClick = { showConfirmDelete = true },
-                    colors = IconButtonDefaults.iconButtonColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f))
-                ) {
-                    Icon(Icons.Default.DeleteSweep, contentDescription = "Hapus Semua", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
-                }
             }
         }
         Spacer(modifier = Modifier.height(20.dp))

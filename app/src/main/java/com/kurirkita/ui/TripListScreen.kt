@@ -170,10 +170,17 @@ fun TripCard(trip: Trip, onClick: (Trip) -> Unit) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     val statusColor = when(trip.status) {
-                        "assigned" -> Color(0xFF94A3B8)
-                        "accepted" -> Color(0xFFF59E0B)
+                        "assigned" -> Color(0xFF8B5CF6)
+                        "accepted" -> Color(0xFF3B82F6)
                         "in_progress" -> Color(0xFF3B82F6)
                         else -> Color(0xFF10B981)
+                    }
+
+                    val statusLabel = when(trip.status) {
+                        "assigned" -> "TUGAS"
+                        "accepted" -> "IN PROGRESS"
+                        "in_progress" -> "IN PROGRESS"
+                        else -> trip.status.uppercase()
                     }
                     
                     Surface(
@@ -181,7 +188,7 @@ fun TripCard(trip: Trip, onClick: (Trip) -> Unit) {
                         shape = androidx.compose.foundation.shape.CircleShape
                     ) {
                         Text(
-                            text = trip.status.uppercase(),
+                            text = statusLabel,
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
