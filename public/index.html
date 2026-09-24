@@ -568,23 +568,24 @@
                                         <span class="extra-small text-muted fw-bold ms-1">Sampai:</span>
                                         <input type="date" id="recent-end-date" class="form-control form-control-sm border-0 bg-transparent fw-normal py-1" style="width: 125px; font-size: 0.8rem;" onchange="renderRecentShipments()">
                                     </div>
-                                    <select id="recent-carrier-filter" class="form-select form-select-sm fw-normal py-2" style="border-radius: 10px; width: 135px; font-size: 0.8rem; background: #f8fafc;" onchange="renderRecentShipments()">
-                                        <option value="all">Semua Kurir</option>
-                                    </select>
-                                    <div class="btn-group btn-group-sm border rounded-3 p-1 bg-light" role="group" id="recent-status-badge-group">
-                                        <button type="button" class="btn btn-dark active fw-bold extra-small" style="border-radius: 6px;" onclick="filterRecentByStatus('all', this)">Semua</button>
-                                        <button type="button" class="btn btn-outline-primary fw-bold extra-small" style="border-radius: 6px;" onclick="filterRecentByStatus('in_progress', this)">In Progress</button>
-                                        <button type="button" class="btn btn-outline-warning text-dark fw-bold extra-small" style="border-radius: 6px;" onclick="filterRecentByStatus('assigned', this)">Pending</button>
-                                        <button type="button" class="btn btn-outline-success fw-bold extra-small" style="border-radius: 6px;" onclick="filterRecentByStatus('completed', this)">Completed</button>
+                                    <div class="d-flex align-items-center gap-1 bg-light border p-1 px-2" style="border-radius: 10px;">
+                                        <i class="bi bi-person-badge text-muted extra-small ms-1"></i>
+                                        <span class="extra-small text-muted fw-bold">Kurir:</span>
+                                        <select id="recent-carrier-filter" class="form-select form-select-sm border-0 bg-transparent fw-bold py-1" style="width: 145px; font-size: 0.8rem; color: #1e293b; cursor: pointer;" onchange="renderRecentShipments()">
+                                            <option value="all">🛵 Semua Kurir</option>
+                                        </select>
                                     </div>
-                                    <select id="recent-status-filter" class="form-select form-select-sm fw-normal py-2 d-none" onchange="renderRecentShipments()">
-                                        <option value="all">Semua Status</option>
-                                        <option value="active_all">Semua Aktif</option>
-                                        <option value="in_progress">In Progress</option>
-                                        <option value="delayed">Terlambat (Delayed)</option>
-                                        <option value="assigned">Pending</option>
-                                        <option value="completed">Completed</option>
-                                    </select>
+                                    <div class="d-flex align-items-center gap-1 bg-light border p-1 px-2" style="border-radius: 10px;">
+                                        <i class="bi bi-funnel text-muted extra-small ms-1"></i>
+                                        <span class="extra-small text-muted fw-bold">Status:</span>
+                                        <select id="recent-status-filter" class="form-select form-select-sm border-0 bg-transparent fw-bold py-1" style="width: 155px; font-size: 0.8rem; color: #1e293b; cursor: pointer;" onchange="renderRecentShipments()">
+                                            <option value="all">📊 Semua Status</option>
+                                            <option value="in_progress">🚚 In Progress</option>
+                                            <option value="assigned">⌛ Pending / Ditugaskan</option>
+                                            <option value="completed">✅ Completed / Selesai</option>
+                                            <option value="delayed">⚠️ Terlambat (Delayed)</option>
+                                        </select>
+                                    </div>
                                     <div class="position-relative">
                                         <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"></i>
                                         <input type="text" id="recent-shipment-search" class="form-control form-control-sm ps-5 py-2 fw-normal" style="border-radius: 10px; width: 200px; background: #f8fafc;" placeholder="Cari ID, Alamat, Kurir..." oninput="renderRecentShipments(this.value)" autocomplete="off">
@@ -1167,8 +1168,8 @@
 
 <!-- Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<script src="/js/maps.js?v=139.0"></script>
-<script src="/js/kpi.js?v=139.0"></script>
-<script src="/js/app.js?v=139.0"></script>
+<script src="/js/maps.js?v=140.0"></script>
+<script src="/js/kpi.js?v=140.0"></script>
+<script src="/js/app.js?v=140.0"></script>
 </body>
 </html>

@@ -1239,10 +1239,7 @@ async function promptEditCourierName(id, currentName) {
 
 function renderCourierOptions() {
     const sel = document.getElementById('sel-courier');
-    if (!sel) return;
-
-    const currentVal = sel.value;
-    sel.innerHTML = '<option value="">Select Carrier...</option>';
+    const recentCarrierSel = document.getElementById('recent-carrier-filter');
 
     const sortedCouriers = [];
     const addedUids = new Set();
@@ -1250,7 +1247,6 @@ function renderCourierOptions() {
     // 1. Add couriers from registeredUsers
     for (const uid in registeredUsers) {
         if (!isCourierUser(uid)) continue;
-        if (typeof isCourierInActiveBranch === 'function' && !isCourierInActiveBranch(uid)) continue;
         sortedCouriers.push({ uid: uid, name: registeredUsers[uid] });
         addedUids.add(uid);
     }
@@ -1284,12 +1280,25 @@ function renderCourierOptions() {
 
     sortedCouriers.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
 
-    sortedCouriers.forEach(c => {
-        const isSel = (c.uid === currentVal) ? 'selected' : '';
-        sel.innerHTML += `<option value="${c.uid}" ${isSel}>${c.name}</option>`;
-    });
+    if (sel) {
+        const currentVal = sel.value;
+        sel.innerHTML = '<option value="">Select Carrier...</option>';
+        sortedCouriers.forEach(c => {
+            const isSel = (c.uid === currentVal) ? 'selected' : '';
+            sel.innerHTML += `<option value="${c.uid}" ${isSel}>${c.name}</option>`;
+        });
+        if (currentVal) sel.value = currentVal;
+    }
 
-    if (currentVal) sel.value = currentVal;
+    if (recentCarrierSel) {
+        const currentVal = recentCarrierSel.value || "all";
+        recentCarrierSel.innerHTML = '<option value="all">🛵 Semua Kurir</option>';
+        sortedCouriers.forEach(c => {
+            const isSel = (c.uid === currentVal) ? 'selected' : '';
+            recentCarrierSel.innerHTML += `<option value="${c.uid}" ${isSel}>${c.name}</option>`;
+        });
+        if (currentVal) recentCarrierSel.value = currentVal;
+    }
 }
 
 function initRtdbListener() {
