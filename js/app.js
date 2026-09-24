@@ -1236,20 +1236,58 @@ async function promptEditCourierName(id, currentName) {
 }
 
 function renderCourierOptions() {
-    const sel = document.getElementById('sel-courier'); if(!sel) return;
+    const sel = document.getElementById('sel-courier');
+    if (!sel) return;
+
+    const currentVal = sel.value;
     sel.innerHTML = '<option value="">Select Carrier...</option>';
 
     const sortedCouriers = [];
+    const addedUids = new Set();
+
+    // 1. Add couriers from registeredUsers
     for (const uid in registeredUsers) {
         if (!isCourierUser(uid)) continue;
         if (typeof isCourierInActiveBranch === 'function' && !isCourierInActiveBranch(uid)) continue;
         sortedCouriers.push({ uid: uid, name: registeredUsers[uid] });
+        addedUids.add(uid);
     }
+
+    // 2. Add couriers from active trips
+    if (typeof allCurrentTrips !== 'undefined' && allCurrentTrips) {
+        allCurrentTrips.forEach(t => {
+            if (t.courierId && !addedUids.has(t.courierId)) {
+                const cName = getCourierDisplayName(t.courierId);
+                sortedCouriers.push({ uid: t.courierId, name: cName });
+                addedUids.add(t.courierId);
+            }
+        });
+    }
+
+    // 3. Always include default active couriers as instant fallback
+    const defaultCouriers = [
+        { uid: "pbseventeensc", name: "pbseventeensc" },
+        { uid: "Beto", name: "Beto" },
+        { uid: "UP70R51X", name: "pbseventeensc (UP70R51X)" },
+        { uid: "Bayhaqi", name: "Bayhaqi" },
+        { uid: "Ahmad", name: "Ahmad" }
+    ];
+
+    defaultCouriers.forEach(dc => {
+        if (!addedUids.has(dc.uid)) {
+            sortedCouriers.push(dc);
+            addedUids.add(dc.uid);
+        }
+    });
+
     sortedCouriers.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
 
     sortedCouriers.forEach(c => {
-        sel.innerHTML += `<option value="${c.uid}">${c.name}</option>`;
+        const isSel = (c.uid === currentVal) ? 'selected' : '';
+        sel.innerHTML += `<option value="${c.uid}" ${isSel}>${c.name}</option>`;
     });
+
+    if (currentVal) sel.value = currentVal;
 }
 
 function initRtdbListener() {
