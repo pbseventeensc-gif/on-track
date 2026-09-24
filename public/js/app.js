@@ -1817,14 +1817,13 @@ function renderMonitorUI(filter = "") {
 
     const courierGroups = {};
     allCurrentTrips.forEach(t => {
-        const tripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : 0);
-        if (tripMs < todayDayMs) return; // Clean H+1: Only show today's trips
-        // Keep completed trips visible so admin can upload/view Bulk SJ photos even after completion
         const cId = t.courierId;
-        const cName = registeredUsers[cId] || cId.substring(0,8);
-        const clients = t.destinations ? t.destinations.map(d => d.locationName.toLowerCase()).join(" ") : "";
+        if (!cId) return;
+        if (typeof isTripInActiveBranch === 'function' && !isTripInActiveBranch(t)) return;
+        const cName = getCourierDisplayName(cId);
+        const clients = t.destinations ? t.destinations.map(d => (d.locationName || '').toLowerCase()).join(" ") : "";
 
-        if (cName.toLowerCase().includes(search) || t.id.toLowerCase().includes(search) || clients.includes(search)) {
+        if (!search || cName.toLowerCase().includes(search) || (t.id || '').toLowerCase().includes(search) || clients.includes(search)) {
             if (!courierGroups[cId]) {
                 courierGroups[cId] = { id: cId, name: cName, trips: [], totalStops: 0, doneStops: 0 };
             }
