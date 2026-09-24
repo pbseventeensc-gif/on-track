@@ -427,8 +427,8 @@
                     </div>
                 </div>
                 <div id="branch-selector-wrapper" class="d-flex align-items-center gap-2 me-2">
-                    <select id="header-branch-filter" class="form-select form-select-sm fw-bold border-success-subtle" style="border-radius: 10px; width: 140px; font-size: 0.8rem; background: #f0fdf4; color: #15803d; cursor: pointer;" onchange="switchBranchFilter(this.value)">
-                        <option value="all">🏢 Semua Cabang</option>
+                    <select id="header-branch-filter" class="form-select form-select-sm fw-bold border-success-subtle" style="border-radius: 10px; width: 140px; font-size: 0.8rem; background: #f0fdf4; color: #15803d; cursor: pointer;" onchange="switchBranchFilter(this.value); if(typeof showToast==='function') showToast('Memfilter tampilan: ' + this.options[this.selectedIndex].text);">
+                        <option value="all" selected>🏢 Semua Cabang</option>
                         <option value="pusat">📍 Pusat</option>
                         <option value="cikokol">📍 Cikokol</option>
                     </select>
@@ -1167,8 +1167,8 @@
 
 <!-- Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<script src="/js/maps.js?v=138.0"></script>
-<script src="/js/kpi.js?v=138.0"></script>
-<script src="/js/app.js?v=138.0"></script>
+<script src="/js/maps.js?v=139.0"></script>
+<script src="/js/kpi.js?v=139.0"></script>
+<script src="/js/app.js?v=139.0"></script>
 </body>
 </html>

@@ -164,23 +164,16 @@ function isTripInActiveBranch(t) {
     const activeBranch = getActiveBranchId();
     if (!activeBranch || activeBranch === 'all') return true;
     if (!t || !t.branchId) return true; // Show trips without explicit branchId across all views
-    const tripBranch = getTripBranch(t);
-    return tripBranch === activeBranch;
+    return t.branchId.toLowerCase() === activeBranch.toLowerCase();
 }
 window.isTripInActiveBranch = isTripInActiveBranch;
 
 function isCourierInActiveBranch(courierUidOrName) {
-    const activeBranch = getActiveBranchId();
-    if (!activeBranch || activeBranch === 'all') return true;
-    return true; // Show couriers on live tracking across all branch views
+    return true; // Show couriers across all branch views
 }
 window.isCourierInActiveBranch = isCourierInActiveBranch;
 
 function switchBranchFilter(branchVal) {
-    if (typeof showToast === 'function') {
-        const branchNames = { 'all': 'Semua Cabang', 'pusat': 'Cabang Pusat', 'cikokol': 'Cabang Cikokol' };
-        showToast(`Memfilter tampilan ke: ${branchNames[branchVal] || branchVal}`);
-    }
     if (typeof updateGlobalStats === 'function') updateGlobalStats();
     if (typeof renderRecentShipments === 'function') renderRecentShipments();
     if (typeof renderMonitorUI === 'function') renderMonitorUI();
@@ -1840,7 +1833,21 @@ function renderMonitorUI(filter = "") {
     if (typeof currentOnlineCouriers !== 'undefined' && currentOnlineCouriers) {
         Object.keys(currentOnlineCouriers).forEach(cId => {
             if (!cId) return;
-            if (typeof isCourierInActiveBranch === 'function' && !isCourierInActiveBranch(cId)) return;
+            const cName = getCourierDisplayName(cId);
+            if (!search || cName.toLowerCase().includes(search) || cId.toLowerCase().includes(search)) {
+                if (!courierGroups[cId]) {
+                    courierGroups[cId] = { id: cId, name: cName, trips: [], totalStops: 0, doneStops: 0 };
+                }
+            }
+        });
+    }
+
+    // Also include all registered couriers
+    if (typeof registeredUsers !== 'undefined' && registeredUsers) {
+        Object.keys(registeredUsers).forEach(cId => {
+            if (!cId) return;
+            const role = (typeof userRoles !== 'undefined' && userRoles[cId]) ? userRoles[cId] : '';
+            if (role === 'admin' || role === 'super_admin' || role === 'admin_dm2') return;
             const cName = getCourierDisplayName(cId);
             if (!search || cName.toLowerCase().includes(search) || cId.toLowerCase().includes(search)) {
                 if (!courierGroups[cId]) {
