@@ -162,7 +162,8 @@ window.getTripBranch = getTripBranch;
 
 function isTripInActiveBranch(t) {
     const activeBranch = getActiveBranchId();
-    if (activeBranch === 'all') return true;
+    if (!activeBranch || activeBranch === 'all') return true;
+    if (!t || !t.branchId) return true; // Show trips without explicit branchId across all views
     const tripBranch = getTripBranch(t);
     return tripBranch === activeBranch;
 }
@@ -170,19 +171,8 @@ window.isTripInActiveBranch = isTripInActiveBranch;
 
 function isCourierInActiveBranch(courierUidOrName) {
     const activeBranch = getActiveBranchId();
-    if (activeBranch === 'all') return true;
-
-    let courierUid = courierUidOrName;
-    if (typeof registeredUsers !== 'undefined' && registeredUsers) {
-        if (!registeredUsersObjects || !registeredUsersObjects[courierUid]) {
-            const foundUid = Object.keys(registeredUsers).find(k => registeredUsers[k] === courierUidOrName);
-            if (foundUid) courierUid = foundUid;
-        }
-    }
-
-    const courierObj = (typeof registeredUsersObjects !== 'undefined' && registeredUsersObjects) ? registeredUsersObjects[courierUid] : null;
-    const courierBranch = (courierObj && courierObj.branchId) ? courierObj.branchId.toLowerCase() : 'pusat';
-    return courierBranch === activeBranch;
+    if (!activeBranch || activeBranch === 'all') return true;
+    return true; // Show couriers on live tracking across all branch views
 }
 window.isCourierInActiveBranch = isCourierInActiveBranch;
 

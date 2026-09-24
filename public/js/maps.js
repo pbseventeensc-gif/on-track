@@ -177,22 +177,13 @@ function updateMapMarkers(filter = "") {
     // 2. Render All Trip Destinations & Route Lines
     if (typeof allCurrentTrips === 'undefined') return;
 
-    const now = new Date();
-    const todayDayMs = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-
     allCurrentTrips.forEach(t => {
         if (typeof isTripInActiveBranch === 'function' && !isTripInActiveBranch(t)) return;
 
         const cName = (typeof registeredUsers !== 'undefined' && registeredUsers[t.courierId]) ? registeredUsers[t.courierId] : t.courierId.substring(0,8);
         const cColor = typeof getCourierColor === 'function' ? getCourierColor(t.courierId) : '#3B82F6';
-        const tripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : (t.id ? parseInt(t.id.replace('TRIP_', '')) || 0 : 0));
 
-        // Clean map on new day (H+1): Only render map markers for TODAY'S active trips
-        if (tripMs < todayDayMs) {
-            return;
-        }
-
-        if (t.status !== 'completed' && t.destinations && t.destinations.length > 0) {
+        if (t.destinations && t.destinations.length > 0) {
             const routePoints = [];
 
             const livePos = (typeof currentOnlineCouriers !== 'undefined') ? currentOnlineCouriers[t.courierId] : null;
