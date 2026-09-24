@@ -1587,40 +1587,21 @@ async function compressImageFile(file, maxDimension = 1000, quality = 0.7) {
 }
 
 async function uploadFileToCloudinaryOrFirebase(file) {
-    const targetFile = (file && file.type && file.type.startsWith('image/')) ? await compressImageFile(file, 1000, 0.7) : file;
-
-    return new Promise((resolve) => {
-        if (!targetFile) return resolve("");
-
-        const reader = new FileReader();
-        reader.onload = (evt) => {
-            const dataUrl = evt.target.result;
-
-            try {
-                const formData = new FormData();
-                formData.append("file", targetFile);
-                formData.append("upload_preset", "KurirTrack");
-                formData.append("folder", "wellen_proofs");
-
-                fetch("https://api.cloudinary.com/v1_1/wellen_proofs/image/upload", {
-                    method: "POST",
-                    body: formData
-                }).then(res => res.json()).then(data => {
-                    if (data && data.secure_url) {
-                        resolve(data.secure_url);
-                    } else {
-                        resolve(dataUrl);
-                    }
-                }).catch(() => {
-                    resolve(dataUrl);
-                });
-            } catch(e) {
-                resolve(dataUrl);
-            }
-        };
-        reader.onerror = () => resolve("");
-        reader.readAsDataURL(targetFile);
-    });
+    if (!file) return "";
+    try {
+        const compressed = (file.type && file.type.startsWith('image/')) ? await compressImageFile(file, 800, 0.65) : file;
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                resolve(evt.target.result || "");
+            };
+            reader.onerror = () => resolve("");
+            reader.readAsDataURL(compressed);
+        });
+    } catch (e) {
+        console.error("Image processing error:", e);
+        return "";
+    }
 }
 
 async function submitTrip() {

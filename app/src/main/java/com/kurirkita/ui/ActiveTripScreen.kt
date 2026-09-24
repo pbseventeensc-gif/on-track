@@ -39,9 +39,6 @@ import com.google.firebase.storage.FirebaseStorage
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
-import com.cloudinary.android.MediaManager
-import com.cloudinary.android.callback.ErrorInfo
-import com.cloudinary.android.callback.UploadCallback
 import androidx.core.content.FileProvider
 import java.io.File
 import android.net.Uri
@@ -1044,33 +1041,25 @@ private fun uploadCategorizedPhotosAndUpdate(
 }
 
 private fun uploadSinglePhotoBytes(storage: FirebaseStorage, bytes: ByteArray, onComplete: (String?) -> Unit) {
-    val ref = storage.reference.child("proofs/${UUID.randomUUID()}.jpg")
-    ref.putBytes(bytes).addOnSuccessListener {
-        ref.downloadUrl.addOnSuccessListener { uri ->
-            onComplete(uri.toString())
+    try {
+        val ref = storage.reference.child("proofs/${UUID.randomUUID()}.jpg")
+        ref.putBytes(bytes).addOnSuccessListener {
+            ref.downloadUrl.addOnSuccessListener { uri ->
+                onComplete(uri.toString())
+            }.addOnFailureListener {
+                onComplete(createBase64DataUrl(bytes))
+            }
         }.addOnFailureListener {
-            uploadToCloudinaryFallback(bytes, onComplete)
+            onComplete(createBase64DataUrl(bytes))
         }
-    }.addOnFailureListener {
-        uploadToCloudinaryFallback(bytes, onComplete)
+    } catch (e: Exception) {
+        onComplete(createBase64DataUrl(bytes))
     }
 }
 
-private fun uploadToCloudinaryFallback(bytes: ByteArray, onComplete: (String?) -> Unit) {
-    try {
-        MediaManager.get().upload(bytes).unsigned("KurirTrack").option("folder", "wellen_proofs").callback(object : UploadCallback {
-            override fun onStart(id: String?) {}
-            override fun onProgress(id: String?, b: Long, t: Long) {}
-            override fun onSuccess(id: String?, res: Map<*, *>?) {
-                val url = res?.get("secure_url") as? String
-                onComplete(url)
-            }
-            override fun onError(id: String?, e: ErrorInfo?) { onComplete(null) }
-            override fun onReschedule(id: String?, e: ErrorInfo?) { onComplete(null) }
-        }).dispatch()
-    } catch (e: Exception) {
-        onComplete(null)
-    }
+private fun createBase64DataUrl(bytes: ByteArray): String {
+    val base64Str = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+    return "data:image/jpeg;base64,$base64Str"
 }
 
 private fun updateDestinationStatus(
