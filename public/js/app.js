@@ -1952,6 +1952,30 @@ async function uploadBulkSjFromCard(tripId) {
 }
 window.uploadBulkSjFromCard = uploadBulkSjFromCard;
 
+async function deleteBulkSj(tripId) {
+    if (!confirm("Apakah Anda yakin ingin menghapus foto Bulk SJ Awal Kantor untuk tugas ini?")) return;
+    try {
+        const activeDb = getDb();
+        if (!activeDb) throw new Error("Database belum terhubung.");
+
+        await activeDb.collection('trips').doc(tripId).update({
+            adminBulkSjUrl: ""
+        });
+
+        showToast("🗑️ Foto Bulk SJ Awal Kantor berhasil dihapus.");
+        if (typeof renderMonitorUI === 'function') renderMonitorUI();
+
+        const modalEl = document.getElementById('auditSjModal');
+        if (modalEl && typeof bootstrap !== 'undefined') {
+            const instance = bootstrap.Modal.getInstance(modalEl);
+            if (instance) instance.hide();
+        }
+    } catch(e) {
+        alert("Gagal menghapus foto Bulk SJ: " + e.message);
+    }
+}
+window.deleteBulkSj = deleteBulkSj;
+
 function openAuditSjModal(tripId) {
     const trip = allCurrentTrips.find(t => t.id === tripId);
     if (!trip) return alert("Data pengiriman tidak ditemukan!");
@@ -1968,27 +1992,29 @@ function openAuditSjModal(tripId) {
     const courierContainer = document.getElementById('audit-courier-pod-container');
 
     if (adminContainer) {
-        if (trip.adminBulkSjUrl && trip.adminBulkSjUrl !== 'undefined') {
+        if (trip.adminBulkSjUrl && trip.adminBulkSjUrl.trim().length > 0 && trip.adminBulkSjUrl !== 'undefined') {
             const urls = trip.adminBulkSjUrl.split(',').map(u => u.trim()).filter(u => u.length > 0 && u !== 'undefined');
-            const validUrls = urls.length > 0 ? urls : [FALLBACK_POD_PHOTO];
-            if (validUrls.length > 1) {
+            if (urls.length > 0) {
                 adminContainer.innerHTML = `
+                    <div class="mb-2 text-end">
+                        <button class="btn btn-xs btn-outline-danger fw-bold py-1 px-2" onclick="deleteBulkSj('${trip.id}')">
+                            <i class="bi bi-trash me-1"></i> Hapus Foto Bulk SJ
+                        </button>
+                    </div>
                     <div class="d-flex flex-column gap-2 overflow-y-auto pe-1" style="max-height: 420px;">
-                        ${validUrls.map((u, i) => `
-                            <div class="p-1 border bg-dark rounded-3">
+                        ${urls.map((u, i) => `
+                            <div class="p-1 border bg-dark rounded-3 mb-2 text-center">
                                 <small class="text-white extra-small fw-bold d-block mb-1">Bulk SJ Kantor #${i + 1}</small>
-                                <img src="${u}" onerror="this.onerror=null;this.src='${FALLBACK_POD_PHOTO}'" class="w-100 rounded-3 cursor-pointer border shadow-sm" style="max-height: 250px; object-fit: contain;" onclick="openPoDModal('${u}')" title="Klik untuk memperbesar">
+                                <img src="${u}" class="w-100 rounded-3 cursor-pointer border shadow-sm" style="max-height: 280px; object-fit: contain; background: #000;" onclick="openPoDModal('${u}')" title="Klik untuk memperbesar">
                                 <a href="${u}" target="_blank" download class="btn btn-xs btn-outline-light w-100 mt-1 fw-bold"><i class="bi bi-download me-1"></i> Download HD #${i + 1}</a>
                             </div>
                         `).join('')}
                     </div>`;
             } else {
-                adminContainer.innerHTML = `
-                    <img src="${validUrls[0]}" onerror="this.onerror=null;this.src='${FALLBACK_POD_PHOTO}'" class="w-100 rounded-3 cursor-pointer border shadow-sm" style="max-height: 420px; object-fit: contain; background: #000;" onclick="openPoDModal('${validUrls[0]}')" title="Klik untuk memperbesar gambar">
-                    <a href="${validUrls[0]}" target="_blank" download class="btn btn-sm btn-dark w-100 mt-2 fw-bold"><i class="bi bi-download me-1"></i> Download HD Foto Bulk SJ</a>`;
+                adminContainer.innerHTML = `<div class="text-white extra-small py-5 text-center"><i class="bi bi-image fs-1 d-block mb-2 opacity-50"></i> Belum ada Foto Bulk SJ Kantor dari Admin untuk tugas ini.</div>`;
             }
         } else {
-            adminContainer.innerHTML = `<div class="text-white extra-small py-5"><i class="bi bi-image fs-1 d-block mb-2 opacity-50"></i> Belum ada Foto Bulk SJ Kantor dari Admin untuk tugas ini.</div>`;
+            adminContainer.innerHTML = `<div class="text-white extra-small py-5 text-center"><i class="bi bi-image fs-1 d-block mb-2 opacity-50"></i> Belum ada Foto Bulk SJ Kantor dari Admin untuk tugas ini.</div>`;
         }
     }
 
