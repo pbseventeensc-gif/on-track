@@ -1337,6 +1337,8 @@ function initTripsSnapshot() {
         });
         updateGlobalStats();
         renderRecentShipments();
+        if (typeof renderMonitorUI === 'function') renderMonitorUI();
+        if (typeof updateMapMarkers === 'function') updateMapMarkers();
     });
 }
 initTripsSnapshot();
