@@ -908,6 +908,10 @@ function switchTab(viewId, el) {
     if(viewId === 'chat') loadChatList();
     if(viewId === 'dispatch') loadClientsByRegion("");
     if(viewId === 'pod-archive') renderPoDArchiveView();
+    if(viewId === 'monitor') {
+        if (typeof renderMonitorUI === 'function') renderMonitorUI();
+        if (typeof updateMapMarkers === 'function') updateMapMarkers();
+    }
 }
 
 function toggleAllClients(checked) {
@@ -1300,6 +1304,8 @@ function initRtdbListener() {
     activeRtdb.ref('courier_live_location').on('value', snap => {
         currentOnlineCouriers = snap.val() || {};
         updateGlobalStats();
+        if (typeof renderMonitorUI === 'function') renderMonitorUI();
+        if (typeof updateMapMarkers === 'function') updateMapMarkers();
     });
 }
 initRtdbListener();
@@ -1573,9 +1579,9 @@ function renderQueue() {
     }
 }
 
-async function compressImageFile(file, maxDimension = 1000, quality = 0.7) {
+async function compressImageFile(file, maxDimension = 720, quality = 0.50) {
     return new Promise((resolve) => {
-        if (!file || !file.type || !file.type.startsWith('image/') || file.size < 120 * 1024) {
+        if (!file || !file.type || !file.type.startsWith('image/')) {
             return resolve(file);
         }
 
@@ -1596,7 +1602,7 @@ async function compressImageFile(file, maxDimension = 1000, quality = 0.7) {
                     }
                 }
 
-                const canvas = document.createElement('canvas');
+                const canvas = document.getElementById('tempCanvas') || document.createElement('canvas');
                 canvas.width = width;
                 canvas.height = height;
                 const ctx = canvas.getContext('2d');
@@ -1609,7 +1615,6 @@ async function compressImageFile(file, maxDimension = 1000, quality = 0.7) {
                                 type: 'image/jpeg',
                                 lastModified: Date.now()
                             });
-                            console.log(`[JS Compress] Compressed ${file.size} -> ${compressedFile.size} bytes`);
                             resolve(compressedFile);
                         } else {
                             resolve(file);
@@ -1630,7 +1635,7 @@ async function compressImageFile(file, maxDimension = 1000, quality = 0.7) {
 async function uploadFileToCloudinaryOrFirebase(file) {
     if (!file) return "";
     try {
-        const compressed = (file.type && file.type.startsWith('image/')) ? await compressImageFile(file, 800, 0.65) : file;
+        const compressed = (file.type && file.type.startsWith('image/')) ? await compressImageFile(file, 720, 0.50) : file;
         return new Promise((resolve) => {
             const reader = new FileReader();
             reader.onload = (evt) => {
@@ -1826,6 +1831,20 @@ function renderMonitorUI(filter = "") {
             }
         }
     });
+
+    // Also include online couriers without active trips
+    if (typeof currentOnlineCouriers !== 'undefined' && currentOnlineCouriers) {
+        Object.keys(currentOnlineCouriers).forEach(cId => {
+            if (!cId) return;
+            if (typeof isCourierInActiveBranch === 'function' && !isCourierInActiveBranch(cId)) return;
+            const cName = getCourierDisplayName(cId);
+            if (!search || cName.toLowerCase().includes(search) || cId.toLowerCase().includes(search)) {
+                if (!courierGroups[cId]) {
+                    courierGroups[cId] = { id: cId, name: cName, trips: [], totalStops: 0, doneStops: 0 };
+                }
+            }
+        });
+    }
 
     const courierIds = Object.keys(courierGroups);
     if(courierIds.length === 0) {
