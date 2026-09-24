@@ -2626,6 +2626,19 @@ async function submitManualPendingPhoto() {
 }
 window.submitManualPendingPhoto = submitManualPendingPhoto;
 
+function filterRecentByStatus(statusVal, btnEl) {
+    const filterEl = document.getElementById('recent-status-filter');
+    if (filterEl) filterEl.value = statusVal;
+
+    const group = document.getElementById('recent-status-badge-group');
+    if (group) {
+        group.querySelectorAll('.btn').forEach(b => b.classList.remove('active', 'btn-secondary', 'btn-primary', 'btn-warning', 'btn-success'));
+        if (btnEl) btnEl.classList.add('active');
+    }
+    renderRecentShipments();
+}
+window.filterRecentByStatus = filterRecentByStatus;
+
 function exportRecentShipmentsToExcel() {
     if (typeof XLSX === 'undefined') return alert("SheetJS library not loaded!");
     const exportData = [];

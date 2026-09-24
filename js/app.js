@@ -1974,6 +1974,9 @@ async function deleteBulkSj(tripId) {
 }
 window.deleteBulkSj = deleteBulkSj;
 
+window._auditBulkSjUrls = [];
+window._auditPodCourierUrls = [];
+
 function openAuditSjModal(tripId) {
     const trip = allCurrentTrips.find(t => t.id === tripId);
     if (!trip) return alert("Data pengiriman tidak ditemukan!");
@@ -1990,8 +1993,8 @@ function openAuditSjModal(tripId) {
     const courierContainer = document.getElementById('audit-courier-pod-container');
 
     if (adminContainer) {
-        const urls = splitSjUrls(trip.adminBulkSjUrl);
-        if (urls.length > 0) {
+        window._auditBulkSjUrls = splitSjUrls(trip.adminBulkSjUrl);
+        if (window._auditBulkSjUrls.length > 0) {
             adminContainer.innerHTML = `
                 <div class="mb-2 text-end">
                     <button class="btn btn-xs btn-outline-danger fw-bold py-1 px-2" onclick="deleteBulkSj('${trip.id}')">
@@ -1999,10 +2002,10 @@ function openAuditSjModal(tripId) {
                     </button>
                 </div>
                 <div class="d-flex flex-column gap-2 overflow-y-auto pe-1" style="max-height: 420px;">
-                    ${urls.map((u, i) => `
+                    ${window._auditBulkSjUrls.map((u, i) => `
                         <div class="p-1 border bg-dark rounded-3 mb-2 text-center">
                             <small class="text-white extra-small fw-bold d-block mb-1">Bulk SJ Kantor #${i + 1}</small>
-                            <img src="${u}" class="w-100 rounded-3 cursor-pointer border shadow-sm" style="max-height: 280px; object-fit: contain; background: #000;" onclick="openPoDModal('${u}')" title="Klik untuk memperbesar">
+                            <img src="${u}" class="w-100 rounded-3 cursor-pointer border shadow-sm" style="max-height: 280px; object-fit: contain; background: #000;" onclick="openPoDModal(window._auditBulkSjUrls[${i}])" title="Klik untuk memperbesar">
                             <a href="${u}" target="_blank" download class="btn btn-xs btn-outline-light w-100 mt-1 fw-bold"><i class="bi bi-download me-1"></i> Download HD #${i + 1}</a>
                         </div>
                     `).join('')}
@@ -2038,13 +2041,15 @@ function openAuditSjModal(tripId) {
             });
         }
 
+        window._auditPodCourierUrls = podSjItems.map(p => p.url);
+
         if (podSjItems.length === 0) {
             courierContainer.innerHTML = `<div class="text-muted extra-small py-5 text-center"><i class="bi bi-inbox fs-2 d-block mb-2"></i> Belum ada foto POD Surat Jalan terkirim dari kurir.</div>`;
         } else {
-            courierContainer.innerHTML = podSjItems.map(p => `
+            courierContainer.innerHTML = podSjItems.map((p, idx) => `
                 <div class="card border rounded-3 p-2 bg-white shadow-2fs">
                     <div class="d-flex align-items-center gap-3">
-                        <img src="${p.url}" onerror="this.onerror=null;this.src='${FALLBACK_POD_PHOTO}'" class="rounded-2 cursor-pointer border" style="width: 80px; height: 80px; object-fit: cover;" onclick="openPoDModal('${p.url}')" title="Klik untuk memperbesar">
+                        <img src="${p.url}" class="rounded-2 cursor-pointer border" style="width: 80px; height: 80px; object-fit: cover;" onclick="openPoDModal(window._auditPodCourierUrls[${idx}])" title="Klik untuk memperbesar">
                         <div class="flex-grow-1">
                             <div class="fw-bold extra-small text-dark">Stop #${p.stopIndex}: ${p.stopName}</div>
                             <span class="badge bg-success text-white extra-small fw-bold mt-1"><i class="bi bi-check-circle me-1"></i> Terkirim / POD Verified</span>
@@ -2057,7 +2062,9 @@ function openAuditSjModal(tripId) {
 
     const modalEl = document.getElementById('auditSjModal');
     if (modalEl && typeof bootstrap !== 'undefined') {
-        new bootstrap.Modal(modalEl).show();
+        let instance = bootstrap.Modal.getInstance(modalEl);
+        if (!instance) instance = new bootstrap.Modal(modalEl);
+        instance.show();
     }
 }
 window.openAuditSjModal = openAuditSjModal;
@@ -2629,6 +2636,19 @@ async function submitManualPendingPhoto() {
     }
 }
 window.submitManualPendingPhoto = submitManualPendingPhoto;
+
+function filterRecentByStatus(statusVal, btnEl) {
+    const filterEl = document.getElementById('recent-status-filter');
+    if (filterEl) filterEl.value = statusVal;
+
+    const group = document.getElementById('recent-status-badge-group');
+    if (group) {
+        group.querySelectorAll('.btn').forEach(b => b.classList.remove('active', 'btn-secondary', 'btn-primary', 'btn-warning', 'btn-success'));
+        if (btnEl) btnEl.classList.add('active');
+    }
+    renderRecentShipments();
+}
+window.filterRecentByStatus = filterRecentByStatus;
 
 function exportRecentShipmentsToExcel() {
     if (typeof XLSX === 'undefined') return alert("SheetJS library not loaded!");
