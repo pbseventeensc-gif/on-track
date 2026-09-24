@@ -37,8 +37,8 @@ function ensureMapLayers() {
 function getJabodetabekMaxBounds() {
     if (typeof L !== 'undefined' && L.latLngBounds) {
         return L.latLngBounds(
-            L.latLng(-6.8000, 106.3000), // South-West (Bogor / Tangerang)
-            L.latLng(-5.8000, 107.5000)  // North-East (Jakarta Coast / Karawang)
+            L.latLng(-7.1000, 105.5000), // South-West (Banten / Serang / Cilegon)
+            L.latLng(-5.5000, 107.8000)  // North-East (Jakarta Coast / Karawang)
         );
     }
     return null;
@@ -46,12 +46,12 @@ function getJabodetabekMaxBounds() {
 
 let heatmapLayer = null;
 
-// Jabodetabek + Cikarang + Karawang + Tangerang + Bogor Bounding Box (-6.8000 to -5.8000, 106.3000 to 107.5000)
+// Banten (Serang, Cilegon, Pandeglang) + Jabodetabek + Cikarang + Karawang + Tangerang + Bogor Bounding Box
 function isInsideJabodetabekArea(lat, lng) {
     const latitude = parseFloat(lat);
     const longitude = parseFloat(lng);
     if (isNaN(latitude) || isNaN(longitude)) return false;
-    return latitude >= -6.8000 && latitude <= -5.8000 && longitude >= 106.3000 && longitude <= 107.5000;
+    return latitude >= -7.1000 && latitude <= -5.5000 && longitude >= 105.5000 && longitude <= 107.8000;
 }
 
 const googleTiles = {
@@ -440,7 +440,7 @@ async function initAutocomplete() {
                     const address = place.formatted_address || input.value;
 
                     if (!isInsideJabodetabekArea(lat, lng)) {
-                        alert("LOKASI DILUAR WILAYAH JABODETABEK & KARAWANG!\nPengiriman hanya dibatasi untuk area Jabodetabek, Cikarang, Karawang, dan Tangerang.");
+                        alert("LOKASI DILUAR WILAYAH JABODETABEK, BANTEN, & KARAWANG!\nPengiriman hanya dibatasi untuk area Jabodetabek, Banten (Serang, Cilegon), Cikarang, Karawang, dan Tangerang.");
                         input.value = "";
                         return;
                     }
@@ -483,7 +483,7 @@ async function addManualAddress() {
                     const storeName = parts[0].trim();
 
                     if (!isInsideJabodetabekArea(lat, lng)) {
-                        alert("LOKASI DILUAR WILAYAH JABODETABEK & KARAWANG!\nPengiriman hanya dibatasi untuk area Jabodetabek, Cikarang, Karawang, dan Tangerang.");
+                        alert("LOKASI DILUAR WILAYAH JABODETABEK, BANTEN, & KARAWANG!\nPengiriman hanya dibatasi untuk area Jabodetabek, Banten (Serang, Cilegon), Cikarang, Karawang, dan Tangerang.");
                         input.value = "";
                         return;
                     }
@@ -521,7 +521,7 @@ async function geocodeWithNominatim(addressText) {
             const storeName = parts[0].trim();
 
             if (!isInsideJabodetabekArea(lat, lng)) {
-                alert("LOKASI DILUAR WILAYAH JABODETABEK & KARAWANG!\nPengiriman hanya dibatasi untuk area Jabodetabek, Cikarang, Karawang, dan Tangerang.");
+                alert("LOKASI DILUAR WILAYAH JABODETABEK, BANTEN, & KARAWANG!\nPengiriman hanya dibatasi untuk area Jabodetabek, Banten (Serang, Cilegon), Cikarang, Karawang, dan Tangerang.");
                 return;
             }
 
