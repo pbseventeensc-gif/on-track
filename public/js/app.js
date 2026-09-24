@@ -1818,6 +1818,8 @@ function renderMonitorUI(filter = "") {
     allCurrentTrips.forEach(t => {
         const cId = t.courierId;
         if (!cId) return;
+        // Skip completed or cancelled trips so cards automatically disappear when all stops are finished!
+        if (t.status === 'completed' || t.status === 'cancelled') return;
         if (typeof isTripInActiveBranch === 'function' && !isTripInActiveBranch(t)) return;
         const cName = getCourierDisplayName(cId);
         const clients = t.destinations ? t.destinations.map(d => (d.locationName || '').toLowerCase()).join(" ") : "";
@@ -1834,10 +1836,11 @@ function renderMonitorUI(filter = "") {
         }
     });
 
-    // Also include online couriers without active trips
+    // Also include online couriers who are currently active on GPS
     if (typeof currentOnlineCouriers !== 'undefined' && currentOnlineCouriers) {
         Object.keys(currentOnlineCouriers).forEach(cId => {
             if (!cId) return;
+            if (!isCourierOnline(cId)) return;
             const cName = getCourierDisplayName(cId);
             if (!search || cName.toLowerCase().includes(search) || cId.toLowerCase().includes(search)) {
                 if (!courierGroups[cId]) {
@@ -1846,18 +1849,6 @@ function renderMonitorUI(filter = "") {
             }
         });
     }
-
-    // Also include all registered couriers
-    if (typeof registeredUsers !== 'undefined' && registeredUsers) {
-        Object.keys(registeredUsers).forEach(cId => {
-            if (!cId) return;
-            const role = (typeof userRoles !== 'undefined' && userRoles[cId]) ? userRoles[cId] : '';
-            if (role === 'admin' || role === 'super_admin' || role === 'admin_dm2') return;
-            const cName = getCourierDisplayName(cId);
-            if (!search || cName.toLowerCase().includes(search) || cId.toLowerCase().includes(search)) {
-                if (!courierGroups[cId]) {
-                    courierGroups[cId] = { id: cId, name: cName, trips: [], totalStops: 0, doneStops: 0 };
-                }
             }
         });
     }
@@ -2096,22 +2087,25 @@ function openAuditSjModal(tripId) {
 window.openAuditSjModal = openAuditSjModal;
 
 async function deleteCourierActiveTrips(courierId, courierName) {
-    if (!confirm(`Batalkan / hapus semua tugas aktif milik "${courierName}"?`)) return;
+    if (!confirm(`Hapus seluruh tugas & riwayat aktif milik "${courierName}"?`)) return;
 
     try {
         const activeDb = getDb();
         if (!activeDb) return;
 
-        const activeTrips = allCurrentTrips.filter(t => t.courierId === courierId && t.status !== 'completed');
-        if (activeTrips.length === 0) return showToast("Tidak ada tugas aktif.");
+        const courierTrips = allCurrentTrips.filter(t => t.courierId === courierId || (t.courierId && t.courierId.toLowerCase() === courierId.toLowerCase()));
+        if (courierTrips.length > 0) {
+            const batch = activeDb.batch();
+            courierTrips.forEach(t => {
+                batch.delete(activeDb.collection('trips').doc(t.id));
+            });
+            await batch.commit();
+        }
 
-        const batch = activeDb.batch();
-        activeTrips.forEach(t => {
-            batch.delete(activeDb.collection('trips').doc(t.id));
-        });
-        await batch.commit();
-
-        showToast(`Tugas aktif "${courierName}" berhasil dibatalkan.`);
+        showToast(`Tugas & card milik "${courierName}" berhasil dihapus.`);
+        if (typeof renderMonitorUI === 'function') renderMonitorUI();
+        if (typeof updateMapMarkers === 'function') updateMapMarkers();
+        if (typeof renderRecentShipments === 'function') renderRecentShipments();
     } catch(e) {
         alert("Gagal menghapus tugas: " + e.message);
     }
