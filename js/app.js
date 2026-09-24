@@ -163,13 +163,16 @@ window.getTripBranch = getTripBranch;
 function isTripInActiveBranch(t) {
     const activeBranch = getActiveBranchId();
     if (!activeBranch || activeBranch === 'all') return true;
-    if (!t || !t.branchId) return true; // Show trips without explicit branchId across all views
-    return t.branchId.toLowerCase() === activeBranch.toLowerCase();
+    if (!t || !t.branchId) return true;
+    const tripBranch = getTripBranch(t);
+    return tripBranch === activeBranch;
 }
 window.isTripInActiveBranch = isTripInActiveBranch;
 
 function isCourierInActiveBranch(courierUidOrName) {
-    return true; // Show couriers across all branch views
+    const activeBranch = getActiveBranchId();
+    if (!activeBranch || activeBranch === 'all') return true;
+    return true;
 }
 window.isCourierInActiveBranch = isCourierInActiveBranch;
 
@@ -335,24 +338,9 @@ function extractDestinationPhotos(d) {
     };
 }
 
-function splitSjUrls(str) {
-    if (!str || typeof str !== 'string') return [];
-    const trimmed = str.trim();
-    if (!trimmed || trimmed === 'undefined' || trimmed === 'null') return [];
-
-    if (trimmed.includes('|||')) {
-        return trimmed.split('|||').map(s => s.trim()).filter(s => s.length > 0 && s !== 'undefined' && s !== 'null');
-    }
-    if (trimmed.includes('http://') || trimmed.includes('https://')) {
-        return trimmed.split(',').map(s => s.trim()).filter(s => s.length > 0 && s !== 'undefined' && s !== 'null');
-    }
-    return [trimmed];
-}
-window.splitSjUrls = splitSjUrls;
-
 function openPoDModal(url) {
-    if (!url || url === 'undefined' || url === 'null') return;
-    const urls = splitSjUrls(url);
+    if (!url) return;
+    const urls = url.split(',').map(s => s.trim()).filter(Boolean);
     if (urls.length === 0) return;
 
     const img = document.getElementById('modalImg');
@@ -360,7 +348,7 @@ function openPoDModal(url) {
     const thumbContainer = document.getElementById('modalThumbnails');
 
     function setActiveImage(idx) {
-        const targetUrl = urls[idx] || urls[0];
+        const targetUrl = urls[idx];
         if (img) img.src = targetUrl;
         if (btn) btn.href = targetUrl;
 
@@ -905,10 +893,6 @@ function switchTab(viewId, el) {
     if(viewId === 'chat') loadChatList();
     if(viewId === 'dispatch') loadClientsByRegion("");
     if(viewId === 'pod-archive') renderPoDArchiveView();
-    if(viewId === 'monitor') {
-        if (typeof renderMonitorUI === 'function') renderMonitorUI();
-        if (typeof updateMapMarkers === 'function') updateMapMarkers();
-    }
 }
 
 function toggleAllClients(checked) {
@@ -1238,67 +1222,20 @@ async function promptEditCourierName(id, currentName) {
 }
 
 function renderCourierOptions() {
-    const sel = document.getElementById('sel-courier');
-    const recentCarrierSel = document.getElementById('recent-carrier-filter');
+    const sel = document.getElementById('sel-courier'); if(!sel) return;
+    sel.innerHTML = '<option value="">Select Carrier...</option>';
 
     const sortedCouriers = [];
-    const addedUids = new Set();
-
-    // 1. Add couriers from registeredUsers
     for (const uid in registeredUsers) {
         if (!isCourierUser(uid)) continue;
+        if (typeof isCourierInActiveBranch === 'function' && !isCourierInActiveBranch(uid)) continue;
         sortedCouriers.push({ uid: uid, name: registeredUsers[uid] });
-        addedUids.add(uid);
     }
-
-    // 2. Add couriers from active trips
-    if (typeof allCurrentTrips !== 'undefined' && allCurrentTrips) {
-        allCurrentTrips.forEach(t => {
-            if (t.courierId && !addedUids.has(t.courierId)) {
-                const cName = getCourierDisplayName(t.courierId);
-                sortedCouriers.push({ uid: t.courierId, name: cName });
-                addedUids.add(t.courierId);
-            }
-        });
-    }
-
-    // 3. Always include default active couriers as instant fallback
-    const defaultCouriers = [
-        { uid: "pbseventeensc", name: "pbseventeensc" },
-        { uid: "Beto", name: "Beto" },
-        { uid: "UP70R51X", name: "pbseventeensc (UP70R51X)" },
-        { uid: "Bayhaqi", name: "Bayhaqi" },
-        { uid: "Ahmad", name: "Ahmad" }
-    ];
-
-    defaultCouriers.forEach(dc => {
-        if (!addedUids.has(dc.uid)) {
-            sortedCouriers.push(dc);
-            addedUids.add(dc.uid);
-        }
-    });
-
     sortedCouriers.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
 
-    if (sel) {
-        const currentVal = sel.value;
-        sel.innerHTML = '<option value="">Select Carrier...</option>';
-        sortedCouriers.forEach(c => {
-            const isSel = (c.uid === currentVal) ? 'selected' : '';
-            sel.innerHTML += `<option value="${c.uid}" ${isSel}>${c.name}</option>`;
-        });
-        if (currentVal) sel.value = currentVal;
-    }
-
-    if (recentCarrierSel) {
-        const currentVal = recentCarrierSel.value || "all";
-        recentCarrierSel.innerHTML = '<option value="all">🛵 Semua Kurir</option>';
-        sortedCouriers.forEach(c => {
-            const isSel = (c.uid === currentVal) ? 'selected' : '';
-            recentCarrierSel.innerHTML += `<option value="${c.uid}" ${isSel}>${c.name}</option>`;
-        });
-        if (currentVal) recentCarrierSel.value = currentVal;
-    }
+    sortedCouriers.forEach(c => {
+        sel.innerHTML += `<option value="${c.uid}">${c.name}</option>`;
+    });
 }
 
 function initRtdbListener() {
@@ -1310,8 +1247,6 @@ function initRtdbListener() {
     activeRtdb.ref('courier_live_location').on('value', snap => {
         currentOnlineCouriers = snap.val() || {};
         updateGlobalStats();
-        if (typeof renderMonitorUI === 'function') renderMonitorUI();
-        if (typeof updateMapMarkers === 'function') updateMapMarkers();
     });
 }
 initRtdbListener();
@@ -1345,8 +1280,6 @@ function initTripsSnapshot() {
         });
         updateGlobalStats();
         renderRecentShipments();
-        if (typeof renderMonitorUI === 'function') renderMonitorUI();
-        if (typeof updateMapMarkers === 'function') updateMapMarkers();
     });
 }
 initTripsSnapshot();
@@ -1585,9 +1518,9 @@ function renderQueue() {
     }
 }
 
-async function compressImageFile(file, maxDimension = 720, quality = 0.50) {
+async function compressImageFile(file, maxDimension = 1000, quality = 0.7) {
     return new Promise((resolve) => {
-        if (!file || !file.type || !file.type.startsWith('image/')) {
+        if (!file || !file.type || !file.type.startsWith('image/') || file.size < 120 * 1024) {
             return resolve(file);
         }
 
@@ -1621,6 +1554,7 @@ async function compressImageFile(file, maxDimension = 720, quality = 0.50) {
                                 type: 'image/jpeg',
                                 lastModified: Date.now()
                             });
+                            console.log(`[JS Compress] Compressed ${file.size} -> ${compressedFile.size} bytes`);
                             resolve(compressedFile);
                         } else {
                             resolve(file);
@@ -1639,21 +1573,40 @@ async function compressImageFile(file, maxDimension = 720, quality = 0.50) {
 }
 
 async function uploadFileToCloudinaryOrFirebase(file) {
-    if (!file) return "";
-    try {
-        const compressed = (file.type && file.type.startsWith('image/')) ? await compressImageFile(file, 720, 0.50) : file;
-        return new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onload = (evt) => {
-                resolve(evt.target.result || "");
-            };
-            reader.onerror = () => resolve("");
-            reader.readAsDataURL(compressed);
-        });
-    } catch (e) {
-        console.error("Image processing error:", e);
-        return "";
-    }
+    const targetFile = (file && file.type && file.type.startsWith('image/')) ? await compressImageFile(file, 1000, 0.7) : file;
+
+    return new Promise((resolve) => {
+        if (!targetFile) return resolve("");
+
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            const dataUrl = evt.target.result;
+
+            try {
+                const formData = new FormData();
+                formData.append("file", targetFile);
+                formData.append("upload_preset", "KurirTrack");
+                formData.append("folder", "wellen_proofs");
+
+                fetch("https://api.cloudinary.com/v1_1/wellen_proofs/image/upload", {
+                    method: "POST",
+                    body: formData
+                }).then(res => res.json()).then(data => {
+                    if (data && data.secure_url) {
+                        resolve(data.secure_url);
+                    } else {
+                        resolve(dataUrl);
+                    }
+                }).catch(() => {
+                    resolve(dataUrl);
+                });
+            } catch(e) {
+                resolve(dataUrl);
+            }
+        };
+        reader.onerror = () => resolve("");
+        reader.readAsDataURL(targetFile);
+    });
 }
 
 async function submitTrip() {
@@ -1820,42 +1773,24 @@ function renderMonitorUI(filter = "") {
 
     const courierGroups = {};
     allCurrentTrips.forEach(t => {
+        const tripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : 0);
+        if (tripMs < todayDayMs) return; // Clean H+1: Only show today's active trips
+        if(t.status === 'completed') return;
         const cId = t.courierId;
-        if (!cId) return;
-        // Skip completed or cancelled trips so cards automatically disappear when all stops are finished!
-        if (t.status === 'completed' || t.status === 'cancelled') return;
-        if (typeof isTripInActiveBranch === 'function' && !isTripInActiveBranch(t)) return;
-        const cName = getCourierDisplayName(cId);
-        const clients = t.destinations ? t.destinations.map(d => (d.locationName || '').toLowerCase()).join(" ") : "";
+        const cName = registeredUsers[cId] || cId.substring(0,8);
+        const clients = t.destinations ? t.destinations.map(d => d.locationName.toLowerCase()).join(" ") : "";
 
-        if (!search || cName.toLowerCase().includes(search) || (t.id || '').toLowerCase().includes(search) || clients.includes(search)) {
+        if (cName.toLowerCase().includes(search) || t.id.toLowerCase().includes(search) || clients.includes(search)) {
             if (!courierGroups[cId]) {
                 courierGroups[cId] = { id: cId, name: cName, trips: [], totalStops: 0, doneStops: 0 };
             }
             courierGroups[cId].trips.push(t);
             if (t.destinations) {
                 courierGroups[cId].totalStops += t.destinations.length;
-                courierGroups[cId].doneStops += t.destinations.filter(d => d.status === 'done' || d.status === 'arrived' || (d.proofPhotoUrl && d.proofPhotoUrl.length > 0)).length;
+                courierGroups[cId].doneStops += t.destinations.filter(d => d.status === 'done').length;
             }
         }
     });
-
-    // Also include online couriers who are currently active on GPS
-    if (typeof currentOnlineCouriers !== 'undefined' && currentOnlineCouriers) {
-        Object.keys(currentOnlineCouriers).forEach(cId => {
-            if (!cId) return;
-            if (!isCourierOnline(cId)) return;
-            const cName = getCourierDisplayName(cId);
-            if (!search || cName.toLowerCase().includes(search) || cId.toLowerCase().includes(search)) {
-                if (!courierGroups[cId]) {
-                    courierGroups[cId] = { id: cId, name: cName, trips: [], totalStops: 0, doneStops: 0 };
-                }
-            }
-        });
-    }
-            }
-        });
-    }
 
     const courierIds = Object.keys(courierGroups);
     if(courierIds.length === 0) {
@@ -1873,27 +1808,21 @@ function renderMonitorUI(filter = "") {
         const pendingStops = c.trips.reduce((acc, t) => acc + (t.destinations ? t.destinations.filter(d => d.status === 'pending_approval' || (d.status === 'pending' && d.pendingReason)).length : 0), 0);
         const pendingBadgeHtml = pendingStops > 0 ? `<span class="badge rounded-pill bg-danger text-white extra-small py-1 px-2 fw-bold ms-1" style="font-size:0.65rem"><i class="bi bi-exclamation-triangle-fill me-1"></i>${pendingStops} Pending / Tutup</span>` : '';
 
-        const bulkSjTrip = c.trips.find(t => t.adminBulkSjUrl && splitSjUrls(t.adminBulkSjUrl).length > 0);
+        const bulkSjTrip = c.trips.find(t => t.adminBulkSjUrl && t.adminBulkSjUrl.length > 0);
         const activeTrip = c.trips[0];
 
         let bulkSjSectionHtml = '';
         if (bulkSjTrip) {
-            const sjCount = splitSjUrls(bulkSjTrip.adminBulkSjUrl).length;
             bulkSjSectionHtml = `
-                <div class="d-flex gap-1 mt-2">
-                    <button class="btn btn-xs btn-outline-primary flex-grow-1 py-1.5 fw-bold" style="border-radius: 8px; font-size:0.725rem;" onclick="openAuditSjModal('${bulkSjTrip.id}')">
-                        <i class="bi bi-file-earmark-text-fill me-1"></i> 📄 Lihat Bulk SJ (${sjCount} Foto)
-                    </button>
-                    <button class="btn btn-xs btn-outline-danger py-1.5 fw-bold px-2" style="border-radius: 8px; font-size:0.725rem;" onclick="deleteBulkSj('${bulkSjTrip.id}')" title="Hapus Foto Bulk SJ">
-                        <i class="bi bi-trash"></i>
-                    </button>
-                </div>`;
+                <button class="btn btn-xs btn-outline-primary w-100 py-1.5 fw-bold mt-2" style="border-radius: 8px; font-size:0.725rem;" onclick="openAuditSjModal('${bulkSjTrip.id}')">
+                    <i class="bi bi-file-earmark-text-fill me-1"></i> 📄 Lihat Bulk SJ Awal (${c.totalStops} SJ)
+                </button>`;
         } else if (activeTrip) {
             bulkSjSectionHtml = `
                 <div class="mt-2 p-2 bg-light border rounded-3 text-start">
-                    <small class="text-muted extra-small fw-bold text-uppercase d-block mb-1"><i class="bi bi-camera-fill me-1 text-primary"></i> Foto Bulk SJ Awal Kantor (Max 5)</small>
+                    <small class="text-muted extra-small fw-bold text-uppercase d-block mb-1"><i class="bi bi-camera-fill me-1 text-primary"></i> Foto Bulk SJ Awal Kantor</small>
                     <div class="d-flex gap-1 align-items-center">
-                        <input type="file" id="card-bulk-file-${activeTrip.id}" accept="image/*" multiple class="form-control form-control-sm py-1 px-2 extra-small bg-white" style="border-radius: 6px; font-size: 0.68rem;">
+                        <input type="file" id="card-bulk-file-${activeTrip.id}" accept="image/*" class="form-control form-control-sm py-1 px-2 extra-small bg-white" style="border-radius: 6px; font-size: 0.68rem;">
                         <button class="btn btn-xs btn-primary fw-bold text-nowrap px-2 py-1" style="font-size: 0.68rem; border-radius: 6px;" onclick="uploadBulkSjFromCard('${activeTrip.id}')">Upload</button>
                     </div>
                 </div>`;
@@ -1941,35 +1870,24 @@ function renderMonitorUI(filter = "") {
 
 async function uploadBulkSjFromCard(tripId) {
     const fileEl = document.getElementById(`card-bulk-file-${tripId}`);
-    const files = fileEl?.files;
-    if (!files || files.length === 0) return alert("Pilih file foto Bulk SJ terlebih dahulu!");
+    const file = fileEl?.files?.[0];
+    if (!file) return alert("Pilih file foto Bulk SJ terlebih dahulu!");
 
     try {
         const activeDb = getDb();
         if (!activeDb) throw new Error("Firestore Database belum siap.");
 
-        const maxFiles = Math.min(files.length, 5);
-        showToast(`⏳ Mengompres & mengunggah ${maxFiles} foto Bulk SJ...`);
+        showToast("⏳ Mengompres & mengunggah foto Bulk SJ...");
+        const targetFile = await compressImageFile(file, 1000, 0.7);
 
-        const uploadPromises = [];
-        for (let i = 0; i < maxFiles; i++) {
-            const f = files[i];
-            uploadPromises.push(
-                compressImageFile(f, 1000, 0.7).then(targetFile => uploadFileToCloudinaryOrFirebase(targetFile))
-            );
-        }
-
-        const urls = await Promise.all(uploadPromises);
-        const validUrls = urls.filter(u => u && u.length > 0);
-        if (validUrls.length === 0) throw new Error("Gagal mengunggah foto Bulk SJ.");
-
-        const combinedUrl = validUrls.join('|||');
+        const photoUrl = await uploadFileToCloudinaryOrFirebase(targetFile);
+        if (!photoUrl) throw new Error("Gagal mengunggah foto.");
 
         await activeDb.collection('trips').doc(tripId).update({
-            adminBulkSjUrl: combinedUrl
+            adminBulkSjUrl: photoUrl
         });
 
-        showToast(`✅ ${validUrls.length} Foto Bulk SJ Awal Kantor berhasil disimpan!`);
+        showToast("✅ Foto Bulk SJ Awal Kantor berhasil disimpan!");
         if (typeof renderMonitorUI === 'function') renderMonitorUI();
     } catch (e) {
         console.error("Upload Bulk SJ error:", e);
@@ -1977,33 +1895,6 @@ async function uploadBulkSjFromCard(tripId) {
     }
 }
 window.uploadBulkSjFromCard = uploadBulkSjFromCard;
-
-async function deleteBulkSj(tripId) {
-    if (!confirm("Apakah Anda yakin ingin menghapus foto Bulk SJ Awal Kantor untuk tugas ini?")) return;
-    try {
-        const activeDb = getDb();
-        if (!activeDb) throw new Error("Database belum terhubung.");
-
-        await activeDb.collection('trips').doc(tripId).update({
-            adminBulkSjUrl: ""
-        });
-
-        showToast("🗑️ Foto Bulk SJ Awal Kantor berhasil dihapus.");
-        if (typeof renderMonitorUI === 'function') renderMonitorUI();
-
-        const modalEl = document.getElementById('auditSjModal');
-        if (modalEl && typeof bootstrap !== 'undefined') {
-            const instance = bootstrap.Modal.getInstance(modalEl);
-            if (instance) instance.hide();
-        }
-    } catch(e) {
-        alert("Gagal menghapus foto Bulk SJ: " + e.message);
-    }
-}
-window.deleteBulkSj = deleteBulkSj;
-
-window._auditBulkSjUrls = [];
-window._auditPodCourierUrls = [];
 
 function openAuditSjModal(tripId) {
     const trip = allCurrentTrips.find(t => t.id === tripId);
@@ -2021,25 +1912,12 @@ function openAuditSjModal(tripId) {
     const courierContainer = document.getElementById('audit-courier-pod-container');
 
     if (adminContainer) {
-        window._auditBulkSjUrls = splitSjUrls(trip.adminBulkSjUrl);
-        if (window._auditBulkSjUrls.length > 0) {
+        if (trip.adminBulkSjUrl) {
             adminContainer.innerHTML = `
-                <div class="mb-2 text-end">
-                    <button class="btn btn-xs btn-outline-danger fw-bold py-1 px-2" onclick="deleteBulkSj('${trip.id}')">
-                        <i class="bi bi-trash me-1"></i> Hapus Foto Bulk SJ
-                    </button>
-                </div>
-                <div class="d-flex flex-column gap-2 overflow-y-auto pe-1" style="max-height: 420px;">
-                    ${window._auditBulkSjUrls.map((u, i) => `
-                        <div class="p-1 border bg-dark rounded-3 mb-2 text-center">
-                            <small class="text-white extra-small fw-bold d-block mb-1">Bulk SJ Kantor #${i + 1}</small>
-                            <img src="${u}" class="w-100 rounded-3 cursor-pointer border shadow-sm" style="max-height: 280px; object-fit: contain; background: #000;" onclick="openPoDModal(window._auditBulkSjUrls[${i}])" title="Klik untuk memperbesar">
-                            <a href="${u}" target="_blank" download class="btn btn-xs btn-outline-light w-100 mt-1 fw-bold"><i class="bi bi-download me-1"></i> Download HD #${i + 1}</a>
-                        </div>
-                    `).join('')}
-                </div>`;
+                <img src="${trip.adminBulkSjUrl}" class="w-100 rounded-3 cursor-pointer border shadow-sm" style="max-height: 420px; object-fit: contain; background: #000;" onclick="openPoDModal('${trip.adminBulkSjUrl}')" title="Klik untuk memperbesar gambar">
+                <a href="${trip.adminBulkSjUrl}" target="_blank" download class="btn btn-sm btn-dark w-100 mt-2 fw-bold"><i class="bi bi-download me-1"></i> Download HD Foto Bulk SJ</a>`;
         } else {
-            adminContainer.innerHTML = `<div class="text-white extra-small py-5 text-center"><i class="bi bi-image fs-1 d-block mb-2 opacity-50"></i> Belum ada Foto Bulk SJ Kantor dari Admin untuk tugas ini.</div>`;
+            adminContainer.innerHTML = `<div class="text-white extra-small py-5"><i class="bi bi-image fs-1 d-block mb-2 opacity-50"></i> Belum ada Foto Bulk SJ Kantor dari Admin untuk tugas ini.</div>`;
         }
     }
 
@@ -2069,15 +1947,13 @@ function openAuditSjModal(tripId) {
             });
         }
 
-        window._auditPodCourierUrls = podSjItems.map(p => p.url);
-
         if (podSjItems.length === 0) {
             courierContainer.innerHTML = `<div class="text-muted extra-small py-5 text-center"><i class="bi bi-inbox fs-2 d-block mb-2"></i> Belum ada foto POD Surat Jalan terkirim dari kurir.</div>`;
         } else {
-            courierContainer.innerHTML = podSjItems.map((p, idx) => `
+            courierContainer.innerHTML = podSjItems.map(p => `
                 <div class="card border rounded-3 p-2 bg-white shadow-2fs">
                     <div class="d-flex align-items-center gap-3">
-                        <img src="${p.url}" class="rounded-2 cursor-pointer border" style="width: 80px; height: 80px; object-fit: cover;" onclick="openPoDModal(window._auditPodCourierUrls[${idx}])" title="Klik untuk memperbesar">
+                        <img src="${p.url}" class="rounded-2 cursor-pointer border" style="width: 80px; height: 80px; object-fit: cover;" onclick="openPoDModal('${p.url}')" title="Klik untuk memperbesar">
                         <div class="flex-grow-1">
                             <div class="fw-bold extra-small text-dark">Stop #${p.stopIndex}: ${p.stopName}</div>
                             <span class="badge bg-success text-white extra-small fw-bold mt-1"><i class="bi bi-check-circle me-1"></i> Terkirim / POD Verified</span>
@@ -2090,33 +1966,28 @@ function openAuditSjModal(tripId) {
 
     const modalEl = document.getElementById('auditSjModal');
     if (modalEl && typeof bootstrap !== 'undefined') {
-        let instance = bootstrap.Modal.getInstance(modalEl);
-        if (!instance) instance = new bootstrap.Modal(modalEl);
-        instance.show();
+        new bootstrap.Modal(modalEl).show();
     }
 }
 window.openAuditSjModal = openAuditSjModal;
 
 async function deleteCourierActiveTrips(courierId, courierName) {
-    if (!confirm(`Hapus seluruh tugas & riwayat aktif milik "${courierName}"?`)) return;
+    if (!confirm(`Batalkan / hapus semua tugas aktif milik "${courierName}"?`)) return;
 
     try {
         const activeDb = getDb();
         if (!activeDb) return;
 
-        const courierTrips = allCurrentTrips.filter(t => t.courierId === courierId || (t.courierId && t.courierId.toLowerCase() === courierId.toLowerCase()));
-        if (courierTrips.length > 0) {
-            const batch = activeDb.batch();
-            courierTrips.forEach(t => {
-                batch.delete(activeDb.collection('trips').doc(t.id));
-            });
-            await batch.commit();
-        }
+        const activeTrips = allCurrentTrips.filter(t => t.courierId === courierId && t.status !== 'completed');
+        if (activeTrips.length === 0) return showToast("Tidak ada tugas aktif.");
 
-        showToast(`Tugas & card milik "${courierName}" berhasil dihapus.`);
-        if (typeof renderMonitorUI === 'function') renderMonitorUI();
-        if (typeof updateMapMarkers === 'function') updateMapMarkers();
-        if (typeof renderRecentShipments === 'function') renderRecentShipments();
+        const batch = activeDb.batch();
+        activeTrips.forEach(t => {
+            batch.delete(activeDb.collection('trips').doc(t.id));
+        });
+        await batch.commit();
+
+        showToast(`Tugas aktif "${courierName}" berhasil dibatalkan.`);
     } catch(e) {
         alert("Gagal menghapus tugas: " + e.message);
     }
@@ -2537,53 +2408,45 @@ function openManualUploadModal(tripId, stopIndex, locationName) {
 }
 
 async function submitManualUploadPhoto() {
-    const tripId = document.getElementById('upload-modal-trip-id')?.value;
-    const stopIndex = parseInt(document.getElementById('upload-modal-stop-index')?.value || "1");
-    const sjFile = document.getElementById('upload-modal-sj-file')?.files?.[0] || document.getElementById('upload-modal-file')?.files?.[0];
-    const itemFile = document.getElementById('upload-modal-item-file')?.files?.[0];
+    const tripId = document.getElementById('upload-modal-trip-id').value;
+    const stopIndex = parseInt(document.getElementById('upload-modal-stop-index').value);
+    const file = document.getElementById('upload-modal-file').files[0];
     const statusEl = document.getElementById('upload-modal-status');
     const btn = document.getElementById('upload-modal-submit-btn');
 
-    if (!tripId) return alert("ID Pengiriman tidak ditemukan.");
+    if (!tripId || !file) return alert("Pilih file foto bukti terlebih dahulu!");
 
     if (btn) { btn.disabled = true; btn.innerText = "UPLOADING..."; }
-    if (statusEl) statusEl.innerText = "Memproses & mengunggah foto bukti...";
+    if (statusEl) statusEl.innerText = "Mengunggah foto bukti...";
 
     try {
+        const activeStorage = getStorage();
         const activeDb = getDb();
-        if (!activeDb) throw new Error("Firestore Database belum terhubung.");
+        if (!activeStorage || !activeDb) throw new Error("Firebase Storage/Firestore belum siap.");
 
-        let sjUrl = "";
-        let itemUrl = "";
+        const targetFile = await compressImageFile(file, 1000, 0.7);
 
-        if (sjFile) {
-            sjUrl = await uploadFileToCloudinaryOrFirebase(sjFile);
-        }
-        if (itemFile) {
-            itemUrl = await uploadFileToCloudinaryOrFirebase(itemFile);
-        }
+        const cleanTripId = tripId.replace(/[^a-zA-Z0-9]/g, '_');
+        const locName = document.getElementById('upload-modal-location-name')?.innerText || 'Client';
+        const cleanClientName = locName.replace(/[^a-zA-Z0-9]/g, '_');
+        const customFileName = `${cleanTripId}_Stop${stopIndex}_${cleanClientName}_${Date.now()}.jpg`;
 
-        const combinedList = [];
-        if (sjUrl) combinedList.push(sjUrl);
-        if (itemUrl) combinedList.push(itemUrl);
-        const combinedUrl = combinedList.join(',');
+        const ref = activeStorage.ref(`proofs/${customFileName}`);
+        const task = await ref.put(targetFile);
+        const photoUrl = await task.ref.getDownloadURL();
 
         const tripDocRef = activeDb.collection('trips').doc(tripId);
         const tripSnap = await tripDocRef.get();
 
         if (tripSnap.exists) {
             const tData = tripSnap.data();
-            const locName = document.getElementById('upload-modal-location-name')?.innerText;
-
             const updatedDests = (tData.destinations || []).map(d => {
-                if (d.stopIndex === stopIndex || (d.stopIndex === undefined && d.locationName === locName)) {
+                if (d.stopIndex === stopIndex || (d.stopIndex === undefined && d.locationName === document.getElementById('upload-modal-location-name').innerText)) {
                     return {
                         ...d,
                         status: "done",
                         completedTime: firebase.firestore.Timestamp.now(),
-                        proofPhotoSj: sjUrl || d.proofPhotoSj || "",
-                        proofPhotoItems: itemUrl ? [itemUrl] : (d.proofPhotoItems || []),
-                        proofPhotoUrl: combinedUrl || d.proofPhotoUrl || ""
+                        proofPhotoUrl: photoUrl
                     };
                 }
                 return d;
@@ -2592,94 +2455,23 @@ async function submitManualUploadPhoto() {
             const allDone = updatedDests.every(d => d.status === 'done' || (d.proofPhotoUrl && d.proofPhotoUrl.length > 0));
             const updateMap = { destinations: updatedDests };
             if (allDone) updateMap.status = "completed";
-            else updateMap.status = "in_progress";
+            else if (tData.status === "assigned" || tData.status === "accepted") updateMap.status = "in_progress";
 
             await tripDocRef.update(updateMap);
 
-            showToast("✅ BUKTI FOTO BERHASIL DISIMPAN! Status pengiriman di-update ke Selesai.");
+            showToast("BUKTI FOTO BERHASIL DIUNGGAH! Status pengiriman di-update ke Selesai.");
             const modalEl = document.getElementById('manualUploadModal');
             if (modalEl && typeof bootstrap !== 'undefined') {
                 bootstrap.Modal.getInstance(modalEl)?.hide();
             }
         }
     } catch(e) {
-        console.error("Upload photo error:", e);
+        console.error("Manual upload error:", e);
         alert("Gagal mengunggah foto: " + e.message);
     } finally {
         if (btn) { btn.disabled = false; btn.innerText = "UNGGAH & SELESAIKAN"; }
-        if (statusEl) statusEl.innerText = "";
     }
 }
-
-async function submitManualPendingPhoto() {
-    const tripId = document.getElementById('upload-modal-trip-id')?.value;
-    const stopIndex = parseInt(document.getElementById('upload-modal-stop-index')?.value || "1");
-    const reasonInput = document.getElementById('upload-modal-pending-reason')?.value?.trim();
-    const pendingFile = document.getElementById('upload-modal-pending-file')?.files?.[0];
-    const statusEl = document.getElementById('upload-modal-status');
-
-    if (!tripId) return alert("ID Pengiriman tidak ditemukan.");
-    const reason = reasonInput || "Klien Tutup";
-
-    if (statusEl) statusEl.innerText = "Melaporkan Klien Tutup / Pending...";
-
-    try {
-        const activeDb = getDb();
-        if (!activeDb) throw new Error("Firestore Database belum terhubung.");
-
-        let pendingPhotoUrl = "";
-        if (pendingFile) {
-            pendingPhotoUrl = await uploadFileToCloudinaryOrFirebase(pendingFile);
-        }
-
-        const tripDocRef = activeDb.collection('trips').doc(tripId);
-        const tripSnap = await tripDocRef.get();
-
-        if (tripSnap.exists) {
-            const tData = tripSnap.data();
-            const locName = document.getElementById('upload-modal-location-name')?.innerText;
-
-            const updatedDests = (tData.destinations || []).map(d => {
-                if (d.stopIndex === stopIndex || (d.stopIndex === undefined && d.locationName === locName)) {
-                    return {
-                        ...d,
-                        status: "pending_approval",
-                        pendingReason: reason,
-                        pendingProofPhotoUrl: pendingPhotoUrl
-                    };
-                }
-                return d;
-            });
-
-            await tripDocRef.update({ destinations: updatedDests });
-
-            showToast("🚨 LAPORAN KLIEN TUTUP BERHASIL DIKIRIM!");
-            const modalEl = document.getElementById('manualUploadModal');
-            if (modalEl && typeof bootstrap !== 'undefined') {
-                bootstrap.Modal.getInstance(modalEl)?.hide();
-            }
-        }
-    } catch(e) {
-        console.error("Pending report error:", e);
-        alert("Gagal melaporkan status pending: " + e.message);
-    } finally {
-        if (statusEl) statusEl.innerText = "";
-    }
-}
-window.submitManualPendingPhoto = submitManualPendingPhoto;
-
-function filterRecentByStatus(statusVal, btnEl) {
-    const filterEl = document.getElementById('recent-status-filter');
-    if (filterEl) filterEl.value = statusVal;
-
-    const group = document.getElementById('recent-status-badge-group');
-    if (group) {
-        group.querySelectorAll('.btn').forEach(b => b.classList.remove('active', 'btn-secondary', 'btn-primary', 'btn-warning', 'btn-success'));
-        if (btnEl) btnEl.classList.add('active');
-    }
-    renderRecentShipments();
-}
-window.filterRecentByStatus = filterRecentByStatus;
 
 function exportRecentShipmentsToExcel() {
     if (typeof XLSX === 'undefined') return alert("SheetJS library not loaded!");

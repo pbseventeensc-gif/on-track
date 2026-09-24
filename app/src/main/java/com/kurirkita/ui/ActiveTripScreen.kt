@@ -2,11 +2,8 @@ package com.KurirKita.ui
 
 import android.annotation.SuppressLint
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import android.graphics.Matrix
 import android.os.Build
 import android.location.Location
-import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -42,6 +39,9 @@ import com.google.firebase.storage.FirebaseStorage
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
+import com.cloudinary.android.MediaManager
+import com.cloudinary.android.callback.ErrorInfo
+import com.cloudinary.android.callback.UploadCallback
 import androidx.core.content.FileProvider
 import java.io.File
 import android.net.Uri
@@ -247,7 +247,7 @@ fun DestinationItem(
     val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
         if (success && photoUri != null) {
             try {
-                val bitmap = decodeAndScaleBitmap(context, photoUri!!, maxDimension = 800)
+                val bitmap = android.graphics.BitmapFactory.decodeStream(context.contentResolver.openInputStream(photoUri!!))
                 if (bitmap != null) {
                     if (activeCaptureMode == "sj") {
                         capturedSjBitmap = bitmap
@@ -935,86 +935,6 @@ fun DestinationItem(
     }
 }
 
-private fun decodeAndScaleBitmap(context: android.content.Context, uri: Uri, maxDimension: Int = 800): Bitmap? {
-    return try {
-        val options = BitmapFactory.Options().apply {
-            inJustDecodeBounds = true
-        }
-        context.contentResolver.openInputStream(uri)?.use { stream ->
-            BitmapFactory.decodeStream(stream, null, options)
-        } ?: return null
-
-        val origW = options.outWidth
-        val origH = options.outHeight
-        if (origW <= 0 || origH <= 0) return null
-
-        var inSampleSize = 1
-        if (origW > maxDimension || origH > maxDimension) {
-            val halfW = origW / 2
-            val halfH = origH / 2
-            while ((halfW / inSampleSize) >= maxDimension && (halfH / inSampleSize) >= maxDimension) {
-                inSampleSize *= 2
-            }
-        }
-
-        val decodeOptions = BitmapFactory.Options().apply {
-            this.inSampleSize = inSampleSize
-        }
-        val decodedBitmap = context.contentResolver.openInputStream(uri)?.use { stream ->
-            BitmapFactory.decodeStream(stream, null, decodeOptions)
-        } ?: return null
-
-        val rotatedBitmap = fixExifOrientation(context, uri, decodedBitmap)
-
-        val w = rotatedBitmap.width
-        val h = rotatedBitmap.height
-        if (w > maxDimension || h > maxDimension) {
-            val ratio = w.toFloat() / h.toFloat()
-            val (finalW, finalH) = if (ratio > 1) {
-                maxDimension to (maxDimension / ratio).toInt()
-            } else {
-                (maxDimension * ratio).toInt() to maxDimension
-            }
-            val scaled = Bitmap.createScaledBitmap(rotatedBitmap, finalW, finalH, true)
-            if (scaled != rotatedBitmap) {
-                rotatedBitmap.recycle()
-            }
-            scaled
-        } else {
-            rotatedBitmap
-        }
-    } catch (e: Exception) {
-        Log.e("ActiveTripScreen", "Error decoding photo bitmap", e)
-        null
-    }
-}
-
-private fun fixExifOrientation(context: android.content.Context, uri: Uri, bitmap: Bitmap): Bitmap {
-    return try {
-        val inputStream = context.contentResolver.openInputStream(uri) ?: return bitmap
-        val exif = android.media.ExifInterface(inputStream)
-        inputStream.close()
-        val orientation = exif.getAttributeInt(
-            android.media.ExifInterface.TAG_ORIENTATION,
-            android.media.ExifInterface.ORIENTATION_NORMAL
-        )
-        val matrix = Matrix()
-        when (orientation) {
-            android.media.ExifInterface.ORIENTATION_ROTATE_90 -> matrix.postRotate(90f)
-            android.media.ExifInterface.ORIENTATION_ROTATE_180 -> matrix.postRotate(180f)
-            android.media.ExifInterface.ORIENTATION_ROTATE_270 -> matrix.postRotate(270f)
-            else -> return bitmap
-        }
-        val rotated = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
-        if (rotated != bitmap) {
-            bitmap.recycle()
-        }
-        rotated
-    } catch (e: Exception) {
-        bitmap
-    }
-}
-
 private fun uploadPendingProofPhotoAndUpdate(
     storage: FirebaseStorage,
     db: FirebaseFirestore,
@@ -1024,7 +944,7 @@ private fun uploadPendingProofPhotoAndUpdate(
     photoBitmap: Bitmap
 ) {
     Thread {
-        val bytes = compressBitmapToBytes(photoBitmap, maxDimension = 720, quality = 50)
+        val bytes = compressBitmapToBytes(photoBitmap, maxDimension = 1200, quality = 75)
         uploadSinglePhotoBytes(storage, bytes) { url ->
             val updated = trip.destinations.map {
                 if (it.stopIndex == dest.stopIndex) {
@@ -1041,7 +961,7 @@ private fun uploadPendingProofPhotoAndUpdate(
     }.start()
 }
 
-private fun compressBitmapToBytes(source: Bitmap, maxDimension: Int = 720, quality: Int = 50): ByteArray {
+private fun compressBitmapToBytes(source: Bitmap, maxDimension: Int = 1000, quality: Int = 65): ByteArray {
     val w = source.width
     val h = source.height
 
@@ -1103,7 +1023,7 @@ private fun uploadCategorizedPhotosAndUpdate(
     // Compress & Upload SJ photo in background thread for sub-second speed
     if (sjBitmap != null) {
         Thread {
-            val bytes = compressBitmapToBytes(sjBitmap, maxDimension = 720, quality = 50)
+            val bytes = compressBitmapToBytes(sjBitmap, maxDimension = 1000, quality = 65)
             uploadSinglePhotoBytes(storage, bytes) { url ->
                 sjUrl = url
                 checkAndFinish()
@@ -1114,7 +1034,7 @@ private fun uploadCategorizedPhotosAndUpdate(
     // Compress & Upload Item photos in background threads
     itemBitmaps.forEachIndexed { index, bitmap ->
         Thread {
-            val bytes = compressBitmapToBytes(bitmap, maxDimension = 720, quality = 50)
+            val bytes = compressBitmapToBytes(bitmap, maxDimension = 1000, quality = 65)
             uploadSinglePhotoBytes(storage, bytes) { url ->
                 itemUrls[index] = url
                 checkAndFinish()
@@ -1124,25 +1044,33 @@ private fun uploadCategorizedPhotosAndUpdate(
 }
 
 private fun uploadSinglePhotoBytes(storage: FirebaseStorage, bytes: ByteArray, onComplete: (String?) -> Unit) {
-    try {
-        val ref = storage.reference.child("proofs/${UUID.randomUUID()}.jpg")
-        ref.putBytes(bytes).addOnSuccessListener {
-            ref.downloadUrl.addOnSuccessListener { uri ->
-                onComplete(uri.toString())
-            }.addOnFailureListener {
-                onComplete(createBase64DataUrl(bytes))
-            }
+    val ref = storage.reference.child("proofs/${UUID.randomUUID()}.jpg")
+    ref.putBytes(bytes).addOnSuccessListener {
+        ref.downloadUrl.addOnSuccessListener { uri ->
+            onComplete(uri.toString())
         }.addOnFailureListener {
-            onComplete(createBase64DataUrl(bytes))
+            uploadToCloudinaryFallback(bytes, onComplete)
         }
-    } catch (e: Exception) {
-        onComplete(createBase64DataUrl(bytes))
+    }.addOnFailureListener {
+        uploadToCloudinaryFallback(bytes, onComplete)
     }
 }
 
-private fun createBase64DataUrl(bytes: ByteArray): String {
-    val base64Str = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
-    return "data:image/jpeg;base64,$base64Str"
+private fun uploadToCloudinaryFallback(bytes: ByteArray, onComplete: (String?) -> Unit) {
+    try {
+        MediaManager.get().upload(bytes).unsigned("KurirTrack").option("folder", "wellen_proofs").callback(object : UploadCallback {
+            override fun onStart(id: String?) {}
+            override fun onProgress(id: String?, b: Long, t: Long) {}
+            override fun onSuccess(id: String?, res: Map<*, *>?) {
+                val url = res?.get("secure_url") as? String
+                onComplete(url)
+            }
+            override fun onError(id: String?, e: ErrorInfo?) { onComplete(null) }
+            override fun onReschedule(id: String?, e: ErrorInfo?) { onComplete(null) }
+        }).dispatch()
+    } catch (e: Exception) {
+        onComplete(null)
+    }
 }
 
 private fun updateDestinationStatus(

@@ -16,7 +16,6 @@ let monitorMarkersLayer = (typeof L !== 'undefined' && L.layerGroup) ? L.layerGr
 let monitorCouriersLayer = (typeof L !== 'undefined' && L.layerGroup) ? L.layerGroup() : null;
 let draftMarkersLayer = (typeof L !== 'undefined' && L.layerGroup) ? L.layerGroup() : null;
 let tripRoutesLayer = (typeof L !== 'undefined' && L.layerGroup) ? L.layerGroup() : null;
-let monitorRoutesLayer = (typeof L !== 'undefined' && L.layerGroup) ? L.layerGroup() : null;
 
 // Immediate window exports
 window.initMaps = initMaps;
@@ -32,7 +31,6 @@ function ensureMapLayers() {
         if (!monitorCouriersLayer) monitorCouriersLayer = L.layerGroup();
         if (!draftMarkersLayer) draftMarkersLayer = L.layerGroup();
         if (!tripRoutesLayer) tripRoutesLayer = L.layerGroup();
-        if (!monitorRoutesLayer) monitorRoutesLayer = L.layerGroup();
     }
 }
 
@@ -107,7 +105,7 @@ function initMaps() {
             addMapTileLayer(mapMonitor);
             if (monitorMarkersLayer) monitorMarkersLayer.addTo(mapMonitor);
             if (monitorCouriersLayer) monitorCouriersLayer.addTo(mapMonitor);
-            if (monitorRoutesLayer) monitorRoutesLayer.addTo(mapMonitor);
+            if (tripRoutesLayer) tripRoutesLayer.addTo(mapMonitor);
             window.mapMonitor = mapMonitor;
         }
 
@@ -138,7 +136,6 @@ function updateMapMarkers(filter = "") {
     if (typeof monitorMarkersLayer !== 'undefined' && monitorMarkersLayer) monitorMarkersLayer.clearLayers();
     if (typeof monitorCouriersLayer !== 'undefined' && monitorCouriersLayer) monitorCouriersLayer.clearLayers();
     if (typeof tripRoutesLayer !== 'undefined' && tripRoutesLayer) tripRoutesLayer.clearLayers();
-    if (typeof monitorRoutesLayer !== 'undefined' && monitorRoutesLayer) monitorRoutesLayer.clearLayers();
 
     // 1. Render Online Couriers inside Jabodetabek & Karawang
     if (typeof currentOnlineCouriers !== 'undefined') {
@@ -180,13 +177,22 @@ function updateMapMarkers(filter = "") {
     // 2. Render All Trip Destinations & Route Lines
     if (typeof allCurrentTrips === 'undefined') return;
 
+    const now = new Date();
+    const todayDayMs = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+
     allCurrentTrips.forEach(t => {
         if (typeof isTripInActiveBranch === 'function' && !isTripInActiveBranch(t)) return;
 
         const cName = (typeof registeredUsers !== 'undefined' && registeredUsers[t.courierId]) ? registeredUsers[t.courierId] : t.courierId.substring(0,8);
         const cColor = typeof getCourierColor === 'function' ? getCourierColor(t.courierId) : '#3B82F6';
+        const tripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : (t.id ? parseInt(t.id.replace('TRIP_', '')) || 0 : 0));
 
-        if (t.destinations && t.destinations.length > 0) {
+        // Clean map on new day (H+1): Only render map markers for TODAY'S active trips
+        if (tripMs < todayDayMs) {
+            return;
+        }
+
+        if (t.status !== 'completed' && t.destinations && t.destinations.length > 0) {
             const routePoints = [];
 
             const livePos = (typeof currentOnlineCouriers !== 'undefined') ? currentOnlineCouriers[t.courierId] : null;
@@ -264,23 +270,13 @@ function updateMapMarkers(filter = "") {
                 }
             });
 
-            if (routePoints.length > 1) {
-                if (typeof tripRoutesLayer !== 'undefined' && tripRoutesLayer) {
-                    L.polyline(routePoints, {
-                        color: cColor,
-                        weight: 4,
-                        dashArray: '6, 8',
-                        opacity: 0.85
-                    }).addTo(tripRoutesLayer);
-                }
-                if (typeof monitorRoutesLayer !== 'undefined' && monitorRoutesLayer) {
-                    L.polyline(routePoints, {
-                        color: cColor,
-                        weight: 4,
-                        dashArray: '6, 8',
-                        opacity: 0.85
-                    }).addTo(monitorRoutesLayer);
-                }
+            if (typeof tripRoutesLayer !== 'undefined' && tripRoutesLayer && routePoints.length > 1) {
+                L.polyline(routePoints, {
+                    color: cColor,
+                    weight: 4,
+                    dashArray: '6, 8',
+                    opacity: 0.85
+                }).addTo(tripRoutesLayer);
             }
         }
     });
