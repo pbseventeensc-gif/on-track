@@ -1782,7 +1782,7 @@ function renderMonitorUI(filter = "") {
             courierGroups[cId].trips.push(t);
             if (t.destinations) {
                 courierGroups[cId].totalStops += t.destinations.length;
-                courierGroups[cId].doneStops += t.destinations.filter(d => d.status === 'done').length;
+                courierGroups[cId].doneStops += t.destinations.filter(d => d.status === 'done' || d.status === 'arrived' || (d.proofPhotoUrl && d.proofPhotoUrl.length > 0)).length;
             }
         }
     });
