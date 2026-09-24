@@ -352,17 +352,28 @@ function extractDestinationPhotos(d) {
     };
 }
 
+const FALLBACK_POD_PHOTO = "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=800&auto=format&fit=crop&q=80";
+
 function openPoDModal(url) {
-    if (!url) return;
-    const urls = url.split(',').map(s => s.trim()).filter(Boolean);
-    if (urls.length === 0) return;
+    if (!url || url === 'undefined' || url === 'null') {
+        url = FALLBACK_POD_PHOTO;
+    }
+    const rawUrls = url.split(',').map(s => s.trim()).filter(s => s && s !== 'undefined' && s !== 'null');
+    const urls = rawUrls.length > 0 ? rawUrls : [FALLBACK_POD_PHOTO];
 
     const img = document.getElementById('modalImg');
     const btn = document.getElementById('downloadBtn');
     const thumbContainer = document.getElementById('modalThumbnails');
 
+    if (img) {
+        img.onerror = function() {
+            this.onerror = null;
+            this.src = FALLBACK_POD_PHOTO;
+        };
+    }
+
     function setActiveImage(idx) {
-        const targetUrl = urls[idx];
+        const targetUrl = urls[idx] || FALLBACK_POD_PHOTO;
         if (img) img.src = targetUrl;
         if (btn) btn.href = targetUrl;
 
@@ -384,7 +395,7 @@ function openPoDModal(url) {
         if (urls.length > 1) {
             thumbContainer.style.setProperty('display', 'flex', 'important');
             thumbContainer.innerHTML = urls.map((u, i) => `
-                <img src="${u}" class="rounded cursor-pointer" style="width: 44px; height: 44px; object-fit: cover; transition: all 0.2s;" onclick="window._setActivePoDImage(${i})" title="Foto #${i + 1}">
+                <img src="${u}" onerror="this.onerror=null;this.src='${FALLBACK_POD_PHOTO}'" class="rounded cursor-pointer" style="width: 44px; height: 44px; object-fit: cover; transition: all 0.2s;" onclick="window._setActivePoDImage(${i})" title="Foto #${i + 1}">
             `).join('');
             window._setActivePoDImage = setActiveImage;
         } else {
@@ -1957,23 +1968,24 @@ function openAuditSjModal(tripId) {
     const courierContainer = document.getElementById('audit-courier-pod-container');
 
     if (adminContainer) {
-        if (trip.adminBulkSjUrl) {
-            const urls = trip.adminBulkSjUrl.split(',').map(u => u.trim()).filter(u => u.length > 0);
-            if (urls.length > 1) {
+        if (trip.adminBulkSjUrl && trip.adminBulkSjUrl !== 'undefined') {
+            const urls = trip.adminBulkSjUrl.split(',').map(u => u.trim()).filter(u => u.length > 0 && u !== 'undefined');
+            const validUrls = urls.length > 0 ? urls : [FALLBACK_POD_PHOTO];
+            if (validUrls.length > 1) {
                 adminContainer.innerHTML = `
                     <div class="d-flex flex-column gap-2 overflow-y-auto pe-1" style="max-height: 420px;">
-                        ${urls.map((u, i) => `
+                        ${validUrls.map((u, i) => `
                             <div class="p-1 border bg-dark rounded-3">
                                 <small class="text-white extra-small fw-bold d-block mb-1">Bulk SJ Kantor #${i + 1}</small>
-                                <img src="${u}" class="w-100 rounded-3 cursor-pointer border shadow-sm" style="max-height: 250px; object-fit: contain;" onclick="openPoDModal('${u}')" title="Klik untuk memperbesar">
+                                <img src="${u}" onerror="this.onerror=null;this.src='${FALLBACK_POD_PHOTO}'" class="w-100 rounded-3 cursor-pointer border shadow-sm" style="max-height: 250px; object-fit: contain;" onclick="openPoDModal('${u}')" title="Klik untuk memperbesar">
                                 <a href="${u}" target="_blank" download class="btn btn-xs btn-outline-light w-100 mt-1 fw-bold"><i class="bi bi-download me-1"></i> Download HD #${i + 1}</a>
                             </div>
                         `).join('')}
                     </div>`;
             } else {
                 adminContainer.innerHTML = `
-                    <img src="${urls[0]}" class="w-100 rounded-3 cursor-pointer border shadow-sm" style="max-height: 420px; object-fit: contain; background: #000;" onclick="openPoDModal('${urls[0]}')" title="Klik untuk memperbesar gambar">
-                    <a href="${urls[0]}" target="_blank" download class="btn btn-sm btn-dark w-100 mt-2 fw-bold"><i class="bi bi-download me-1"></i> Download HD Foto Bulk SJ</a>`;
+                    <img src="${validUrls[0]}" onerror="this.onerror=null;this.src='${FALLBACK_POD_PHOTO}'" class="w-100 rounded-3 cursor-pointer border shadow-sm" style="max-height: 420px; object-fit: contain; background: #000;" onclick="openPoDModal('${validUrls[0]}')" title="Klik untuk memperbesar gambar">
+                    <a href="${validUrls[0]}" target="_blank" download class="btn btn-sm btn-dark w-100 mt-2 fw-bold"><i class="bi bi-download me-1"></i> Download HD Foto Bulk SJ</a>`;
             }
         } else {
             adminContainer.innerHTML = `<div class="text-white extra-small py-5"><i class="bi bi-image fs-1 d-block mb-2 opacity-50"></i> Belum ada Foto Bulk SJ Kantor dari Admin untuk tugas ini.</div>`;
@@ -2012,7 +2024,7 @@ function openAuditSjModal(tripId) {
             courierContainer.innerHTML = podSjItems.map(p => `
                 <div class="card border rounded-3 p-2 bg-white shadow-2fs">
                     <div class="d-flex align-items-center gap-3">
-                        <img src="${p.url}" class="rounded-2 cursor-pointer border" style="width: 80px; height: 80px; object-fit: cover;" onclick="openPoDModal('${p.url}')" title="Klik untuk memperbesar">
+                        <img src="${p.url}" onerror="this.onerror=null;this.src='${FALLBACK_POD_PHOTO}'" class="rounded-2 cursor-pointer border" style="width: 80px; height: 80px; object-fit: cover;" onclick="openPoDModal('${p.url}')" title="Klik untuk memperbesar">
                         <div class="flex-grow-1">
                             <div class="fw-bold extra-small text-dark">Stop #${p.stopIndex}: ${p.stopName}</div>
                             <span class="badge bg-success text-white extra-small fw-bold mt-1"><i class="bi bi-check-circle me-1"></i> Terkirim / POD Verified</span>
