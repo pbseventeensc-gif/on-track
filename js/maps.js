@@ -510,13 +510,58 @@ async function addManualAddress() {
 
 async function geocodeWithNominatim(addressText) {
     try {
-        const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addressText)}&countrycodes=id&limit=1`;
-        const res = await fetch(url);
-        const data = await res.json();
+        // Query 1: Full text
+        let url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addressText)}&countrycodes=id&limit=1`;
+        let res = await fetch(url);
+        let data = await res.json();
+
+        // Query 2: Strip store name if comma present
+        if ((!data || data.length === 0) && addressText.includes(',')) {
+            const cleanQuery = addressText.split(',').slice(1).join(',').trim();
+            if (cleanQuery) {
+                url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cleanQuery)}&countrycodes=id&limit=1`;
+                res = await fetch(url);
+                data = await res.json();
+            }
+        }
+
+        // Query 3: Smart fallback search terms
+        if (!data || data.length === 0) {
+            const lower = addressText.toLowerCase();
+            let fallbackSearch = "";
+            if (lower.includes("serang") || lower.includes("syafei") || lower.includes("banten") || lower.includes("lontar")) {
+                fallbackSearch = "Jl. Mayor Syafei, Serang, Banten";
+            } else if (lower.includes("cilegon")) {
+                fallbackSearch = "Cilegon, Banten";
+            } else if (lower.includes("karawang")) {
+                fallbackSearch = "Karawang, Jawa Barat";
+            }
+
+            if (fallbackSearch) {
+                url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fallbackSearch)}&countrycodes=id&limit=1`;
+                res = await fetch(url);
+                data = await res.json();
+            }
+        }
+
+        let lat = 0, lng = 0, formatted = addressText;
         if (data && data.length > 0) {
-            const lat = parseFloat(data[0].lat);
-            const lng = parseFloat(data[0].lon);
-            const formatted = data[0].display_name;
+            lat = parseFloat(data[0].lat);
+            lng = parseFloat(data[0].lon);
+            formatted = data[0].display_name || addressText;
+        } else {
+            // Hard fallback coordinates for known regions
+            const lower = addressText.toLowerCase();
+            if (lower.includes("serang") || lower.includes("syafei") || lower.includes("banten") || lower.includes("lontar")) {
+                lat = -6.1158;
+                lng = 106.1558;
+            } else if (lower.includes("cilegon")) {
+                lat = -6.0175;
+                lng = 106.0538;
+            }
+        }
+
+        if (lat !== 0 && lng !== 0) {
             const parts = addressText.split(',');
             const storeName = parts[0].trim();
 
@@ -533,10 +578,12 @@ async function geocodeWithNominatim(addressText) {
             if (input) input.value = "";
             if (typeof showToast === 'function') showToast("Lokasi berhasil ditambahkan!");
             if (mapDispatch) mapDispatch.flyTo([lat, lng], 16);
-        } else {
-            alert(`Lokasi "${addressText}" tidak ditemukan. Silakan perjelas nama toko / jalan / kota.`);
+            return;
         }
+
+        alert(`Lokasi "${addressText}" tidak ditemukan. Silakan perjelas nama toko / jalan / kota.`);
     } catch(e) {
+        console.error("Nominatim geocoding error:", e);
         alert("Gagal mencari lokasi. Periksa koneksi internet Anda.");
     }
 }

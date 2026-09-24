@@ -906,12 +906,35 @@ function toggleAllClients(checked) {
     document.querySelectorAll('.client-checkbox').forEach(cb => cb.checked = checked);
 }
 
+async function ensureMasterClientsSeeded() {
+    const activeDb = getDb();
+    if (!activeDb) return;
+    try {
+        const docRef = activeDb.collection('clients').doc('CLIENT_AZKO_SYAFEI_SERANG');
+        const snap = await docRef.get();
+        if (!snap.exists) {
+            await docRef.set({
+                name: "AZko Syafei Serang",
+                address: "Jl. Mayor Syafei No.90 Desa Lontar Pos, Jl. Pantura, Kagungan, Kec. Serang, Kota Serang, Banten 42114",
+                latitude: -6.1158,
+                longitude: 106.1558,
+                region: "Serang",
+                updatedAt: firebase.firestore.Timestamp.now()
+            });
+        }
+    } catch(e) {
+        console.warn("Seeding client error:", e);
+    }
+}
+
 async function loadClientsByRegion(region) {
     const container = document.getElementById('client-list-container');
     const activeDb = getDb();
     if(!container || !activeDb) return;
     const sa = document.getElementById('select-all-clients');
     if(sa) sa.checked = false;
+
+    await ensureMasterClientsSeeded();
 
     container.innerHTML = '<p class="text-center py-3 text-muted extra-small">Fetching clients...</p>';
 
