@@ -1609,6 +1609,18 @@ async function uploadFileToCloudinaryOrFirebase(file) {
     });
 }
 
+function getBulkSjUrls(tripData) {
+    if (!tripData) return [];
+    if (Array.isArray(tripData.adminBulkSjUrls) && tripData.adminBulkSjUrls.length > 0) {
+        return tripData.adminBulkSjUrls.filter(u => u && typeof u === 'string' && u.trim().length > 0);
+    }
+    if (tripData.adminBulkSjUrl && typeof tripData.adminBulkSjUrl === 'string' && tripData.adminBulkSjUrl.trim().length > 0) {
+        return tripData.adminBulkSjUrl.split(',').map(u => u.trim()).filter(u => u.length > 0);
+    }
+    return [];
+}
+window.getBulkSjUrls = getBulkSjUrls;
+
 async function submitTrip() {
     const btn = document.querySelector('[onclick*="submitTrip"]');
     const cidEl = document.getElementById('sel-courier');
@@ -1628,10 +1640,16 @@ async function submitTrip() {
         if (!activeDb) throw new Error("Firestore Database belum terhubung.");
 
         let adminBulkSjUrl = "";
+        let adminBulkSjUrls = [];
         const sjFileEl = document.getElementById('dispatch-bulk-sj-file');
-        if (sjFileEl && sjFileEl.files && sjFileEl.files[0]) {
-            if (btn) btn.innerText = "UPLOADING BULK SJ PHOTO...";
-            adminBulkSjUrl = await uploadFileToCloudinaryOrFirebase(sjFileEl.files[0]);
+        if (sjFileEl && sjFileEl.files && sjFileEl.files.length > 0) {
+            if (btn) btn.innerText = `UPLOADING ${sjFileEl.files.length} BULK SJ PHOTO(S)...`;
+            for (let i = 0; i < sjFileEl.files.length; i++) {
+                const targetFile = await compressImageFile(sjFileEl.files[i], 1000, 0.7);
+                const u = await uploadFileToCloudinaryOrFirebase(targetFile);
+                if (u) adminBulkSjUrls.push(u);
+            }
+            adminBulkSjUrl = adminBulkSjUrls.join(',');
         }
 
         const id = "TRIP_" + Date.now();
@@ -1642,6 +1660,7 @@ async function submitTrip() {
             date: firebase.firestore.Timestamp.now(),
             acceptedTime: firebase.firestore.Timestamp.now(),
             adminBulkSjUrl: adminBulkSjUrl,
+            adminBulkSjUrls: adminBulkSjUrls,
             branchId: getActiveBranchId(),
             destinations: tripQueue.map((d, i) => ({
                 stopIndex: i + 1,
@@ -1808,21 +1827,34 @@ function renderMonitorUI(filter = "") {
         const pendingStops = c.trips.reduce((acc, t) => acc + (t.destinations ? t.destinations.filter(d => d.status === 'pending_approval' || (d.status === 'pending' && d.pendingReason)).length : 0), 0);
         const pendingBadgeHtml = pendingStops > 0 ? `<span class="badge rounded-pill bg-danger text-white extra-small py-1 px-2 fw-bold ms-1" style="font-size:0.65rem"><i class="bi bi-exclamation-triangle-fill me-1"></i>${pendingStops} Pending / Tutup</span>` : '';
 
-        const bulkSjTrip = c.trips.find(t => t.adminBulkSjUrl && t.adminBulkSjUrl.length > 0);
+        const bulkSjTrip = c.trips.find(t => getBulkSjUrls(t).length > 0);
         const activeTrip = c.trips[0];
 
         let bulkSjSectionHtml = '';
         if (bulkSjTrip) {
+            const sjUrls = getBulkSjUrls(bulkSjTrip);
             bulkSjSectionHtml = `
-                <button class="btn btn-xs btn-outline-primary w-100 py-1.5 fw-bold mt-2" style="border-radius: 8px; font-size:0.725rem;" onclick="openAuditSjModal('${bulkSjTrip.id}')">
-                    <i class="bi bi-file-earmark-text-fill me-1"></i> 📄 Lihat Bulk SJ Awal (${c.totalStops} SJ)
-                </button>`;
+                <div class="mt-2 p-2 bg-light border rounded-3 text-start">
+                    <div class="d-flex justify-content-between align-items-center mb-1.5">
+                        <small class="text-muted extra-small fw-bold text-uppercase" style="font-size:0.65rem;"><i class="bi bi-file-earmark-text-fill me-1 text-primary"></i> Foto Bulk SJ (${sjUrls.length})</small>
+                        <button class="btn btn-xs btn-outline-danger py-0 px-1.5 fw-bold" style="font-size: 0.65rem; border-radius: 4px;" onclick="deleteBulkSjFromCard('${bulkSjTrip.id}')" title="Hapus Semua Foto Bulk SJ Kurir Ini"><i class="bi bi-trash-fill me-1"></i>Hapus</button>
+                    </div>
+                    <div class="d-flex gap-1 mb-1.5">
+                        <button class="btn btn-xs btn-outline-primary w-100 py-1.5 fw-bold" style="border-radius: 6px; font-size:0.725rem;" onclick="openAuditSjModal('${bulkSjTrip.id}')">
+                            <i class="bi bi-eye-fill me-1"></i> Lihat ${sjUrls.length} Foto Bulk SJ
+                        </button>
+                    </div>
+                    <div class="d-flex gap-1 align-items-center">
+                        <input type="file" id="card-bulk-file-${bulkSjTrip.id}" accept="image/*" class="form-control form-control-sm py-1 px-2 extra-small bg-white" style="border-radius: 6px; font-size: 0.68rem;" multiple>
+                        <button class="btn btn-xs btn-primary fw-bold text-nowrap px-2 py-1" style="font-size: 0.68rem; border-radius: 6px;" onclick="uploadBulkSjFromCard('${bulkSjTrip.id}')">+ Upload</button>
+                    </div>
+                </div>`;
         } else if (activeTrip) {
             bulkSjSectionHtml = `
                 <div class="mt-2 p-2 bg-light border rounded-3 text-start">
-                    <small class="text-muted extra-small fw-bold text-uppercase d-block mb-1"><i class="bi bi-camera-fill me-1 text-primary"></i> Foto Bulk SJ Awal Kantor</small>
+                    <small class="text-muted extra-small fw-bold text-uppercase d-block mb-1"><i class="bi bi-camera-fill me-1 text-primary"></i> Upload Foto Bulk SJ (Bisa >1)</small>
                     <div class="d-flex gap-1 align-items-center">
-                        <input type="file" id="card-bulk-file-${activeTrip.id}" accept="image/*" class="form-control form-control-sm py-1 px-2 extra-small bg-white" style="border-radius: 6px; font-size: 0.68rem;">
+                        <input type="file" id="card-bulk-file-${activeTrip.id}" accept="image/*" class="form-control form-control-sm py-1 px-2 extra-small bg-white" style="border-radius: 6px; font-size: 0.68rem;" multiple>
                         <button class="btn btn-xs btn-primary fw-bold text-nowrap px-2 py-1" style="font-size: 0.68rem; border-radius: 6px;" onclick="uploadBulkSjFromCard('${activeTrip.id}')">Upload</button>
                     </div>
                 </div>`;
@@ -1870,24 +1902,49 @@ function renderMonitorUI(filter = "") {
 
 async function uploadBulkSjFromCard(tripId) {
     const fileEl = document.getElementById(`card-bulk-file-${tripId}`);
-    const file = fileEl?.files?.[0];
-    if (!file) return alert("Pilih file foto Bulk SJ terlebih dahulu!");
+    const files = fileEl?.files;
+    if (!files || files.length === 0) return alert("Pilih minimal 1 file foto Bulk SJ terlebih dahulu!");
 
     try {
         const activeDb = getDb();
         if (!activeDb) throw new Error("Firestore Database belum siap.");
 
-        showToast("⏳ Mengompres & mengunggah foto Bulk SJ...");
-        const targetFile = await compressImageFile(file, 1000, 0.7);
+        showToast(`⏳ Mengompres & mengunggah ${files.length} foto Bulk SJ...`);
 
-        const photoUrl = await uploadFileToCloudinaryOrFirebase(targetFile);
-        if (!photoUrl) throw new Error("Gagal mengunggah foto.");
+        const uploadedUrls = [];
+        for (let i = 0; i < files.length; i++) {
+            const targetFile = await compressImageFile(files[i], 1000, 0.7);
+            const photoUrl = await uploadFileToCloudinaryOrFirebase(targetFile);
+            if (photoUrl) uploadedUrls.push(photoUrl);
+        }
+
+        if (uploadedUrls.length === 0) throw new Error("Gagal mengunggah foto.");
+
+        let trip = allCurrentTrips.find(t => t.id === tripId);
+        let existingUrls = getBulkSjUrls(trip);
+
+        if (!trip) {
+            const docSnap = await activeDb.collection('trips').doc(tripId).get();
+            if (docSnap.exists) {
+                existingUrls = getBulkSjUrls(docSnap.data());
+            }
+        }
+
+        const combinedUrls = [...existingUrls, ...uploadedUrls];
+        const combinedString = combinedUrls.join(',');
 
         await activeDb.collection('trips').doc(tripId).update({
-            adminBulkSjUrl: photoUrl
+            adminBulkSjUrl: combinedString,
+            adminBulkSjUrls: combinedUrls
         });
 
-        showToast("✅ Foto Bulk SJ Awal Kantor berhasil disimpan!");
+        if (trip) {
+            trip.adminBulkSjUrl = combinedString;
+            trip.adminBulkSjUrls = combinedUrls;
+        }
+
+        showToast(`✅ ${uploadedUrls.length} Foto Bulk SJ Awal Kantor berhasil disimpan!`);
+        fileEl.value = "";
         if (typeof renderMonitorUI === 'function') renderMonitorUI();
     } catch (e) {
         console.error("Upload Bulk SJ error:", e);
@@ -1895,6 +1952,69 @@ async function uploadBulkSjFromCard(tripId) {
     }
 }
 window.uploadBulkSjFromCard = uploadBulkSjFromCard;
+
+async function deleteBulkSjFromCard(tripId) {
+    if (!confirm("Apakah Anda yakin ingin menghapus SELURUH foto Bulk Surat Jalan untuk pengiriman ini?")) return;
+
+    try {
+        const activeDb = getDb();
+        if (!activeDb) throw new Error("Firestore Database belum siap.");
+
+        showToast("⏳ Menghapus foto Bulk SJ...");
+
+        await activeDb.collection('trips').doc(tripId).update({
+            adminBulkSjUrl: "",
+            adminBulkSjUrls: []
+        });
+
+        const trip = allCurrentTrips.find(t => t.id === tripId);
+        if (trip) {
+            trip.adminBulkSjUrl = "";
+            trip.adminBulkSjUrls = [];
+        }
+
+        showToast("✅ Foto Bulk SJ berhasil dihapus!");
+        if (typeof renderMonitorUI === 'function') renderMonitorUI();
+    } catch (e) {
+        console.error("Delete Bulk SJ error:", e);
+        alert("Gagal menghapus foto Bulk SJ: " + e.message);
+    }
+}
+window.deleteBulkSjFromCard = deleteBulkSjFromCard;
+
+async function deleteSingleBulkSjPhoto(tripId, index) {
+    if (!confirm(`Hapus Foto Bulk SJ #${index + 1}?`)) return;
+
+    try {
+        const activeDb = getDb();
+        if (!activeDb) throw new Error("Firestore Database belum siap.");
+
+        const trip = allCurrentTrips.find(t => t.id === tripId);
+        if (!trip) return alert("Data pengiriman tidak ditemukan!");
+
+        let currentUrls = getBulkSjUrls(trip);
+        if (index < 0 || index >= currentUrls.length) return;
+
+        currentUrls.splice(index, 1);
+        const combinedString = currentUrls.join(',');
+
+        await activeDb.collection('trips').doc(tripId).update({
+            adminBulkSjUrl: combinedString,
+            adminBulkSjUrls: currentUrls
+        });
+
+        trip.adminBulkSjUrl = combinedString;
+        trip.adminBulkSjUrls = currentUrls;
+
+        showToast("✅ Foto Bulk SJ berhasil dihapus!");
+        openAuditSjModal(tripId);
+        if (typeof renderMonitorUI === 'function') renderMonitorUI();
+    } catch (e) {
+        console.error("Delete single photo error:", e);
+        alert("Gagal menghapus foto: " + e.message);
+    }
+}
+window.deleteSingleBulkSjPhoto = deleteSingleBulkSjPhoto;
 
 function openAuditSjModal(tripId) {
     const trip = allCurrentTrips.find(t => t.id === tripId);
@@ -1910,14 +2030,33 @@ function openAuditSjModal(tripId) {
 
     const adminContainer = document.getElementById('audit-admin-sj-container');
     const courierContainer = document.getElementById('audit-courier-pod-container');
+    const adminCountBadge = document.getElementById('audit-admin-sj-count');
+
+    const sjUrls = getBulkSjUrls(trip);
+    if (adminCountBadge) adminCountBadge.innerText = `${sjUrls.length} Foto`;
 
     if (adminContainer) {
-        if (trip.adminBulkSjUrl) {
-            adminContainer.innerHTML = `
-                <img src="${trip.adminBulkSjUrl}" class="w-100 rounded-3 cursor-pointer border shadow-sm" style="max-height: 420px; object-fit: contain; background: #000;" onclick="openPoDModal('${trip.adminBulkSjUrl}')" title="Klik untuk memperbesar gambar">
-                <a href="${trip.adminBulkSjUrl}" target="_blank" download class="btn btn-sm btn-dark w-100 mt-2 fw-bold"><i class="bi bi-download me-1"></i> Download HD Foto Bulk SJ</a>`;
+        if (sjUrls.length > 0) {
+            adminContainer.innerHTML = sjUrls.map((url, idx) => `
+                <div class="card border rounded-3 p-2 bg-white shadow-2fs mb-2 text-start">
+                    <div class="d-flex align-items-center gap-3">
+                        <img src="${url}" class="rounded-2 cursor-pointer border" style="width: 85px; height: 85px; object-fit: cover;" onclick="openPoDModal('${url}')" title="Klik untuk memperbesar">
+                        <div class="flex-grow-1">
+                            <div class="fw-bold extra-small text-dark mb-1">📄 Foto Bulk SJ Admin #${idx + 1}</div>
+                            <div class="d-flex gap-2 flex-wrap">
+                                <a href="${url}" target="_blank" download class="btn btn-xs btn-dark fw-bold py-1 px-2.5" style="font-size:0.7rem; border-radius: 6px;">
+                                    <i class="bi bi-download me-1"></i> Download HD
+                                </a>
+                                <button class="btn btn-xs btn-outline-danger fw-bold py-1 px-2.5" style="font-size:0.7rem; border-radius: 6px;" onclick="deleteSingleBulkSjPhoto('${trip.id}', ${idx})" title="Hapus foto ini">
+                                    <i class="bi bi-trash-fill me-1"></i> Hapus
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
         } else {
-            adminContainer.innerHTML = `<div class="text-white extra-small py-5"><i class="bi bi-image fs-1 d-block mb-2 opacity-50"></i> Belum ada Foto Bulk SJ Kantor dari Admin untuk tugas ini.</div>`;
+            adminContainer.innerHTML = `<div class="text-muted extra-small py-5 text-center"><i class="bi bi-image fs-1 d-block mb-2 opacity-50"></i> Belum ada Foto Bulk SJ Kantor dari Admin untuk tugas ini.</div>`;
         }
     }
 
@@ -1948,16 +2087,28 @@ function openAuditSjModal(tripId) {
         }
 
         if (podSjItems.length === 0) {
-            courierContainer.innerHTML = `<div class="text-muted extra-small py-5 text-center"><i class="bi bi-inbox fs-2 d-block mb-2"></i> Belum ada foto POD Surat Jalan terkirim dari kurir.</div>`;
+            courierContainer.innerHTML = `<div class="text-muted extra-small py-5 text-center"><i class="bi bi-inbox fs-2 d-block mb-2 opacity-50"></i> Belum ada foto POD Surat Jalan terkirim dari kurir.</div>`;
         } else {
             courierContainer.innerHTML = podSjItems.map(p => `
-                <div class="card border rounded-3 p-2 bg-white shadow-2fs">
+                <div class="card border rounded-3 p-2 bg-white shadow-2fs mb-2 text-start">
                     <div class="d-flex align-items-center gap-3">
-                        <img src="${p.url}" class="rounded-2 cursor-pointer border" style="width: 80px; height: 80px; object-fit: cover;" onclick="openPoDModal('${p.url}')" title="Klik untuk memperbesar">
+                        <img src="${p.url}" class="rounded-2 cursor-pointer border" style="width: 85px; height: 85px; object-fit: cover;" onclick="openPoDModal('${p.url}')" title="Klik untuk memperbesar">
                         <div class="flex-grow-1">
                             <div class="fw-bold extra-small text-dark">Stop #${p.stopIndex}: ${p.stopName}</div>
-                            <span class="badge bg-success text-white extra-small fw-bold mt-1"><i class="bi bi-check-circle me-1"></i> Terkirim / POD Verified</span>
+                            <span class="badge bg-success text-white extra-small fw-bold mt-1" style="font-size:0.65rem;"><i class="bi bi-check-circle me-1"></i> Terkirim / POD Verified</span>
                         </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+    }
+
+    const modalEl = document.getElementById('auditSjModal');
+    if (modalEl && typeof bootstrap !== 'undefined') {
+        new bootstrap.Modal(modalEl).show();
+    }
+}
+window.openAuditSjModal = openAuditSjModal;
                     </div>
                 </div>
             `).join('');

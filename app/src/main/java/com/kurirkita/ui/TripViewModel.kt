@@ -67,6 +67,9 @@ class TripViewModel : ViewModel() {
             val status = doc.getString("status") ?: "assigned"
             val branchId = doc.getString("branchId") ?: ""
             val adminBulkSjUrl = doc.getString("adminBulkSjUrl") ?: ""
+            @Suppress("UNCHECKED_CAST")
+            val adminBulkSjUrls = (doc.get("adminBulkSjUrls") as? List<*>)?.mapNotNull { it as? String }
+                ?: if (adminBulkSjUrl.isNotEmpty()) adminBulkSjUrl.split(",").map { it.trim() }.filter { it.isNotEmpty() } else emptyList()
             val totalDistanceKm = doc.getDouble("totalDistanceKm") ?: 0.0
             val acceptLat = doc.getDouble("acceptLatitude")
             val acceptLng = doc.getDouble("acceptLongitude")
@@ -105,6 +108,7 @@ class TripViewModel : ViewModel() {
                 acceptLongitude = acceptLng,
                 branchId = branchId,
                 adminBulkSjUrl = adminBulkSjUrl,
+                adminBulkSjUrls = adminBulkSjUrls,
                 destinations = destinations
             )
         } catch (e: Exception) {

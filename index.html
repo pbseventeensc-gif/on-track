@@ -617,7 +617,12 @@
                             </div>
 
                             <div class="mb-4">
-                                <label class="extra-small fw-bold text-muted text-uppercase mb-2">2. Add Destinations</label>
+                                <label class="extra-small fw-bold text-muted text-uppercase mb-2">2. Upload Bulk Surat Jalan Photo (Optional, Bisa >1 Foto)</label>
+                                <input type="file" id="dispatch-bulk-sj-file" accept="image/*" multiple class="form-control py-2 border-1" style="border-radius: 10px;">
+                            </div>
+
+                            <div class="mb-4">
+                                <label class="extra-small fw-bold text-muted text-uppercase mb-2">3. Add Destinations</label>
                                 <div class="d-flex gap-2 mb-3">
                                     <div class="position-relative flex-grow-1">
                                         <i class="bi bi-geo-alt position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"></i>
@@ -1117,17 +1122,22 @@
                     <!-- Left: Bulk SJ Photo from Admin -->
                     <div class="col-md-6 border-end">
                         <div class="p-3 bg-white border rounded-3 mb-3 shadow-2fs">
-                            <span class="badge bg-primary px-3 py-1.5 fw-bold text-white extra-small mb-2 d-inline-block"><i class="bi bi-camera me-1"></i> 1. FOTO BULK SJ AWAL KANTOR (ADMIN)</span>
-                            <div id="audit-admin-sj-container" class="position-relative text-center bg-dark rounded-3 overflow-hidden" style="min-height: 350px;">
-                                <div class="text-muted extra-small py-5 text-white">Memuat foto...</div>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="badge bg-primary px-3 py-1.5 fw-bold text-white extra-small d-inline-block"><i class="bi bi-camera me-1"></i> 1. FOTO BULK SJ AWAL KANTOR (ADMIN)</span>
+                                <span id="audit-admin-sj-count" class="badge bg-light text-primary border extra-small fw-bold">0 Foto</span>
+                            </div>
+                            <div id="audit-admin-sj-container" class="d-flex flex-column gap-2 overflow-y-auto pe-1" style="max-height: 480px; min-height: 200px;">
+                                <div class="text-muted extra-small py-5 text-center">Memuat foto...</div>
                             </div>
                         </div>
                     </div>
                     <!-- Right: Signed POD SJ Photos from Courier -->
                     <div class="col-md-6">
                         <div class="p-3 bg-white border rounded-3 mb-3 shadow-2fs">
-                            <span class="badge bg-success px-3 py-1.5 fw-bold text-white extra-small mb-2 d-inline-block"><i class="bi bi-check-circle me-1"></i> 2. FOTO POD SJ TERKIRIM (KURIR)</span>
-                            <div id="audit-courier-pod-container" class="d-flex flex-column gap-3 overflow-y-auto pe-1" style="max-height: 480px;">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="badge bg-success px-3 py-1.5 fw-bold text-white extra-small d-inline-block"><i class="bi bi-check-circle me-1"></i> 2. FOTO POD SJ TERKIRIM (KURIR)</span>
+                            </div>
+                            <div id="audit-courier-pod-container" class="d-flex flex-column gap-2 overflow-y-auto pe-1" style="max-height: 480px; min-height: 200px;">
                                 <div class="text-muted extra-small py-5 text-center">Memuat foto POD kurir...</div>
                             </div>
                         </div>

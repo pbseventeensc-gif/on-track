@@ -13,6 +13,7 @@ data class Trip(
     val acceptedTime: Timestamp? = null,
     val branchId: String = "",
     val adminBulkSjUrl: String = "",
+    val adminBulkSjUrls: List<String> = emptyList(),
     val destinations: List<Destination> = emptyList()
 )
 
