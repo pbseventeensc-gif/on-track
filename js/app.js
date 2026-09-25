@@ -1588,20 +1588,30 @@ async function uploadFileToCloudinaryOrFirebase(file) {
                 formData.append("upload_preset", "KurirTrack");
                 formData.append("folder", "wellen_proofs");
 
-                fetch("https://api.cloudinary.com/v1_1/wellen_proofs/image/upload", {
+                fetch("https://api.cloudinary.com/v1_1/dgf3shxpf/image/upload", {
                     method: "POST",
                     body: formData
                 }).then(res => res.json()).then(data => {
                     if (data && data.secure_url) {
                         resolve(data.secure_url);
-                    } else {
+                    } else if (dataUrl && dataUrl.startsWith("data:image/")) {
                         resolve(dataUrl);
+                    } else {
+                        resolve("");
                     }
                 }).catch(() => {
-                    resolve(dataUrl);
+                    if (dataUrl && dataUrl.startsWith("data:image/")) {
+                        resolve(dataUrl);
+                    } else {
+                        resolve("");
+                    }
                 });
             } catch(e) {
-                resolve(dataUrl);
+                if (dataUrl && dataUrl.startsWith("data:image/")) {
+                    resolve(dataUrl);
+                } else {
+                    resolve("");
+                }
             }
         };
         reader.onerror = () => resolve("");
@@ -2040,9 +2050,9 @@ function openAuditSjModal(tripId) {
             adminContainer.innerHTML = sjUrls.map((url, idx) => `
                 <div class="card border rounded-3 p-2 bg-white shadow-2fs mb-2 text-start">
                     <div class="d-flex align-items-center gap-3">
-                        <img src="${url}" class="rounded-2 cursor-pointer border" style="width: 85px; height: 85px; object-fit: cover;" onclick="openPoDModal('${url}')" title="Klik untuk memperbesar">
-                        <div class="flex-grow-1">
-                            <div class="fw-bold extra-small text-dark mb-1">📄 Foto Bulk SJ Admin #${idx + 1}</div>
+                        <img src="${url}" onerror="this.onerror=null; this.src='https://placehold.co/100x100?text=Gambar+Rusak';" class="rounded-2 cursor-pointer border flex-shrink-0" style="width: 85px; height: 85px; object-fit: cover;" onclick="openPoDModal('${url}')" title="Klik untuk memperbesar">
+                        <div class="flex-grow-1 min-w-0">
+                            <div class="fw-bold extra-small text-dark mb-1 text-truncate">📄 Foto Bulk SJ Admin #${idx + 1}</div>
                             <div class="d-flex gap-2 flex-wrap">
                                 <a href="${url}" target="_blank" download class="btn btn-xs btn-dark fw-bold py-1 px-2.5" style="font-size:0.7rem; border-radius: 6px;">
                                     <i class="bi bi-download me-1"></i> Download HD
@@ -2092,9 +2102,9 @@ function openAuditSjModal(tripId) {
             courierContainer.innerHTML = podSjItems.map(p => `
                 <div class="card border rounded-3 p-2 bg-white shadow-2fs mb-2 text-start">
                     <div class="d-flex align-items-center gap-3">
-                        <img src="${p.url}" class="rounded-2 cursor-pointer border" style="width: 85px; height: 85px; object-fit: cover;" onclick="openPoDModal('${p.url}')" title="Klik untuk memperbesar">
-                        <div class="flex-grow-1">
-                            <div class="fw-bold extra-small text-dark">Stop #${p.stopIndex}: ${p.stopName}</div>
+                        <img src="${p.url}" onerror="this.onerror=null; this.src='https://placehold.co/100x100?text=Gambar+Rusak';" class="rounded-2 cursor-pointer border flex-shrink-0" style="width: 85px; height: 85px; object-fit: cover;" onclick="openPoDModal('${p.url}')" title="Klik untuk memperbesar">
+                        <div class="flex-grow-1 min-w-0">
+                            <div class="fw-bold extra-small text-dark text-truncate">Stop #${p.stopIndex}: ${p.stopName}</div>
                             <span class="badge bg-success text-white extra-small fw-bold mt-1" style="font-size:0.65rem;"><i class="bi bi-check-circle me-1"></i> Terkirim / POD Verified</span>
                         </div>
                     </div>
