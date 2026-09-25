@@ -2026,6 +2026,59 @@ async function deleteSingleBulkSjPhoto(tripId, index) {
 }
 window.deleteSingleBulkSjPhoto = deleteSingleBulkSjPhoto;
 
+async function uploadBulkSjFromModal(tripId) {
+    const fileEl = document.getElementById(`modal-bulk-file-${tripId}`);
+    const files = fileEl?.files;
+    if (!files || files.length === 0) return alert("Pilih minimal 1 file foto terlebih dahulu!");
+
+    try {
+        const activeDb = getDb();
+        if (!activeDb) throw new Error("Firestore Database belum siap.");
+
+        showToast(`⏳ Mengompres & mengunggah ${files.length} foto Bulk SJ...`);
+
+        const uploadedUrls = [];
+        for (let i = 0; i < files.length; i++) {
+            const targetFile = await compressImageFile(files[i], 1000, 0.7);
+            const photoUrl = await uploadFileToCloudinaryOrFirebase(targetFile);
+            if (photoUrl) uploadedUrls.push(photoUrl);
+        }
+
+        if (uploadedUrls.length === 0) throw new Error("Gagal mengunggah foto.");
+
+        let trip = allCurrentTrips.find(t => t.id === tripId);
+        let existingUrls = getBulkSjUrls(trip);
+
+        if (!trip) {
+            const docSnap = await activeDb.collection('trips').doc(tripId).get();
+            if (docSnap.exists) {
+                existingUrls = getBulkSjUrls(docSnap.data());
+            }
+        }
+
+        const combinedUrls = [...existingUrls, ...uploadedUrls];
+        const combinedString = combinedUrls.join(',');
+
+        await activeDb.collection('trips').doc(tripId).update({
+            adminBulkSjUrl: combinedString,
+            adminBulkSjUrls: combinedUrls
+        });
+
+        if (trip) {
+            trip.adminBulkSjUrl = combinedString;
+            trip.adminBulkSjUrls = combinedUrls;
+        }
+
+        showToast(`✅ ${uploadedUrls.length} Foto Bulk SJ tambahan berhasil disimpan!`);
+        openAuditSjModal(tripId);
+        if (typeof renderMonitorUI === 'function') renderMonitorUI();
+    } catch (e) {
+        console.error("Upload Bulk SJ modal error:", e);
+        alert("Gagal menyimpan foto Bulk SJ: " + e.message);
+    }
+}
+window.uploadBulkSjFromModal = uploadBulkSjFromModal;
+
 function openAuditSjModal(tripId) {
     const trip = allCurrentTrips.find(t => t.id === tripId);
     if (!trip) return alert("Data pengiriman tidak ditemukan!");
@@ -2046,8 +2099,17 @@ function openAuditSjModal(tripId) {
     if (adminCountBadge) adminCountBadge.innerText = `${sjUrls.length} Foto`;
 
     if (adminContainer) {
+        let uploadBarHtml = `
+            <div class="p-2.5 bg-light border rounded-3 mb-3 text-start">
+                <small class="text-muted extra-small fw-bold text-uppercase d-block mb-1.5"><i class="bi bi-plus-circle-fill me-1 text-primary"></i> Tambah 1 Foto Bulk SJ Lagi</small>
+                <div class="d-flex gap-1.5 align-items-center">
+                    <input type="file" id="modal-bulk-file-${trip.id}" accept="image/*" class="form-control form-control-sm py-1 px-2 extra-small bg-white" style="border-radius: 6px; font-size: 0.68rem;" multiple>
+                    <button class="btn btn-xs btn-primary fw-bold text-nowrap px-2.5 py-1" style="font-size: 0.68rem; border-radius: 6px;" onclick="uploadBulkSjFromModal('${trip.id}')">+ Upload Lagi</button>
+                </div>
+            </div>`;
+
         if (sjUrls.length > 0) {
-            adminContainer.innerHTML = sjUrls.map((url, idx) => `
+            adminContainer.innerHTML = uploadBarHtml + sjUrls.map((url, idx) => `
                 <div class="card border rounded-3 p-2 bg-white shadow-2fs mb-2 text-start">
                     <div class="d-flex align-items-center gap-3">
                         <img src="${url}" onerror="this.onerror=null; this.src='https://placehold.co/100x100?text=Gambar+Rusak';" class="rounded-2 cursor-pointer border flex-shrink-0" style="width: 85px; height: 85px; object-fit: cover;" onclick="openPoDModal('${url}')" title="Klik untuk memperbesar">
@@ -2066,7 +2128,7 @@ function openAuditSjModal(tripId) {
                 </div>
             `).join('');
         } else {
-            adminContainer.innerHTML = `<div class="text-muted extra-small py-5 text-center"><i class="bi bi-image fs-1 d-block mb-2 opacity-50"></i> Belum ada Foto Bulk SJ Kantor dari Admin untuk tugas ini.</div>`;
+            adminContainer.innerHTML = uploadBarHtml + `<div class="text-muted extra-small py-4 text-center"><i class="bi bi-image fs-1 d-block mb-2 opacity-50"></i> Belum ada Foto Bulk SJ Kantor dari Admin untuk tugas ini.</div>`;
         }
     }
 
@@ -2598,7 +2660,13 @@ async function submitManualUploadPhoto() {
                     let existingItems = Array.isArray(d.proofPhotoItems) ? [...d.proofPhotoItems] : (typeof d.proofPhotoItems === 'string' && d.proofPhotoItems ? d.proofPhotoItems.split(',').map(s=>s.trim()).filter(Boolean) : []);
 
                     if (category === 'sj') {
-                        existingSj = uploadedUrls[0];
+                        if (existingSj && existingSj.trim().length > 0) {
+                            const sjArr = existingSj.split(',').map(s=>s.trim()).filter(Boolean);
+                            uploadedUrls.forEach(u => { if (!sjArr.includes(u)) sjArr.push(u); });
+                            existingSj = sjArr.join(',');
+                        } else {
+                            existingSj = uploadedUrls.join(',');
+                        }
                     } else if (category === 'item') {
                         uploadedUrls.forEach(u => {
                             if (!existingItems.includes(u)) existingItems.push(u);
