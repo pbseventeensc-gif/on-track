@@ -2109,18 +2109,6 @@ function openAuditSjModal(tripId) {
     }
 }
 window.openAuditSjModal = openAuditSjModal;
-                    </div>
-                </div>
-            `).join('');
-        }
-    }
-
-    const modalEl = document.getElementById('auditSjModal');
-    if (modalEl && typeof bootstrap !== 'undefined') {
-        new bootstrap.Modal(modalEl).show();
-    }
-}
-window.openAuditSjModal = openAuditSjModal;
 
 async function deleteCourierActiveTrips(courierId, courierName) {
     if (!confirm(`Batalkan / hapus semua tugas aktif milik "${courierName}"?`)) return;
