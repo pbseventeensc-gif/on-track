@@ -1083,7 +1083,7 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
             <div class="modal-header border-0 pb-0">
-                <h6 class="fw-bold text-dark m-0"><i class="bi bi-camera-fill me-2 text-primary"></i>Upload Bukti Foto (PoD Manual Admin)</h6>
+                <h6 class="fw-bold text-dark m-0"><i class="bi bi-camera-fill me-2 text-primary"></i>Upload Bukti Foto PoD (Bantuan Admin)</h6>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body p-4">
@@ -1096,14 +1096,22 @@
                 </div>
 
                 <div class="mb-3">
-                    <label class="extra-small fw-bold text-muted text-uppercase mb-2 d-block">Pilih File Foto Bukti (JPEG / PNG)</label>
-                    <input type="file" id="upload-modal-file" accept="image/*" class="form-control py-2" style="border-radius: 10px;">
+                    <label class="extra-small fw-bold text-muted text-uppercase mb-2 d-block">1. Kategori Foto Bukti</label>
+                    <select id="upload-modal-category" class="form-select py-2 fw-semibold" style="border-radius: 10px;">
+                        <option value="sj">📄 Foto Surat Jalan (SJ)</option>
+                        <option value="item">📦 Foto Barang / Fisik (Item)</option>
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label class="extra-small fw-bold text-muted text-uppercase mb-2 d-block">2. Pilih File Foto Bukti (JPEG / PNG, Bisa >1)</label>
+                    <input type="file" id="upload-modal-file" accept="image/*" multiple class="form-control py-2" style="border-radius: 10px;">
                 </div>
 
                 <div id="upload-modal-status" class="extra-small fw-bold text-primary mb-3"></div>
 
                 <button type="button" id="upload-modal-submit-btn" class="btn btn-dark w-100 py-3 fw-bold shadow-sm" style="border-radius: 12px;" onclick="submitManualUploadPhoto()">
-                    <i class="bi bi-upload me-2"></i> UNGGAH & SELESAIKAN
+                    <i class="bi bi-upload me-2"></i> UNGGAH & SELESAIKAN STOP
                 </button>
             </div>
         </div>
