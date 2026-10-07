@@ -1059,14 +1059,14 @@
                         <div class="d-flex align-items-center justify-content-between mb-3 pb-3 border-bottom flex-wrap gap-2">
                             <div class="d-flex align-items-center gap-2">
                                 <span class="fw-bold text-muted small">Bulk Assign:</span>
-                                <select id="bulk-courier-select" class="form-select form-select-sm" style="width: 220px; border-radius: 8px;">
+                                <select id="bulk-courier-select" class="form-select form-select-sm" style="width: 200px; border-radius: 8px;">
                                     <option value="">Pilih Kurir Tujuan...</option>
                                 </select>
                                 <button class="btn btn-dark btn-sm fw-bold px-3 py-1" style="border-radius: 8px;" onclick="bulkAssignPoolTrips()">
                                     <i class="bi bi-check2-all me-1"></i> Assign Terpilih
                                 </button>
-                                <button class="btn btn-outline-danger btn-sm fw-bold px-3 py-1" style="border-radius: 8px;" onclick="clearAllPoolTrips()">
-                                    <i class="bi bi-trash me-1"></i> Hapus Semua Pool
+                                <button class="btn btn-outline-danger btn-sm px-2 py-1" style="border-radius: 8px;" onclick="clearAllPoolTrips()" title="Hapus Semua Pool">
+                                    <i class="bi bi-trash"></i>
                                 </button>
                             </div>
                             <span class="text-muted extra-small" id="pool-selected-count">0 Surat Jalan dipilih</span>
@@ -1082,12 +1082,11 @@
                                         <th>Trip ID / SJ</th>
                                         <th>Alamat</th>
                                         <th>Tujuan / Client</th>
-                                        <th>Status</th>
                                         <th>Aksi / Assign ke Kurir</th>
                                     </tr>
                                 </thead>
                                 <tbody id="pool-table-body">
-                                    <tr><td colspan="6" class="text-center py-4 text-muted">Memuat data penampungan...</td></tr>
+                                    <tr><td colspan="5" class="text-center py-4 text-muted">Memuat data penampungan...</td></tr>
                                 </tbody>
                             </table>
                         </div>

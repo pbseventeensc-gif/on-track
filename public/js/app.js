@@ -929,7 +929,8 @@ async function loadPoolTrips() {
         snap.forEach(doc => {
             const t = doc.data();
             t.id = doc.id;
-            if (t.status !== 'completed') {
+            const isAssignedActive = t.courierId && t.courierId.trim() !== "" && t.status === 'in_progress';
+            if (t.status !== 'completed' && !isAssignedActive) {
                 allPoolTrips.push(t);
             }
         });
@@ -981,7 +982,7 @@ function renderPoolTable() {
     }
 
     if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-muted">Tidak ada Surat Jalan di penampungan untuk region ini.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-muted">Tidak ada Surat Jalan di penampungan untuk region ini.</td></tr>`;
         updatePoolSelectionCount();
         return;
     }
@@ -997,7 +998,6 @@ function renderPoolTable() {
         const firstDest = t.destinations && t.destinations.length > 0 ? t.destinations[0].locationName : 'Tujuan';
         const firstAddress = t.destinations && t.destinations.length > 0 ? (t.destinations[0].address || '-') : '-';
         const destCount = t.destinations ? t.destinations.length : 0;
-        const status = t.status || 'assigned';
 
         tbody.innerHTML += `
             <tr>
@@ -1006,19 +1006,18 @@ function renderPoolTable() {
                 </td>
                 <td><strong>${t.tripId || t.id}</strong></td>
                 <td>
-                    <div class="text-muted small text-truncate" style="max-width: 280px;" title="${firstAddress}">${firstAddress}</div>
+                    <div class="text-muted small text-truncate" style="max-width: 250px;" title="${firstAddress}">${firstAddress}</div>
                 </td>
                 <td>
                     <div class="fw-bold">${firstDest}</div>
                     <small class="text-muted">${destCount} titik tujuan</small>
                 </td>
-                <td><span class="badge ${status === 'in_progress' ? 'bg-success' : 'bg-warning text-dark'}">${status}</span></td>
                 <td>
                     <div class="d-flex align-items-center gap-2">
-                        <select class="form-select form-select-sm" id="select-courier-${t.id}" style="max-width: 180px;">
+                        <select class="form-select form-select-sm" id="select-courier-${t.id}" style="width: 160px; border-radius: 6px; font-size: 0.85rem;">
                             ${courierOptions}
                         </select>
-                        <button class="btn btn-sm btn-dark fw-bold px-3" onclick="assignPoolTripToCourier('${t.id}')">
+                        <button class="btn btn-sm btn-dark fw-bold px-3" style="border-radius: 6px;" onclick="assignPoolTripToCourier('${t.id}')">
                             Assign
                         </button>
                     </div>
