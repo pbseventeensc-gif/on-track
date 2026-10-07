@@ -1427,6 +1427,17 @@ function initUsersSnapshot() {
         setTimeout(initUsersSnapshot, 300);
         return;
     }
+
+    // Load instantly from local cache if available
+    try {
+        const cached = localStorage.getItem('cached_couriers');
+        if (cached) {
+            registeredUsers = JSON.parse(cached);
+            renderCourierOptions();
+            renderManageCouriersList();
+        }
+    } catch(e) {}
+
     activeDb.collection('users').onSnapshot(snap => {
         registeredUsers = {};
         registeredUsersObjects = {};
@@ -1437,6 +1448,12 @@ function initUsersSnapshot() {
             registeredUsers[doc.id] = displayName;
             registeredUsersObjects[doc.id] = u;
         });
+
+        // Save to cache
+        try {
+            localStorage.setItem('cached_couriers', JSON.stringify(registeredUsers));
+        } catch(e) {}
+
         deleteOrphanTrips();
         renderCourierOptions();
         renderManageCouriersList();
