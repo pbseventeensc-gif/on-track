@@ -954,15 +954,9 @@ window.loadPoolTrips = loadPoolTrips;
 
 function filterPoolByRegion(region) {
     currentPoolRegion = region;
-    const container = document.getElementById('pool-region-pills');
-    if (container) {
-        container.querySelectorAll('button').forEach(btn => {
-            if (btn.innerText.includes(region) || (region === 'ALL' && btn.innerText.includes('Semua'))) {
-                btn.className = 'btn btn-dark btn-sm fw-bold px-3 rounded-pill';
-            } else {
-                btn.className = 'btn btn-outline-dark btn-sm fw-bold px-3 rounded-pill';
-            }
-        });
+    const selectEl = document.getElementById('pool-region-select');
+    if (selectEl) {
+        selectEl.value = region;
     }
     renderPoolTable();
 }
@@ -1114,6 +1108,38 @@ async function assignPoolTripToCourier(tripId) {
     }
 }
 window.assignPoolTripToCourier = assignPoolTripToCourier;
+
+async function clearAllPoolTrips() {
+    if (!allPoolTrips || allPoolTrips.length === 0) {
+        alert("Tidak ada Surat Jalan di SJ Pool untuk dihapus.");
+        return;
+    }
+    const poolTrips = allPoolTrips.filter(t => t.status === 'pool' || t.status === 'assigned' || !t.status);
+    if (poolTrips.length === 0) {
+        alert("Tidak ada Surat Jalan dalam status Pool yang bisa dihapus.");
+        return;
+    }
+
+    if (!confirm(`PERHATIAN: Anda akan menghapus SELURUH (${poolTrips.length}) Surat Jalan yang ada di SJ Pool! Tindakan ini tidak dapat dibatalkan. Lanjutkan?`)) return;
+
+    try {
+        const activeDb = getDb();
+        if (!activeDb) return;
+
+        const batch = activeDb.batch();
+        poolTrips.forEach(t => {
+            const ref = activeDb.collection('trips').doc(t.id);
+            batch.delete(ref);
+        });
+
+        await batch.commit();
+        showToast(`Berhasil menghapus ${poolTrips.length} Surat Jalan dari SJ Pool.`);
+        loadPoolTrips();
+    } catch (e) {
+        alert("Gagal menghapus SJ Pool: " + e.message);
+    }
+}
+window.clearAllPoolTrips = clearAllPoolTrips;
 
 function toggleAllClients(checked) {
     document.querySelectorAll('.client-checkbox').forEach(cb => cb.checked = checked);
@@ -1917,15 +1943,27 @@ async function submitTrip() {
         // Determine region automatically from first destination address
         let tripRegion = "Jakarta Pusat";
         if (tripQueue.length > 0) {
-            const firstAddr = (tripQueue[0].address || "").toLowerCase();
-            if (firstAddr.includes("selatan") || firstAddr.includes("kebayoran") || firstAddr.includes("cilandak") || firstAddr.includes("pasarminggu")) {
+            const firstAddr = (tripQueue[0].address || "").toLowerCase() + " " + (tripQueue[0].name || "").toLowerCase();
+            if (firstAddr.includes("pusat") || firstAddr.includes("menteng") || firstAddr.includes("tanah abang") || firstAddr.includes("gondangdia") || firstAddr.includes("senen")) {
+                tripRegion = "Jakarta Pusat";
+            } else if (firstAddr.includes("timur") || firstAddr.includes("jatinegara") || firstAddr.includes("bassura") || firstAddr.includes("cakung") || firstAddr.includes("duren sawit") || firstAddr.includes("matraman") || firstAddr.includes("pulogadung")) {
+                tripRegion = "Jakarta Timur";
+            } else if (firstAddr.includes("utara") || firstAddr.includes("priok") || firstAddr.includes("kelapa gading") || firstAddr.includes("pademangan") || firstAddr.includes("ancol")) {
+                tripRegion = "Jakarta Utara";
+            } else if (firstAddr.includes("selatan") || firstAddr.includes("kebayoran") || firstAddr.includes("cilandak") || firstAddr.includes("pasarminggu") || firstAddr.includes("mampang") || firstAddr.includes("tebet")) {
                 tripRegion = "Jakarta Selatan";
-            } else if (firstAddr.includes("barat") || firstAddr.includes("jeruk") || firstAddr.includes("cengkareng")) {
+            } else if (firstAddr.includes("barat") || firstAddr.includes("jeruk") || firstAddr.includes("cengkareng") || firstAddr.includes("kalideres") || firstAddr.includes("grogol")) {
                 tripRegion = "Jakarta Barat";
-            } else if (firstAddr.includes("tangerang") || firstAddr.includes("ciputat") || firstAddr.includes("rempoa") || firstAddr.includes("tangerang selatan")) {
-                tripRegion = "Tangerang";
-            } else if (firstAddr.includes("bekasi") || firstAddr.includes("tambun") || firstAddr.includes("cikarang")) {
+            } else if (firstAddr.includes("depok") || firstAddr.includes("beji") || firstAddr.includes("cimanggis") || firstAddr.includes("sawangan")) {
+                tripRegion = "Depok";
+            } else if (firstAddr.includes("bogor") || firstAddr.includes("cibinong") || firstAddr.includes("sentul") || firstAddr.includes("ciawi")) {
+                tripRegion = "Bogor";
+            } else if (firstAddr.includes("bekasi") || firstAddr.includes("tambun") || firstAddr.includes("cikarang") || firstAddr.includes("galaxy")) {
                 tripRegion = "Bekasi";
+            } else if (firstAddr.includes("tangerang") || firstAddr.includes("ciputat") || firstAddr.includes("rempoa") || firstAddr.includes("bsd") || firstAddr.includes("serpong")) {
+                tripRegion = "Tangerang";
+            } else if (firstAddr.includes("karawang") || firstAddr.includes("cikampek")) {
+                tripRegion = "Karawang";
             } else if (firstAddr.includes("serang") || firstAddr.includes("banten") || firstAddr.includes("cilegon")) {
                 tripRegion = "Serang";
             }

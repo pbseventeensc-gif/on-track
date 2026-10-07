@@ -1025,17 +1025,25 @@
                     </button>
                 </div>
 
-                <!-- Region Filter Pills -->
+                <!-- Region Filter Dropdown -->
                 <div class="card border-0 shadow-sm mb-4" style="border-radius: 16px;">
                     <div class="card-body p-3">
-                        <div class="d-flex align-items-center gap-2 overflow-x-auto pb-1" id="pool-region-pills">
-                            <button class="btn btn-dark btn-sm fw-bold px-3 rounded-pill" onclick="filterPoolByRegion('ALL')">Semua Region</button>
-                            <button class="btn btn-outline-dark btn-sm fw-bold px-3 rounded-pill" onclick="filterPoolByRegion('Jakarta Pusat')">Jakarta Pusat</button>
-                            <button class="btn btn-outline-dark btn-sm fw-bold px-3 rounded-pill" onclick="filterPoolByRegion('Jakarta Selatan')">Jakarta Selatan</button>
-                            <button class="btn btn-outline-dark btn-sm fw-bold px-3 rounded-pill" onclick="filterPoolByRegion('Jakarta Barat')">Jakarta Barat</button>
-                            <button class="btn btn-outline-dark btn-sm fw-bold px-3 rounded-pill" onclick="filterPoolByRegion('Tangerang')">Tangerang</button>
-                            <button class="btn btn-outline-dark btn-sm fw-bold px-3 rounded-pill" onclick="filterPoolByRegion('Bekasi')">Bekasi</button>
-                            <button class="btn btn-outline-dark btn-sm fw-bold px-3 rounded-pill" onclick="filterPoolByRegion('Serang')">Serang</button>
+                        <div class="d-flex align-items-center gap-3">
+                            <label class="fw-bold text-muted small mb-0"><i class="bi bi-funnel me-1"></i> Filter Wilayah (Region):</label>
+                            <select id="pool-region-select" class="form-select form-select-sm" style="max-width: 300px; border-radius: 10px;" onchange="filterPoolByRegion(this.value)">
+                                <option value="ALL">Semua Region / Wilayah</option>
+                                <option value="Jakarta Pusat">Jakarta Pusat</option>
+                                <option value="Jakarta Timur">Jakarta Timur</option>
+                                <option value="Jakarta Utara">Jakarta Utara</option>
+                                <option value="Jakarta Selatan">Jakarta Selatan</option>
+                                <option value="Jakarta Barat">Jakarta Barat</option>
+                                <option value="Depok">Depok</option>
+                                <option value="Bogor">Bogor</option>
+                                <option value="Bekasi">Bekasi</option>
+                                <option value="Tangerang">Tangerang</option>
+                                <option value="Karawang">Karawang</option>
+                                <option value="Serang">Serang</option>
+                            </select>
                         </div>
                     </div>
                 </div>
@@ -1052,6 +1060,9 @@
                                 </select>
                                 <button class="btn btn-dark btn-sm fw-bold px-3 py-1" style="border-radius: 8px;" onclick="bulkAssignPoolTrips()">
                                     <i class="bi bi-check2-all me-1"></i> Assign Terpilih
+                                </button>
+                                <button class="btn btn-outline-danger btn-sm fw-bold px-3 py-1" style="border-radius: 8px;" onclick="clearAllPoolTrips()">
+                                    <i class="bi bi-trash me-1"></i> Hapus Semua Pool
                                 </button>
                             </div>
                             <span class="text-muted extra-small" id="pool-selected-count">0 Surat Jalan dipilih</span>
