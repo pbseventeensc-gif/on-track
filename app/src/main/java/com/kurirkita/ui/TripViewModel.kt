@@ -32,6 +32,10 @@ class TripViewModel : ViewModel() {
     private val _dashboardState = MutableStateFlow(DashboardState())
     val dashboardState = _dashboardState.asStateFlow()
 
+    var selectedTrip = androidx.compose.runtime.mutableStateOf<Trip?>(null)
+    var showChatTripId = androidx.compose.runtime.mutableStateOf<String?>(null)
+    var currentTab = androidx.compose.runtime.mutableStateOf("dashboard")
+
     init {
         refresh()
     }
@@ -45,75 +49,98 @@ class TripViewModel : ViewModel() {
         return s.replace("[^a-zA-Z0-9]".toRegex(), "").lowercase()
     }
 
-    private fun parseTimestamp(obj: Any?): Timestamp? {
-        if (obj == null) return null
-        if (obj is Timestamp) return obj
-        if (obj is Date) return Timestamp(obj)
-        if (obj is Long) return Timestamp(obj / 1000, 0)
-        if (obj is String && obj.isNotEmpty()) {
-            try {
-                val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", Locale.US)
-                val d = sdf.parse(obj)
-                if (d != null) return Timestamp(d)
-            } catch (_: Exception) {}
+    companion object {
+        fun isToday(timestamp: Timestamp?): Boolean {
+            if (timestamp == null) return false
+            val calTrip = Calendar.getInstance().apply { time = timestamp.toDate() }
+            val calToday = Calendar.getInstance()
+            return calTrip.get(Calendar.YEAR) == calToday.get(Calendar.YEAR) &&
+                   calTrip.get(Calendar.DAY_OF_YEAR) == calToday.get(Calendar.DAY_OF_YEAR)
         }
-        return null
-    }
 
-    private fun parseTripFromDocument(doc: DocumentSnapshot): Trip? {
-        try {
-            val tripId = doc.getString("tripId") ?: doc.id
-            val courierId = doc.getString("courierId") ?: ""
-            val status = doc.getString("status") ?: "assigned"
-            val branchId = doc.getString("branchId") ?: ""
-            val adminBulkSjUrl = doc.getString("adminBulkSjUrl") ?: ""
-            @Suppress("UNCHECKED_CAST")
-            val adminBulkSjUrls = (doc.get("adminBulkSjUrls") as? List<*>)?.mapNotNull { it as? String }
-                ?: if (adminBulkSjUrl.isNotEmpty()) adminBulkSjUrl.split(",").map { it.trim() }.filter { it.isNotEmpty() } else emptyList()
-            val totalDistanceKm = doc.getDouble("totalDistanceKm") ?: 0.0
-            val acceptLat = doc.getDouble("acceptLatitude")
-            val acceptLng = doc.getDouble("acceptLongitude")
-
-            val dateObj = doc.get("date")
-            val date = parseTimestamp(dateObj) ?: Timestamp.now()
-
-            @Suppress("UNCHECKED_CAST")
-            val rawDestinations = doc.get("destinations") as? List<Map<String, Any?>> ?: emptyList()
-            val destinations = rawDestinations.mapIndexed { idx, map ->
-                Destination(
-                    stopIndex = (map["stopIndex"] as? Number)?.toInt() ?: (idx + 1),
-                    locationName = map["locationName"] as? String ?: "Destination",
-                    address = map["address"] as? String ?: "",
-                    latitude = (map["latitude"] as? Number)?.toDouble() ?: 0.0,
-                    longitude = (map["longitude"] as? Number)?.toDouble() ?: 0.0,
-                    status = map["status"] as? String ?: "pending",
-                    arrivalTime = parseTimestamp(map["arrivalTime"]),
-                    completedTime = parseTimestamp(map["completedTime"]),
-                    batteryOnArrival = (map["batteryOnArrival"] as? Number)?.toInt(),
-                    proofPhotoUrl = map["proofPhotoUrl"] as? String ?: "",
-                    proofPhotoSj = map["proofPhotoSj"] as? String ?: "",
-                    proofPhotoItems = (map["proofPhotoItems"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList(),
-                    pendingReason = map["pendingReason"] as? String ?: "",
-                    pendingProofPhotoUrl = map["pendingProofPhotoUrl"] as? String ?: ""
-                )
+        fun isWithinDays(timestamp: Timestamp?, days: Int = 3): Boolean {
+            if (timestamp == null) return false
+            val calTrip = Calendar.getInstance().apply { time = timestamp.toDate() }
+            val cutoff = Calendar.getInstance().apply {
+                add(Calendar.DAY_OF_YEAR, -(days - 1))
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
             }
+            return !calTrip.before(cutoff)
+        }
 
-            return Trip(
-                tripId = tripId,
-                courierId = courierId,
-                date = date,
-                status = status,
-                totalDistanceKm = totalDistanceKm,
-                acceptLatitude = acceptLat,
-                acceptLongitude = acceptLng,
-                branchId = branchId,
-                adminBulkSjUrl = adminBulkSjUrl,
-                adminBulkSjUrls = adminBulkSjUrls,
-                destinations = destinations
-            )
-        } catch (e: Exception) {
-            Log.e("TripVM", "Failed to parse document ${doc.id}: ${e.message}")
+        fun parseTimestamp(obj: Any?): Timestamp? {
+            if (obj == null) return null
+            if (obj is Timestamp) return obj
+            if (obj is Date) return Timestamp(obj)
+            if (obj is Long) return Timestamp(obj / 1000, 0)
+            if (obj is String && obj.isNotEmpty()) {
+                try {
+                    val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", Locale.US)
+                    val d = sdf.parse(obj)
+                    if (d != null) return Timestamp(d)
+                } catch (_: Exception) {}
+            }
             return null
+        }
+
+        fun parseTripFromDocument(doc: DocumentSnapshot): Trip? {
+            try {
+                val tripId = doc.getString("tripId") ?: doc.id
+                val courierId = doc.getString("courierId") ?: ""
+                val status = doc.getString("status") ?: "assigned"
+                val branchId = doc.getString("branchId") ?: ""
+                val adminBulkSjUrl = doc.getString("adminBulkSjUrl") ?: ""
+                @Suppress("UNCHECKED_CAST")
+                val adminBulkSjUrls = (doc.get("adminBulkSjUrls") as? List<*>)?.mapNotNull { it as? String }
+                    ?: if (adminBulkSjUrl.isNotEmpty()) adminBulkSjUrl.split(",").map { it.trim() }.filter { it.isNotEmpty() } else emptyList()
+                val totalDistanceKm = doc.getDouble("totalDistanceKm") ?: 0.0
+                val acceptLat = doc.getDouble("acceptLatitude")
+                val acceptLng = doc.getDouble("acceptLongitude")
+
+                val dateObj = doc.get("date")
+                val date = parseTimestamp(dateObj) ?: Timestamp.now()
+
+                @Suppress("UNCHECKED_CAST")
+                val rawDestinations = doc.get("destinations") as? List<Map<String, Any?>> ?: emptyList()
+                val destinations = rawDestinations.mapIndexed { idx, map ->
+                    Destination(
+                        stopIndex = (map["stopIndex"] as? Number)?.toInt() ?: (idx + 1),
+                        locationName = map["locationName"] as? String ?: "Destination",
+                        address = map["address"] as? String ?: "",
+                        latitude = (map["latitude"] as? Number)?.toDouble() ?: 0.0,
+                        longitude = (map["longitude"] as? Number)?.toDouble() ?: 0.0,
+                        status = map["status"] as? String ?: "pending",
+                        arrivalTime = parseTimestamp(map["arrivalTime"]),
+                        completedTime = parseTimestamp(map["completedTime"]),
+                        batteryOnArrival = (map["batteryOnArrival"] as? Number)?.toInt(),
+                        proofPhotoUrl = map["proofPhotoUrl"] as? String ?: "",
+                        proofPhotoSj = map["proofPhotoSj"] as? String ?: "",
+                        proofPhotoItems = (map["proofPhotoItems"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList(),
+                        pendingReason = map["pendingReason"] as? String ?: "",
+                        pendingProofPhotoUrl = map["pendingProofPhotoUrl"] as? String ?: ""
+                    )
+                }
+
+                return Trip(
+                    tripId = tripId,
+                    courierId = courierId,
+                    date = date,
+                    status = status,
+                    totalDistanceKm = totalDistanceKm,
+                    acceptLatitude = acceptLat,
+                    acceptLongitude = acceptLng,
+                    branchId = branchId,
+                    adminBulkSjUrl = adminBulkSjUrl,
+                    adminBulkSjUrls = adminBulkSjUrls,
+                    destinations = destinations
+                )
+            } catch (e: Exception) {
+                Log.e("TripVM", "Failed to parse document ${doc.id}: ${e.message}")
+                return null
+            }
         }
     }
 
@@ -129,7 +156,7 @@ class TripViewModel : ViewModel() {
                 currentIds.contains(cleanCId) ||
                 currentIds.any { id -> id.length >= 3 && (cleanCId.contains(id) || id.contains(cleanCId)) }
 
-            t.status != "completed" && isMatch
+            t.status != "completed" && isMatch && isWithinDays(t.date, 3)
         }
 
         Log.d("TripVM", "SUCCESS: Found ${tripList.size} active trips for user ($userId). Identifiers: $currentIds")
@@ -156,7 +183,20 @@ class TripViewModel : ViewModel() {
             if (cleanString(userId).isNotEmpty()) myIdentifiers.add(cleanString(userId))
             if (cleanString(userEmail).isNotEmpty()) myIdentifiers.add(cleanString(userEmail))
             if (cleanString(userEmailPrefix).isNotEmpty()) myIdentifiers.add(cleanString(userEmailPrefix))
-            myIdentifiers.add("pbseventeensc")
+
+            val cleanPrefix = cleanString(userEmailPrefix)
+            if (cleanPrefix.contains("joyen")) {
+                myIdentifiers.add("joyen")
+                myIdentifiers.add("joyen99")
+                myIdentifiers.add("joyendriver321")
+                myIdentifiers.add("4nm4m56vzemliusvn7lvh11seey1")
+            }
+            if (cleanPrefix.contains("ahmad") || cleanPrefix.contains("motor03")) {
+                myIdentifiers.add("ahmad")
+                myIdentifiers.add("ahmadmotor")
+                myIdentifiers.add("ahmadmotor03")
+                myIdentifiers.add("ahmadmotor03gmailcom")
+            }
         }
 
         userListener?.remove()
@@ -186,6 +226,19 @@ class TripViewModel : ViewModel() {
                             if (cleanDocEmail.isNotEmpty()) myIdentifiers.add(cleanDocEmail)
                             if (cleanDocPrefix.isNotEmpty()) myIdentifiers.add(cleanDocPrefix)
                             if (cleanDocCId.isNotEmpty()) myIdentifiers.add(cleanDocCId)
+
+                            if (cleanDocName.contains("joyen") || cleanDocPrefix.contains("joyen")) {
+                                myIdentifiers.add("joyen")
+                                myIdentifiers.add("joyen99")
+                                myIdentifiers.add("joyendriver321")
+                                myIdentifiers.add("4nm4m56vzemliusvn7lvh11seey1")
+                            }
+                            if (cleanDocName.contains("ahmad") || cleanDocPrefix.contains("ahmad") || cleanDocPrefix.contains("motor03")) {
+                                myIdentifiers.add("ahmad")
+                                myIdentifiers.add("ahmadmotor")
+                                myIdentifiers.add("ahmadmotor03")
+                                myIdentifiers.add("ahmadmotor03gmailcom")
+                            }
                         }
                     }
                 }
@@ -218,6 +271,73 @@ class TripViewModel : ViewModel() {
 
                 cachedAllTrips = allTrips
                 publishMatchedTrips(allTrips, userId)
+            }
+    }
+
+    fun searchMasterClients(query: String, onComplete: (List<Map<String, Any>>) -> Unit) {
+        db.collection("clients")
+            .get()
+            .addOnSuccessListener { snapshot ->
+                val list = mutableListOf<Map<String, Any>>()
+                val q = query.lowercase().trim()
+                for (doc in snapshot.documents) {
+                    val name = doc.getString("name") ?: doc.getString("locationName") ?: ""
+                    val address = doc.getString("address") ?: ""
+                    val lat = doc.getDouble("latitude") ?: 0.0
+                    val lng = doc.getDouble("longitude") ?: 0.0
+
+                    if (q.isEmpty() || name.lowercase().contains(q) || address.lowercase().contains(q)) {
+                        list.add(
+                            mapOf(
+                                "id" to doc.id,
+                                "name" to name,
+                                "address" to address,
+                                "latitude" to lat,
+                                "longitude" to lng
+                            )
+                        )
+                    }
+                }
+                onComplete(list)
+            }
+            .addOnFailureListener {
+                onComplete(emptyList())
+            }
+    }
+
+    fun claimOrCreateTrip(storeName: String, address: String, latitude: Double, longitude: Double, onComplete: (Boolean, String) -> Unit) {
+        val currentUser = auth.currentUser
+        if (currentUser == null) {
+            onComplete(false, "Kurir belum login.")
+            return
+        }
+        val tripId = "TRIP_" + System.currentTimeMillis()
+        val tripMap = mapOf(
+            "tripId" to tripId,
+            "courierId" to currentUser.uid,
+            "status" to "in_progress",
+            "date" to Timestamp.now(),
+            "acceptedTime" to Timestamp.now(),
+            "destinations" to listOf(
+                mapOf(
+                    "stopIndex" to 1,
+                    "locationName" to storeName,
+                    "address" to address,
+                    "latitude" to latitude,
+                    "longitude" to longitude,
+                    "status" to "pending",
+                    "proofPhotoUrl" to ""
+                )
+            )
+        )
+
+        db.collection("trips").document(tripId).set(tripMap)
+            .addOnSuccessListener {
+                onComplete(true, "Tugas berhasil diambil!")
+                refresh()
+            }
+            .addOnFailureListener { e ->
+                onComplete(false, "Gagal mengambil tugas: ${e.message}")
             }
     }
 

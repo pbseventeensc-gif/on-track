@@ -117,7 +117,8 @@ let tripQueue = [];
 let currentChatId = null;
 let chatUnsub = null;
 let lastLoadedHistory = [];
-let allCurrentTrips = [];
+var allCurrentTrips = window.allCurrentTrips || [];
+window.allCurrentTrips = allCurrentTrips;
 let currentOnlineCouriers = {};
 let activeFilter = "";
 let isDarkMode = false;
@@ -807,18 +808,16 @@ function getRoleDisplayName(role) {
 }
 
 function isTabAllowedForRole(role, viewId) {
-    const r = (role || 'super_admin').toLowerCase();
+    if (!role) return true;
+    const r = String(role).toLowerCase();
+    if (r === 'super_admin' || r === 'admin' || r === 'admin_logistik' || r === 'adminlogistik') {
+        return true;
+    }
     if (r === 'sales_admin' || r === 'sales') {
         return viewId === 'dashboard' || viewId === 'monitor' || viewId === 'pod-archive';
     }
-    if (r === 'admin_logistik' || r === 'adminlogistik') {
-        return viewId !== 'fleet' && viewId !== 'reports' && viewId !== 'settings';
-    }
     if (r === 'admin_dm2' || r === 'dm2') {
         return viewId === 'dashboard' || viewId === 'monitor' || viewId === 'dispatch' || viewId === 'pod-archive';
-    }
-    if (r === 'trafik' || r === 'traffic') {
-        return viewId !== 'fleet' && viewId !== 'reports' && viewId !== 'settings';
     }
     return true;
 }
@@ -845,17 +844,9 @@ function applyRoleAccessControl() {
         if (navChat) navChat.style.display = 'none';
         if (navReports) navReports.style.display = 'none';
         if (navSettings) navSettings.style.display = 'none';
-    } else if (r === 'admin_logistik' || r === 'adminlogistik') {
-        if (navFleet) navFleet.style.display = 'none';
-        if (navReports) navReports.style.display = 'none';
-        if (navSettings) navSettings.style.display = 'none';
     } else if (r === 'admin_dm2' || r === 'dm2') {
         if (navFleet) navFleet.style.display = 'none';
         if (navChat) navChat.style.display = 'none';
-        if (navReports) navReports.style.display = 'none';
-        if (navSettings) navSettings.style.display = 'none';
-    } else if (r === 'trafik' || r === 'traffic') {
-        if (navFleet) navFleet.style.display = 'none';
         if (navReports) navReports.style.display = 'none';
         if (navSettings) navSettings.style.display = 'none';
     }
@@ -867,33 +858,262 @@ function switchTab(viewId, el) {
         return;
     }
 
-    document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
-    const target = document.getElementById('view-'+viewId);
-    if(target) target.classList.add('active');
+    // Hide all view sections
+    document.querySelectorAll('.view-section').forEach(v => {
+        v.classList.remove('active');
+        v.style.display = 'none';
+    });
 
-    document.querySelectorAll('.nav-link-custom').forEach(l => l.classList.remove('active'));
-
-    if(el) el.classList.add('active');
-    else {
-        const navLink = document.querySelector(`[onclick*="'${viewId}'"]`);
-        if(navLink) navLink.classList.add('active');
+    // Show target section
+    const target = document.getElementById('view-' + viewId);
+    if (target) {
+        target.classList.add('active');
+        target.style.display = 'block';
     }
 
+    // Deactivate all nav links
+    document.querySelectorAll('.nav-link-custom').forEach(l => l.classList.remove('active'));
+
+    // Activate selected nav link
+    const navItem = (el && typeof el.closest === 'function') ? el.closest('.nav-link-custom') : document.getElementById('nav-' + viewId);
+    if (navItem) {
+        navItem.classList.add('active');
+    } else {
+        const fallbackNav = document.getElementById('nav-' + viewId) || document.querySelector(`[onclick*="${viewId}"]`);
+        if (fallbackNav) fallbackNav.classList.add('active');
+    }
+
+    // Close mobile sidebar if open
     const sb = document.getElementById('sidebar');
     const backdrop = document.getElementById('sidebar-backdrop');
     if (sb) sb.classList.remove('open');
     if (backdrop) backdrop.classList.remove('active');
 
-    setTimeout(() => {
-        if(typeof map !== 'undefined' && map && typeof map.invalidateSize === 'function') map.invalidateSize();
-        if(typeof mapMonitor !== 'undefined' && mapMonitor && typeof mapMonitor.invalidateSize === 'function') mapMonitor.invalidateSize();
-        if(typeof mapDispatch !== 'undefined' && mapDispatch && typeof mapDispatch.invalidateSize === 'function') mapDispatch.invalidateSize();
-    }, 400);
+    if (typeof refreshMapSizes === 'function') refreshMapSizes();
 
-    if(viewId === 'chat') loadChatList();
-    if(viewId === 'dispatch') loadClientsByRegion("");
-    if(viewId === 'pod-archive') renderPoDArchiveView();
+    // Trigger tab specific data renders
+    if (viewId === 'dashboard') {
+        if (typeof updateGlobalStats === 'function') updateGlobalStats();
+        if (typeof renderRecentShipments === 'function') renderRecentShipments();
+    } else if (viewId === 'monitor') {
+        if (typeof renderMonitorUI === 'function') renderMonitorUI();
+    } else if (viewId === 'dispatch') {
+        if (typeof loadClientsByRegion === 'function') loadClientsByRegion("");
+    } else if (viewId === 'fleet') {
+        if (typeof renderKPIView === 'function') renderKPIView();
+    } else if (viewId === 'chat') {
+        if (typeof loadChatList === 'function') loadChatList();
+    } else if (viewId === 'pod-archive') {
+        if (typeof renderPoDArchiveView === 'function') renderPoDArchiveView();
+    } else if (viewId === 'reports') {
+        if (typeof loadFullHistory === 'function') loadFullHistory();
+    } else if (viewId === 'pool') {
+        if (typeof loadPoolTrips === 'function') loadPoolTrips();
+    }
 }
+window.switchTab = switchTab;
+
+let currentPoolRegion = 'ALL';
+let allPoolTrips = [];
+
+async function loadPoolTrips() {
+    const activeDb = getDb();
+    const tbody = document.getElementById('pool-table-body');
+    if (!activeDb || !tbody) return;
+
+    try {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">Memuat SJ Pool...</td></tr>';
+        const snap = await activeDb.collection('trips').get();
+        allPoolTrips = [];
+
+        snap.forEach(doc => {
+            const t = doc.data();
+            t.id = doc.id;
+            if (t.status !== 'completed') {
+                allPoolTrips.push(t);
+            }
+        });
+
+        const bulkSelect = document.getElementById('bulk-courier-select');
+        if (bulkSelect) {
+            let courierOptions = '<option value="">Pilih Kurir Tujuan...</option>';
+            for (const uid in registeredUsers) {
+                const name = registeredUsers[uid] || uid.substring(0, 6);
+                courierOptions += `<option value="${uid}">${name}</option>`;
+            }
+            bulkSelect.innerHTML = courierOptions;
+        }
+
+        renderPoolTable();
+    } catch (e) {
+        console.error("Error loading pool trips:", e);
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-danger">Gagal memuat: ${e.message}</td></tr>`;
+    }
+}
+window.loadPoolTrips = loadPoolTrips;
+
+function filterPoolByRegion(region) {
+    currentPoolRegion = region;
+    const container = document.getElementById('pool-region-pills');
+    if (container) {
+        container.querySelectorAll('button').forEach(btn => {
+            if (btn.innerText.includes(region) || (region === 'ALL' && btn.innerText.includes('Semua'))) {
+                btn.className = 'btn btn-dark btn-sm fw-bold px-3 rounded-pill';
+            } else {
+                btn.className = 'btn btn-outline-dark btn-sm fw-bold px-3 rounded-pill';
+            }
+        });
+    }
+    renderPoolTable();
+}
+window.filterPoolByRegion = filterPoolByRegion;
+
+function renderPoolTable() {
+    const tbody = document.getElementById('pool-table-body');
+    if (!tbody) return;
+
+    let filtered = allPoolTrips;
+    if (currentPoolRegion !== 'ALL') {
+        const targetRegion = currentPoolRegion.toLowerCase();
+        filtered = allPoolTrips.filter(t => {
+            const region = (t.region || '').toLowerCase();
+            const destsStr = (t.destinations || []).map(d => (d.address || '') + ' ' + (d.locationName || '')).join(' ').toLowerCase();
+
+            if (region === targetRegion) return true;
+            if (region.includes(targetRegion) && region !== 'jabodetabek') return true;
+            if (region === 'jabodetabek' && destsStr.includes(targetRegion)) return true;
+            return false;
+        });
+    }
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-muted">Tidak ada Surat Jalan di penampungan untuk region ini.</td></tr>`;
+        updatePoolSelectionCount();
+        return;
+    }
+
+    let courierOptions = '<option value="">Pilih Kurir...</option>';
+    for (const uid in registeredUsers) {
+        const name = registeredUsers[uid] || uid.substring(0, 6);
+        courierOptions += `<option value="${uid}">${name}</option>`;
+    }
+
+    tbody.innerHTML = '';
+    filtered.forEach(t => {
+        const firstDest = t.destinations && t.destinations.length > 0 ? t.destinations[0].locationName : 'Tujuan';
+        const firstAddress = t.destinations && t.destinations.length > 0 ? (t.destinations[0].address || '-') : '-';
+        const destCount = t.destinations ? t.destinations.length : 0;
+        const status = t.status || 'assigned';
+
+        tbody.innerHTML += `
+            <tr>
+                <td>
+                    <input type="checkbox" class="form-check-input pool-checkbox" value="${t.id}" onchange="updatePoolSelectionCount()">
+                </td>
+                <td><strong>${t.tripId || t.id}</strong></td>
+                <td>
+                    <div class="text-muted small text-truncate" style="max-width: 280px;" title="${firstAddress}">${firstAddress}</div>
+                </td>
+                <td>
+                    <div class="fw-bold">${firstDest}</div>
+                    <small class="text-muted">${destCount} titik tujuan</small>
+                </td>
+                <td><span class="badge ${status === 'in_progress' ? 'bg-success' : 'bg-warning text-dark'}">${status}</span></td>
+                <td>
+                    <div class="d-flex align-items-center gap-2">
+                        <select class="form-select form-select-sm" id="select-courier-${t.id}" style="max-width: 180px;">
+                            ${courierOptions}
+                        </select>
+                        <button class="btn btn-sm btn-dark fw-bold px-3" onclick="assignPoolTripToCourier('${t.id}')">
+                            Assign
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    });
+    updatePoolSelectionCount();
+}
+
+function toggleAllPool(source) {
+    document.querySelectorAll('.pool-checkbox').forEach(cb => cb.checked = source.checked);
+    updatePoolSelectionCount();
+}
+window.toggleAllPool = toggleAllPool;
+
+function updatePoolSelectionCount() {
+    const checkedCount = document.querySelectorAll('.pool-checkbox:checked').length;
+    const countEl = document.getElementById('pool-selected-count');
+    if (countEl) countEl.innerText = `${checkedCount} Surat Jalan dipilih`;
+}
+window.updatePoolSelectionCount = updatePoolSelectionCount;
+
+async function bulkAssignPoolTrips() {
+    const checked = document.querySelectorAll('.pool-checkbox:checked');
+    if (checked.length === 0) {
+        alert("Pilih minimal satu Surat Jalan (SJ) dengan mencentang checkbox terlebih dahulu!");
+        return;
+    }
+    const selectEl = document.getElementById('bulk-courier-select');
+    if (!selectEl) return;
+    const courierUid = selectEl.value;
+    if (!courierUid) {
+        alert("Pilih kurir tujuan terlebih dahulu dari dropdown Bulk Assign di atas!");
+        return;
+    }
+
+    if (!confirm(`Tugaskan ${checked.length} Surat Jalan terpilih ke kurir ini?`)) return;
+
+    try {
+        const activeDb = getDb();
+        if (!activeDb) return;
+
+        const batch = activeDb.batch();
+        checked.forEach(cb => {
+            const tripId = cb.value;
+            const ref = activeDb.collection('trips').doc(tripId);
+            batch.update(ref, {
+                courierId: courierUid,
+                status: 'in_progress',
+                acceptedTime: firebase.firestore.Timestamp.now()
+            });
+        });
+
+        await batch.commit();
+        showToast(`Berhasil menugaskan ${checked.length} Surat Jalan ke kurir!`);
+        loadPoolTrips();
+    } catch (e) {
+        alert("Gagal melakukan bulk assign: " + e.message);
+    }
+}
+window.bulkAssignPoolTrips = bulkAssignPoolTrips;
+
+async function assignPoolTripToCourier(tripId) {
+    const selectEl = document.getElementById(`select-courier-${tripId}`);
+    if (!selectEl) return;
+    const courierUid = selectEl.value;
+    if (!courierUid) {
+        alert("Silakan pilih kurir terlebih dahulu!");
+        return;
+    }
+
+    try {
+        const activeDb = getDb();
+        if (!activeDb) return;
+
+        await activeDb.collection('trips').doc(tripId).update({
+            courierId: courierUid,
+            status: 'in_progress',
+            acceptedTime: firebase.firestore.Timestamp.now()
+        });
+
+        showToast("Surat Jalan berhasil ditugaskan ke kurir!");
+        loadPoolTrips();
+    } catch (e) {
+        alert("Gagal menugaskan SJ: " + e.message);
+    }
+}
+window.assignPoolTripToCourier = assignPoolTripToCourier;
 
 function toggleAllClients(checked) {
     document.querySelectorAll('.client-checkbox').forEach(cb => cb.checked = checked);
@@ -1123,9 +1343,42 @@ async function deleteOrphanTrips() {
 
         snap.forEach(doc => {
             const t = doc.data();
-            const courierId = t.courierId || '';
-            const isKnownUser = (typeof registeredUsers !== 'undefined' && registeredUsers[courierId]) ||
-                                (courierId === "xONhqVSNSYcEcGCZyW2cLGJWQt92" || courierId === "38smknqYbnREY0fQ4Klrnxidv5P2" || courierId === "3LHRzmg3PyV2wxeRQcCGdBCDrDH2");
+            const courierId = (t.courierId || '').trim();
+            if (!courierId) return;
+
+            const cleanCId = courierId.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+
+            let isKnownUser = false;
+            if (typeof registeredUsers !== 'undefined' && registeredUsers[courierId]) {
+                isKnownUser = true;
+            } else if (typeof registeredUsersObjects !== 'undefined' && registeredUsersObjects) {
+                for (const uid in registeredUsersObjects) {
+                    const u = registeredUsersObjects[uid] || {};
+                    const uName = (u.name || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+                    const uCId = (u.courierId || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+                    const uEmail = (u.email || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+                    const uPrefix = u.email && u.email.includes('@') ? u.email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '').toLowerCase() : '';
+
+                    if (uid === courierId ||
+                        cleanCId === uid.toLowerCase() ||
+                        (cleanCId.length >= 3 && (
+                            uName === cleanCId || cleanCId.includes(uName) || uName.includes(cleanCId) ||
+                            uCId === cleanCId || cleanCId.includes(uCId) || uCId.includes(cleanCId) ||
+                            uEmail === cleanCId || uPrefix === cleanCId
+                        ))
+                    ) {
+                        isKnownUser = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!isKnownUser) {
+                const legacyList = ["xONhqVSNSYcEcGCZyW2cLGJWQt92", "38smknqYbnREY0fQ4Klrnxidv5P2", "3LHRzmg3PyV2wxeRQcCGdBCDrDH2", "pbseventeensc", "joyen99", "joyendriver321"];
+                if (legacyList.some(id => id.toLowerCase() === cleanCId)) {
+                    isKnownUser = true;
+                }
+            }
 
             if (!isKnownUser || courierId.includes('EK74u0gA') || courierId.toLowerCase().includes('novalgan')) {
                 batch.delete(doc.ref);
@@ -1258,28 +1511,29 @@ function initTripsSnapshot() {
         return;
     }
 
-    // Auto-update sample Firestore data with separate SJ document & Barang photos
-    if (typeof restoreBayhaqiTrip === 'function') {
-        restoreBayhaqiTrip();
-    }
-
     activeDb.collection('trips').onSnapshot(snap => {
-        allCurrentTrips = [];
+        if (snap.empty) {
+            console.log("No trips in Firestore. Auto-seeding demo trip...");
+            if (typeof restoreBayhaqiTrip === 'function') {
+                restoreBayhaqiTrip();
+            }
+        }
+        const trips = [];
         snap.forEach(doc => {
             const t = doc.data();
             t.id = doc.id;
-            // Direct Order Mode: Auto-convert any "assigned" trip to "in_progress" so no accept button is ever needed
             if (t.status === 'assigned') {
                 t.status = 'in_progress';
-                activeDb.collection('trips').doc(t.id).update({
-                    status: 'in_progress',
-                    acceptedTime: firebase.firestore.Timestamp.now()
-                }).catch(() => {});
             }
-            allCurrentTrips.push(t);
+            trips.push(t);
         });
+        allCurrentTrips = trips;
         updateGlobalStats();
         renderRecentShipments();
+        if (typeof renderMonitorUI === 'function') renderMonitorUI();
+        if (typeof refreshMapSizes === 'function') refreshMapSizes();
+    }, err => {
+        console.error("Firestore trips snapshot error:", err);
     });
 }
 initTripsSnapshot();
@@ -1327,8 +1581,8 @@ function updateGlobalStats() {
         }
 
         if (!startDateVal && !endDateVal) {
-            const selectedDateMode = document.getElementById('recent-date-filter')?.value || "today";
-            if (selectedDateMode === "today" || !selectedDateMode) {
+            const selectedDateMode = document.getElementById('recent-date-filter')?.value || "all";
+            if (selectedDateMode === "today") {
                 filterStartMs = todayDayMs;
                 filterEndMs = todayDayMs + (24 * 60 * 60 * 1000) - 1;
             } else if (selectedDateMode === "3days") {
@@ -1340,7 +1594,7 @@ function updateGlobalStats() {
             } else if (selectedDateMode === "month") {
                 filterStartMs = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
                 filterEndMs = todayDayMs + (24 * 60 * 60 * 1000) - 1;
-            } else if (selectedDateMode === "all") {
+            } else {
                 filterStartMs = 0;
                 filterEndMs = Infinity;
             }
@@ -1634,10 +1888,8 @@ window.getBulkSjUrls = getBulkSjUrls;
 async function submitTrip() {
     const btn = document.querySelector('[onclick*="submitTrip"]');
     const cidEl = document.getElementById('sel-courier');
-    if (!cidEl) return alert("Elemen pemilihan kurir tidak ditemukan!");
-    const cid = cidEl.value;
+    const cid = cidEl ? cidEl.value : "";
 
-    if (!cid) return alert("PILIH KURIR TERLEBIH DAHULU!\nSilakan pilih nama kurir penanggung jawab di langkah 1 (Select Courier).");
     if (!tripQueue || tripQueue.length === 0) return alert("TAMBAHKAN ALAMAT TUJUAN TERLEBIH DAHULU!\nSilakan centang lokasi dan klik (+ ADD SELECTED TO ROUTE) di langkah 2 (Add Destinations).");
 
     if (btn) {
@@ -1662,11 +1914,30 @@ async function submitTrip() {
             adminBulkSjUrl = adminBulkSjUrls.join(',');
         }
 
+        let tripRegion = "Jakarta Pusat";
+        if (tripQueue.length > 0) {
+            const firstAddr = (tripQueue[0].address || "").toLowerCase();
+            if (firstAddr.includes("selatan") || firstAddr.includes("kebayoran") || firstAddr.includes("cilandak") || firstAddr.includes("pasarminggu")) {
+                tripRegion = "Jakarta Selatan";
+            } else if (firstAddr.includes("barat") || firstAddr.includes("jeruk") || firstAddr.includes("cengkareng")) {
+                tripRegion = "Jakarta Barat";
+            } else if (firstAddr.includes("tangerang") || firstAddr.includes("ciputat") || firstAddr.includes("rempoa") || firstAddr.includes("tangerang selatan")) {
+                tripRegion = "Tangerang";
+            } else if (firstAddr.includes("bekasi") || firstAddr.includes("tambun") || firstAddr.includes("cikarang")) {
+                tripRegion = "Bekasi";
+            } else if (firstAddr.notes || firstAddr.includes("serang") || firstAddr.includes("banten") || firstAddr.includes("cilegon")) {
+                tripRegion = "Serang";
+            }
+        }
+
         const id = "TRIP_" + Date.now();
+        const statusToUse = cid ? "in_progress" : "pool";
+
         await activeDb.collection('trips').doc(id).set({
             tripId: id,
             courierId: cid,
-            status: "in_progress",
+            status: statusToUse,
+            region: tripRegion,
             date: firebase.firestore.Timestamp.now(),
             acceptedTime: firebase.firestore.Timestamp.now(),
             adminBulkSjUrl: adminBulkSjUrl,
@@ -1685,10 +1956,16 @@ async function submitTrip() {
 
         syncDestinationsToMasterClients(tripQueue);
 
-        showToast("BERHASIL DITUGASKAN! Pengiriman telah dikirim ke kurir.");
+        if (cid) {
+            showToast("BERHASIL DITUGASKAN! Pengiriman telah dikirim ke kurir.");
+        } else {
+            showToast("BERHASIL DISIMPAN KE SJ POOL! Pengiriman masuk ke penampungan wilayah.");
+        }
+
+        tripqueue = []; // wait, tripQueue
         tripQueue = [];
         renderQueue();
-        cidEl.value = "";
+        if (cidEl) cidEl.value = "";
         if (sjFileEl) sjFileEl.value = "";
     } catch (e) {
         console.error("Submit Trip Error:", e);
@@ -2339,8 +2616,8 @@ function renderRecentShipments(filter = "") {
     }
 
     if (!startDateVal && !endDateVal) {
-        const selectedDateMode = document.getElementById('recent-date-filter')?.value || "today";
-        if (selectedDateMode === "today" || !selectedDateMode) {
+        const selectedDateMode = document.getElementById('recent-date-filter')?.value || "all";
+        if (selectedDateMode === "today") {
             filterStartMs = todayDayMs;
             filterEndMs = todayDayMs + (24 * 60 * 60 * 1000) - 1;
         } else if (selectedDateMode === "3days") {
@@ -2352,7 +2629,7 @@ function renderRecentShipments(filter = "") {
         } else if (selectedDateMode === "month") {
             filterStartMs = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
             filterEndMs = todayDayMs + (24 * 60 * 60 * 1000) - 1;
-        } else if (selectedDateMode === "all") {
+        } else {
             filterStartMs = 0;
             filterEndMs = Infinity;
         }
@@ -2718,37 +2995,134 @@ async function submitManualUploadPhoto() {
 }
 
 function exportRecentShipmentsToExcel() {
-    if (typeof XLSX === 'undefined') return alert("SheetJS library not loaded!");
+    if (typeof XLSX === 'undefined') return alert("Library SheetJS (XLSX) belum teruat. Silakan refresh halaman!");
     const exportData = [];
 
-    allCurrentTrips.forEach(t => {
-        const cName = registeredUsers[t.courierId] || t.courierId.substring(0,8);
-        const tripIdShort = '#' + t.id.substring(Math.max(0, t.id.length - 6));
+    const rawSearch = (document.getElementById('recent-shipment-search')?.value || "").toLowerCase().trim();
+    const selectedStatus = document.getElementById('recent-status-filter')?.value || "all";
+    const selectedCarrier = document.getElementById('recent-carrier-filter')?.value || "all";
+    const startDateVal = document.getElementById('recent-start-date')?.value;
+    const endDateVal = document.getElementById('recent-end-date')?.value;
+
+    const now = new Date();
+    const todayDayMs = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+
+    let filterStartMs = 0;
+    let filterEndMs = Infinity;
+
+    if (startDateVal) {
+        const d = new Date(startDateVal + "T00:00:00");
+        if (!isNaN(d.getTime())) filterStartMs = d.getTime();
+    }
+    if (endDateVal) {
+        const d = new Date(endDateVal + "T23:59:59.999");
+        if (!isNaN(d.getTime())) filterEndMs = d.getTime();
+    }
+
+    if (!startDateVal && !endDateVal) {
+        const selectedDateMode = document.getElementById('recent-date-filter')?.value || "today";
+        if (selectedDateMode === "today" || !selectedDateMode) {
+            filterStartMs = todayDayMs;
+            filterEndMs = todayDayMs + (24 * 60 * 60 * 1000) - 1;
+        } else if (selectedDateMode === "3days") {
+            filterStartMs = todayDayMs - (2 * 24 * 60 * 60 * 1000);
+            filterEndMs = todayDayMs + (24 * 60 * 60 * 1000) - 1;
+        } else if (selectedDateMode === "7days") {
+            filterStartMs = todayDayMs - (6 * 24 * 60 * 60 * 1000);
+            filterEndMs = todayDayMs + (24 * 60 * 60 * 1000) - 1;
+        } else if (selectedDateMode === "month") {
+            filterStartMs = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+            filterEndMs = todayDayMs + (24 * 60 * 60 * 1000) - 1;
+        } else if (selectedDateMode === "all") {
+            filterStartMs = 0;
+            filterEndMs = Infinity;
+        }
+    }
+
+    (allCurrentTrips || []).forEach(t => {
+        if (!t) return;
+        if (typeof isTripInActiveBranch === 'function' && !isTripInActiveBranch(t)) {
+            return;
+        }
+
+        const courierIdStr = t.courierId || '';
+        const cName = typeof getCourierDisplayName === 'function' ? getCourierDisplayName(courierIdStr) : (courierIdStr ? courierIdStr.substring(0, 8) : 'Unknown');
+        const tripIdStr = String(t.id || t.tripId || '');
+        const tripIdShort = '#' + (tripIdStr.length > 6 ? tripIdStr.substring(tripIdStr.length - 6) : tripIdStr);
+        const tripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : (tripIdStr ? parseInt(tripIdStr.replace('TRIP_', '')) || 0 : 0));
+        const tripDateStr = tripMs ? new Date(tripMs).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '-';
+
+        // Check Carrier Filter
+        if (selectedCarrier !== "all" && courierIdStr !== selectedCarrier && cName.toLowerCase() !== selectedCarrier.toLowerCase()) {
+            return;
+        }
+
+        // Check Date Filter
+        if (filterStartMs > 0 && (tripMs < filterStartMs || tripMs > filterEndMs)) {
+            return;
+        }
 
         if (t.destinations && t.destinations.length > 0) {
             t.destinations.forEach((d, idx) => {
-                const status = (d.status === 'done' || d.proofPhotoUrl) ? 'completed' : d.status;
-                const arrivalStr = d.arrivalTime ? new Date(d.arrivalTime.seconds * 1000).toLocaleString() : '-';
-                const completedStr = d.completedTime ? new Date(d.completedTime.seconds * 1000).toLocaleString() : '-';
+                if (!d) return;
+                const locName = d.locationName || 'Destination';
+                const fullAddress = d.address || '-';
+                const stopIdx = d.stopIndex || (idx + 1);
+                const uniqueShipmentId = `${tripIdShort}-${stopIdx}`;
 
-                exportData.push({
-                    "Shipment ID": tripIdShort,
-                    "Trip Full ID": t.id,
-                    "Courier": cName,
-                    "Stop #": d.stopIndex || (idx + 1),
-                    "Origin": "Warehouse",
-                    "Destination Name": d.locationName || 'TBD',
-                    "Full Address": d.address || '-',
-                    "Status": status,
-                    "Arrival Time": arrivalStr,
-                    "Completed Time": completedStr,
-                    "Proof Photo URL": d.proofPhotoUrl || '-'
+                const rawStatus = d.status || 'pending';
+                const isKlienTutupApproved = (rawStatus === 'pending' && d.pendingReason && d.pendingReason.length > 0);
+                const isPendingApproval = (rawStatus === 'pending_approval');
+                const status = (d.status === 'done' || d.proofPhotoUrl) ? 'completed' : (d.status === 'arrived' ? 'in_progress' : (isPendingApproval ? 'pending_approval' : (isKlienTutupApproved ? 'klien_tutup' : (t.status || 'pending'))));
+
+                const searchableText = `${uniqueShipmentId} ${tripIdShort} ${tripIdStr} ${cName} ${locName} ${fullAddress} ${status} ${d.pendingReason || ''} ${tripDateStr}`.toLowerCase();
+                const terms = rawSearch.split(/\s+/).filter(x => x.length > 0);
+                const matchSearch = !rawSearch || terms.every(term => {
+                    const cleanTerm = term.replace('#', '');
+                    return searchableText.includes(term) || searchableText.includes(cleanTerm);
                 });
+
+                let matchStatus = false;
+                if (selectedStatus === 'all') {
+                    matchStatus = true;
+                } else if (selectedStatus === 'active_all') {
+                    matchStatus = (status !== 'completed');
+                } else if (selectedStatus === 'pending') {
+                    matchStatus = (status === 'pending' || isKlienTutupApproved || isPendingApproval);
+                } else if (selectedStatus === 'delayed') {
+                    const lastUpdate = t.destinations ? t.destinations.filter(d => d.status === 'done' || d.status === 'arrived').reduce((max, d) => {
+                        const time = (d.completedTime || d.arrivalTime)?.seconds * 1000 || 0;
+                        return time > max ? time : max;
+                    }, (t.date?.seconds || 0) * 1000) : 0;
+                    matchStatus = (status !== 'completed') && (Date.now() - lastUpdate > 30 * 60 * 1000);
+                } else {
+                    matchStatus = (status === selectedStatus);
+                }
+
+                if (matchSearch && matchStatus) {
+                    const arrivalStr = d.arrivalTime?.seconds ? new Date(d.arrivalTime.seconds * 1000).toLocaleString('id-ID') : '-';
+                    const completedStr = d.completedTime?.seconds ? new Date(d.completedTime.seconds * 1000).toLocaleString('id-ID') : '-';
+
+                    exportData.push({
+                        "Tanggal": tripDateStr,
+                        "Shipment ID": uniqueShipmentId,
+                        "Trip Full ID": tripIdStr,
+                        "Courier": cName,
+                        "Stop #": stopIdx,
+                        "Destination Name": locName,
+                        "Full Address": fullAddress,
+                        "Status": status,
+                        "Arrival Time": arrivalStr,
+                        "Completed Time": completedStr,
+                        "Pending Reason": d.pendingReason || '-',
+                        "Proof Photo URL": d.proofPhotoUrl || d.proofPhotoSj || '-'
+                    });
+                }
             });
         }
     });
 
-    if (exportData.length === 0) return alert("Tidak ada data pengantaran untuk diekspor!");
+    if (exportData.length === 0) return alert("Tidak ada data pengantaran yang sesuai filter untuk diekspor!");
 
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
@@ -2815,25 +3189,28 @@ function loadFullHistory() {
 }
 
 function exportFullReportsToExcel() {
-    if (typeof XLSX === 'undefined') return alert("SheetJS library not loaded!");
+    if (typeof XLSX === 'undefined') return alert("Library SheetJS (XLSX) belum teruat. Silakan refresh halaman!");
     if (!lastLoadedHistory || lastLoadedHistory.length === 0) return alert("Tidak ada data laporan untuk diekspor!");
 
     const exportData = [];
     lastLoadedHistory.forEach(t => {
-        const cName = registeredUsers[t.courierId] || t.courierId.substring(0,8);
-        const dateStr = t.date ? new Date(t.date.seconds * 1000).toLocaleString('id-ID') : '-';
+        if (!t) return;
+        const courierIdStr = t.courierId || '';
+        const cName = registeredUsers[courierIdStr] || (courierIdStr ? courierIdStr.substring(0,8) : 'Unknown');
+        const dateStr = t.date?.seconds ? new Date(t.date.seconds * 1000).toLocaleString('id-ID') : '-';
 
         if (t.destinations && t.destinations.length > 0) {
             t.destinations.forEach((d, idx) => {
+                if (!d) return;
                 exportData.push({
-                    "Trip ID": t.id,
+                    "Trip ID": t.id || t.tripId || '-',
                     "Courier": cName,
                     "Date": dateStr,
                     "Stop Index": d.stopIndex || (idx + 1),
                     "Location Name": d.locationName || 'TBD',
                     "Address": d.address || '-',
                     "Stop Status": d.status || 'pending',
-                    "Trip Status": t.status,
+                    "Trip Status": t.status || '-',
                     "Proof URL": d.proofPhotoUrl || '-'
                 });
             });
@@ -3255,17 +3632,16 @@ function loginAsLocalDemoAdmin() {
 
     if (loginScreen) loginScreen.style.setProperty('display', 'none', 'important');
     if (mainWrapper) mainWrapper.style.setProperty('display', 'flex', 'important');
-    if (profileName) profileName.innerText = 'Super Admin (Demo)';
+    if (profileName) profileName.innerText = 'Super Admin';
     if (profileRole) profileRole.innerHTML = `<span class="d-inline-block rounded-circle bg-success me-1" style="width: 7px; height: 7px;"></span>Super Admin`;
 
     applyRoleAccessControl();
+    if (typeof updateGlobalStats === 'function') updateGlobalStats();
+    if (typeof renderRecentShipments === 'function') renderRecentShipments();
+    if (typeof renderMonitorUI === 'function') renderMonitorUI();
 
-    setTimeout(() => {
-        if (typeof initMaps === 'function') initMaps();
-        if (typeof map !== 'undefined' && map && typeof map.invalidateSize === 'function') map.invalidateSize();
-        if (typeof mapMonitor !== 'undefined' && mapMonitor && typeof mapMonitor.invalidateSize === 'function') mapMonitor.invalidateSize();
-        if (typeof mapDispatch !== 'undefined' && mapDispatch && typeof mapDispatch.invalidateSize === 'function') mapDispatch.invalidateSize();
-    }, 300);
+    if (typeof initMaps === 'function') initMaps();
+    if (typeof refreshMapSizes === 'function') refreshMapSizes();
 }
 window.loginAsLocalDemoAdmin = loginAsLocalDemoAdmin;
 
@@ -3274,6 +3650,7 @@ function initAuthListener() {
     const firebaseAuth = getAuth();
     if (firebaseAuth) {
         firebaseAuth.onAuthStateChanged(user => {
+            if (window.isDemoMode) return;
             const loginScreen = document.getElementById('login-screen');
             const mainWrapper = document.getElementById('main-wrapper');
 
@@ -3416,97 +3793,106 @@ async function deleteDestinationStop(tripId, stopIndex, locationName) {
 }
 
 async function restoreBayhaqiTrip() {
+    const bayhaqiUid = "xONhqVSNSYcEcGCZyW2cLGJWQt92";
+    const destinations = [
+        {
+            stopIndex: 1,
+            locationName: "Plaza Indonesia",
+            address: "Jl. M.H. Thamrin No.28-30, Gondangdia, Kec. Menteng, Jakarta Pusat",
+            latitude: -6.1931,
+            longitude: 106.8218,
+            status: "done",
+            proofPhotoSj: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=800&q=80",
+            proofPhotoItems: ["https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&q=80"],
+            proofPhotoUrl: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=800&q=80,https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&q=80"
+        },
+        {
+            stopIndex: 2,
+            locationName: "GO! GO! CURRY - Lippo Mall Nusantara",
+            address: "Lippo Mall Nusantara, Jend. Sudirman, Jakarta Pusat",
+            latitude: -6.2155,
+            longitude: 106.8180,
+            status: "done",
+            proofPhotoSj: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=800&q=80",
+            proofPhotoItems: ["https://images.unsplash.com/photo-1580674684081-7617fbf3d745?auto=format&fit=crop&w=800&q=80"],
+            proofPhotoUrl: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=800&q=80,https://images.unsplash.com/photo-1580674684081-7617fbf3d745?auto=format&fit=crop&w=800&q=80"
+        },
+        {
+            stopIndex: 3,
+            locationName: "Gindaco - Lippo Mall Nusantara",
+            address: "Lippo Mall Nusantara, Jend. Sudirman, Jakarta Pusat",
+            latitude: -6.2155,
+            longitude: 106.8180,
+            status: "done",
+            proofPhotoSj: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=800&q=80",
+            proofPhotoItems: ["https://images.unsplash.com/photo-1578575437130-527eed3abbec?auto=format&fit=crop&w=800&q=80"],
+            proofPhotoUrl: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=800&q=80,https://images.unsplash.com/photo-1578575437130-527eed3abbec?auto=format&fit=crop&w=800&q=80"
+        },
+        {
+            stopIndex: 4,
+            locationName: "GrandLucky Superstore SCBD",
+            address: "Kawasan Komersial SCBD, Jend. Sudirman, Kebayoran Baru, Jakarta Selatan",
+            latitude: -6.2258,
+            longitude: 106.8093,
+            status: "done",
+            proofPhotoSj: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=800&q=80",
+            proofPhotoItems: ["https://images.unsplash.com/photo-1566576721346-d4a3b4eaeb55?auto=format&fit=crop&w=800&q=80"],
+            proofPhotoUrl: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=800&q=80,https://images.unsplash.com/photo-1566576721346-d4a3b4eaeb55?auto=format&fit=crop&w=800&q=80"
+        },
+        {
+            stopIndex: 5,
+            locationName: "Wrapindo Pratama, PT (Wrapinc)",
+            address: "Jl. Kedoya Duri Raya No.64B, Kebon Jeruk, Jakarta Barat",
+            latitude: -6.1725,
+            longitude: 106.7621,
+            status: "arrived",
+            proofPhotoUrl: ""
+        },
+        {
+            stopIndex: 6,
+            locationName: "McDonald's Senayan Trade Center",
+            address: "Senayan Trade Center, Gelora, Tanah Abang, Jakarta Pusat",
+            latitude: -6.2231,
+            longitude: 106.8005,
+            status: "pending",
+            proofPhotoUrl: ""
+        }
+    ];
+
+    const demoTrip = {
+        id: 'TRIP_1788765713947',
+        tripId: 'TRIP_1788765713947',
+        courierId: bayhaqiUid,
+        status: 'in_progress',
+        date: { seconds: Math.floor(Date.now() / 1000) },
+        acceptedTime: { seconds: Math.floor(Date.now() / 1000) },
+        acceptLatitude: -6.2230,
+        acceptLongitude: 106.8010,
+        destinations: destinations
+    };
+
+    if (!window.allCurrentTrips || window.allCurrentTrips.length === 0) {
+        window.allCurrentTrips = [demoTrip];
+    }
+
+    if (!window.registeredUsers || Object.keys(window.registeredUsers).length === 0) {
+        window.registeredUsers = window.registeredUsers || {};
+        window.registeredUsers[bayhaqiUid] = "alturdriver05";
+        window.registeredUsers["courier_alan"] = "alanpasming1";
+        window.registeredUsers["courier_joyen"] = "joyen";
+    }
+
+    if (typeof updateGlobalStats === 'function') updateGlobalStats();
+    if (typeof renderRecentShipments === 'function') renderRecentShipments();
+    if (typeof renderMonitorUI === 'function') renderMonitorUI();
+
     try {
         const activeDb = getDb();
-        if (!activeDb) return;
-        const bayhaqiUid = "xONhqVSNSYcEcGCZyW2cLGJWQt92";
-        const tripDocRef = activeDb.collection('trips').doc('TRIP_1788765713947');
-
-        const destinations = [
-            {
-                stopIndex: 1,
-                locationName: "Plaza Indonesia",
-                address: "Jl. M.H. Thamrin No.28-30, Gondangdia, Kec. Menteng, Jakarta Pusat",
-                latitude: -6.1931,
-                longitude: 106.8218,
-                status: "done",
-                proofPhotoSj: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=800&q=80",
-                proofPhotoItems: ["https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&q=80"],
-                proofPhotoUrl: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=800&q=80,https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&q=80"
-            },
-            {
-                stopIndex: 2,
-                locationName: "GO! GO! CURRY - Lippo Mall Nusantara",
-                address: "Lippo Mall Nusantara, Jend. Sudirman, Jakarta Pusat",
-                latitude: -6.2155,
-                longitude: 106.8180,
-                status: "done",
-                proofPhotoSj: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=800&q=80",
-                proofPhotoItems: ["https://images.unsplash.com/photo-1580674684081-7617fbf3d745?auto=format&fit=crop&w=800&q=80"],
-                proofPhotoUrl: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=800&q=80,https://images.unsplash.com/photo-1580674684081-7617fbf3d745?auto=format&fit=crop&w=800&q=80"
-            },
-            {
-                stopIndex: 3,
-                locationName: "Gindaco - Lippo Mall Nusantara",
-                address: "Lippo Mall Nusantara, Jend. Sudirman, Jakarta Pusat",
-                latitude: -6.2155,
-                longitude: 106.8180,
-                status: "done",
-                proofPhotoSj: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=800&q=80",
-                proofPhotoItems: ["https://images.unsplash.com/photo-1578575437130-527eed3abbec?auto=format&fit=crop&w=800&q=80"],
-                proofPhotoUrl: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=800&q=80,https://images.unsplash.com/photo-1578575437130-527eed3abbec?auto=format&fit=crop&w=800&q=80"
-            },
-            {
-                stopIndex: 4,
-                locationName: "GrandLucky Superstore SCBD",
-                address: "Kawasan Komersial SCBD, Jend. Sudirman, Kebayoran Baru, Jakarta Selatan",
-                latitude: -6.2258,
-                longitude: 106.8093,
-                status: "done",
-                proofPhotoSj: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=800&q=80",
-                proofPhotoItems: ["https://images.unsplash.com/photo-1566576721346-d4a3b4eaeb55?auto=format&fit=crop&w=800&q=80"],
-                proofPhotoUrl: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=800&q=80,https://images.unsplash.com/photo-1566576721346-d4a3b4eaeb55?auto=format&fit=crop&w=800&q=80"
-            },
-            {
-                stopIndex: 5,
-                locationName: "Wrapindo Pratama, PT (Wrapinc)",
-                address: "Jl. Kedoya Duri Raya No.64B, Kebon Jeruk, Jakarta Barat",
-                latitude: -6.1725,
-                longitude: 106.7621,
-                status: "arrived",
-                proofPhotoUrl: ""
-            },
-            {
-                stopIndex: 6,
-                locationName: "McDonald's Senayan Trade Center",
-                address: "Senayan Trade Center, Gelora, Tanah Abang, Jakarta Pusat",
-                latitude: -6.2231,
-                longitude: 106.8005,
-                status: "pending",
-                proofPhotoUrl: ""
-            }
-        ];
-
-        await tripDocRef.update({
-            destinations: destinations,
-            status: 'in_progress',
-            courierId: bayhaqiUid
-        }).catch(async () => {
-            await tripDocRef.set({
-                tripId: 'TRIP_1788765713947',
-                courierId: bayhaqiUid,
-                status: 'in_progress',
-                date: firebase.firestore.Timestamp.now(),
-                acceptedTime: firebase.firestore.Timestamp.now(),
-                acceptLatitude: -6.2230,
-                acceptLongitude: 106.8010,
-                destinations: destinations
-            });
-        });
-
-        console.log("SUCCESSFULLY RESTORED BAYHAQI TRIP TODAY!");
+        if (activeDb) {
+            await activeDb.collection('trips').doc('TRIP_1788765713947').set(demoTrip, { merge: true });
+        }
     } catch(e) {
-        console.error("Error restoring Bayhaqi trip:", e);
+        console.warn("Error restoring Bayhaqi trip:", e);
     }
 }
 

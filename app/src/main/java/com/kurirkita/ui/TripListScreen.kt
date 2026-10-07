@@ -24,83 +24,238 @@ import com.google.firebase.firestore.FirebaseFirestore
 fun TripListScreen(viewModel: TripViewModel, onTripClick: (Trip) -> Unit) {
     val trips by viewModel.trips.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
+    var showClaimDialog by remember { mutableStateOf(false) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+    if (showClaimDialog) {
+        ClaimTaskDialog(viewModel = viewModel, onDismiss = { showClaimDialog = false })
+    }
+
+    Scaffold(
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = { showClaimDialog = true },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = Color.White
             ) {
-                Column {
-                    Text(
-                        "Daftar Tugas", 
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = MaterialTheme.colorScheme.onBackground,
-                        letterSpacing = (-0.5).sp
-                    )
-                    val sdf = java.text.SimpleDateFormat("EEEE, dd MMM yyyy", java.util.Locale("id"))
-                    Text(
-                        text = sdf.format(java.util.Date()),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-                
-                IconButton(
-                    onClick = { viewModel.refresh() },
-                    colors = IconButtonDefaults.iconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surface,
-                        contentColor = MaterialTheme.colorScheme.primary
-                    ),
-                    modifier = Modifier.size(48.dp).shadow(2.dp, androidx.compose.foundation.shape.CircleShape)
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    if (isRefreshing) {
-                        CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 3.dp)
-                    } else {
-                        Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                    Icon(Icons.Default.LocalShipping, contentDescription = null)
+                    Text("Ambil Tugas", fontWeight = FontWeight.Bold)
+                }
+            }
+        },
+        containerColor = MaterialTheme.colorScheme.background
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .background(MaterialTheme.colorScheme.background)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            "Daftar Tugas", 
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = MaterialTheme.colorScheme.onBackground,
+                            letterSpacing = (-0.5).sp
+                        )
+                        val sdf = java.text.SimpleDateFormat("EEEE, dd MMM yyyy", java.util.Locale("id"))
+                        Text(
+                            text = sdf.format(java.util.Date()),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    
+                    IconButton(
+                        onClick = { viewModel.refresh() },
+                        colors = IconButtonDefaults.iconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.surface,
+                            contentColor = MaterialTheme.colorScheme.primary
+                        ),
+                        modifier = Modifier.size(48.dp).shadow(2.dp, androidx.compose.foundation.shape.CircleShape)
+                    ) {
+                        if (isRefreshing) {
+                            CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 3.dp)
+                        } else {
+                            Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                        }
                     }
                 }
             }
-        }
-        
-        if (trips.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        Icons.Default.LocalShipping, 
-                        contentDescription = null, 
-                        modifier = Modifier.size(80.dp), 
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f)
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        "Belum ada rute aktif.", 
-                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f), 
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
+            
+            if (trips.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            Icons.Default.LocalShipping, 
+                            contentDescription = null, 
+                            modifier = Modifier.size(80.dp), 
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f)
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            "Belum ada rute aktif.", 
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f), 
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            "Tekan tombol 'Ambil Tugas' di bawah untuk mencari atau mengambil kunjungan toko.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f),
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                    }
                 }
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(trips) { trip ->
-                    TripCard(trip, onTripClick)
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(trips) { trip ->
+                        TripCard(trip, onTripClick)
+                    }
+                    item { Spacer(modifier = Modifier.height(24.dp)) }
                 }
-                item { Spacer(modifier = Modifier.height(24.dp)) }
             }
         }
     }
+}
+
+@Composable
+fun ClaimTaskDialog(viewModel: TripViewModel, onDismiss: () -> Unit) {
+    var searchQuery by remember { mutableStateOf("") }
+    var searchResults by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
+    var selectedStore by remember { mutableStateOf<Map<String, Any>?>(null) }
+    var customStoreName by remember { mutableStateOf("") }
+    var customAddress by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(false) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    LaunchedEffect(searchQuery) {
+        viewModel.searchMasterClients(searchQuery) { results ->
+            searchResults = results
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Ambil Tugas Kunjungan", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 400.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    label = { Text("Cari Toko dari Master Database") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+
+                if (selectedStore != null) {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text("Terpilih: ${selectedStore!!["name"]}", fontWeight = FontWeight.Bold)
+                            Text("${selectedStore!!["address"]}", style = MaterialTheme.typography.bodySmall)
+                            TextButton(onClick = { selectedStore = null }) {
+                                Text("Ganti Pilihan")
+                            }
+                        }
+                    }
+                } else {
+                    if (searchResults.isEmpty() && searchQuery.isNotEmpty()) {
+                        Text("Tidak ditemukan di master database. Masukkan manual di bawah:", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                        OutlinedTextField(
+                            value = customStoreName,
+                            onValueChange = { customStoreName = it },
+                            label = { Text("Nama Toko / Klien") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        OutlinedTextField(
+                            value = customAddress,
+                            onValueChange = { customAddress = it },
+                            label = { Text("Alamat Lengkap") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxWidth().height(200.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            items(searchResults) { store ->
+                                Card(
+                                    onClick = { selectedStore = store },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                                ) {
+                                    Column(modifier = Modifier.padding(8.dp)) {
+                                        Text(store["name"] as? String ?: "", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                        Text(store["address"] as? String ?: "", fontSize = 12.sp, color = Color.Gray)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    isLoading = true
+                    val storeName = selectedStore?.get("name") as? String ?: customStoreName
+                    val address = selectedStore?.get("address") as? String ?: customAddress
+                    val lat = selectedStore?.get("latitude") as? Double ?: -6.2088
+                    val lng = selectedStore?.get("longitude") as? Double ?: 106.8456
+
+                    if (storeName.isBlank() || address.isBlank()) {
+                        android.widget.Toast.makeText(context, "Nama toko dan alamat harus diisi!", android.widget.Toast.LENGTH_SHORT).show()
+                        isLoading = false
+                        return@Button
+                    }
+
+                    viewModel.claimOrCreateTrip(storeName, address, lat, lng) { success, msg ->
+                        isLoading = false
+                        android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
+                        if (success) onDismiss()
+                    }
+                },
+                enabled = !isLoading
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.White)
+                } else {
+                    Text("Ambil Tugas")
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Batal")
+            }
+        }
+    )
 }
 
 @Composable
@@ -153,8 +308,10 @@ fun TripCard(trip: Trip, onClick: (Trip) -> Unit) {
                             maxLines = 1,
                             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                         )
+                        val sdf = remember { java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale("id")) }
+                        val tripDateStr = try { sdf.format(trip.date.toDate()) } catch (_: Exception) { "" }
                         Text(
-                            text = "${trip.destinations.size} Titik Pengantaran",
+                            text = "${trip.destinations.size} Titik Pengantaran" + if (tripDateStr.isNotEmpty()) " • $tripDateStr" else "",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                             fontWeight = FontWeight.Medium
