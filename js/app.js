@@ -1868,84 +1868,46 @@ async function compressImageFile(file, maxDimension = 1000, quality = 0.7) {
     });
 }
 
-async function getOrCreateFolder(folderName, parentId, accessToken) {
-    try {
-        const query = encodeURIComponent(`name='${folderName}' and mimeType='application/vnd.google-apps.folder' ${parentId ? `and '${parentId}' in parents` : ''} and trashed=false`);
-        const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${query}`, {
-            headers: new Headers({ 'Authorization': 'Bearer ' + accessToken })
-        });
-        const searchData = await searchRes.json();
-        if (searchData.files && searchData.files.length > 0) {
-            return searchData.files[0].id;
-        }
+async function uploadToGoogleDrive(file) {
+    const scriptUrl = localStorage.getItem('gdrive_script_url');
+    if (!scriptUrl) throw new Error("Google Drive Script URL not configured");
 
-        const metadata = {
-            name: folderName,
-            mimeType: 'application/vnd.google-apps.folder',
-            parents: parentId ? [parentId] : []
+    const base64Data = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const res = e.target.result;
+            const base64 = res.split(',')[1] || res;
+            resolve(base64);
         };
-        const createRes = await fetch('https://www.googleapis.com/drive/v3/files', {
-            method: 'POST',
-            headers: new Headers({
-                'Authorization': 'Bearer ' + accessToken,
-                'Content-Type': 'application/json'
-            }),
-            body: JSON.stringify(metadata)
-        });
-        const createData = await createRes.json();
-        return createData.id;
-    } catch (e) {
-        console.warn("Folder creation error:", e);
-        return null;
-    }
-}
-
-async function uploadToGoogleDrive(file, accessToken) {
-    const now = new Date();
-    const yearMonth = now.toISOString().slice(0, 7); // e.g. "2026-10"
-    const dateStr = now.toISOString().slice(0, 10); // e.g. "2026-10-07"
-
-    let parentId = null;
-    const rootId = await getOrCreateFolder("KurirTrack_Uploads", null, accessToken);
-    if (rootId) {
-        const monthId = await getOrCreateFolder(yearMonth, rootId, accessToken);
-        if (monthId) {
-            parentId = await getOrCreateFolder(dateStr, monthId, accessToken);
-        }
-    }
-
-    const metadata = {
-        name: 'Proof_' + Date.now() + '_' + (file.name || 'image.jpg'),
-        mimeType: file.type || 'image/jpeg',
-        parents: parentId ? [parentId] : []
-    };
-    const form = new FormData();
-    form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-    form.append('file', file);
-
-    const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink', {
-        method: 'POST',
-        headers: new Headers({ 'Authorization': 'Bearer ' + accessToken }),
-        body: form
+        reader.readAsDataURL(file);
     });
-    const data = await response.json();
-    if (data && data.id) {
-        return `https://drive.google.com/uc?export=view&id=${data.id}`;
+
+    const response = await fetch(scriptUrl, {
+        method: 'POST',
+        body: JSON.stringify({
+            filename: file.name || 'proof.jpg',
+            contentType: file.type || 'image/jpeg',
+            base64Data: base64Data
+        })
+    });
+    const result = await response.json();
+    if (result && result.status === 'success' && result.url) {
+        return result.url;
     }
-    throw new Error(data.error?.message || 'Google Drive upload failed');
+    throw new Error(result.message || 'Google Drive upload failed');
 }
 
 async function uploadFileToCloudinaryOrFirebase(file) {
     const targetFile = (file && file.type && file.type.startsWith('image/')) ? await compressImageFile(file, 1000, 0.7) : file;
     if (!targetFile) return "";
 
-    const gdriveToken = localStorage.getItem('gdrive_access_token');
-    if (gdriveToken) {
+    const scriptUrl = localStorage.getItem('gdrive_script_url');
+    if (scriptUrl) {
         try {
-            const gdriveUrl = await uploadToGoogleDrive(targetFile, gdriveToken);
+            const gdriveUrl = await uploadToGoogleDrive(targetFile);
             if (gdriveUrl) return gdriveUrl;
         } catch (e) {
-            console.warn("Google Drive upload warning, falling back to Cloudinary:", e);
+            console.warn("Google Drive Web App upload warning, falling back to Cloudinary:", e);
         }
     }
 
