@@ -1851,16 +1851,45 @@ async function compressImageFile(file, maxDimension = 1000, quality = 0.7) {
     });
 }
 
+async function uploadToGoogleDrive(file, accessToken) {
+    const metadata = {
+        name: 'KurirTrack_' + Date.now() + '_' + (file.name || 'proof.jpg'),
+        mimeType: file.type || 'image/jpeg'
+    };
+    const form = new FormData();
+    form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+    form.append('file', file);
+
+    const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink', {
+        method: 'POST',
+        headers: new Headers({ 'Authorization': 'Bearer ' + accessToken }),
+        body: form
+    });
+    const data = await response.json();
+    if (data && data.id) {
+        return `https://drive.google.com/uc?export=view&id=${data.id}`;
+    }
+    throw new Error(data.error?.message || 'Google Drive upload failed');
+}
+
 async function uploadFileToCloudinaryOrFirebase(file) {
     const targetFile = (file && file.type && file.type.startsWith('image/')) ? await compressImageFile(file, 1000, 0.7) : file;
+    if (!targetFile) return "";
+
+    const gdriveToken = localStorage.getItem('gdrive_access_token');
+    if (gdriveToken) {
+        try {
+            const gdriveUrl = await uploadToGoogleDrive(targetFile, gdriveToken);
+            if (gdriveUrl) return gdriveUrl;
+        } catch (e) {
+            console.warn("Google Drive upload warning, falling back to Cloudinary:", e);
+        }
+    }
 
     return new Promise((resolve) => {
-        if (!targetFile) return resolve("");
-
         const reader = new FileReader();
         reader.onload = (evt) => {
             const dataUrl = evt.target.result;
-
             try {
                 const formData = new FormData();
                 formData.append("file", targetFile);
@@ -1873,24 +1902,12 @@ async function uploadFileToCloudinaryOrFirebase(file) {
                 }).then(res => res.json()).then(data => {
                     if (data && data.secure_url) {
                         resolve(data.secure_url);
-                    } else if (dataUrl && dataUrl.startsWith("data:image/")) {
-                        resolve(dataUrl);
                     } else {
-                        resolve("");
-                    }
-                }).catch(() => {
-                    if (dataUrl && dataUrl.startsWith("data:image/")) {
                         resolve(dataUrl);
-                    } else {
-                        resolve("");
                     }
-                });
+                }).catch(() => resolve(dataUrl));
             } catch(e) {
-                if (dataUrl && dataUrl.startsWith("data:image/")) {
-                    resolve(dataUrl);
-                } else {
-                    resolve("");
-                }
+                resolve(dataUrl);
             }
         };
         reader.onerror = () => resolve("");

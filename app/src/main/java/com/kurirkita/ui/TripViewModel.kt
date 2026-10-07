@@ -251,6 +251,8 @@ class TripViewModel : ViewModel() {
 
         listener?.remove()
         listener = db.collection("trips")
+            .orderBy("date", com.google.firebase.firestore.Query.Direction.DESCENDING)
+            .limit(100)
             .addSnapshotListener { snapshot, e ->
                 _isRefreshing.value = false
                 if (e != null) {
