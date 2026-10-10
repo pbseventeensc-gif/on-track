@@ -170,7 +170,7 @@ function renderKPIView(filter = "") {
     const startDateVal = document.getElementById('kpi-start-date')?.value;
     const endDateVal = document.getElementById('kpi-end-date')?.value;
 
-    let filteredTrips = allCurrentTrips;
+    let filteredTrips = (typeof allCurrentTrips !== 'undefined' && allCurrentTrips) ? allCurrentTrips : (window.allCurrentTrips || []);
 
     if (typeof isTripInActiveBranch === 'function') {
         filteredTrips = filteredTrips.filter(t => isTripInActiveBranch(t));
@@ -263,6 +263,37 @@ function renderKPIView(filter = "") {
 
     lastKPIData = Object.values(courierStats);
 
+    // Calculate overall completion efficiency percentage and totals for all couriers
+    let totalStopsFiltered = 0;
+    let totalCompletedStopsFiltered = 0;
+    let totalKmFiltered = 0;
+
+    lastKPIData.forEach(c => {
+        totalStopsFiltered += (c.totalStops || 0);
+        totalCompletedStopsFiltered += (c.completedStops || 0);
+        totalKmFiltered += (c.totalKM || 0);
+    });
+
+    const overallCompletionRate = totalStopsFiltered > 0
+        ? Math.round((totalCompletedStopsFiltered / totalStopsFiltered) * 100)
+        : 0;
+
+    const satRateEl = document.getElementById('kpi-sat-rate');
+    if (satRateEl) {
+        satRateEl.innerText = `${overallCompletionRate}%`;
+    }
+
+    const satLabelEl = document.getElementById('kpi-sat-label');
+    if (satLabelEl) {
+        const period = document.getElementById('stat-period-filter')?.value || 'this_week';
+        let periodText = 'minggu ini';
+        if (period === 'today') periodText = 'hari ini';
+        else if (period === 'this_month') periodText = 'bulan ini';
+        else if (period === 'all') periodText = 'keseluruhan';
+
+        satLabelEl.innerText = `Tingkat efisiensi penyelesaian pengiriman (${periodText})`;
+    }
+
     const searchVal = (filter || document.getElementById('kpi-search-input')?.value || "").toLowerCase();
     let displayCouriers = lastKPIData.filter(c => {
         const isOnline = currentOnlineCouriers[Object.keys(registeredUsers).find(k => registeredUsers[k] === c.name)] ? 'active' : 'offline';
@@ -310,20 +341,14 @@ function renderKPIView(filter = "") {
     });
 
     const topCourier = displayCouriers[0];
-    if (topCourier) {
-        if(document.getElementById('kpi-top-courier')) {
-            document.getElementById('kpi-top-courier').innerText = topCourier.name;
-        }
-        if(document.getElementById('kpi-total-km')) {
-            document.getElementById('kpi-total-km').innerText = (topCourier.totalKM || 0).toFixed(1) + " km";
-        }
-        if(document.getElementById('kpi-total-done')) {
-            document.getElementById('kpi-total-done').innerText = topCourier.completedStops || 0;
-        }
-    } else {
-        if(document.getElementById('kpi-top-courier')) document.getElementById('kpi-top-courier').innerText = '-';
-        if(document.getElementById('kpi-total-km')) document.getElementById('kpi-total-km').innerText = '0.0 km';
-        if(document.getElementById('kpi-total-done')) document.getElementById('kpi-total-done').innerText = '0';
+    if (document.getElementById('kpi-top-courier')) {
+        document.getElementById('kpi-top-courier').innerText = topCourier ? topCourier.name : '-';
+    }
+    if (document.getElementById('kpi-total-km')) {
+        document.getElementById('kpi-total-km').innerText = `${totalKmFiltered.toFixed(1)} km`;
+    }
+    if (document.getElementById('kpi-total-done')) {
+        document.getElementById('kpi-total-done').innerText = `${totalCompletedStopsFiltered}`;
     }
 
     window.courierPodStore = {};

@@ -1422,6 +1422,35 @@ async function deleteOrphanTrips() {
 }
 
 function initUsersSnapshot() {
+    // Provide instant default fallback list (8 drivers + 11 couriers) so dropdown loads instantly without 1-2 min network wait
+    if (!registeredUsers || Object.keys(registeredUsers).length === 0) {
+        registeredUsers = {
+            "driver_1": "Driver 1 (Mobil)",
+            "driver_2": "Driver 2 (Mobil)",
+            "driver_3": "Driver 3 (Mobil)",
+            "driver_4": "Driver 4 (Mobil)",
+            "driver_5": "Driver 5 (Mobil)",
+            "driver_6": "Driver 6 (Mobil)",
+            "driver_7": "Driver 7 (Mobil)",
+            "driver_8": "Driver 8 (Mobil)",
+            "courier_1": "Kurir 1 (Motor)",
+            "courier_2": "Kurir 2 (Motor)",
+            "courier_3": "Kurir 3 (Motor)",
+            "courier_4": "Kurir 4 (Motor)",
+            "courier_5": "Kurir 5 (Motor)",
+            "courier_6": "Kurir 6 (Motor)",
+            "courier_7": "Kurir 7 (Motor)",
+            "courier_8": "Kurir 8 (Motor)",
+            "courier_9": "Kurir 9 (Motor)",
+            "courier_10": "Kurir 10 (Motor)",
+            "courier_11": "Kurir 11 (Motor)",
+            "courier_alan": "alanpasming1",
+            "courier_joyen": "joyen"
+        };
+        renderCourierOptions();
+        renderManageCouriersList();
+    }
+
     const activeDb = getDb();
     if (!activeDb) {
         setTimeout(initUsersSnapshot, 300);

@@ -193,18 +193,33 @@ class MainActivity : ComponentActivity() {
 
     private fun registerUserInFirestore(uid: String, email: String) {
         val userRef = FirebaseFirestore.getInstance().collection("users").document(uid)
-        val map = mutableMapOf<String, Any>(
-            "userId" to uid,
-            "email" to (if (email.isNotEmpty()) email else "pbseventeensc@gmail.com"),
-            "role" to "courier",
-            "courierId" to "pbseventeensc"
-        )
         userRef.get().addOnSuccessListener { snapshot ->
             val existingName = snapshot.getString("name")
-            map["name"] = if (!existingName.isNullOrEmpty()) existingName else "pbseventeensc"
+            val existingCourierId = snapshot.getString("courierId")
+            val existingEmail = snapshot.getString("email")
+
+            val emailToUse = if (!existingEmail.isNullOrEmpty()) existingEmail else email
+            val defaultIdentifier = if (emailToUse.contains("@")) emailToUse.substringBefore("@") else uid.take(8)
+            val nameToUse = if (!existingName.isNullOrEmpty()) existingName else defaultIdentifier
+            val courierIdToUse = if (!existingCourierId.isNullOrEmpty()) existingCourierId else defaultIdentifier
+
+            val map = mutableMapOf<String, Any>(
+                "userId" to uid,
+                "email" to emailToUse,
+                "role" to "courier",
+                "courierId" to courierIdToUse,
+                "name" to nameToUse
+            )
             userRef.set(map, com.google.firebase.firestore.SetOptions.merge())
         }.addOnFailureListener {
-            map["name"] = "pbseventeensc"
+            val defaultIdentifier = if (email.contains("@")) email.substringBefore("@") else uid.take(8)
+            val map = mutableMapOf<String, Any>(
+                "userId" to uid,
+                "email" to email,
+                "role" to "courier",
+                "courierId" to defaultIdentifier,
+                "name" to defaultIdentifier
+            )
             userRef.set(map, com.google.firebase.firestore.SetOptions.merge())
         }
     }
@@ -223,10 +238,10 @@ fun MainNavigation(
     onStartService: () -> Unit,
     onStopService: () -> Unit
 ) {
-    var selectedTrip by remember { mutableStateOf<Trip?>(null) }
-    var showChatTripId by remember { mutableStateOf<String?>(null) }
-    var currentTab by remember { mutableStateOf("dashboard") }
     val tripViewModel: TripViewModel = viewModel()
+    var selectedTrip by tripViewModel.selectedTrip
+    var showChatTripId by tripViewModel.showChatTripId
+    var currentTab by tripViewModel.currentTab
 
     Scaffold(
         topBar = {
@@ -305,20 +320,33 @@ fun HistoryScreen(viewModel: TripViewModel, onTripClick: (Trip) -> Unit) {
             .addSnapshotListener { snapshot, e ->
                 isLoading = false
                 if (snapshot != null) {
-                    val allTrips = snapshot.toObjects(Trip::class.java)
+                    val allTrips = snapshot.documents.mapNotNull { doc ->
+                        try {
+                            doc.toObject(Trip::class.java)?.copy(tripId = doc.id)
+                        } catch (_: Exception) {
+                            TripViewModel.parseTripFromDocument(doc)
+                        }
+                    }
                     historyTrips = allTrips.filter { t ->
                         val cleanCId = t.courierId.replace("[^a-zA-Z0-9]".toRegex(), "").lowercase()
                         val cleanUid = uid.replace("[^a-zA-Z0-9]".toRegex(), "").lowercase()
                         val cleanEmail = email.replace("[^a-zA-Z0-9]".toRegex(), "").lowercase()
                         val cleanPrefix = prefix.replace("[^a-zA-Z0-9]".toRegex(), "").lowercase()
 
-                        t.status == "completed" && (
-                            t.courierId == uid ||
+                        val isJoyenMatch = (cleanPrefix.contains("joyen") || cleanEmail.contains("joyen") || cleanUid.contains("ni7roidcrffq2fke6q5decrepqc2")) &&
+                            (cleanCId.contains("joyen") || cleanCId == "4nm4m56vzemliusvn7lvh11seey1")
+
+                        val isMatch = t.courierId == uid ||
                             cleanCId == cleanUid ||
+                            isJoyenMatch ||
                             (cleanEmail.isNotEmpty() && (cleanCId == cleanEmail || cleanCId.contains(cleanEmail))) ||
                             (cleanPrefix.isNotEmpty() && (cleanCId == cleanPrefix || cleanCId.contains(cleanPrefix) || cleanPrefix.contains(cleanCId)))
-                        )
-                    }
+
+                        val isPastDay = !TripViewModel.isToday(t.date)
+                        val isIncludeInHistory = t.status == "completed" || isPastDay
+
+                        isIncludeInHistory && isMatch && TripViewModel.isWithinDays(t.date, 3)
+                    }.sortedByDescending { it.date.seconds }
                 }
             }
         onDispose { listener.remove() }
@@ -328,14 +356,14 @@ fun HistoryScreen(viewModel: TripViewModel, onTripClick: (Trip) -> Unit) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column {
                 Text(
-                    "Riwayat Selesai", 
+                    "Riwayat Tugas", 
                     color = MaterialTheme.colorScheme.onBackground, 
                     style = MaterialTheme.typography.titleLarge, 
                     fontWeight = FontWeight.ExtraBold,
                     letterSpacing = (-0.5).sp
                 )
                 Text(
-                    "Daftar tugas yang telah Anda selesaikan",
+                    "Daftar tugas 3 hari terakhir (selesai/pending)",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
                     fontWeight = FontWeight.Medium

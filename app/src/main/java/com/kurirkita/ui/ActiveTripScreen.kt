@@ -10,6 +10,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -17,6 +18,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.*
@@ -231,6 +233,7 @@ fun DestinationItem(
     val context = androidx.compose.ui.platform.LocalContext.current
     var isUploading by remember { mutableStateOf(false) }
     var showPhotoDialog by remember { mutableStateOf(false) }
+    var selectedFullImageUrl by remember { mutableStateOf<String?>(null) }
 
     // Categorized photos state
     var capturedSjBitmap by remember { mutableStateOf<Bitmap?>(null) }
@@ -244,24 +247,53 @@ fun DestinationItem(
     var pendingPhotoBitmap by remember { mutableStateOf<Bitmap?>(null) }
 
     var photoUri by remember { mutableStateOf<Uri?>(null) }
-    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
-        if (success && photoUri != null) {
-            try {
-                val bitmap = android.graphics.BitmapFactory.decodeStream(context.contentResolver.openInputStream(photoUri!!))
-                if (bitmap != null) {
-                    if (activeCaptureMode == "sj") {
-                        capturedSjBitmap = bitmap
-                    } else if (activeCaptureMode == "item") {
-                        if (capturedItemBitmaps.size < 2) {
-                            capturedItemBitmaps.add(bitmap)
-                        } else {
-                            Toast.makeText(context, "Maksimal 2 foto barang", Toast.LENGTH_SHORT).show()
-                        }
-                    } else if (activeCaptureMode == "pending") {
-                        pendingPhotoBitmap = bitmap
+
+    // Helper to decode bitmap with downsampling to prevent OutOfMemoryError (OOM) crashes
+    fun decodeSampledBitmap(uri: Uri, reqWidth: Int, reqHeight: Int): Bitmap? {
+        return try {
+            context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                val options = android.graphics.BitmapFactory.Options().apply {
+                    inJustDecodeBounds = true
+                }
+                android.graphics.BitmapFactory.decodeStream(inputStream, null, options)
+                
+                var inSampleSize = 1
+                if (options.outHeight > reqHeight || options.outWidth > reqWidth) {
+                    val halfHeight = options.outHeight / 2
+                    val halfWidth = options.outWidth / 2
+                    while ((halfHeight / inSampleSize) >= reqHeight && (halfWidth / inSampleSize) >= reqWidth) {
+                        inSampleSize *= 2
                     }
                 }
-            } catch (e: Exception) {
+                
+                options.inSampleSize = inSampleSize
+                options.inJustDecodeBounds = false
+                
+                context.contentResolver.openInputStream(uri)?.use { secondStream ->
+                    android.graphics.BitmapFactory.decodeStream(secondStream, null, options)
+                }
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
+        if (success && photoUri != null) {
+            val bitmap = decodeSampledBitmap(photoUri!!, 1024, 1024)
+            if (bitmap != null) {
+                if (activeCaptureMode == "sj") {
+                    capturedSjBitmap = bitmap
+                } else if (activeCaptureMode == "item") {
+                    if (capturedItemBitmaps.size < 2) {
+                        capturedItemBitmaps.add(bitmap)
+                    } else {
+                        Toast.makeText(context, "Maksimal 2 foto barang", Toast.LENGTH_SHORT).show()
+                    }
+                } else if (activeCaptureMode == "pending") {
+                    pendingPhotoBitmap = bitmap
+                }
+            } else {
                 Toast.makeText(context, "Gagal memproses foto", Toast.LENGTH_SHORT).show()
             }
         }
@@ -438,7 +470,10 @@ fun DestinationItem(
                                     modifier = Modifier.padding(bottom = 4.dp)
                                 )
                                 Card(
-                                    modifier = Modifier.fillMaxWidth().height(220.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(220.dp)
+                                        .clickable { selectedFullImageUrl = dest.pendingProofPhotoUrl },
                                     shape = RoundedCornerShape(12.dp)
                                 ) {
                                     Box(modifier = Modifier.fillMaxSize()) {
@@ -461,6 +496,30 @@ fun DestinationItem(
                                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                                             )
                                         }
+                                        Surface(
+                                            color = Color.Black.copy(0.6f),
+                                            shape = RoundedCornerShape(topStart = 8.dp, bottomEnd = 8.dp),
+                                            modifier = Modifier.align(Alignment.BottomEnd)
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                            ) {
+                                                Icon(
+                                                    Icons.Default.ZoomIn,
+                                                    contentDescription = null,
+                                                    tint = Color.White,
+                                                    modifier = Modifier.size(14.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text(
+                                                    "Ketuk untuk memperbesar",
+                                                    color = Color.White,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    fontWeight = FontWeight.Medium
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -477,7 +536,10 @@ fun DestinationItem(
                                     modifier = Modifier.padding(bottom = 4.dp)
                                 )
                                 Card(
-                                    modifier = Modifier.fillMaxWidth().height(220.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(220.dp)
+                                        .clickable { selectedFullImageUrl = dest.proofPhotoSj },
                                     shape = RoundedCornerShape(12.dp)
                                 ) {
                                     Box(modifier = Modifier.fillMaxSize()) {
@@ -500,6 +562,30 @@ fun DestinationItem(
                                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                                             )
                                         }
+                                        Surface(
+                                            color = Color.Black.copy(0.6f),
+                                            shape = RoundedCornerShape(topStart = 8.dp, bottomEnd = 8.dp),
+                                            modifier = Modifier.align(Alignment.BottomEnd)
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                            ) {
+                                                Icon(
+                                                    Icons.Default.ZoomIn,
+                                                    contentDescription = null,
+                                                    tint = Color.White,
+                                                    modifier = Modifier.size(14.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text(
+                                                    "Ketuk untuk memperbesar",
+                                                    color = Color.White,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    fontWeight = FontWeight.Medium
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -518,7 +604,10 @@ fun DestinationItem(
                             }
                             itemsIndexed(dest.proofPhotoItems) { idx, url ->
                                 Card(
-                                    modifier = Modifier.fillMaxWidth().height(220.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(220.dp)
+                                        .clickable { selectedFullImageUrl = url },
                                     shape = RoundedCornerShape(12.dp)
                                 ) {
                                     Box(modifier = Modifier.fillMaxSize()) {
@@ -541,6 +630,30 @@ fun DestinationItem(
                                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                                             )
                                         }
+                                        Surface(
+                                            color = Color.Black.copy(0.6f),
+                                            shape = RoundedCornerShape(topStart = 8.dp, bottomEnd = 8.dp),
+                                            modifier = Modifier.align(Alignment.BottomEnd)
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                            ) {
+                                                Icon(
+                                                    Icons.Default.ZoomIn,
+                                                    contentDescription = null,
+                                                    tint = Color.White,
+                                                    modifier = Modifier.size(14.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text(
+                                                    "Ketuk untuk memperbesar",
+                                                    color = Color.White,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    fontWeight = FontWeight.Medium
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -551,7 +664,10 @@ fun DestinationItem(
                             val legacyUrls = dest.proofPhotoUrl.split(",").map { it.trim() }.filter { it.isNotEmpty() }
                             itemsIndexed(legacyUrls) { idx, url ->
                                 Card(
-                                    modifier = Modifier.fillMaxWidth().height(220.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(220.dp)
+                                        .clickable { selectedFullImageUrl = url },
                                     shape = RoundedCornerShape(12.dp)
                                 ) {
                                     Box(modifier = Modifier.fillMaxSize()) {
@@ -574,11 +690,91 @@ fun DestinationItem(
                                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                                             )
                                         }
+                                        Surface(
+                                            color = Color.Black.copy(0.6f),
+                                            shape = RoundedCornerShape(topStart = 8.dp, bottomEnd = 8.dp),
+                                            modifier = Modifier.align(Alignment.BottomEnd)
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                            ) {
+                                                Icon(
+                                                    Icons.Default.ZoomIn,
+                                                    contentDescription = null,
+                                                    tint = Color.White,
+                                                    modifier = Modifier.size(14.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text(
+                                                    "Ketuk untuk memperbesar",
+                                                    color = Color.White,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    fontWeight = FontWeight.Medium
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+
+    if (selectedFullImageUrl != null) {
+        Dialog(
+            onDismissRequest = { selectedFullImageUrl = null },
+            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.95f))
+                    .clickable { selectedFullImageUrl = null },
+                contentAlignment = Alignment.Center
+            ) {
+                Image(
+                    painter = rememberAsyncImagePainter(selectedFullImageUrl),
+                    contentDescription = "Foto Bukti Fullsize",
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Fit
+                )
+
+                IconButton(
+                    onClick = { selectedFullImageUrl = null },
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .statusBarsPadding()
+                        .padding(16.dp)
+                        .background(Color.Black.copy(alpha = 0.6f), CircleShape)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Tutup",
+                        tint = Color.White
+                    )
+                }
+
+                Surface(
+                    color = Color.Black.copy(alpha = 0.6f),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .navigationBarsPadding()
+                        .padding(bottom = 24.dp)
+                ) {
+                    Text(
+                        text = "Ketuk di mana saja untuk menutup",
+                        color = Color.White,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
                 }
             }
         }
@@ -691,13 +887,13 @@ fun DestinationItem(
                         shape = RoundedCornerShape(8.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
+                        Column(modifier = Modifier.padding(10.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Cancel, contentDescription = null, tint = Color(0xFFE11D48), modifier = Modifier.size(18.dp))
+                                Icon(Icons.Default.Cancel, contentDescription = null, tint = Color(0xFFE11D48), modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text("PENDING - KLIEN TUTUP (APPROVED ADMIN)", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = Color(0xFFE11D48))
                             }
-                            Text("Alasan: ${dest.pendingReason}", style = MaterialTheme.typography.bodySmall, color = Color.Black, modifier = Modifier.padding(top = 4.dp))
+                            Text("Alasan: ${dest.pendingReason}", style = MaterialTheme.typography.bodySmall, color = Color.Black, modifier = Modifier.padding(top = 2.dp))
                         }
                     }
                 }
@@ -725,172 +921,136 @@ fun DestinationItem(
                     ) {
                         Text(
                             "Upload Bukti Pengantaran",
-                            style = MaterialTheme.typography.titleMedium,
+                            style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.padding(bottom = 12.dp)
-                        )
-
-                        // SECTION 1: SURAT JALAN (SJ) PHOTO
-                        Text(
-                            "1. 📄 Foto Surat Jalan (SJ) — Maks 1 Foto",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.padding(bottom = 6.dp)
                         )
 
-                        if (capturedSjBitmap != null) {
-                            Card(
-                                modifier = Modifier
-                                    .size(100.dp)
-                                    .padding(bottom = 8.dp),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Box(modifier = Modifier.fillMaxSize()) {
-                                    Image(
-                                        bitmap = capturedSjBitmap!!.asImageBitmap(),
-                                        contentDescription = "Foto SJ",
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                                    )
-                                    Surface(
-                                        color = Color(0xFF1E40AF),
-                                        shape = RoundedCornerShape(topStart = 8.dp, bottomEnd = 8.dp),
-                                        modifier = Modifier.align(Alignment.TopStart)
-                                    ) {
-                                        Text(
-                                            "📄 SJ",
-                                            color = Color.White,
-                                            style = MaterialTheme.typography.labelSmall,
-                                            fontWeight = FontWeight.Bold,
-                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-                                        )
-                                    }
-                                    IconButton(
-                                        onClick = { capturedSjBitmap = null },
-                                        enabled = !isUploading,
+                        // COMPACT ROW FOR PHOTO CAPTURE & PREVIEWS
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // 1. SJ Photo Section (Compact)
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    "📄 Surat Jalan",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.padding(bottom = 4.dp)
+                                )
+                                if (capturedSjBitmap != null) {
+                                    Box(
                                         modifier = Modifier
-                                            .align(Alignment.TopEnd)
-                                            .size(24.dp)
-                                            .padding(2.dp)
-                                            .background(Color.Black.copy(0.6f), CircleShape)
+                                            .size(80.dp)
+                                            .clip(RoundedCornerShape(8.dp))
                                     ) {
-                                        Icon(
-                                            Icons.Default.Close,
-                                            contentDescription = "Hapus foto SJ",
-                                            tint = Color.White,
-                                            modifier = Modifier.size(14.dp)
+                                        Image(
+                                            bitmap = capturedSjBitmap!!.asImageBitmap(),
+                                            contentDescription = "Foto SJ",
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
                                         )
+                                        IconButton(
+                                            onClick = { capturedSjBitmap = null },
+                                            enabled = !isUploading,
+                                            modifier = Modifier
+                                                .align(Alignment.TopEnd)
+                                                .size(22.dp)
+                                                .padding(2.dp)
+                                                .background(Color.Black.copy(0.6f), CircleShape)
+                                        ) {
+                                            Icon(Icons.Default.Close, contentDescription = "Hapus", tint = Color.White, modifier = Modifier.size(12.dp))
+                                        }
+                                    }
+                                } else {
+                                    OutlinedButton(
+                                        onClick = {
+                                            validateSecurityAndLocation(context, client, dest.latitude, dest.longitude, radius) {
+                                                launchCameraForSj()
+                                            }
+                                        },
+                                        enabled = !isUploading,
+                                        shape = RoundedCornerShape(8.dp),
+                                        contentPadding = PaddingValues(4.dp),
+                                        modifier = Modifier.height(36.dp).fillMaxWidth()
+                                    ) {
+                                        Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(14.dp))
+                                        Spacer(modifier = Modifier.width(2.dp))
+                                        Text("Ambil SJ", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                                     }
                                 }
                             }
-                        } else {
-                            OutlinedButton(
-                                onClick = {
-                                    validateSecurityAndLocation(context, client, dest.latitude, dest.longitude, radius) {
-                                        launchCameraForSj()
-                                    }
-                                },
-                                enabled = !isUploading,
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.padding(bottom = 12.dp)
-                            ) {
-                                Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("AMBIL FOTO SURAT JALAN (SJ)", fontWeight = FontWeight.Bold)
-                            }
-                        }
 
-                        // SECTION 2: ITEM / BARANG PHOTOS
-                        Text(
-                            "2. 📦 Foto Fisik Barang — Maks 2 Foto",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF15803D),
-                            modifier = Modifier.padding(bottom = 6.dp)
-                        )
-
-                        if (capturedItemBitmaps.isNotEmpty()) {
-                            LazyRow(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(bottom = 8.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                itemsIndexed(capturedItemBitmaps) { index, bitmap ->
-                                    Card(
-                                        modifier = Modifier.size(100.dp),
-                                        shape = RoundedCornerShape(12.dp)
-                                    ) {
-                                        Box(modifier = Modifier.fillMaxSize()) {
-                                            Image(
-                                                bitmap = bitmap.asImageBitmap(),
-                                                contentDescription = "Foto Barang ${index + 1}",
-                                                modifier = Modifier.fillMaxSize(),
-                                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                                            )
-                                            Surface(
-                                                color = Color(0xFF15803D),
-                                                shape = RoundedCornerShape(topStart = 8.dp, bottomEnd = 8.dp),
-                                                modifier = Modifier.align(Alignment.TopStart)
-                                            ) {
-                                                Text(
-                                                    "Barang #${index + 1}",
-                                                    color = Color.White,
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    fontWeight = FontWeight.Bold,
-                                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-                                                )
-                                            }
-                                            IconButton(
-                                                onClick = { capturedItemBitmaps.removeAt(index) },
-                                                enabled = !isUploading,
+                            // 2. Item Photos Section (Compact)
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    "📦 Barang (${capturedItemBitmaps.size}/2)",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF15803D),
+                                    modifier = Modifier.padding(bottom = 4.dp)
+                                )
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    if (capturedItemBitmaps.isNotEmpty()) {
+                                        capturedItemBitmaps.forEachIndexed { index, bitmap ->
+                                            Box(
                                                 modifier = Modifier
-                                                    .align(Alignment.TopEnd)
-                                                    .size(24.dp)
-                                                    .padding(2.dp)
-                                                    .background(Color.Black.copy(0.6f), CircleShape)
+                                                    .size(38.dp)
+                                                    .clip(RoundedCornerShape(6.dp))
                                             ) {
-                                                Icon(
-                                                    Icons.Default.Close,
-                                                    contentDescription = "Hapus foto barang",
-                                                    tint = Color.White,
-                                                    modifier = Modifier.size(14.dp)
+                                                Image(
+                                                    bitmap = bitmap.asImageBitmap(),
+                                                    contentDescription = "Barang",
+                                                    modifier = Modifier.fillMaxSize(),
+                                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
                                                 )
+                                                IconButton(
+                                                    onClick = { capturedItemBitmaps.removeAt(index) },
+                                                    enabled = !isUploading,
+                                                    modifier = Modifier
+                                                        .align(Alignment.TopEnd)
+                                                        .size(16.dp)
+                                                        .background(Color.Black.copy(0.6f), CircleShape)
+                                                ) {
+                                                    Icon(Icons.Default.Close, contentDescription = "Hapus", tint = Color.White, modifier = Modifier.size(10.dp))
+                                                }
                                             }
+                                        }
+                                    }
+                                    if (capturedItemBitmaps.size < 2) {
+                                        OutlinedButton(
+                                            onClick = {
+                                                validateSecurityAndLocation(context, client, dest.latitude, dest.longitude, radius) {
+                                                    launchCameraForItem()
+                                                }
+                                            },
+                                            enabled = !isUploading,
+                                            shape = RoundedCornerShape(8.dp),
+                                            contentPadding = PaddingValues(4.dp),
+                                            modifier = Modifier.height(36.dp).fillMaxWidth()
+                                        ) {
+                                            Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(14.dp))
+                                            Spacer(modifier = Modifier.width(2.dp))
+                                            Text("Ambil", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                                         }
                                     }
                                 }
                             }
                         }
 
-                        if (capturedItemBitmaps.size < 2) {
-                            OutlinedButton(
-                                onClick = {
-                                    validateSecurityAndLocation(context, client, dest.latitude, dest.longitude, radius) {
-                                        launchCameraForItem()
-                                    }
-                                },
-                                enabled = !isUploading,
-                                shape = RoundedCornerShape(12.dp),
-                                modifier = Modifier.padding(bottom = 16.dp)
-                            ) {
-                                Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    if (capturedItemBitmaps.isEmpty()) "AMBIL FOTO BARANG (1/2)" else "AMBIL FOTO BARANG (2/2)",
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        } else {
-                            Spacer(modifier = Modifier.height(12.dp))
-                        }
-
                         // SUBMIT SECTION
                         val totalPhotos = (if (capturedSjBitmap != null) 1 else 0) + capturedItemBitmaps.size
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -903,11 +1063,13 @@ fun DestinationItem(
                                 enabled = !isUploading,
                                 colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFE11D48)),
                                 border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE11D48)),
-                                shape = RoundedCornerShape(12.dp)
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                                modifier = Modifier.height(36.dp)
                             ) {
-                                Icon(Icons.Default.Warning, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Icon(Icons.Default.Warning, contentDescription = null, modifier = Modifier.size(14.dp))
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Text("PENDING SHIPMENT", fontWeight = FontWeight.Bold)
+                                Text("PENDING", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                             }
 
                             Button(
@@ -919,12 +1081,14 @@ fun DestinationItem(
                                 },
                                 enabled = !isUploading,
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF1C40F), contentColor = Color.Black),
-                                shape = RoundedCornerShape(12.dp)
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                modifier = Modifier.height(36.dp)
                             ) {
                                 if (isUploading) {
-                                    CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.Black, strokeWidth = 2.dp)
+                                    CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.Black, strokeWidth = 2.dp)
                                 } else {
-                                    Text(if (totalPhotos > 0) "KIRIM ($totalPhotos FOTO)" else "SELESAI (TANPA FOTO)", fontWeight = FontWeight.Black)
+                                    Text(if (totalPhotos > 0) "KIRIM ($totalPhotos FOTO)" else "SELESAI (TANPA FOTO)", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Black)
                                 }
                             }
                         }

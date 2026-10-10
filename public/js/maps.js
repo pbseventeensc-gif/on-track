@@ -3,12 +3,18 @@
 // ==========================================
 
 window.refreshMapSizes = function() {
-    setTimeout(() => {
-        if (window.map && typeof window.map.invalidateSize === 'function') window.map.invalidateSize();
-        if (window.mapMonitor && typeof window.mapMonitor.invalidateSize === 'function') window.mapMonitor.invalidateSize();
-        if (window.mapDispatch && typeof window.mapDispatch.invalidateSize === 'function') window.mapDispatch.invalidateSize();
-    }, 200);
+    [50, 200, 500, 1000].forEach(delay => {
+        setTimeout(() => {
+            if (window.map && typeof window.map.invalidateSize === 'function') window.map.invalidateSize();
+            if (window.mapMonitor && typeof window.mapMonitor.invalidateSize === 'function') window.mapMonitor.invalidateSize();
+            if (window.mapDispatch && typeof window.mapDispatch.invalidateSize === 'function') window.mapDispatch.invalidateSize();
+        }, delay);
+    });
 };
+
+if (typeof window !== 'undefined') {
+    window.addEventListener('resize', window.refreshMapSizes);
+}
 
 let map, mapMonitor, mapDispatch;
 let tripMarkersLayer = (typeof L !== 'undefined' && L.layerGroup) ? L.layerGroup() : null;
@@ -66,9 +72,22 @@ const googleTiles = {
 function addMapTileLayer(targetMap) {
     if (!targetMap || typeof L === 'undefined') return;
     try {
-        L.tileLayer(googleTiles.url, googleTiles.options).addTo(targetMap);
+        const primaryLayer = L.tileLayer(googleTiles.url, googleTiles.options);
+        let fallbackAdded = false;
+        primaryLayer.on('tileerror', function() {
+            if (!fallbackAdded) {
+                fallbackAdded = true;
+                try { targetMap.removeLayer(primaryLayer); } catch(e){}
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19,
+                    attribution: '&copy; OpenStreetMap contributors'
+                }).addTo(targetMap);
+            }
+        });
+        primaryLayer.addTo(targetMap);
     } catch(e) {
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
             attribution: '&copy; OpenStreetMap contributors'
         }).addTo(targetMap);
     }

@@ -1422,6 +1422,35 @@ async function deleteOrphanTrips() {
 }
 
 function initUsersSnapshot() {
+    // Provide instant default fallback list (8 drivers + 11 couriers) so dropdown loads instantly without 1-2 min network wait
+    if (!registeredUsers || Object.keys(registeredUsers).length === 0) {
+        registeredUsers = {
+            "driver_1": "Driver 1 (Mobil)",
+            "driver_2": "Driver 2 (Mobil)",
+            "driver_3": "Driver 3 (Mobil)",
+            "driver_4": "Driver 4 (Mobil)",
+            "driver_5": "Driver 5 (Mobil)",
+            "driver_6": "Driver 6 (Mobil)",
+            "driver_7": "Driver 7 (Mobil)",
+            "driver_8": "Driver 8 (Mobil)",
+            "courier_1": "Kurir 1 (Motor)",
+            "courier_2": "Kurir 2 (Motor)",
+            "courier_3": "Kurir 3 (Motor)",
+            "courier_4": "Kurir 4 (Motor)",
+            "courier_5": "Kurir 5 (Motor)",
+            "courier_6": "Kurir 6 (Motor)",
+            "courier_7": "Kurir 7 (Motor)",
+            "courier_8": "Kurir 8 (Motor)",
+            "courier_9": "Kurir 9 (Motor)",
+            "courier_10": "Kurir 10 (Motor)",
+            "courier_11": "Kurir 11 (Motor)",
+            "courier_alan": "alanpasming1",
+            "courier_joyen": "joyen"
+        };
+        renderCourierOptions();
+        renderManageCouriersList();
+    }
+
     const activeDb = getDb();
     if (!activeDb) {
         setTimeout(initUsersSnapshot, 300);
@@ -1868,84 +1897,46 @@ async function compressImageFile(file, maxDimension = 1000, quality = 0.7) {
     });
 }
 
-async function getOrCreateFolder(folderName, parentId, accessToken) {
-    try {
-        const query = encodeURIComponent(`name='${folderName}' and mimeType='application/vnd.google-apps.folder' ${parentId ? `and '${parentId}' in parents` : ''} and trashed=false`);
-        const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${query}`, {
-            headers: new Headers({ 'Authorization': 'Bearer ' + accessToken })
-        });
-        const searchData = await searchRes.json();
-        if (searchData.files && searchData.files.length > 0) {
-            return searchData.files[0].id;
-        }
+async function uploadToGoogleDrive(file) {
+    const scriptUrl = localStorage.getItem('gdrive_script_url');
+    if (!scriptUrl) throw new Error("Google Drive Script URL not configured");
 
-        const metadata = {
-            name: folderName,
-            mimeType: 'application/vnd.google-apps.folder',
-            parents: parentId ? [parentId] : []
+    const base64Data = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const res = e.target.result;
+            const base64 = res.split(',')[1] || res;
+            resolve(base64);
         };
-        const createRes = await fetch('https://www.googleapis.com/drive/v3/files', {
-            method: 'POST',
-            headers: new Headers({
-                'Authorization': 'Bearer ' + accessToken,
-                'Content-Type': 'application/json'
-            }),
-            body: JSON.stringify(metadata)
-        });
-        const createData = await createRes.json();
-        return createData.id;
-    } catch (e) {
-        console.warn("Folder creation error:", e);
-        return null;
-    }
-}
-
-async function uploadToGoogleDrive(file, accessToken) {
-    const now = new Date();
-    const yearMonth = now.toISOString().slice(0, 7); // e.g. "2026-10"
-    const dateStr = now.toISOString().slice(0, 10); // e.g. "2026-10-07"
-
-    let parentId = null;
-    const rootId = await getOrCreateFolder("KurirTrack_Uploads", null, accessToken);
-    if (rootId) {
-        const monthId = await getOrCreateFolder(yearMonth, rootId, accessToken);
-        if (monthId) {
-            parentId = await getOrCreateFolder(dateStr, monthId, accessToken);
-        }
-    }
-
-    const metadata = {
-        name: 'Proof_' + Date.now() + '_' + (file.name || 'image.jpg'),
-        mimeType: file.type || 'image/jpeg',
-        parents: parentId ? [parentId] : []
-    };
-    const form = new FormData();
-    form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-    form.append('file', file);
-
-    const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink', {
-        method: 'POST',
-        headers: new Headers({ 'Authorization': 'Bearer ' + accessToken }),
-        body: form
+        reader.readAsDataURL(file);
     });
-    const data = await response.json();
-    if (data && data.id) {
-        return `https://drive.google.com/uc?export=view&id=${data.id}`;
+
+    const response = await fetch(scriptUrl, {
+        method: 'POST',
+        body: JSON.stringify({
+            filename: file.name || 'proof.jpg',
+            contentType: file.type || 'image/jpeg',
+            base64Data: base64Data
+        })
+    });
+    const result = await response.json();
+    if (result && result.status === 'success' && result.url) {
+        return result.url;
     }
-    throw new Error(data.error?.message || 'Google Drive upload failed');
+    throw new Error(result.message || 'Google Drive upload failed');
 }
 
 async function uploadFileToCloudinaryOrFirebase(file) {
     const targetFile = (file && file.type && file.type.startsWith('image/')) ? await compressImageFile(file, 1000, 0.7) : file;
     if (!targetFile) return "";
 
-    const gdriveToken = localStorage.getItem('gdrive_access_token');
-    if (gdriveToken) {
+    const scriptUrl = localStorage.getItem('gdrive_script_url');
+    if (scriptUrl) {
         try {
-            const gdriveUrl = await uploadToGoogleDrive(targetFile, gdriveToken);
+            const gdriveUrl = await uploadToGoogleDrive(targetFile);
             if (gdriveUrl) return gdriveUrl;
         } catch (e) {
-            console.warn("Google Drive upload warning, falling back to Cloudinary:", e);
+            console.warn("Google Drive Web App upload warning, falling back to Cloudinary:", e);
         }
     }
 
@@ -2019,6 +2010,7 @@ async function submitTrip() {
             adminBulkSjUrl = adminBulkSjUrls.join(',');
         }
 
+        // Determine region automatically from first destination address
         let tripRegion = "Jakarta Pusat";
         if (tripQueue.length > 0) {
             const firstAddr = (tripQueue[0].address || "").toLowerCase() + " " + (tripQueue[0].name || "").toLowerCase();
@@ -2079,7 +2071,6 @@ async function submitTrip() {
             showToast("BERHASIL DISIMPAN KE SJ POOL! Pengiriman masuk ke penampungan wilayah.");
         }
 
-        tripqueue = []; // wait, tripQueue
         tripQueue = [];
         renderQueue();
         if (cidEl) cidEl.value = "";
@@ -2792,7 +2783,7 @@ function renderRecentShipments(filter = "") {
                     if (d.arrivalTime) {
                         timeStr = new Date(d.arrivalTime.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
                     } else {
-                        timeStr = 'In Transit';
+                        timeStr = 'On Delivery';
                     }
                 } else if (d.completedTime) {
                     timeStr = new Date(d.completedTime.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
@@ -3830,7 +3821,7 @@ function initAuthListener() {
                         if (!doc.exists || !doc.data().role) {
                             currentDb.collection('users').doc(user.uid).set({
                                 email: user.email,
-                                name: uData.name || (uRole === 'sales_admin' ? 'Sales Admin' : (uRole === 'admin_dm2' ? 'Admin DM2' : 'admin')),
+                                name: nameText,
                                 role: uRole,
                                 branchId: currentUserBranchId,
                                 updatedAt: firebase.firestore.Timestamp.now()
@@ -4054,8 +4045,6 @@ window.openPoDModal = openPoDModal;
 window.toggleNotifDropdown = toggleNotifDropdown;
 window.handleNotificationClick = handleNotificationClick;
 window.focusOnTrip = focusOnTrip;
-window.renderRecentShipments = renderRecentShipments;
-window.resetRecentFilters = resetRecentFilters;
 
 function renderPoDArchiveView(filter = "") {
     const grid = document.getElementById('archive-photo-grid');
