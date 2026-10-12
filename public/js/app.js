@@ -538,19 +538,7 @@ function updateNotificationBell() {
             }
         }
 
-        const isOnline = typeof isCourierOnline === 'function' ? isCourierOnline(t.courierId) : !!currentOnlineCouriers[t.courierId];
-        if (t.courierId && !isOnline && t.status !== 'completed') {
-            const courierName = registeredUsers[t.courierId] || 'Kurir';
-            notificationItems.push({
-                type: 'warning',
-                icon: 'bi-person-x-fill',
-                title: `KURIR OFFLINE: ${courierName}`,
-                desc: `${courierName} offline padahal ada tugas aktif`,
-                tab: 'monitor',
-                courierId: t.courierId,
-                tripId: t.id
-            });
-        }
+
     });
 
     const activeCount = allCurrentTrips.filter(t => t.status === 'in_progress' || t.status === 'assigned').length;
@@ -670,24 +658,7 @@ function updateDynamicAlerts() {
             }
         }
 
-        const isOnline = typeof isCourierOnline === 'function' ? isCourierOnline(t.courierId) : !!currentOnlineCouriers[t.courierId];
-        const offlineAlertId = `offline_${t.courierId}_${t.id}`;
-        if(!isOnline && t.status !== 'completed') {
-            const tripTime = (t.date?.seconds || 0) * 1000;
-            if (!dismissedAlertIds.has(offlineAlertId) && tripTime >= alertsClearedAt) {
-                container.innerHTML += `
-                    <div class="d-flex align-items-center justify-content-between p-2 px-3 rounded-3 cursor-pointer mb-1" style="background: #FFFBEB;" onclick="focusOnCourier('${t.courierId}', true)">
-                        <div class="d-flex align-items-center gap-2">
-                            <div class="text-warning fs-5 d-flex align-items-center me-1"><i class="bi bi-person-x"></i></div>
-                            <div>
-                                <div class="fw-semibold text-dark" style="font-size: 0.8125rem; line-height: 1.25;">Kurir Offline: ${cName}</div>
-                                <div class="text-warning" style="font-size: 0.725rem; margin-top: 1px;">Kurir offline tapi memiliki tugas aktif ${tripIdShort}</div>
-                            </div>
-                        </div>
-                        <button class="btn-close ms-2" style="font-size: 0.65rem;" onclick="dismissSingleAlert('${offlineAlertId}', event)" title="Hapus Peringatan Ini"></button>
-                    </div>`;
-            }
-        }
+
 
         // Pending Approval Alerts (Klien Tutup)
         if (t.destinations) {
@@ -2158,18 +2129,16 @@ function updateMonitorSuggestions() {
     for (const id in registeredUsers) {
         if (!isCourierUser(id)) continue;
         const name = registeredUsers[id];
-        const hasActive = allCurrentTrips.some(t => t.courierId === id && t.status !== 'completed');
-        if (hasActive || currentOnlineCouriers[id]) {
+        const hasTrip = allCurrentTrips.some(t => t.courierId === id);
+        if (hasTrip || currentOnlineCouriers[id]) {
             items.add(name);
         }
     }
 
     allCurrentTrips.forEach(t => {
-        if(t.status !== 'completed') {
-            items.add(t.id);
-            if (t.destinations) {
-                t.destinations.forEach(d => items.add(d.locationName));
-            }
+        items.add(t.id);
+        if (t.destinations) {
+            t.destinations.forEach(d => items.add(d.locationName));
         }
     });
 
@@ -2188,9 +2157,9 @@ function renderMonitorUI(filter = "") {
     const courierGroups = {};
     allCurrentTrips.forEach(t => {
         const tripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : 0);
-        if (tripMs < todayDayMs) return; // Clean H+1: Only show today's active trips
-        if(t.status === 'completed') return;
+        if (tripMs < todayDayMs) return; // Clean H+1: Only show today's trips
         const cId = t.courierId;
+        if (!cId) return;
         const cName = registeredUsers[cId] || cId.substring(0,8);
         const clients = t.destinations ? t.destinations.map(d => d.locationName.toLowerCase()).join(" ") : "";
 
@@ -2201,7 +2170,10 @@ function renderMonitorUI(filter = "") {
             courierGroups[cId].trips.push(t);
             if (t.destinations) {
                 courierGroups[cId].totalStops += t.destinations.length;
-                courierGroups[cId].doneStops += t.destinations.filter(d => d.status === 'done').length;
+                courierGroups[cId].doneStops += t.destinations.filter(d => d.status === 'done' || d.proofPhotoUrl || t.status === 'completed').length;
+            } else {
+                courierGroups[cId].totalStops += 1;
+                if (t.status === 'completed') courierGroups[cId].doneStops += 1;
             }
         }
     });
