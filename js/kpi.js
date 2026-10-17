@@ -376,24 +376,23 @@ function parseTimestampToMs(timeObj) {
         return 0;
     });
 
-    const activeCourierCount = lastKPIData.filter(c => c.totalStops > 0 || c.completedStops > 0).length || 1;
-    const avgMins = totalTimeFiltered / activeCourierCount;
-    const hoursAvg = Math.floor(avgMins / 60);
-    const minsAvg = Math.round(avgMins % 60);
-    const avgDurationStr = hoursAvg > 0 ? `${hoursAvg}j ${minsAvg}m` : `${minsAvg}m`;
-
     const topCourier = displayCouriers[0];
     if (document.getElementById('kpi-top-courier')) {
         document.getElementById('kpi-top-courier').innerText = topCourier ? topCourier.name : '-';
+    }
+    const topSubEl = document.getElementById('kpi-top-subtitle');
+    if (topSubEl) {
+        if (currentStatMetric === 'km') {
+            topSubEl.innerHTML = `<i class="bi bi-geo-alt-fill me-1"></i> Terjauh (${topCourier ? topCourier.totalKM.toFixed(1) : 0} km)`;
+        } else {
+            topSubEl.innerHTML = `<i class="bi bi-star-fill me-1"></i> MVP (${topCourier ? topCourier.completedStops : 0} Selesai)`;
+        }
     }
     if (document.getElementById('kpi-total-km')) {
         document.getElementById('kpi-total-km').innerText = `${totalKmFiltered.toFixed(1)} km`;
     }
     if (document.getElementById('kpi-total-done')) {
         document.getElementById('kpi-total-done').innerText = `${totalCompletedStopsFiltered}`;
-    }
-    if (document.getElementById('kpi-total-time')) {
-        document.getElementById('kpi-total-time').innerText = totalTimeFiltered > 0 ? `${durationTotalStr} (${avgDurationStr}/kurir)` : '0j 0m';
     }
 
     window.courierPodStore = {};
@@ -491,7 +490,6 @@ function parseTimestampToMs(timeObj) {
             <td><span class="fw-semibold">${c.completedStops}</span> / <span class="text-muted">${c.totalStops}</span></td>
             <td><i class="bi bi-star-fill text-warning me-1"></i> <span class="fw-semibold">${stars.toFixed(1)}</span></td>
             <td class="fw-normal">${c.totalKM.toFixed(1)} km</td>
-            <td class="fw-normal text-dark">${c.totalTime > 0 ? durationStr : '0j 0m'}</td>
             <td><span class="badge bg-secondary-subtle text-dark fw-medium px-2 py-1">${finalScore}</span></td>
         </tr>`);
     });
@@ -517,9 +515,6 @@ function updateKPICharts(data, filteredTrips) {
     if (currentStatMetric === 'km') {
         chartValues = displayData.map(c => parseFloat((c.totalKM || 0).toFixed(1)));
         yAxisTitle = 'Jarak (KM)';
-    } else if (currentStatMetric === 'time') {
-        chartValues = displayData.map(c => parseFloat(((c.totalTime || 0) / 60).toFixed(1)));
-        yAxisTitle = 'Durasi (Jam)';
     } else {
         chartValues = displayData.map(c => c.completedStops || 0);
         yAxisTitle = 'Titik Selesai';

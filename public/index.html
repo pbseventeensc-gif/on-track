@@ -804,33 +804,26 @@
                     </div>
                 </div>
 
-                <div class="row g-3 mb-4">
-                    <div class="col-6 col-md-3">
+                <div class="row g-4 mb-4">
+                    <div class="col-md-4">
                         <div class="stat-card shadow-sm">
                             <div class="stat-label text-uppercase">Top Performer</div>
                             <div class="stat-value" id="kpi-top-courier">-</div>
-                            <div class="stat-trend trend-up"><i class="bi bi-star-fill"></i> MVP</div>
+                            <div class="stat-trend trend-up" id="kpi-top-subtitle"><i class="bi bi-star-fill"></i> MVP</div>
                         </div>
                     </div>
-                    <div class="col-6 col-md-3">
+                    <div class="col-md-4">
                         <div class="stat-card shadow-sm">
                             <div class="stat-label text-uppercase">Total Completed</div>
                             <div class="stat-value" id="kpi-total-done">0</div>
                             <div class="stat-trend trend-up"><i class="bi bi-check-all"></i> Real-time</div>
                         </div>
                     </div>
-                    <div class="col-6 col-md-3">
+                    <div class="col-md-4">
                         <div class="stat-card shadow-sm">
                             <div class="stat-label text-uppercase">Total Distance</div>
                             <div class="stat-value" id="kpi-total-km">0 km</div>
                             <div class="stat-trend text-muted">Akurat</div>
-                        </div>
-                    </div>
-                    <div class="col-6 col-md-3">
-                        <div class="stat-card shadow-sm">
-                            <div class="stat-label text-uppercase">Total Duration</div>
-                            <div class="stat-value" id="kpi-total-time">0j 0m</div>
-                            <div class="stat-trend text-muted"><i class="bi bi-clock-history me-1"></i>Durasi Kerja</div>
                         </div>
                     </div>
                 </div>
@@ -847,7 +840,6 @@
                                     <select id="stat-metric-filter" class="form-select form-select-sm rounded-pill bg-light text-dark border px-3 py-1.5 fw-semibold shadow-none" style="font-size: 0.725rem; width: auto; cursor: pointer;" onchange="updateKPIChartsFromFilter()">
                                         <option value="stops">Titik Selesai</option>
                                         <option value="km">Total Jarak (KM)</option>
-                                        <option value="time">Total Jam / Durasi</option>
                                     </select>
                                     <select id="stat-period-filter" class="form-select form-select-sm rounded-pill bg-light text-dark border px-3 py-1.5 fw-semibold shadow-none" style="font-size: 0.725rem; width: auto; cursor: pointer;" onchange="updateKPIChartsFromFilter()">
                                         <option value="today" selected>Today</option>
@@ -901,7 +893,6 @@
                                 <th class="cursor-pointer" onclick="sortKPITable('stops')">Trips <i class="bi bi-arrow-down-up text-muted extra-small ms-1"></i></th>
                                 <th class="cursor-pointer" onclick="sortKPITable('rating')">Rating <i class="bi bi-arrow-down-up text-muted extra-small ms-1"></i></th>
                                 <th class="cursor-pointer" onclick="sortKPITable('distance')">Distance <i class="bi bi-arrow-down-up text-muted extra-small ms-1"></i></th>
-                                <th class="cursor-pointer" onclick="sortKPITable('time')">Total Hours <i class="bi bi-arrow-down-up text-muted extra-small ms-1"></i></th>
                                 <th class="cursor-pointer" onclick="sortKPITable('score')">Score <i class="bi bi-arrow-down-up text-muted extra-small ms-1"></i></th>
                             </tr>
                             </thead>
