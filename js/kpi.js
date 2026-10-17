@@ -365,22 +365,25 @@ function parseTimestampToMs(timeObj) {
     }
 
     const topCourier = displayCouriers[0];
+    const topCompleted = topCourier ? (topCourier.completedStops || 0) : 0;
+    const topKM = topCourier ? (topCourier.totalKM || 0) : 0;
+
     if (document.getElementById('kpi-top-courier')) {
         document.getElementById('kpi-top-courier').innerText = topCourier ? topCourier.name : '-';
     }
     const topSubEl = document.getElementById('kpi-top-subtitle');
     if (topSubEl) {
         if (currentStatMetric === 'km') {
-            topSubEl.innerHTML = `<i class="bi bi-geo-alt-fill me-1"></i> Terjauh (${topCourier ? topCourier.totalKM.toFixed(1) : 0} km)`;
+            topSubEl.innerHTML = `<i class="bi bi-geo-alt-fill me-1"></i> Terjauh (${topKM.toFixed(1)} km)`;
         } else {
-            topSubEl.innerHTML = `<i class="bi bi-star-fill me-1"></i> MVP (${topCourier ? topCourier.completedStops : 0} Selesai)`;
+            topSubEl.innerHTML = `<i class="bi bi-star-fill me-1"></i> MVP (${topCompleted} Selesai)`;
         }
     }
-    if (document.getElementById('kpi-total-km')) {
-        document.getElementById('kpi-total-km').innerText = `${totalKmFiltered.toFixed(1)} km`;
-    }
     if (document.getElementById('kpi-total-done')) {
-        document.getElementById('kpi-total-done').innerText = `${totalCompletedStopsFiltered}`;
+        document.getElementById('kpi-total-done').innerText = `${topCompleted}`;
+    }
+    if (document.getElementById('kpi-total-km')) {
+        document.getElementById('kpi-total-km').innerText = `${topKM.toFixed(1)} km`;
     }
 
     window.courierPodStore = {};
