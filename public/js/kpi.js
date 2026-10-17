@@ -124,35 +124,35 @@ function exportKPIToExcel() {
 }
 
 function updateKPIChartsFromFilter() {
-    const period = document.getElementById('stat-period-filter')?.value || 'this_week';
+    const period = document.getElementById('stat-period-filter')?.value || 'today';
     const metric = document.getElementById('stat-metric-filter')?.value || 'stops';
 
-    const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
+    const now = new Date();
+    const todayStartMs = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const todayEndMs = todayStartMs + (24 * 60 * 60 * 1000) - 1;
 
     let startMs = 0;
     let endMs = Infinity;
 
     if (period === 'today') {
-        startMs = new Date(todayStr).setHours(0,0,0,0);
-        endMs = new Date(todayStr).setHours(23,59,59,999);
+        startMs = todayStartMs;
+        endMs = todayEndMs;
     } else if (period === 'this_week') {
-        const monday = new Date(today);
-        const day = today.getDay() || 7;
-        monday.setDate(today.getDate() - day + 1);
-        startMs = monday.setHours(0,0,0,0);
-        endMs = new Date(todayStr).setHours(23,59,59,999);
+        const monday = new Date(now);
+        const day = now.getDay() || 7;
+        monday.setDate(now.getDate() - day + 1);
+        startMs = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate()).getTime();
+        endMs = todayEndMs;
     } else if (period === 'this_month') {
-        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-        startMs = firstDay.setHours(0,0,0,0);
-        endMs = new Date(todayStr).setHours(23,59,59,999);
+        startMs = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+        endMs = todayEndMs;
     }
 
     const kpiStart = document.getElementById('kpi-start-date');
     const kpiEnd = document.getElementById('kpi-end-date');
     if (kpiStart && kpiEnd && period !== 'all') {
-        kpiStart.value = new Date(startMs).toISOString().split('T')[0];
-        kpiEnd.value = new Date(endMs).toISOString().split('T')[0];
+        kpiStart.value = new Date(startMs).toLocaleDateString('sv-SE');
+        kpiEnd.value = new Date(endMs).toLocaleDateString('sv-SE');
     } else if (kpiStart && kpiEnd && period === 'all') {
         kpiStart.value = '';
         kpiEnd.value = '';
@@ -176,15 +176,38 @@ function renderKPIView(filter = "") {
         filteredTrips = filteredTrips.filter(t => isTripInActiveBranch(t));
     }
 
-    if (startDateVal || endDateVal) {
-        const startMs = startDateVal ? new Date(startDateVal + 'T00:00:00').getTime() : 0;
-        const endMs = endDateVal ? new Date(endDateVal + 'T23:59:59.999').getTime() : Infinity;
+    const now = new Date();
+    const todayStartMs = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const todayEndMs = todayStartMs + (24 * 60 * 60 * 1000) - 1;
 
-        filteredTrips = filteredTrips.filter(t => {
-            const tripMs = parseTimestampToMs(t.date) || parseTimestampToMs(t.acceptedTime) || (t.id ? parseInt(t.id.replace('TRIP_', '')) || 0 : 0);
-            return tripMs >= startMs && tripMs <= endMs;
-        });
+    let startMs = 0;
+    let endMs = Infinity;
+
+    if (startDateVal) {
+        startMs = new Date(startDateVal + "T00:00:00").getTime();
+    } else {
+        startMs = todayStartMs;
     }
+
+    if (endDateVal) {
+        endMs = new Date(endDateVal + "T23:59:59.999").getTime();
+    } else {
+        endMs = todayEndMs;
+    }
+
+    const periodMode = document.getElementById('stat-period-filter')?.value || 'today';
+    if (periodMode === 'all' && !startDateVal && !endDateVal) {
+        startMs = 0;
+        endMs = Infinity;
+    }
+
+    filteredTrips = filteredTrips.filter(t => {
+        const tripMs = parseTimestampToMs(t.date) || parseTimestampToMs(t.acceptedTime) || (t.id ? parseInt(t.id.replace('TRIP_', '')) || 0 : 0);
+        if (startMs > 0) {
+            return tripMs >= startMs && tripMs <= endMs;
+        }
+        return true;
+    });
 
     const courierStats = {};
     let totalCompleted = 0;
@@ -469,10 +492,10 @@ function parseTimestampToMs(timeObj) {
 
     tbody.innerHTML = tableRowsHtml.join('');
 
-    updateKPICharts(displayCouriers);
+    updateKPICharts(displayCouriers, filteredTrips);
 }
 
-function updateKPICharts(data) {
+function updateKPICharts(data, filteredTrips) {
     const ctx1 = document.getElementById('kpiRankingChart')?.getContext('2d');
     const ctx2 = document.getElementById('kpiDistributionChart')?.getContext('2d');
 
@@ -551,16 +574,16 @@ function updateKPICharts(data) {
     });
 
     let completedSum = 0, pendingSum = 0;
-    const branchTrips = allCurrentTrips.filter(t => {
+    const tripsToCount = (filteredTrips && filteredTrips.length > 0) ? filteredTrips : allCurrentTrips.filter(t => {
         if (typeof isTripInActiveBranch === 'function' && !isTripInActiveBranch(t)) return false;
         if (t.courierId && typeof isCourierInActiveBranch === 'function' && !isCourierInActiveBranch(t.courierId)) return false;
         return true;
     });
 
-    branchTrips.forEach(t => {
+    tripsToCount.forEach(t => {
         if (t.destinations && t.destinations.length > 0) {
             t.destinations.forEach(d => {
-                if (d.status === 'done' || d.proofPhotoUrl) completedSum++;
+                if (d.status === 'done' || d.proofPhotoUrl || d.status === 'completed') completedSum++;
                 else pendingSum++;
             });
         } else {
