@@ -566,6 +566,11 @@ function updateKPICharts(data, filteredTrips) {
     });
 
     tripsToCount.forEach(t => {
+        const cId = t.courierId || '';
+        if (cId.includes('EK74u0gA') || cId.toLowerCase().includes('novalgan') || cId.toLowerCase().includes('novalempah2')) return;
+        const cName = registeredUsers[cId] || (cId.length > 20 ? getCourierDisplayName(cId) : cId);
+        if (cName.includes('EK74u0gA') || cName.toLowerCase().includes('novalgan') || cName.toLowerCase().includes('novalempah2')) return;
+
         if (t.destinations && t.destinations.length > 0) {
             t.destinations.forEach(d => {
                 if (d.status === 'done' || d.proofPhotoUrl || d.status === 'completed') completedSum++;
