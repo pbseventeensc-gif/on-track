@@ -232,6 +232,11 @@ fun DestinationItem(
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     var isUploading by remember { mutableStateOf(false) }
+
+    androidx.compose.runtime.LaunchedEffect(dest.status, dest.proofPhotoUrl, dest.pendingProofPhotoUrl) {
+        isUploading = false
+    }
+
     var showPhotoDialog by remember { mutableStateOf(false) }
     var selectedFullImageUrl by remember { mutableStateOf<String?>(null) }
 
@@ -1208,15 +1213,35 @@ private fun uploadCategorizedPhotosAndUpdate(
 }
 
 private fun uploadSinglePhotoBytes(storage: FirebaseStorage, bytes: ByteArray, onComplete: (String?) -> Unit) {
+    var completed = false
+    val lock = Any()
+    fun safeComplete(url: String?) {
+        synchronized(lock) {
+            if (!completed) {
+                completed = true
+                onComplete(url)
+            }
+        }
+    }
+
+    val handler = android.os.Handler(android.os.Looper.getMainLooper())
+    val timeoutRunnable = Runnable {
+        safeComplete(null)
+    }
+    handler.postDelayed(timeoutRunnable, 10000)
+
     val ref = storage.reference.child("proofs/${UUID.randomUUID()}.jpg")
     ref.putBytes(bytes).addOnSuccessListener {
         ref.downloadUrl.addOnSuccessListener { uri ->
-            onComplete(uri.toString())
+            handler.removeCallbacks(timeoutRunnable)
+            safeComplete(uri.toString())
         }.addOnFailureListener {
-            uploadToCloudinaryFallback(bytes, onComplete)
+            handler.removeCallbacks(timeoutRunnable)
+            uploadToCloudinaryFallback(bytes) { url -> safeComplete(url) }
         }
     }.addOnFailureListener {
-        uploadToCloudinaryFallback(bytes, onComplete)
+        handler.removeCallbacks(timeoutRunnable)
+        uploadToCloudinaryFallback(bytes) { url -> safeComplete(url) }
     }
 }
 

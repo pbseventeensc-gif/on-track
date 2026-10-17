@@ -584,10 +584,15 @@
                 formData.append("upload_preset", "KurirTrack");
                 formData.append("folder", "wellen_proofs");
 
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 10000);
+
                 const res = await fetch("https://api.cloudinary.com/v1_1/dgf3shxpf/image/upload", {
                     method: "POST",
-                    body: formData
+                    body: formData,
+                    signal: controller.signal
                 });
+                clearTimeout(timeoutId);
                 const data = await res.json();
                 if (data && data.secure_url) {
                     return data.secure_url;
