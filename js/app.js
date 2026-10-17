@@ -519,32 +519,22 @@ function updateNotificationBell() {
     const now = Date.now();
 
     allCurrentTrips.forEach(t => {
-        if (t.status === 'in_progress') {
-            const lastUpdate = t.destinations ? t.destinations.filter(d => d.status === 'done' || d.status === 'arrived').reduce((max, d) => {
-                const time = (d.completedTime || d.arrivalTime)?.seconds * 1000 || 0;
-                return time > max ? time : max;
-            }, (t.date?.seconds || 0) * 1000) : 0;
-
-            if (lastUpdate > 0 && (now - lastUpdate > 30 * 60 * 1000)) {
-                const timeStr = lastUpdate ? new Date(lastUpdate).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '-';
-                const minsAgo = Math.floor((now - lastUpdate) / 60000);
-                const hours = Math.floor(minsAgo / 60);
-                const mins = minsAgo % 60;
-                const durationStr = hours > 0 ? `${hours}j ${mins}m` : `${mins}m`;
-
-                notificationItems.push({
-                    type: 'danger',
-                    icon: 'bi-clock-history',
-                    title: `DELAY WARNING: #${t.id.substring(Math.max(0, t.id.length - 6))}`,
-                    desc: `Sejak jam ${timeStr} (${durationStr} tanpa pembaruan)`,
-                    tab: 'monitor',
-                    tripId: t.id,
-                    courierId: t.courierId
-                });
-            }
+        if (t.destinations) {
+            t.destinations.forEach(d => {
+                if (d.status === 'pending_approval') {
+                    const cName = registeredUsers[t.courierId] || t.courierId.substring(0,8);
+                    notificationItems.push({
+                        type: 'warning',
+                        icon: 'bi-exclamation-triangle',
+                        title: `Lapor Klien Tutup: ${d.locationName || 'Destination'}`,
+                        desc: `Kurir ${cName} mengajukan pending (${d.pendingReason || 'Klien Tutup'})`,
+                        tab: 'dashboard',
+                        tripId: t.id,
+                        courierId: t.courierId
+                    });
+                }
+            });
         }
-
-
     });
 
     const activeCount = allCurrentTrips.filter(t => t.status === 'in_progress' || t.status === 'assigned').length;
@@ -632,45 +622,12 @@ function updateDynamicAlerts() {
 
     allCurrentTrips.forEach(t => {
         const cName = registeredUsers[t.courierId] || t.courierId.substring(0,8);
-        const tripIdShort = '#' + t.id.substring(Math.max(0, t.id.length - 6));
         const tripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : (t.id ? parseInt(t.id.replace('TRIP_', '')) || 0 : 0));
 
         // Auto-expire alerts on H+1: Only generate Priority Alerts for TODAY'S active trips
         if (tripMs < todayDayMs) {
             return;
         }
-
-        if(t.status === 'in_progress') {
-            const lastUpdate = t.destinations ? t.destinations.filter(d => d.status === 'done' || d.status === 'arrived').reduce((max, d) => {
-                const time = (d.completedTime || d.arrivalTime)?.seconds * 1000 || 0;
-                return time > max ? time : max;
-            }, (t.date?.seconds || 0) * 1000) : 0;
-
-            const delayAlertId = `delay_${t.id}`;
-            if(now - lastUpdate > 30 * 60 * 1000 && lastUpdate < now) {
-                if (!dismissedAlertIds.has(delayAlertId) && lastUpdate >= alertsClearedAt) {
-                    const timeStr = lastUpdate ? new Date(lastUpdate).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '-';
-                    const minsAgo = Math.floor((now - lastUpdate) / 60000);
-                    const hours = Math.floor(minsAgo / 60);
-                    const mins = minsAgo % 60;
-                    const durationStr = hours > 0 ? `${hours} jam ${mins}m` : `${mins} menit`;
-
-                    container.innerHTML += `
-                        <div class="d-flex align-items-center justify-content-between p-2 px-3 rounded-3 cursor-pointer mb-1" style="background: #FEF2F2;" onclick="focusOnTrip('${t.id}')">
-                            <div class="d-flex align-items-center gap-2">
-                                <div class="text-danger fs-5 d-flex align-items-center me-1"><i class="bi bi-clock-history"></i></div>
-                                <div>
-                                    <div class="fw-semibold text-dark" style="font-size: 0.8125rem; line-height: 1.25;">Delay: ${tripIdShort} (${cName})</div>
-                                    <div class="text-danger" style="font-size: 0.725rem; margin-top: 1px;">Tidak ada pembaruan sejak jam ${timeStr} (${durationStr})</div>
-                                </div>
-                            </div>
-                            <button class="btn-close ms-2" style="font-size: 0.65rem;" onclick="dismissSingleAlert('${delayAlertId}', event)" title="Hapus Peringatan Ini"></button>
-                        </div>`;
-                }
-            }
-        }
-
-
 
         // Pending Approval Alerts (Klien Tutup)
         if (t.destinations) {
@@ -701,7 +658,7 @@ function updateDynamicAlerts() {
     });
 
     if(container.innerHTML === '') {
-        container.innerHTML = '<div class="text-center py-4 text-muted extra-small"><i class="bi bi-check-circle text-success me-1"></i> Tidak ada peringatan prioritas. Semua berjalan lancar.</div>';
+        container.innerHTML = '<div class="text-center py-4 text-muted extra-small"><i class="bi bi-check-circle text-success me-1"></i> Tidak ada permohonan pending/klien tutup.</div>';
     }
 }
 
