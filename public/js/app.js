@@ -1702,15 +1702,10 @@ function updateGlobalStats() {
                     totalStops++;
                     if (d.status === 'done' || d.proofPhotoUrl || d.status === 'completed') {
                         deliveredStops++;
-                    } else if (d.status === 'arrived') {
-                        inTransitStops++;
-                        activeShipmentsCount++;
-                    } else if (d.status === 'returned' || d.status === 'failed') {
+                    } else if (d.status === 'pending' || d.status === 'returned' || d.status === 'failed') {
                         returnedStops++;
-                    } else if (d.status === 'pending') {
-                        pendingStops++;
-                        activeShipmentsCount++;
                     } else {
+                        inTransitStops++;
                         activeShipmentsCount++;
                     }
 
@@ -1734,7 +1729,6 @@ function updateGlobalStats() {
 
         let totalStopsToday = 0;
         let deliveredStopsToday = 0;
-        let pendingStopsToday = 0;
         let returnedStopsToday = 0;
 
         filteredTrips.forEach(t => {
@@ -1745,9 +1739,7 @@ function updateGlobalStats() {
                         totalStopsToday++;
                         if (d.status === 'done' || d.proofPhotoUrl || d.status === 'completed') {
                             deliveredStopsToday++;
-                        } else if (d.status === 'pending') {
-                            pendingStopsToday++;
-                        } else if (d.status === 'returned' || d.status === 'failed') {
+                        } else if (d.status === 'pending' || d.status === 'returned' || d.status === 'failed') {
                             returnedStopsToday++;
                         }
                     });
@@ -1761,9 +1753,9 @@ function updateGlobalStats() {
         });
 
         const displayDelivered = filterStartMs > 0 ? deliveredStops : deliveredStopsToday;
-        const displayPending = filterStartMs > 0 ? pendingStops : pendingStopsToday;
         const displayReturned = filterStartMs > 0 ? returnedStops : returnedStopsToday;
         const displayTotal = filterStartMs > 0 ? totalStops : totalStopsToday;
+        const displayOnProgress = Math.max(0, displayTotal - displayDelivered - displayReturned);
 
         if(document.getElementById('stat-active')) {
             document.getElementById('stat-active').innerText = displayTotal > 0 ? `${displayDelivered} / ${displayTotal}` : '0';
@@ -1775,7 +1767,14 @@ function updateGlobalStats() {
 
         const safeTotal = displayTotal > 0 ? displayTotal : 1;
         const pctDelivered = displayTotal > 0 ? Math.round((displayDelivered / safeTotal) * 100) : 0;
-        const pctPending = displayTotal > 0 ? Math.round((displayPending / safeTotal) * 100) : 0;
+        const pctOnProgress = displayTotal > 0 ? Math.round((displayOnProgress / safeTotal) * 100) : 0;
+        const pctReturned = displayTotal > 0 ? Math.round((displayReturned / safeTotal) * 100) : 0;
+
+        if(document.getElementById('pct-delivered')) document.getElementById('pct-delivered').innerText = pctDelivered + "%";
+        if(document.getElementById('pbar-delivered')) document.getElementById('pbar-delivered').style.width = pctDelivered + "%";
+
+        if(document.getElementById('pct-pending')) document.getElementById('pct-pending').innerText = pctOnProgress + "%";
+        if(document.getElementById('pbar-pending')) document.getElementById('pbar-pending').style.width = pctOnProgress + "%";
         const pctReturned = displayTotal > 0 ? Math.round((displayReturned / safeTotal) * 100) : 0;
 
         if(document.getElementById('pct-delivered')) document.getElementById('pct-delivered').innerText = pctDelivered + "%";
