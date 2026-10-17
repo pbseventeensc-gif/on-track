@@ -499,6 +499,17 @@ function focusOnTrip(tripId) {
     showToast("Membuka lokasi pengiriman #" + trip.id.substring(Math.max(0, trip.id.length - 6)));
 }
 
+function updateHeaderDate() {
+    const el = document.getElementById('current-date-text');
+    if (el) {
+        const now = new Date();
+        const options = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
+        el.innerText = now.toLocaleDateString('id-ID', options);
+    }
+}
+document.addEventListener('DOMContentLoaded', updateHeaderDate);
+setTimeout(updateHeaderDate, 100);
+
 document.addEventListener('click', (e) => {
     const dropdown = document.getElementById('notif-dropdown');
     const btn = document.getElementById('notif-bell-btn');
@@ -1746,6 +1757,7 @@ function updateGlobalStats() {
 
         refreshAllMonitorData();
         updateDynamicAlerts();
+        updateHeaderDate();
     } finally {
         isUpdatingStats = false;
     }
