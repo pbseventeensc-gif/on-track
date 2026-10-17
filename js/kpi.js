@@ -177,11 +177,11 @@ function renderKPIView(filter = "") {
     }
 
     if (startDateVal || endDateVal) {
-        const startMs = startDateVal ? new Date(startDateVal).setHours(0,0,0,0) : 0;
-        const endMs = endDateVal ? new Date(endDateVal).setHours(23,59,59,999) : Infinity;
+        const startMs = startDateVal ? new Date(startDateVal + 'T00:00:00').getTime() : 0;
+        const endMs = endDateVal ? new Date(endDateVal + 'T23:59:59.999').getTime() : Infinity;
 
         filteredTrips = filteredTrips.filter(t => {
-            const tripMs = t.date?.seconds ? t.date.seconds * 1000 : 0;
+            const tripMs = parseTimestampToMs(t.date) || parseTimestampToMs(t.acceptedTime) || (t.id ? parseInt(t.id.replace('TRIP_', '')) || 0 : 0);
             return tripMs >= startMs && tripMs <= endMs;
         });
     }
@@ -274,12 +274,18 @@ function parseTimestampToMs(timeObj) {
     let totalStopsFiltered = 0;
     let totalCompletedStopsFiltered = 0;
     let totalKmFiltered = 0;
+    let totalTimeFiltered = 0;
 
     lastKPIData.forEach(c => {
         totalStopsFiltered += (c.totalStops || 0);
         totalCompletedStopsFiltered += (c.completedStops || 0);
         totalKmFiltered += (c.totalKM || 0);
+        totalTimeFiltered += (c.totalTime || 0);
     });
+
+    const hoursTotal = Math.floor(totalTimeFiltered / 60);
+    const minsTotal = Math.round(totalTimeFiltered % 60);
+    const durationTotalStr = hoursTotal > 0 ? `${hoursTotal}j ${minsTotal}m` : `${minsTotal}m`;
 
     const overallCompletionRate = totalStopsFiltered > 0
         ? Math.round((totalCompletedStopsFiltered / totalStopsFiltered) * 100)
@@ -356,6 +362,9 @@ function parseTimestampToMs(timeObj) {
     }
     if (document.getElementById('kpi-total-done')) {
         document.getElementById('kpi-total-done').innerText = `${totalCompletedStopsFiltered}`;
+    }
+    if (document.getElementById('kpi-total-time')) {
+        document.getElementById('kpi-total-time').innerText = totalTimeFiltered > 0 ? durationTotalStr : '0j 0m';
     }
 
     window.courierPodStore = {};
