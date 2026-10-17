@@ -851,7 +851,8 @@ function switchTab(viewId, el) {
     } else if (viewId === 'dispatch') {
         if (typeof loadClientsByRegion === 'function') loadClientsByRegion("");
     } else if (viewId === 'fleet') {
-        if (typeof renderKPIView === 'function') renderKPIView();
+        if (typeof updateKPIChartsFromFilter === 'function') updateKPIChartsFromFilter();
+        else if (typeof renderKPIView === 'function') renderKPIView();
     } else if (viewId === 'chat') {
         if (typeof loadChatList === 'function') loadChatList();
     } else if (viewId === 'pod-archive') {
