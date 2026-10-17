@@ -2655,19 +2655,19 @@ function filterTableByCard(cardType) {
         if (typeof showToast === 'function') showToast("Menampilkan pengiriman Hari Ini");
     } else if (cardType === 'returned' || cardType === 'delayed') {
         if (sStatus) sStatus.value = "returned";
-        if (sStart) sStart.value = "";
-        if (sEnd) sEnd.value = "";
-        if (typeof showToast === 'function') showToast("Menampilkan pengiriman Returned / ACC Pending (Ke Kantor)");
+        if (sStart) sStart.value = todayStr;
+        if (sEnd) sEnd.value = todayStr;
+        if (typeof showToast === 'function') showToast("Menampilkan pengiriman Returned / ACC Pending Hari Ini");
     } else if (cardType === 'in_transit') {
         if (sStatus) sStatus.value = "in_progress";
-        if (sStart) sStart.value = "";
-        if (sEnd) sEnd.value = "";
-        if (typeof showToast === 'function') showToast("Menampilkan pengiriman In Transit");
+        if (sStart) sStart.value = todayStr;
+        if (sEnd) sEnd.value = todayStr;
+        if (typeof showToast === 'function') showToast("Menampilkan pengiriman In Progress Hari Ini");
     } else if (cardType === 'total_km') {
         if (sStatus) sStatus.value = "completed";
-        if (sStart) sStart.value = "";
-        if (sEnd) sEnd.value = "";
-        if (typeof showToast === 'function') showToast("Menampilkan pengiriman Selesai dengan Total Distance");
+        if (sStart) sStart.value = todayStr;
+        if (sEnd) sEnd.value = todayStr;
+        if (typeof showToast === 'function') showToast("Menampilkan pengiriman Selesai Hari Ini");
     }
 
     renderRecentShipments();
