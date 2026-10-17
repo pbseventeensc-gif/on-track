@@ -1782,9 +1782,6 @@ function updateGlobalStats() {
         const deliveryRate = displayTotal > 0 ? Math.round((displayDelivered / displayTotal) * 100) : 0;
         if(document.getElementById('stat-ontime')) document.getElementById('stat-ontime').innerText = deliveryRate + "%";
 
-        const deliveryRate = displayTotal > 0 ? Math.round((displayDelivered / displayTotal) * 100) : 0;
-        if(document.getElementById('stat-ontime')) document.getElementById('stat-ontime').innerText = deliveryRate + "%";
-
         refreshAllMonitorData();
         updateDynamicAlerts();
     } finally {

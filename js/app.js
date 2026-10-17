@@ -1781,10 +1781,6 @@ function updateGlobalStats() {
 
         const deliveryRate = displayTotal > 0 ? Math.round((displayDelivered / displayTotal) * 100) : 0;
         if(document.getElementById('stat-ontime')) document.getElementById('stat-ontime').innerText = deliveryRate + "%";
-        if(document.getElementById('pbar-returned')) document.getElementById('pbar-returned').style.width = pctReturned + "%";
-
-        const deliveryRate = displayTotal > 0 ? Math.round((displayDelivered / displayTotal) * 100) : 0;
-        if(document.getElementById('stat-ontime')) document.getElementById('stat-ontime').innerText = deliveryRate + "%";
 
         refreshAllMonitorData();
         updateDynamicAlerts();
