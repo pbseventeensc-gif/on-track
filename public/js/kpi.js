@@ -190,12 +190,25 @@ function renderKPIView(filter = "") {
     let totalCompleted = 0;
     let grandTotalKM = 0;
 
+function parseTimestampToMs(timeObj) {
+    if (!timeObj) return 0;
+    if (typeof timeObj === 'number') return timeObj;
+    if (timeObj.seconds !== undefined) return timeObj.seconds * 1000;
+    if (timeObj._seconds !== undefined) return timeObj._seconds * 1000;
+    if (typeof timeObj === 'string') {
+        const d = new Date(timeObj);
+        return isNaN(d.getTime()) ? 0 : d.getTime();
+    }
+    if (timeObj instanceof Date) return timeObj.getTime();
+    return 0;
+}
+
     filteredTrips.forEach(t => {
         const cId = t.courierId || '';
         if (typeof isCourierInActiveBranch === 'function' && !isCourierInActiveBranch(cId)) return;
-        if (cId.includes('EK74u0gA') || cId.toLowerCase().includes('novalgan')) return;
+        if (cId.includes('EK74u0gA') || cId.toLowerCase().includes('novalgan') || cId.toLowerCase().includes('novalempah2')) return;
         const cName = registeredUsers[cId] || (cId.length > 20 ? getCourierDisplayName(cId) : cId);
-        if (cName.includes('EK74u0gA') || cName.toLowerCase().includes('novalgan')) return;
+        if (cName.includes('EK74u0gA') || cName.toLowerCase().includes('novalgan') || cName.toLowerCase().includes('novalempah2')) return;
 
         if(!courierStats[cId]) {
             courierStats[cId] = {
@@ -219,30 +232,24 @@ function renderKPIView(filter = "") {
                     courierStats[cId].completedStops++;
 
                     const start = (i === 0)
-                        ? ((t.acceptLatitude && t.acceptLongitude) ? { lat: t.acceptLatitude, lng: t.acceptLongitude } : { lat: t.destinations[0].latitude, lng: t.destinations[0].longitude })
-                        : { lat: t.destinations[i-1].latitude, lng: t.destinations[i-1].longitude };
-                    const end = { lat: d.latitude, lng: d.longitude };
+                        ? ((t.acceptLatitude && t.acceptLongitude) ? { lat: parseFloat(t.acceptLatitude), lng: parseFloat(t.acceptLongitude) } : { lat: parseFloat(t.destinations[0].latitude || 0), lng: parseFloat(t.destinations[0].longitude || 0) })
+                        : { lat: parseFloat(t.destinations[i-1].latitude || 0), lng: parseFloat(t.destinations[i-1].longitude || 0) };
+                    const end = { lat: parseFloat(d.latitude || 0), lng: parseFloat(d.longitude || 0) };
                     const dist = calculateDistance(start.lat, start.lng, end.lat, end.lng);
                     actualTripKM += dist;
                 }
             }
 
             // Calculate Start-to-Finish Duration for this trip (ACCEPT -> LAST FINISH)
-            let startTimeMs = 0;
-            if (t.acceptedTime && t.acceptedTime.seconds) {
-                startTimeMs = t.acceptedTime.seconds * 1000;
-            } else if (t.date && t.date.seconds) {
-                startTimeMs = t.date.seconds * 1000;
-            } else if (t.destinations && t.destinations[0] && t.destinations[0].arrivalTime && t.destinations[0].arrivalTime.seconds) {
-                startTimeMs = t.destinations[0].arrivalTime.seconds * 1000;
+            let startTimeMs = parseTimestampToMs(t.acceptedTime) || parseTimestampToMs(t.date);
+            if (!startTimeMs && t.destinations && t.destinations[0]) {
+                startTimeMs = parseTimestampToMs(t.destinations[0].arrivalTime);
             }
 
             let latestFinishMs = 0;
             t.destinations.forEach(d => {
-                if (d.completedTime && d.completedTime.seconds) {
-                    const ms = d.completedTime.seconds * 1000;
-                    if (ms > latestFinishMs) latestFinishMs = ms;
-                }
+                const finishMs = parseTimestampToMs(d.completedTime);
+                if (finishMs > latestFinishMs) latestFinishMs = finishMs;
             });
 
             if (startTimeMs > 0 && latestFinishMs > startTimeMs) {
@@ -534,7 +541,7 @@ function updateKPICharts(data) {
         }
     });
 
-    let completedSum = 0, inTransitSum = 0, pendingSum = 0;
+    let completedSum = 0, pendingSum = 0;
     const branchTrips = allCurrentTrips.filter(t => {
         if (typeof isTripInActiveBranch === 'function' && !isTripInActiveBranch(t)) return false;
         if (t.courierId && typeof isCourierInActiveBranch === 'function' && !isCourierInActiveBranch(t.courierId)) return false;
@@ -545,12 +552,10 @@ function updateKPICharts(data) {
         if (t.destinations && t.destinations.length > 0) {
             t.destinations.forEach(d => {
                 if (d.status === 'done' || d.proofPhotoUrl) completedSum++;
-                else if (d.status === 'arrived') inTransitSum++;
                 else pendingSum++;
             });
         } else {
             if (t.status === 'completed') completedSum++;
-            else if (t.status === 'in_progress') inTransitSum++;
             else pendingSum++;
         }
     });
@@ -559,10 +564,10 @@ function updateKPICharts(data) {
     distributionChart = new Chart(ctx2, {
         type: 'doughnut',
         data: {
-            labels: ['Completed', 'Pending', 'In Transit'],
+            labels: ['Completed', 'Pending'],
             datasets: [{
-                data: [completedSum, pendingSum, inTransitSum],
-                backgroundColor: ['#10B981', '#F59E0B', '#3B82F6'],
+                data: [completedSum, pendingSum],
+                backgroundColor: ['#10B981', '#F59E0B'],
                 borderWidth: 0
             }]
         },
