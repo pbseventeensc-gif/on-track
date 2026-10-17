@@ -293,43 +293,6 @@ function parseTimestampToMs(timeObj) {
 
     lastKPIData = Object.values(courierStats);
 
-    // Calculate overall completion efficiency percentage and totals for all couriers
-    let totalStopsFiltered = 0;
-    let totalCompletedStopsFiltered = 0;
-    let totalKmFiltered = 0;
-    let totalTimeFiltered = 0;
-
-    lastKPIData.forEach(c => {
-        totalStopsFiltered += (c.totalStops || 0);
-        totalCompletedStopsFiltered += (c.completedStops || 0);
-        totalKmFiltered += (c.totalKM || 0);
-        totalTimeFiltered += (c.totalTime || 0);
-    });
-
-    const hoursTotal = Math.floor(totalTimeFiltered / 60);
-    const minsTotal = Math.round(totalTimeFiltered % 60);
-    const durationTotalStr = hoursTotal > 0 ? `${hoursTotal}j ${minsTotal}m` : `${minsTotal}m`;
-
-    const overallCompletionRate = totalStopsFiltered > 0
-        ? Math.round((totalCompletedStopsFiltered / totalStopsFiltered) * 100)
-        : 0;
-
-    const satRateEl = document.getElementById('kpi-sat-rate');
-    if (satRateEl) {
-        satRateEl.innerText = `${overallCompletionRate}%`;
-    }
-
-    const satLabelEl = document.getElementById('kpi-sat-label');
-    if (satLabelEl) {
-        const period = document.getElementById('stat-period-filter')?.value || 'this_week';
-        let periodText = 'minggu ini';
-        if (period === 'today') periodText = 'hari ini';
-        else if (period === 'this_month') periodText = 'bulan ini';
-        else if (period === 'all') periodText = 'keseluruhan';
-
-        satLabelEl.innerText = `Tingkat efisiensi penyelesaian pengiriman (${periodText})`;
-    }
-
     const searchVal = (filter || document.getElementById('kpi-search-input')?.value || "").toLowerCase();
     let displayCouriers = lastKPIData.filter(c => {
         const isOnline = currentOnlineCouriers[Object.keys(registeredUsers).find(k => registeredUsers[k] === c.name)] ? 'active' : 'offline';
@@ -339,10 +302,7 @@ function parseTimestampToMs(timeObj) {
     if (currentStatMetric === 'km') {
         kpiSortField = 'distance';
         kpiSortAsc = false;
-    } else if (currentStatMetric === 'time') {
-        kpiSortField = 'time';
-        kpiSortAsc = false;
-    } else if (currentStatMetric === 'stops') {
+    } else {
         kpiSortField = 'stops';
         kpiSortAsc = false;
     }
@@ -354,9 +314,6 @@ function parseTimestampToMs(timeObj) {
         if (kpiSortField === 'distance') {
             valA = a.totalKM || 0;
             valB = b.totalKM || 0;
-        } else if (kpiSortField === 'time') {
-            valA = a.totalTime || 0;
-            valB = b.totalTime || 0;
         } else if (kpiSortField === 'stops') {
             valA = a.completedStops || 0;
             valB = b.completedStops || 0;
@@ -375,6 +332,37 @@ function parseTimestampToMs(timeObj) {
         if (valA > valB) return kpiSortAsc ? 1 : -1;
         return 0;
     });
+
+    // Calculate overall completion efficiency percentage and totals for displayCouriers (matching bar chart)
+    let totalStopsFiltered = 0;
+    let totalCompletedStopsFiltered = 0;
+    let totalKmFiltered = 0;
+
+    displayCouriers.forEach(c => {
+        totalStopsFiltered += (c.totalStops || 0);
+        totalCompletedStopsFiltered += (c.completedStops || 0);
+        totalKmFiltered += (c.totalKM || 0);
+    });
+
+    const overallCompletionRate = totalStopsFiltered > 0
+        ? Math.round((totalCompletedStopsFiltered / totalStopsFiltered) * 100)
+        : 0;
+
+    const satRateEl = document.getElementById('kpi-sat-rate');
+    if (satRateEl) {
+        satRateEl.innerText = `${overallCompletionRate}%`;
+    }
+
+    const satLabelEl = document.getElementById('kpi-sat-label');
+    if (satLabelEl) {
+        const period = document.getElementById('stat-period-filter')?.value || 'today';
+        let periodText = 'hari ini';
+        if (period === 'this_week') periodText = 'minggu ini';
+        else if (period === 'this_month') periodText = 'bulan ini';
+        else if (period === 'all') periodText = 'keseluruhan';
+
+        satLabelEl.innerText = `Tingkat efisiensi penyelesaian pengiriman (${periodText})`;
+    }
 
     const topCourier = displayCouriers[0];
     if (document.getElementById('kpi-top-courier')) {
