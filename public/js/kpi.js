@@ -99,8 +99,8 @@ function exportKPIToExcel() {
 
     const exportData = [];
     lastKPIData.forEach(c => {
-        const completionRate = c.totalStops > 0 ? Math.round((c.completedStops / c.totalStops) * 100) : 100;
-        const stars = c.totalStops > 0 ? parseFloat(((completionRate / 100) * 5.0).toFixed(1)) : 5.0;
+        const completionRate = c.totalStops > 0 ? Math.round((c.completedStops / c.totalStops) * 100) : 0;
+        const stars = c.totalStops > 0 ? parseFloat(((completionRate / 100) * 5.0).toFixed(1)) : 0.0;
         const hours = Math.floor((c.totalTime || 0) / 60);
         const mins = Math.round((c.totalTime || 0) % 60);
         const durationStr = hours > 0 ? `${hours}j ${mins}m` : `${mins}m`;
@@ -422,9 +422,9 @@ function renderKPIView(filter = "") {
             </button>`;
         }
 
-        const completionRate = c.totalStops > 0 ? (c.completedStops / c.totalStops) * 100 : 100;
-        let stars = 5.0;
-        let finalScore = 100;
+        const completionRate = c.totalStops > 0 ? (c.completedStops / c.totalStops) * 100 : 0;
+        let stars = 0.0;
+        let finalScore = 0;
 
         if (c.totalStops > 0) {
             if (c.completedStops >= c.totalStops) {

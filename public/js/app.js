@@ -1754,8 +1754,8 @@ function updateGlobalStats() {
         if(document.getElementById('pct-returned')) document.getElementById('pct-returned').innerText = pctReturned + "%";
         if(document.getElementById('pbar-returned')) document.getElementById('pbar-returned').style.width = pctReturned + "%";
 
-        const onTimeRate = totalCompletedTrips > 0 ? Math.round((onTimeTrips / totalCompletedTrips) * 100) : 100;
-        if(document.getElementById('stat-ontime')) document.getElementById('stat-ontime').innerText = onTimeRate + "%";
+        const deliveryRate = totalStops > 0 ? Math.round((deliveredStops / totalStops) * 100) : 0;
+        if(document.getElementById('stat-ontime')) document.getElementById('stat-ontime').innerText = deliveryRate + "%";
 
         refreshAllMonitorData();
         updateDynamicAlerts();
