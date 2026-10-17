@@ -253,32 +253,61 @@ fun DestinationItem(
 
     var photoUri by remember { mutableStateOf<Uri?>(null) }
 
-    // Helper to decode bitmap with downsampling to prevent OutOfMemoryError (OOM) crashes
-    fun decodeSampledBitmap(uri: Uri, reqWidth: Int, reqHeight: Int): Bitmap? {
+    // Helper to decode bitmap with downsampling & OOM protection for low-end phones
+    fun decodeSampledBitmap(uri: Uri, reqWidth: Int = 1024, reqHeight: Int = 1024): Bitmap? {
         return try {
-            context.contentResolver.openInputStream(uri)?.use { inputStream ->
-                val options = android.graphics.BitmapFactory.Options().apply {
-                    inJustDecodeBounds = true
-                }
-                android.graphics.BitmapFactory.decodeStream(inputStream, null, options)
-                
-                var inSampleSize = 1
-                if (options.outHeight > reqHeight || options.outWidth > reqWidth) {
-                    val halfHeight = options.outHeight / 2
-                    val halfWidth = options.outWidth / 2
-                    while ((halfHeight / inSampleSize) >= reqHeight && (halfWidth / inSampleSize) >= reqWidth) {
-                        inSampleSize *= 2
-                    }
-                }
-                
-                options.inSampleSize = inSampleSize
-                options.inJustDecodeBounds = false
-                
-                context.contentResolver.openInputStream(uri)?.use { secondStream ->
-                    android.graphics.BitmapFactory.decodeStream(secondStream, null, options)
+            val options = android.graphics.BitmapFactory.Options().apply {
+                inJustDecodeBounds = true
+            }
+            context.contentResolver.openInputStream(uri)?.use { stream ->
+                android.graphics.BitmapFactory.decodeStream(stream, null, options)
+            }
+
+            var inSampleSize = 1
+            val height = options.outHeight
+            val width = options.outWidth
+            if (height > reqHeight || width > reqWidth) {
+                val halfHeight = height / 2
+                val halfWidth = width / 2
+                while ((halfHeight / inSampleSize) >= reqHeight || (halfWidth / inSampleSize) >= reqWidth) {
+                    inSampleSize *= 2
                 }
             }
+
+            val decodeOptions = android.graphics.BitmapFactory.Options().apply {
+                this.inSampleSize = inSampleSize
+                this.inPreferredConfig = android.graphics.Bitmap.Config.RGB_565
+            }
+
+            var bitmap: Bitmap? = context.contentResolver.openInputStream(uri)?.use { stream ->
+                android.graphics.BitmapFactory.decodeStream(stream, null, decodeOptions)
+            }
+
+            if (bitmap != null) {
+                try {
+                    context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                        val exifInterface = android.media.ExifInterface(inputStream)
+                        val orientation = exifInterface.getAttributeInt(
+                            android.media.ExifInterface.TAG_ORIENTATION,
+                            android.media.ExifInterface.ORIENTATION_UNDEFINED
+                        )
+                        val matrix = android.graphics.Matrix()
+                        when (orientation) {
+                            android.media.ExifInterface.ORIENTATION_ROTATE_90 -> matrix.postRotate(90f)
+                            android.media.ExifInterface.ORIENTATION_ROTATE_180 -> matrix.postRotate(180f)
+                            android.media.ExifInterface.ORIENTATION_ROTATE_270 -> matrix.postRotate(270f)
+                        }
+                        if (!matrix.isIdentity) {
+                            bitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+                        }
+                    }
+                } catch (e: Exception) {
+                    // Ignore EXIF errors
+                }
+            }
+            bitmap
         } catch (e: Exception) {
+            e.printStackTrace()
             null
         }
     }
@@ -305,11 +334,15 @@ fun DestinationItem(
     }
 
     fun launchCameraForSj() {
-        activeCaptureMode = "sj"
-        val file = File(context.cacheDir, "temp_proof_sj_${System.currentTimeMillis()}.jpg")
-        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-        photoUri = uri
-        cameraLauncher.launch(uri)
+        try {
+            activeCaptureMode = "sj"
+            val file = File(context.cacheDir, "temp_proof_sj_${System.currentTimeMillis()}.jpg")
+            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+            photoUri = uri
+            cameraLauncher.launch(uri)
+        } catch (e: Exception) {
+            Toast.makeText(context, "Gagal membuka kamera: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
     }
 
     fun launchCameraForItem() {
@@ -317,19 +350,27 @@ fun DestinationItem(
             Toast.makeText(context, "Maksimal 2 foto barang sudah diambil", Toast.LENGTH_SHORT).show()
             return
         }
-        activeCaptureMode = "item"
-        val file = File(context.cacheDir, "temp_proof_item_${System.currentTimeMillis()}.jpg")
-        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-        photoUri = uri
-        cameraLauncher.launch(uri)
+        try {
+            activeCaptureMode = "item"
+            val file = File(context.cacheDir, "temp_proof_item_${System.currentTimeMillis()}.jpg")
+            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+            photoUri = uri
+            cameraLauncher.launch(uri)
+        } catch (e: Exception) {
+            Toast.makeText(context, "Gagal membuka kamera: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
     }
 
     fun launchCameraForPending() {
-        activeCaptureMode = "pending"
-        val file = File(context.cacheDir, "temp_proof_pending_${System.currentTimeMillis()}.jpg")
-        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-        photoUri = uri
-        cameraLauncher.launch(uri)
+        try {
+            activeCaptureMode = "pending"
+            val file = File(context.cacheDir, "temp_proof_pending_${System.currentTimeMillis()}.jpg")
+            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+            photoUri = uri
+            cameraLauncher.launch(uri)
+        } catch (e: Exception) {
+            Toast.makeText(context, "Gagal membuka kamera: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
     }
 
     // Pending Approval Request Dialog
