@@ -2656,17 +2656,11 @@ function filterTableByCard(cardType) {
         if (sStart) sStart.value = "";
         if (sEnd) sEnd.value = "";
         if (typeof showToast === 'function') showToast("Menampilkan pengiriman Returned / ACC Pending (Ke Kantor)");
-    }
     } else if (cardType === 'in_transit') {
         if (sStatus) sStatus.value = "in_progress";
         if (sStart) sStart.value = "";
         if (sEnd) sEnd.value = "";
         if (typeof showToast === 'function') showToast("Menampilkan pengiriman In Transit");
-    } else if (cardType === 'today') {
-        if (sStatus) sStatus.value = "all";
-        if (sStart) sStart.value = todayStr;
-        if (sEnd) sEnd.value = todayStr;
-        if (typeof showToast === 'function') showToast("Menampilkan pengiriman Hari Ini (Orders Today)");
     } else if (cardType === 'total_km') {
         if (sStatus) sStatus.value = "completed";
         if (sStart) sStart.value = "";
