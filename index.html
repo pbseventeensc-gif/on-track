@@ -557,10 +557,10 @@
                         </div>
                     </div>
                     <div class="col-6 col-md-3">
-                        <div class="stat-card clickable" onclick="filterTableByCard('delayed')" title="Klik untuk memfilter tabel ke Delayed Shipments">
-                            <div class="stat-label">Delayed</div>
+                        <div class="stat-card clickable" onclick="filterTableByCard('returned')" title="Klik untuk memfilter tabel ke Returned / ACC Pending">
+                            <div class="stat-label">Returned</div>
                             <div class="stat-value" id="stat-delayed">0</div>
-                            <div class="stat-trend text-muted">Stable</div>
+                            <div class="stat-trend text-muted">Ke Kantor</div>
                         </div>
                     </div>
                     <div class="col-6 col-md-3">
@@ -649,9 +649,8 @@
                                     <select id="recent-status-filter" class="form-select form-select-sm fw-normal py-2" style="border-radius: 10px; width: 140px; font-size: 0.8rem; background: #f8fafc;" onchange="renderRecentShipments()">
                                         <option value="all">Semua Status</option>
                                         <option value="active_all">Semua Aktif</option>
-                                        <option value="in_progress">In Progress</option>
-                                        <option value="delayed">Terlambat (Delayed)</option>
-                                        <option value="assigned">Pending</option>
+                                        <option value="in_progress">On Delivery</option>
+                                        <option value="returned">Returned / Pending</option>
                                         <option value="completed">Completed</option>
                                     </select>
                                     <div class="position-relative">

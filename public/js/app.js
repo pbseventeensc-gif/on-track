@@ -1761,7 +1761,7 @@ function updateGlobalStats() {
             document.getElementById('stat-active').innerText = displayTotal > 0 ? `${displayDelivered} / ${displayTotal}` : '0';
         }
         if(document.getElementById('stat-done')) document.getElementById('stat-done').innerText = totalStopsToday;
-        if(document.getElementById('stat-delayed')) document.getElementById('stat-delayed').innerText = delayedCount;
+        if(document.getElementById('stat-delayed')) document.getElementById('stat-delayed').innerText = displayReturned;
         if(document.getElementById('stat-transit-count')) document.getElementById('stat-transit-count').innerText = inTransitStops;
         if(document.getElementById('stat-total-km')) document.getElementById('stat-total-km').innerText = grandTotalKM.toFixed(1) + " km";
 
@@ -2658,11 +2658,12 @@ function filterTableByCard(cardType) {
         if (sStart) sStart.value = todayStr;
         if (sEnd) sEnd.value = todayStr;
         if (typeof showToast === 'function') showToast("Menampilkan pengiriman Hari Ini");
-    } else if (cardType === 'delayed') {
-        if (sStatus) sStatus.value = "delayed";
+    } else if (cardType === 'returned' || cardType === 'delayed') {
+        if (sStatus) sStatus.value = "returned";
         if (sStart) sStart.value = "";
         if (sEnd) sEnd.value = "";
-        if (typeof showToast === 'function') showToast("Menampilkan pengiriman Terlambat (Delayed)");
+        if (typeof showToast === 'function') showToast("Menampilkan pengiriman Returned / ACC Pending (Ke Kantor)");
+    }
     } else if (cardType === 'in_transit') {
         if (sStatus) sStatus.value = "in_progress";
         if (sStart) sStart.value = "";
