@@ -1719,18 +1719,32 @@ function updateGlobalStats() {
         }
 
         let totalStopsToday = 0;
+        let deliveredStopsToday = 0;
         filteredTrips.forEach(t => {
             const tripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : 0);
             if (tripMs >= todayDayMs) {
                 if (t.destinations && t.destinations.length > 0) {
-                    totalStopsToday += t.destinations.length;
+                    t.destinations.forEach(d => {
+                        totalStopsToday++;
+                        if (d.status === 'done' || d.proofPhotoUrl || d.status === 'completed') {
+                            deliveredStopsToday++;
+                        }
+                    });
                 } else {
                     totalStopsToday += 1;
+                    if (t.status === 'completed') {
+                        deliveredStopsToday += 1;
+                    }
                 }
             }
         });
 
-        if(document.getElementById('stat-active')) document.getElementById('stat-active').innerText = activeShipmentsCount;
+        const displayDelivered = filterStartMs > 0 ? deliveredStops : deliveredStopsToday;
+        const displayTotal = filterStartMs > 0 ? totalStops : totalStopsToday;
+
+        if(document.getElementById('stat-active')) {
+            document.getElementById('stat-active').innerText = displayTotal > 0 ? `${displayDelivered} / ${displayTotal}` : '0';
+        }
         if(document.getElementById('stat-done')) document.getElementById('stat-done').innerText = totalStopsToday;
         if(document.getElementById('stat-delayed')) document.getElementById('stat-delayed').innerText = delayedCount;
         if(document.getElementById('stat-transit-count')) document.getElementById('stat-transit-count').innerText = inTransitStops;
@@ -2621,11 +2635,11 @@ function filterTableByCard(cardType) {
 
     const todayStr = new Date().toISOString().split('T')[0];
 
-    if (cardType === 'active') {
-        if (sStatus) sStatus.value = "active_all";
-        if (sStart) sStart.value = "";
-        if (sEnd) sEnd.value = "";
-        if (typeof showToast === 'function') showToast("Menampilkan seluruh Active Shipments");
+    if (cardType === 'active' || cardType === 'today') {
+        if (sStatus) sStatus.value = "all";
+        if (sStart) sStart.value = todayStr;
+        if (sEnd) sEnd.value = todayStr;
+        if (typeof showToast === 'function') showToast("Menampilkan pengiriman Hari Ini");
     } else if (cardType === 'delayed') {
         if (sStatus) sStatus.value = "delayed";
         if (sStart) sStart.value = "";
