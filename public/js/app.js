@@ -1707,8 +1707,10 @@ function updateGlobalStats() {
                         activeShipmentsCount++;
                     } else if (d.status === 'returned' || d.status === 'failed') {
                         returnedStops++;
-                    } else {
+                    } else if (d.status === 'pending') {
                         pendingStops++;
+                        activeShipmentsCount++;
+                    } else {
                         activeShipmentsCount++;
                     }
 
@@ -1732,6 +1734,9 @@ function updateGlobalStats() {
 
         let totalStopsToday = 0;
         let deliveredStopsToday = 0;
+        let pendingStopsToday = 0;
+        let returnedStopsToday = 0;
+
         filteredTrips.forEach(t => {
             const tripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : 0);
             if (tripMs >= todayDayMs) {
@@ -1740,6 +1745,10 @@ function updateGlobalStats() {
                         totalStopsToday++;
                         if (d.status === 'done' || d.proofPhotoUrl || d.status === 'completed') {
                             deliveredStopsToday++;
+                        } else if (d.status === 'pending') {
+                            pendingStopsToday++;
+                        } else if (d.status === 'returned' || d.status === 'failed') {
+                            returnedStopsToday++;
                         }
                     });
                 } else {
@@ -1752,6 +1761,8 @@ function updateGlobalStats() {
         });
 
         const displayDelivered = filterStartMs > 0 ? deliveredStops : deliveredStopsToday;
+        const displayPending = filterStartMs > 0 ? pendingStops : pendingStopsToday;
+        const displayReturned = filterStartMs > 0 ? returnedStops : returnedStopsToday;
         const displayTotal = filterStartMs > 0 ? totalStops : totalStopsToday;
 
         if(document.getElementById('stat-active')) {
@@ -1762,17 +1773,13 @@ function updateGlobalStats() {
         if(document.getElementById('stat-transit-count')) document.getElementById('stat-transit-count').innerText = inTransitStops;
         if(document.getElementById('stat-total-km')) document.getElementById('stat-total-km').innerText = grandTotalKM.toFixed(1) + " km";
 
-        const safeTotal = totalStops > 0 ? totalStops : 1;
-        const pctDelivered = Math.round((deliveredStops / safeTotal) * 100);
-        const pctTransit = Math.round((inTransitStops / safeTotal) * 100);
-        const pctPending = Math.round((pendingStops / safeTotal) * 100);
-        const pctReturned = Math.round((returnedStops / safeTotal) * 100);
+        const safeTotal = displayTotal > 0 ? displayTotal : 1;
+        const pctDelivered = displayTotal > 0 ? Math.round((displayDelivered / safeTotal) * 100) : 0;
+        const pctPending = displayTotal > 0 ? Math.round((displayPending / safeTotal) * 100) : 0;
+        const pctReturned = displayTotal > 0 ? Math.round((displayReturned / safeTotal) * 100) : 0;
 
         if(document.getElementById('pct-delivered')) document.getElementById('pct-delivered').innerText = pctDelivered + "%";
         if(document.getElementById('pbar-delivered')) document.getElementById('pbar-delivered').style.width = pctDelivered + "%";
-
-        if(document.getElementById('pct-transit')) document.getElementById('pct-transit').innerText = pctTransit + "%";
-        if(document.getElementById('pbar-transit')) document.getElementById('pbar-transit').style.width = pctTransit + "%";
 
         if(document.getElementById('pct-pending')) document.getElementById('pct-pending').innerText = pctPending + "%";
         if(document.getElementById('pbar-pending')) document.getElementById('pbar-pending').style.width = pctPending + "%";
