@@ -526,11 +526,17 @@ function updateNotificationBell() {
             }, (t.date?.seconds || 0) * 1000) : 0;
 
             if (lastUpdate > 0 && (now - lastUpdate > 30 * 60 * 1000)) {
+                const timeStr = lastUpdate ? new Date(lastUpdate).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '-';
+                const minsAgo = Math.floor((now - lastUpdate) / 60000);
+                const hours = Math.floor(minsAgo / 60);
+                const mins = minsAgo % 60;
+                const durationStr = hours > 0 ? `${hours}j ${mins}m` : `${mins}m`;
+
                 notificationItems.push({
                     type: 'danger',
                     icon: 'bi-clock-history',
                     title: `DELAY WARNING: #${t.id.substring(Math.max(0, t.id.length - 6))}`,
-                    desc: `Tidak ada update > 30 menit`,
+                    desc: `Sejak jam ${timeStr} (${durationStr} tanpa pembaruan)`,
                     tab: 'monitor',
                     tripId: t.id,
                     courierId: t.courierId
@@ -643,13 +649,19 @@ function updateDynamicAlerts() {
             const delayAlertId = `delay_${t.id}`;
             if(now - lastUpdate > 30 * 60 * 1000 && lastUpdate < now) {
                 if (!dismissedAlertIds.has(delayAlertId) && lastUpdate >= alertsClearedAt) {
+                    const timeStr = lastUpdate ? new Date(lastUpdate).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '-';
+                    const minsAgo = Math.floor((now - lastUpdate) / 60000);
+                    const hours = Math.floor(minsAgo / 60);
+                    const mins = minsAgo % 60;
+                    const durationStr = hours > 0 ? `${hours} jam ${mins}m` : `${mins} menit`;
+
                     container.innerHTML += `
                         <div class="d-flex align-items-center justify-content-between p-2 px-3 rounded-3 cursor-pointer mb-1" style="background: #FEF2F2;" onclick="focusOnTrip('${t.id}')">
                             <div class="d-flex align-items-center gap-2">
                                 <div class="text-danger fs-5 d-flex align-items-center me-1"><i class="bi bi-clock-history"></i></div>
                                 <div>
                                     <div class="fw-semibold text-dark" style="font-size: 0.8125rem; line-height: 1.25;">Delay: ${tripIdShort} (${cName})</div>
-                                    <div class="text-danger" style="font-size: 0.725rem; margin-top: 1px;">Tidak ada pembaruan status > 30 menit</div>
+                                    <div class="text-danger" style="font-size: 0.725rem; margin-top: 1px;">Tidak ada pembaruan sejak jam ${timeStr} (${durationStr})</div>
                                 </div>
                             </div>
                             <button class="btn-close ms-2" style="font-size: 0.65rem;" onclick="dismissSingleAlert('${delayAlertId}', event)" title="Hapus Peringatan Ini"></button>
