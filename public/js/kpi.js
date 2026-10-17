@@ -548,13 +548,9 @@ function updateKPICharts(data, filteredTrips) {
                             const index = context.dataIndex;
                             const item = displayData[index];
                             if (!item) return '';
-                            const hours = Math.floor((item.totalTime || 0) / 60);
-                            const mins = Math.round((item.totalTime || 0) % 60);
-                            const durationStr = hours > 0 ? `${hours}j ${mins}m` : `${mins}m`;
                             return [
                                 `Selesai: ${item.completedStops} Titik`,
-                                `Jarak: ${item.totalKM.toFixed(1)} km`,
-                                `Durasi: ${durationStr}`
+                                `Jarak: ${item.totalKM.toFixed(1)} km`
                             ];
                         }
                     }
