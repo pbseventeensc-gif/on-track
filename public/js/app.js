@@ -1717,7 +1717,7 @@ function updateGlobalStats() {
         const displayOnProgress = Math.max(0, displayTotal - displayDelivered - displayReturned);
 
         if(document.getElementById('stat-active')) {
-            document.getElementById('stat-active').innerText = displayTotal > 0 ? `${displayDelivered} / ${displayTotal}` : '0';
+            document.getElementById('stat-active').innerText = displayTotal;
         }
         if(document.getElementById('stat-done')) document.getElementById('stat-done').innerText = totalStopsToday;
         if(document.getElementById('stat-delayed')) document.getElementById('stat-delayed').innerText = displayReturned;
