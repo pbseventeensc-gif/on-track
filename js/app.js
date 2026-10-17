@@ -1716,6 +1716,9 @@ function updateGlobalStats() {
         const displayTotal = filterStartMs > 0 ? totalStops : totalStopsToday;
         const displayOnProgress = Math.max(0, displayTotal - displayDelivered - displayReturned);
 
+        if(document.getElementById('stat-active-tasks')) {
+            document.getElementById('stat-active-tasks').innerText = activeShipmentsCount;
+        }
         if(document.getElementById('stat-active')) {
             document.getElementById('stat-active').innerText = displayTotal;
         }
@@ -2605,7 +2608,12 @@ function filterTableByCard(cardType) {
 
     const todayStr = new Date().toISOString().split('T')[0];
 
-    if (cardType === 'active' || cardType === 'today') {
+    if (cardType === 'active_tasks') {
+        if (sStatus) sStatus.value = "active_all";
+        if (sStart) sStart.value = "";
+        if (sEnd) sEnd.value = "";
+        if (typeof showToast === 'function') showToast("Menampilkan seluruh Tugas Aktif di Sistem");
+    } else if (cardType === 'active' || cardType === 'today') {
         if (sStatus) sStatus.value = "all";
         if (sStart) sStart.value = todayStr;
         if (sEnd) sEnd.value = todayStr;

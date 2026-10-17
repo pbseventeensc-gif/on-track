@@ -542,28 +542,36 @@
         <div class="content-scroll">
             <!-- DASHBOARD VIEW -->
             <div id="view-dashboard" class="view-section active">
-                <div class="row g-4 mb-4">
-                    <div class="col-6 col-md-3">
+                <div class="row row-cols-2 row-cols-md-3 row-cols-xl-5 g-3 mb-4">
+                    <div class="col">
+                        <div class="stat-card clickable" onclick="filterTableByCard('active_tasks')" title="Klik untuk memfilter tabel ke Seluruh Tugas Aktif">
+                            <div class="stat-label">Total Active Tasks</div>
+                            <div class="stat-value" id="stat-active-tasks">0</div>
+                            <div class="stat-trend text-muted">Seluruh Aktif</div>
+                        </div>
+                    </div>
+                    <div class="col">
                         <div class="stat-card clickable" onclick="filterTableByCard('active')" title="Klik untuk memfilter tabel ke Total Shipments Today">
                             <div class="stat-label">Total Shipments Today</div>
                             <div class="stat-value" id="stat-active">0</div>
                             <div class="stat-trend text-muted">Hari Ini</div>
                         </div>
                     </div>
-                    <div class="col-6 col-md-3">
+                    <div class="col">
                         <div class="stat-card">
                             <div class="stat-label">Delivery Rate</div>
                             <div class="stat-value" id="stat-ontime">0%</div>
+                            <div class="stat-trend text-muted">Real-time</div>
                         </div>
                     </div>
-                    <div class="col-6 col-md-3">
+                    <div class="col">
                         <div class="stat-card clickable" onclick="filterTableByCard('returned')" title="Klik untuk memfilter tabel ke Returned / ACC Pending">
                             <div class="stat-label">Returned</div>
                             <div class="stat-value" id="stat-delayed">0</div>
                             <div class="stat-trend text-muted">Ke Kantor</div>
                         </div>
                     </div>
-                    <div class="col-6 col-md-3">
+                    <div class="col">
                         <div class="stat-card clickable" onclick="filterTableByCard('total_km')" title="Klik untuk memfilter tabel ke Total Distance">
                             <div class="stat-label">Total Distance</div>
                             <div class="stat-value" id="stat-total-km">0 km</div>
