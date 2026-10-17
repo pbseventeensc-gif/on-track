@@ -376,6 +376,12 @@ function parseTimestampToMs(timeObj) {
         return 0;
     });
 
+    const activeCourierCount = lastKPIData.filter(c => c.totalStops > 0 || c.completedStops > 0).length || 1;
+    const avgMins = totalTimeFiltered / activeCourierCount;
+    const hoursAvg = Math.floor(avgMins / 60);
+    const minsAvg = Math.round(avgMins % 60);
+    const avgDurationStr = hoursAvg > 0 ? `${hoursAvg}j ${minsAvg}m` : `${minsAvg}m`;
+
     const topCourier = displayCouriers[0];
     if (document.getElementById('kpi-top-courier')) {
         document.getElementById('kpi-top-courier').innerText = topCourier ? topCourier.name : '-';
@@ -387,7 +393,7 @@ function parseTimestampToMs(timeObj) {
         document.getElementById('kpi-total-done').innerText = `${totalCompletedStopsFiltered}`;
     }
     if (document.getElementById('kpi-total-time')) {
-        document.getElementById('kpi-total-time').innerText = totalTimeFiltered > 0 ? durationTotalStr : '0j 0m';
+        document.getElementById('kpi-total-time').innerText = totalTimeFiltered > 0 ? `${durationTotalStr} (${avgDurationStr}/kurir)` : '0j 0m';
     }
 
     window.courierPodStore = {};

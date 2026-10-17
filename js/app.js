@@ -1699,16 +1699,22 @@ function updateGlobalStats() {
         let totalStopsToday = 0;
         let deliveredStopsToday = 0;
         let returnedStopsToday = 0;
+        let grandTotalKMToday = 0;
 
         filteredTrips.forEach(t => {
             const tripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : 0);
             if (tripMs >= todayDayMs) {
                 if (t.destinations && t.destinations.length > 0) {
-                    t.destinations.forEach(d => {
+                    t.destinations.forEach((d, i) => {
                         totalStopsToday++;
                         const isAccPending = (d.status === 'pending' && d.pendingReason && d.pendingReason.length > 0) || d.status === 'returned' || d.status === 'failed';
                         if (d.status === 'done' || d.proofPhotoUrl || d.status === 'completed') {
                             deliveredStopsToday++;
+                            const start = (i === 0)
+                                ? ((t.acceptLatitude && t.acceptLongitude) ? { lat: parseFloat(t.acceptLatitude), lng: parseFloat(t.acceptLongitude) } : { lat: parseFloat(t.destinations[0].latitude || 0), lng: parseFloat(t.destinations[0].longitude || 0) })
+                                : { lat: parseFloat(t.destinations[i-1].latitude || 0), lng: parseFloat(t.destinations[i-1].longitude || 0) };
+                            const end = { lat: parseFloat(d.latitude || 0), lng: parseFloat(d.longitude || 0) };
+                            grandTotalKMToday += calculateDistance(start.lat, start.lng, end.lat, end.lng);
                         } else if (isAccPending) {
                             returnedStopsToday++;
                         }
@@ -1725,6 +1731,7 @@ function updateGlobalStats() {
         const displayDelivered = filterStartMs > 0 ? deliveredStops : deliveredStopsToday;
         const displayReturned = filterStartMs > 0 ? returnedStops : returnedStopsToday;
         const displayTotal = filterStartMs > 0 ? totalStops : totalStopsToday;
+        const displayKM = filterStartMs > 0 ? grandTotalKM : grandTotalKMToday;
         const displayOnProgress = Math.max(0, displayTotal - displayDelivered - displayReturned);
 
         if(document.getElementById('stat-active-tasks')) {
@@ -1736,7 +1743,7 @@ function updateGlobalStats() {
         if(document.getElementById('stat-done')) document.getElementById('stat-done').innerText = totalStopsToday;
         if(document.getElementById('stat-delayed')) document.getElementById('stat-delayed').innerText = displayReturned;
         if(document.getElementById('stat-transit-count')) document.getElementById('stat-transit-count').innerText = inTransitStops;
-        if(document.getElementById('stat-total-km')) document.getElementById('stat-total-km').innerText = grandTotalKM.toFixed(1) + " km";
+        if(document.getElementById('stat-total-km')) document.getElementById('stat-total-km').innerText = displayKM.toFixed(1) + " km";
 
         const safeTotal = displayTotal > 0 ? displayTotal : 1;
         const pctDelivered = displayTotal > 0 ? Math.round((displayDelivered / safeTotal) * 100) : 0;
