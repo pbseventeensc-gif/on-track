@@ -2803,6 +2803,8 @@ function renderRecentShipments(filter = "") {
                         return time > max ? time : max;
                     }, (t.date?.seconds || 0) * 1000) : 0;
                     matchStatus = (status !== 'completed') && (Date.now() - lastUpdate > 30 * 60 * 1000);
+                } else if (selectedStatus === 'returned') {
+                    matchStatus = (status === 'returned' || status === 'failed' || status === 'klien_tutup' || isKlienTutupApproved || d.status === 'returned' || d.status === 'failed');
                 } else {
                     matchStatus = (status === selectedStatus);
                 }
