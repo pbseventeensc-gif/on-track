@@ -560,11 +560,15 @@ function updateKPICharts(data) {
         }
     });
 
+    const totalTasksSum = completedSum + pendingSum;
+    const pctCompletedSum = totalTasksSum > 0 ? Math.round((completedSum / totalTasksSum) * 100) : 0;
+    const pctPendingSum = totalTasksSum > 0 ? Math.round((pendingSum / totalTasksSum) * 100) : 0;
+
     if (distributionChart) distributionChart.destroy();
     distributionChart = new Chart(ctx2, {
         type: 'doughnut',
         data: {
-            labels: ['Completed', 'Pending'],
+            labels: [`Completed (${pctCompletedSum}%)`, `Pending (${pctPendingSum}%)`],
             datasets: [{
                 data: [completedSum, pendingSum],
                 backgroundColor: ['#10B981', '#F59E0B'],
@@ -582,9 +586,37 @@ function updateKPICharts(data) {
                         boxWidth: 8,
                         font: { family: 'Plus Jakarta Sans', size: 11, weight: '600' }
                     }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const val = context.parsed || 0;
+                            const total = totalTasksSum > 0 ? totalTasksSum : 1;
+                            const pct = Math.round((val / total) * 100);
+                            return ` ${context.label}: ${val} Titik (${pct}%)`;
+                        }
+                    }
                 }
             },
-            cutout: '75%'
-        }
+            cutout: '72%'
+        },
+        plugins: [{
+            id: 'centerText',
+            afterDraw(chart) {
+                const { ctx, chartArea: { left, top, width, height } } = chart;
+                if (!width || !height) return;
+                ctx.save();
+                ctx.font = 'bold 22px "Plus Jakarta Sans", sans-serif';
+                ctx.fillStyle = '#111827';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(`${pctCompletedSum}%`, left + width / 2, top + height / 2 - 8);
+
+                ctx.font = '600 11px "Plus Jakarta Sans", sans-serif';
+                ctx.fillStyle = '#6B7280';
+                ctx.fillText('Selesai', left + width / 2, top + height / 2 + 12);
+                ctx.restore();
+            }
+        }]
     });
 }
