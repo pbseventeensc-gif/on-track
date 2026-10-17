@@ -1700,9 +1700,10 @@ function updateGlobalStats() {
             if(t.destinations && t.destinations.length > 0) {
                 t.destinations.forEach((d, i) => {
                     totalStops++;
+                    const isAccPending = (d.status === 'pending' && d.pendingReason && d.pendingReason.length > 0) || d.status === 'returned' || d.status === 'failed';
                     if (d.status === 'done' || d.proofPhotoUrl || d.status === 'completed') {
                         deliveredStops++;
-                    } else if (d.status === 'pending' || d.status === 'returned' || d.status === 'failed') {
+                    } else if (isAccPending) {
                         returnedStops++;
                     } else {
                         inTransitStops++;
@@ -1737,9 +1738,10 @@ function updateGlobalStats() {
                 if (t.destinations && t.destinations.length > 0) {
                     t.destinations.forEach(d => {
                         totalStopsToday++;
+                        const isAccPending = (d.status === 'pending' && d.pendingReason && d.pendingReason.length > 0) || d.status === 'returned' || d.status === 'failed';
                         if (d.status === 'done' || d.proofPhotoUrl || d.status === 'completed') {
                             deliveredStopsToday++;
-                        } else if (d.status === 'pending' || d.status === 'returned' || d.status === 'failed') {
+                        } else if (isAccPending) {
                             returnedStopsToday++;
                         }
                     });
