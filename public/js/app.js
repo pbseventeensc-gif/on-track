@@ -1775,16 +1775,12 @@ function updateGlobalStats() {
 
         if(document.getElementById('pct-pending')) document.getElementById('pct-pending').innerText = pctOnProgress + "%";
         if(document.getElementById('pbar-pending')) document.getElementById('pbar-pending').style.width = pctOnProgress + "%";
-        const pctReturned = displayTotal > 0 ? Math.round((displayReturned / safeTotal) * 100) : 0;
-
-        if(document.getElementById('pct-delivered')) document.getElementById('pct-delivered').innerText = pctDelivered + "%";
-        if(document.getElementById('pbar-delivered')) document.getElementById('pbar-delivered').style.width = pctDelivered + "%";
-
-        if(document.getElementById('pct-pending')) document.getElementById('pct-pending').innerText = pctPending + "%";
-        if(document.getElementById('pbar-pending')) document.getElementById('pbar-pending').style.width = pctPending + "%";
 
         if(document.getElementById('pct-returned')) document.getElementById('pct-returned').innerText = pctReturned + "%";
         if(document.getElementById('pbar-returned')) document.getElementById('pbar-returned').style.width = pctReturned + "%";
+
+        const deliveryRate = displayTotal > 0 ? Math.round((displayDelivered / displayTotal) * 100) : 0;
+        if(document.getElementById('stat-ontime')) document.getElementById('stat-ontime').innerText = deliveryRate + "%";
 
         const deliveryRate = displayTotal > 0 ? Math.round((displayDelivered / displayTotal) * 100) : 0;
         if(document.getElementById('stat-ontime')) document.getElementById('stat-ontime').innerText = deliveryRate + "%";
