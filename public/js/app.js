@@ -2867,7 +2867,13 @@ function renderRecentShipments(filter = "") {
     }
 
     if (shipmentRows.length === 0) {
-        table.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted extra-small"><i class="bi bi-search me-1"></i> Tidak ada data pengantaran matching filter.</td></tr>`;
+        const isSunday = new Date().getDay() === 0;
+        const isFilteringToday = (!startDateVal && !endDateVal) || (startDateVal === getLocalTodayDateString() && endDateVal === getLocalTodayDateString());
+        const emptyMsg = (isSunday && isFilteringToday)
+            ? "Hari ini hari Minggu (Libur Operasional). Tidak ada jadwal pengiriman kurir aktif."
+            : "Tidak ada data pengiriman yang cocok dengan filter tanggal/status ini.";
+        table.innerHTML = `<tr><td colspan="7" class="text-center py-5 text-muted"><i class="bi bi-calendar2-check fs-2 d-block mb-2 text-secondary"></i>${emptyMsg}</td></tr>`;
+        updateGlobalStats();
         return;
     }
 
@@ -2965,17 +2971,6 @@ function renderRecentShipments(filter = "") {
             </td>
         </tr>`);
     });
-
-    if (shipmentRows.length === 0) {
-        const isSunday = new Date().getDay() === 0;
-        const isFilteringToday = (!startDateVal && !endDateVal) || (startDateVal === getLocalTodayDateString() && endDateVal === getLocalTodayDateString());
-        const emptyMsg = (isSunday && isFilteringToday)
-            ? "Hari ini hari Minggu (Libur Operasional). Tidak ada jadwal pengiriman kurir aktif."
-            : "Tidak ada data pengiriman yang cocok dengan filter yang dipilih.";
-        table.innerHTML = `<tr><td colspan="7" class="text-center py-5 text-muted"><i class="bi bi-calendar2-check fs-2 d-block mb-2 text-secondary"></i>${emptyMsg}</td></tr>`;
-        updateGlobalStats();
-        return;
-    }
 
     table.innerHTML = rowsHtml.join('');
     updateGlobalStats();
