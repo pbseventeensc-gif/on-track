@@ -966,6 +966,7 @@
                                 <input type="date" id="rep-end-date" class="form-control form-control-sm border" style="border-radius: 8px; width: 145px;" onchange="loadFullHistory()">
                             </div>
                             <button class="btn btn-outline-dark fw-bold px-3 btn-sm" style="border-radius: 8px;" onclick="exportToExcel()"><i class="bi bi-download me-1"></i> Excel</button>
+                            <button class="btn btn-outline-danger fw-bold px-3 btn-sm" style="border-radius: 8px;" onclick="purgePastMonthsTripsFromDb(true)" title="Hapus riwayat tugas bulan lalu agar dashboard ringan"><i class="bi bi-calendar-x me-1"></i> Bersihkan Bulan Lalu</button>
                             <button class="btn btn-danger fw-bold px-3 btn-sm" style="border-radius: 8px;" onclick="clearAllHistory()"><i class="bi bi-trash me-1"></i> Hapus Semua</button>
                         </div>
                     </div>

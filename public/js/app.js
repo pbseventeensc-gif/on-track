@@ -1555,6 +1555,83 @@ function initRtdbListener() {
 }
 initRtdbListener();
 
+function getTripTimestamp(t) {
+    if (!t) return 0;
+    if (t.date?.toDate) return t.date.toDate().getTime();
+    if (t.date?.seconds) return t.date.seconds * 1000;
+    if (typeof t.date === 'string') {
+        const d = new Date(t.date);
+        if (!isNaN(d.getTime())) return d.getTime();
+    }
+    if (t.id && t.id.startsWith('TRIP_')) {
+        const num = parseInt(t.id.replace('TRIP_', ''));
+        if (!isNaN(num)) return num;
+    }
+    return 0;
+}
+
+async function purgePastMonthsTripsFromDb(manual = false) {
+    try {
+        const activeDb = getDb();
+        if (!activeDb) return;
+
+        const now = new Date();
+        const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0).getTime();
+        const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+        if (!manual) {
+            const lastPurge = localStorage.getItem('wtrack_last_auto_purge');
+            if (lastPurge === currentMonthKey) {
+                return; // Sudah otomatis dibersihkan untuk bulan ini
+            }
+        } else {
+            if (!confirm("Bersihkan seluruh riwayat tugas dari bulan-bulan sebelumnya di database Firestore? (Data foto aman di Google Drive)")) {
+                return;
+            }
+        }
+
+        const snap = await activeDb.collection('trips').get();
+        if (snap.empty) {
+            if (manual) showToast("Database trips kosong.");
+            return;
+        }
+
+        const docsToDelete = [];
+        snap.forEach(doc => {
+            const t = doc.data();
+            t.id = doc.id;
+            const tripTime = getTripTimestamp(t);
+            // Hapus jika bertanggal sebelum bulan ini dan sudah selesai
+            if (tripTime > 0 && tripTime < startOfCurrentMonth && (t.status === 'completed' || t.status === 'canceled')) {
+                docsToDelete.push(doc.ref);
+            }
+        });
+
+        if (docsToDelete.length === 0) {
+            if (manual) showToast("✅ Tidak ada data trip bulan lalu. Database sudah bersih!");
+            localStorage.setItem('wtrack_last_auto_purge', currentMonthKey);
+            return;
+        }
+
+        // Firestore batch max 500 per commit
+        const BATCH_SIZE = 400;
+        for (let i = 0; i < docsToDelete.length; i += BATCH_SIZE) {
+            const batch = activeDb.batch();
+            const chunk = docsToDelete.slice(i, i + BATCH_SIZE);
+            chunk.forEach(ref => batch.delete(ref));
+            await batch.commit();
+        }
+
+        localStorage.setItem('wtrack_last_auto_purge', currentMonthKey);
+        console.log(`[Auto-Purge] Berhasil membersihkan ${docsToDelete.length} trip bulan lalu dari Firestore.`);
+        showToast(`🧹 ${docsToDelete.length} trip riwayat bulan lalu berhasil dibersihkan dari database! Dashboard kini lebih ringan.`);
+    } catch (e) {
+        console.error("Purge past trips error:", e);
+        if (manual) alert("Gagal membersihkan data lama: " + e.message);
+    }
+}
+window.purgePastMonthsTripsFromDb = purgePastMonthsTripsFromDb;
+
 function initTripsSnapshot() {
     const activeDb = getDb();
     if (!activeDb) {
@@ -1564,12 +1641,23 @@ function initTripsSnapshot() {
 
     activeDb.collection('trips').onSnapshot(snap => {
         const trips = [];
+        const now = new Date();
+        const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0).getTime();
+
         snap.forEach(doc => {
             const t = doc.data();
             t.id = doc.id;
             if (t.status === 'assigned') {
                 t.status = 'in_progress';
             }
+
+            // Batasi memori dashboard HANYA untuk bulan berjalan!
+            // Trip selesai dari bulan lalu dilewati agar browser PC RAM 4GB super ringan
+            const tripTime = getTripTimestamp(t);
+            if (tripTime > 0 && tripTime < startOfCurrentMonth && (t.status === 'completed' || t.status === 'canceled')) {
+                return;
+            }
+
             trips.push(t);
         });
         allCurrentTrips = trips;
@@ -1578,11 +1666,15 @@ function initTripsSnapshot() {
         renderRecentShipments();
         if (typeof renderMonitorUI === 'function') renderMonitorUI();
         if (typeof refreshMapSizes === 'function') refreshMapSizes();
+
+        // Jalankan auto-purge bulan lalu di latar belakang jika admin sedang aktif
+        setTimeout(() => purgePastMonthsTripsFromDb(false), 3000);
     }, err => {
         console.error("Firestore trips snapshot error:", err);
     });
 }
 initTripsSnapshot();
+
 
 let isUpdatingStats = false;
 

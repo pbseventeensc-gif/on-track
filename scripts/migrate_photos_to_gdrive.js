@@ -132,8 +132,25 @@ async function uploadToGoogleDriveScript(item) {
     }
 
     try {
+        // 1. Download image from source URL
+        const imgRes = await fetch(item.sourceUrl, {
+            headers: { 'User-Agent': 'Mozilla/5.0' }
+        });
+
+        if (imgRes.status === 401 || imgRes.status === 404) {
+            return { status: 'skipped', error: `HTTP ${imgRes.status} (Akun Cloudinary lama tidak aktif)` };
+        }
+        if (!imgRes.ok) {
+            return { status: 'error', error: `HTTP ${imgRes.status}` };
+        }
+
+        const buffer = await imgRes.arrayBuffer();
+        const contentType = imgRes.headers.get('content-type') || 'image/jpeg';
+        const base64Data = Buffer.from(buffer).toString('base64');
+
         const payload = {
-            imageUrl: item.sourceUrl,
+            base64Data: base64Data,
+            contentType: contentType,
             filename: item.filename,
             folderDate: item.folderDate,
             monthFolder: item.monthFolder
@@ -160,25 +177,35 @@ async function uploadToGoogleDriveScript(item) {
 }
 
 async function main() {
-    console.log('=== Memulai Scan Foto WTrack ===');
+    console.log('=== Memulai Scan & Migrasi Foto ke Google Drive 5TB ===');
     const trips = await fetchAllTrips();
-    console.log(`Berhasil mengambil ${trips.length} data trips.`);
+    console.log(`Berhasil mengambil ${trips.length} data trips dari Firestore.`);
 
     const queue = extractPhotosFromTrips(trips);
-    console.log(`Total foto yang siap dipindahkan: ${queue.length} file.`);
-    console.log(`Foto yang sudah pernah dipindahkan sebelumnya: ${Object.keys(migrationMap).length} file.`);
+    console.log(`Total foto terdeteksi: ${queue.length} file.`);
+    console.log(`Foto yang sudah ada di database map: ${Object.keys(migrationMap).length} file.`);
+
+    // Sort queue descending: Tanggal terbaru (Oktober 2026) diproses terlebih dahulu
+    queue.sort((a, b) => {
+        const parseD = s => {
+            const p = s.split('-');
+            return new Date(p[2], p[1] - 1, p[0]).getTime();
+        };
+        return parseD(b.folderDate) - parseD(a.folderDate);
+    });
 
     const remaining = queue.filter(item => !migrationMap[item.sourceUrl]);
-    console.log(`Sisa yang perlu dipindahkan sekarang: ${remaining.length} file.`);
+    console.log(`Sisa yang akan dimigrasikan: ${remaining.length} file.`);
 
     if (remaining.length === 0) {
         console.log('Semua foto sudah 100% tersimpan di Google Drive!');
         return;
     }
 
-    // Process in batches
-    const BATCH_SIZE = 3;
+    // Process in batches of 2 with short cooldown
+    const BATCH_SIZE = 2;
     let successCount = 0;
+    let skippedCount = 0;
     let failedCount = 0;
 
     for (let i = 0; i < remaining.length; i += BATCH_SIZE) {
@@ -190,23 +217,30 @@ async function main() {
             const currentNum = i + idx + 1;
             if (r.status === 'success') {
                 successCount++;
-                console.log(`[${currentNum}/${remaining.length}] ✅ Berhasil: ${currentItem.folderDate} -> ${currentItem.filename}`);
+                console.log(`[${currentNum}/${remaining.length}] ✅ [${currentItem.folderDate}] ${currentItem.filename} -> Google Drive OK`);
             } else if (r.status === 'already_migrated') {
                 console.log(`[${currentNum}/${remaining.length}] ⏩ Sudah ada: ${currentItem.filename}`);
+            } else if (r.status === 'skipped') {
+                skippedCount++;
+                console.warn(`[${currentNum}/${remaining.length}] ⚠️ Dilewati: ${currentItem.filename} (${r.error})`);
             } else {
                 failedCount++;
                 console.warn(`[${currentNum}/${remaining.length}] ❌ Gagal: ${currentItem.filename} (${r.error})`);
             }
         });
 
-        // Small delay to be polite to Google Apps Script rate limits
-        await new Promise(res => setTimeout(res, 300));
+        // Simpan map setiap batch
+        saveMap();
+
+        // Jeda 400ms antar batch agar aman terhadap rate-limit Google Apps Script
+        await new Promise(res => setTimeout(res, 400));
     }
 
     console.log('\n=== Migrasi Selesai ===');
-    console.log(`Sukses: ${successCount}`);
+    console.log(`Sukses Disimpan ke Drive: ${successCount}`);
+    console.log(`Dilewati (Akun Cloudinary Lama 401): ${skippedCount}`);
     console.log(`Gagal: ${failedCount}`);
-    console.log(`Total di Database Map: ${Object.keys(migrationMap).length}`);
+    console.log(`Total Foto Terdaftar di Google Drive: ${Object.keys(migrationMap).length}`);
 }
 
 module.exports = {
