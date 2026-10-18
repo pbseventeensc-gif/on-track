@@ -1208,86 +1208,93 @@ async function ensureMasterClientsSeeded() {
     }
 }
 
-async function loadClientsByRegion(region) {
+let cachedAllClients = null;
+
+async function loadClientsByRegion(region, forceRefresh = false) {
     const container = document.getElementById('client-list-container');
     const activeDb = getDb();
     if(!container || !activeDb) return;
     const sa = document.getElementById('select-all-clients');
     if(sa) sa.checked = false;
 
-    await ensureMasterClientsSeeded();
-
-    container.innerHTML = '<p class="text-center py-3 text-muted extra-small">Fetching clients...</p>';
-
-    try {
-        const snap = await activeDb.collection('clients').get();
-        allClients = [];
-        container.innerHTML = '';
-
-        if(snap.empty) {
-            const qtyEl = document.getElementById('client-qty');
-            if(qtyEl) qtyEl.innerText = "0";
-            container.innerHTML = '<p class="text-center py-3 text-muted extra-small">Belum ada database toko/client.</p>';
+    if (!cachedAllClients || forceRefresh) {
+        container.innerHTML = '<p class="text-center py-3 text-muted extra-small">Fetching clients...</p>';
+        try {
+            const snap = await activeDb.collection('clients').get();
+            cachedAllClients = [];
+            snap.forEach(doc => {
+                const c = doc.data();
+                c.id = doc.id;
+                cachedAllClients.push(c);
+            });
+        } catch (e) {
+            console.error("Error loading clients:", e);
+            container.innerHTML = '<p class="text-center py-3 text-danger extra-small">Gagal memuat daftar toko.</p>';
             return;
         }
+    }
 
-        const selectedRegion = (region || '').toLowerCase().trim();
-        let matchCount = 0;
-
-        snap.forEach(doc => {
-            const c = doc.data();
-            c.id = doc.id;
-
-            const clientRegion = (c.region || '').toLowerCase().trim();
-            const clientAddress = (c.address || '').toLowerCase();
-
-            if (selectedRegion) {
-                const isMatch = clientRegion === selectedRegion ||
-                                clientRegion.includes(selectedRegion) ||
-                                clientAddress.includes(selectedRegion);
-                if (!isMatch) return;
-            }
-
-            matchCount++;
-            allClients.push(c);
-
-            const addressParts = (c.address || '').split(',');
-            const storeName = addressParts[0].trim();
-            const remainingAddress = addressParts.slice(1).join(',').trim();
-
-            const escName = (c.name || '').replace(/"/g, '&quot;');
-            const escStore = storeName.replace(/"/g, '&quot;');
-            const escAddr = (c.address || '').replace(/"/g, '&quot;');
-
-            container.innerHTML += `
-                <div class="d-flex align-items-center gap-2 mb-2 p-2 bg-white rounded border shadow-sm position-relative group-hover">
-                    <input type="checkbox" class="client-checkbox"
-                        data-name="${escStore}"
-                        data-pt="${escName}"
-                        data-address="${escAddr}"
-                        data-lat="${c.latitude}"
-                        data-lng="${c.longitude}">
-                    <div class="overflow-hidden flex-grow-1">
-                        <div class="fw-bold text-dark" style="font-size: 0.75rem; line-height: 1.2;">${storeName}</div>
-                        <div class="text-muted mt-1" style="font-size: 0.65rem; font-weight: 600;">${c.name}</div>
-                        <div class="text-muted text-truncate" style="font-size: 0.6rem; max-width: 180px;">${remainingAddress || c.address}</div>
-                    </div>
-                    <button class="btn btn-link text-danger p-1" data-id="${c.id}" data-store="${escStore}" onclick="deleteClient(this.dataset.id, this.dataset.store)">
-                        <i class="bi bi-trash" style="font-size: 0.8rem;"></i>
-                    </button>
-                </div>
-            `;
-        });
-
+    allClients = [];
+    if (!cachedAllClients || cachedAllClients.length === 0) {
         const qtyEl = document.getElementById('client-qty');
-        if(qtyEl) qtyEl.innerText = matchCount;
+        if(qtyEl) qtyEl.innerText = "0";
+        container.innerHTML = '<p class="text-center py-3 text-muted extra-small">Belum ada database toko/client.</p>';
+        return;
+    }
 
-        if(matchCount === 0) {
-            container.innerHTML = '<p class="text-center py-3 text-muted extra-small">Tidak ada toko/client di area ini.</p>';
+    const selectedRegion = (region || '').toLowerCase().trim();
+    let matchCount = 0;
+    const htmlChunks = [];
+
+    cachedAllClients.forEach(c => {
+        const clientRegion = (c.region || '').toLowerCase().trim();
+        const clientAddress = (c.address || '').toLowerCase();
+
+        if (selectedRegion) {
+            const isMatch = clientRegion === selectedRegion ||
+                            clientRegion.includes(selectedRegion) ||
+                            clientAddress.includes(selectedRegion);
+            if (!isMatch) return;
         }
-    } catch (e) {
-        console.error("Error loading clients:", e);
-        container.innerHTML = '<p class="text-center py-3 text-danger extra-small">Gagal memuat daftar toko.</p>';
+
+        matchCount++;
+        allClients.push(c);
+
+        const addressParts = (c.address || '').split(',');
+        const storeName = addressParts[0].trim();
+        const remainingAddress = addressParts.slice(1).join(',').trim();
+
+        const escName = (c.name || '').replace(/"/g, '&quot;');
+        const escStore = storeName.replace(/"/g, '&quot;');
+        const escAddr = (c.address || '').replace(/"/g, '&quot;');
+
+        htmlChunks.push(`
+            <div class="d-flex align-items-center gap-2 mb-2 p-2 bg-white rounded border shadow-sm position-relative group-hover">
+                <input type="checkbox" class="client-checkbox"
+                    data-name="${escStore}"
+                    data-pt="${escName}"
+                    data-address="${escAddr}"
+                    data-lat="${c.latitude}"
+                    data-lng="${c.longitude}">
+                <div class="overflow-hidden flex-grow-1">
+                    <div class="fw-bold text-dark" style="font-size: 0.75rem; line-height: 1.2;">${storeName}</div>
+                    <div class="text-muted mt-1" style="font-size: 0.65rem; font-weight: 600;">${c.name}</div>
+                    <div class="text-muted text-truncate" style="font-size: 0.6rem; max-width: 180px;">${remainingAddress || c.address}</div>
+                </div>
+                <button class="btn btn-link text-danger p-1" data-id="${c.id}" data-store="${escStore}" onclick="deleteClient(this.dataset.id, this.dataset.store)">
+                    <i class="bi bi-trash" style="font-size: 0.8rem;"></i>
+                </button>
+            </div>
+        `);
+    });
+
+    const qtyEl = document.getElementById('client-qty');
+    if(qtyEl) qtyEl.innerText = matchCount;
+
+    if(matchCount === 0) {
+        container.innerHTML = '<p class="text-center py-3 text-muted extra-small">Tidak ada toko/client di area ini.</p>';
+    } else {
+        container.innerHTML = htmlChunks.join('');
     }
 }
 
@@ -2033,40 +2040,35 @@ async function uploadFileToCloudinaryOrFirebase(file) {
     const targetFile = (file && file.type && file.type.startsWith('image/')) ? await compressImageFile(file, 1000, 0.7) : file;
     if (!targetFile) return "";
 
+    // 1. Primary: Google Drive 5TB Storage
     const scriptUrl = getGdriveScriptUrl();
     if (scriptUrl) {
         try {
             const gdriveUrl = await uploadToGoogleDrive(targetFile);
             if (gdriveUrl) return gdriveUrl;
         } catch (e) {
-            console.warn("Google Drive Web App upload warning, falling back to Cloudinary:", e);
+            console.warn("Google Drive upload warning, attempting Firebase Storage fallback:", e);
         }
     }
 
+    // 2. Secondary: Firebase Storage
+    try {
+        const activeStorage = (typeof firebase !== 'undefined' && firebase.storage) ? firebase.storage() : null;
+        if (activeStorage) {
+            const ext = targetFile.type?.includes('png') ? 'png' : 'jpg';
+            const ref = activeStorage.ref().child(`proofs/${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`);
+            const snapshot = await ref.put(targetFile);
+            const downloadUrl = await snapshot.ref.getDownloadURL();
+            if (downloadUrl) return downloadUrl;
+        }
+    } catch(e) {
+        console.warn("Firebase Storage fallback warning:", e);
+    }
+
+    // 3. Fallback: Data URL
     return new Promise((resolve) => {
         const reader = new FileReader();
-        reader.onload = (evt) => {
-            const dataUrl = evt.target.result;
-            try {
-                const formData = new FormData();
-                formData.append("file", targetFile);
-                formData.append("upload_preset", "KurirTrack");
-                formData.append("folder", "wellen_proofs");
-
-                fetch("https://api.cloudinary.com/v1_1/dgf3shxpf/image/upload", {
-                    method: "POST",
-                    body: formData
-                }).then(res => res.json()).then(data => {
-                    if (data && data.secure_url) {
-                        resolve(data.secure_url);
-                    } else {
-                        resolve(dataUrl);
-                    }
-                }).catch(() => resolve(dataUrl));
-            } catch(e) {
-                resolve(dataUrl);
-            }
-        };
+        reader.onload = (evt) => resolve(evt.target.result || "");
         reader.onerror = () => resolve("");
         reader.readAsDataURL(targetFile);
     });

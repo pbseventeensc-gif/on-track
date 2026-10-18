@@ -1345,32 +1345,24 @@ private fun uploadSinglePhotoBytes(storage: FirebaseStorage, bytes: ByteArray, o
             handler.removeCallbacks(timeoutRunnable)
             safeComplete(gdriveUrl)
         } else {
-            // 2. Secondary fallback: Cloudinary
-            uploadToCloudinaryFallback(bytes) { cloudUrl ->
-                if (!cloudUrl.isNullOrEmpty()) {
-                    handler.removeCallbacks(timeoutRunnable)
-                    safeComplete(cloudUrl)
-                } else {
-                    // 3. Tertiary fallback: Firebase Storage
-                    try {
-                        val ref = storage.reference.child("proofs/${UUID.randomUUID()}.jpg")
-                        ref.putBytes(bytes).addOnSuccessListener {
-                            ref.downloadUrl.addOnSuccessListener { uri ->
-                                handler.removeCallbacks(timeoutRunnable)
-                                safeComplete(uri.toString())
-                            }.addOnFailureListener {
-                                handler.removeCallbacks(timeoutRunnable)
-                                safeComplete(null)
-                            }
-                        }.addOnFailureListener {
-                            handler.removeCallbacks(timeoutRunnable)
-                            safeComplete(null)
-                        }
-                    } catch (e: Exception) {
+            // 2. Secondary fallback: Firebase Storage (Cloudinary removed)
+            try {
+                val ref = storage.reference.child("proofs/${UUID.randomUUID()}.jpg")
+                ref.putBytes(bytes).addOnSuccessListener {
+                    ref.downloadUrl.addOnSuccessListener { uri ->
+                        handler.removeCallbacks(timeoutRunnable)
+                        safeComplete(uri.toString())
+                    }.addOnFailureListener {
                         handler.removeCallbacks(timeoutRunnable)
                         safeComplete(null)
                     }
+                }.addOnFailureListener {
+                    handler.removeCallbacks(timeoutRunnable)
+                    safeComplete(null)
                 }
+            } catch (e: Exception) {
+                handler.removeCallbacks(timeoutRunnable)
+                safeComplete(null)
             }
         }
     }
