@@ -1898,8 +1898,15 @@ async function compressImageFile(file, maxDimension = 1000, quality = 0.7) {
     });
 }
 
+const DEFAULT_GDRIVE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwvx6J8im78IZ9hpMHSgDCrNp6UblxDs49uFyu-AokUSdfwT3tVWiJfGHh0nafTupw_/exec";
+
+function getGdriveScriptUrl() {
+    return localStorage.getItem('gdrive_script_url') || DEFAULT_GDRIVE_SCRIPT_URL;
+}
+window.getGdriveScriptUrl = getGdriveScriptUrl;
+
 async function uploadToGoogleDrive(file) {
-    const scriptUrl = localStorage.getItem('gdrive_script_url');
+    const scriptUrl = getGdriveScriptUrl();
     if (!scriptUrl) throw new Error("Google Drive Script URL not configured");
 
     const base64Data = await new Promise((resolve) => {
@@ -1914,6 +1921,9 @@ async function uploadToGoogleDrive(file) {
 
     const response = await fetch(scriptUrl, {
         method: 'POST',
+        headers: {
+            'Content-Type': 'text/plain;charset=utf-8'
+        },
         body: JSON.stringify({
             filename: file.name || 'proof.jpg',
             contentType: file.type || 'image/jpeg',
@@ -1931,7 +1941,7 @@ async function uploadFileToCloudinaryOrFirebase(file) {
     const targetFile = (file && file.type && file.type.startsWith('image/')) ? await compressImageFile(file, 1000, 0.7) : file;
     if (!targetFile) return "";
 
-    const scriptUrl = localStorage.getItem('gdrive_script_url');
+    const scriptUrl = getGdriveScriptUrl();
     if (scriptUrl) {
         try {
             const gdriveUrl = await uploadToGoogleDrive(targetFile);

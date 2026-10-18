@@ -1255,6 +1255,70 @@ private fun uploadCategorizedPhotosAndUpdate(
     }
 }
 
+private fun uploadToGoogleDriveFallback(bytes: ByteArray, scriptUrl: String, onComplete: (String?) -> Unit) {
+    Thread {
+        try {
+            val base64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+            val json = org.json.JSONObject().apply {
+                put("filename", "proof_${System.currentTimeMillis()}.jpg")
+                put("contentType", "image/jpeg")
+                put("base64Data", base64)
+            }
+
+            var targetUrl = scriptUrl
+            var redirectCount = 0
+            var finalUrl: String? = null
+
+            while (redirectCount < 5 && targetUrl.isNotEmpty()) {
+                val conn = java.net.URL(targetUrl).openConnection() as java.net.HttpURLConnection
+                conn.connectTimeout = 30000
+                conn.readTimeout = 30000
+                conn.instanceFollowRedirects = false
+
+                if (redirectCount == 0) {
+                    conn.requestMethod = "POST"
+                    conn.setRequestProperty("Content-Type", "text/plain;charset=utf-8")
+                    conn.doOutput = true
+                    conn.outputStream.use { os ->
+                        os.write(json.toString().toByteArray(Charsets.UTF_8))
+                    }
+                } else {
+                    conn.requestMethod = "GET"
+                }
+
+                val code = conn.responseCode
+                if (code == java.net.HttpURLConnection.HTTP_MOVED_TEMP || code == java.net.HttpURLConnection.HTTP_MOVED_PERM || code == 307 || code == 308) {
+                    val loc = conn.getHeaderField("Location")
+                    if (!loc.isNullOrEmpty()) {
+                        targetUrl = loc
+                        redirectCount++
+                        continue
+                    }
+                }
+
+                if (code in 200..299) {
+                    val respText = conn.inputStream.bufferedReader().use { it.readText() }
+                    try {
+                        val respJson = org.json.JSONObject(respText)
+                        if (respJson.optString("status") == "success") {
+                            finalUrl = respJson.optString("url")
+                        }
+                    } catch (_: Exception) {}
+                }
+                break
+            }
+
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                onComplete(finalUrl)
+            }
+        } catch (e: Exception) {
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                onComplete(null)
+            }
+        }
+    }.start()
+}
+
 private fun uploadSinglePhotoBytes(storage: FirebaseStorage, bytes: ByteArray, onComplete: (String?) -> Unit) {
     var completed = false
     val lock = Any()
@@ -1271,32 +1335,42 @@ private fun uploadSinglePhotoBytes(storage: FirebaseStorage, bytes: ByteArray, o
     val timeoutRunnable = Runnable {
         safeComplete(null)
     }
-    handler.postDelayed(timeoutRunnable, 30000)
+    handler.postDelayed(timeoutRunnable, 35000)
 
-    // Primary: Cloudinary (Fast, direct unsigned preset, reliable on mobile data)
-    uploadToCloudinaryFallback(bytes) { cloudUrl ->
-        if (!cloudUrl.isNullOrEmpty()) {
+    val gdriveScriptUrl = "https://script.google.com/macros/s/AKfycbwvx6J8im78IZ9hpMHSgDCrNp6UblxDs49uFyu-AokUSdfwT3tVWiJfGHh0nafTupw_/exec"
+
+    // 1. Primary: Google Drive (5TB subscription storage)
+    uploadToGoogleDriveFallback(bytes, gdriveScriptUrl) { gdriveUrl ->
+        if (!gdriveUrl.isNullOrEmpty()) {
             handler.removeCallbacks(timeoutRunnable)
-            safeComplete(cloudUrl)
+            safeComplete(gdriveUrl)
         } else {
-            // Secondary fallback: Firebase Storage
-            try {
-                val ref = storage.reference.child("proofs/${UUID.randomUUID()}.jpg")
-                ref.putBytes(bytes).addOnSuccessListener {
-                    ref.downloadUrl.addOnSuccessListener { uri ->
-                        handler.removeCallbacks(timeoutRunnable)
-                        safeComplete(uri.toString())
-                    }.addOnFailureListener {
+            // 2. Secondary fallback: Cloudinary
+            uploadToCloudinaryFallback(bytes) { cloudUrl ->
+                if (!cloudUrl.isNullOrEmpty()) {
+                    handler.removeCallbacks(timeoutRunnable)
+                    safeComplete(cloudUrl)
+                } else {
+                    // 3. Tertiary fallback: Firebase Storage
+                    try {
+                        val ref = storage.reference.child("proofs/${UUID.randomUUID()}.jpg")
+                        ref.putBytes(bytes).addOnSuccessListener {
+                            ref.downloadUrl.addOnSuccessListener { uri ->
+                                handler.removeCallbacks(timeoutRunnable)
+                                safeComplete(uri.toString())
+                            }.addOnFailureListener {
+                                handler.removeCallbacks(timeoutRunnable)
+                                safeComplete(null)
+                            }
+                        }.addOnFailureListener {
+                            handler.removeCallbacks(timeoutRunnable)
+                            safeComplete(null)
+                        }
+                    } catch (e: Exception) {
                         handler.removeCallbacks(timeoutRunnable)
                         safeComplete(null)
                     }
-                }.addOnFailureListener {
-                    handler.removeCallbacks(timeoutRunnable)
-                    safeComplete(null)
                 }
-            } catch (e: Exception) {
-                handler.removeCallbacks(timeoutRunnable)
-                safeComplete(null)
             }
         }
     }
