@@ -2155,10 +2155,13 @@ async function submitTrip() {
 
         const id = "TRIP_" + Date.now();
         const statusToUse = cid ? "in_progress" : "pool";
+        const vehicleTypeEl = document.querySelector('input[name="dispatch-vehicle-type"]:checked');
+        const vehicleType = vehicleTypeEl ? vehicleTypeEl.value : "motor";
 
         await activeDb.collection('trips').doc(id).set({
             tripId: id,
             courierId: cid,
+            vehicleType: vehicleType,
             status: statusToUse,
             region: tripRegion,
             date: firebase.firestore.Timestamp.now(),

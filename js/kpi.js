@@ -209,6 +209,12 @@ function renderKPIView(filter = "") {
         return true;
     });
 
+    // 1. Filter Armada Pengantaran (Vehicle Type: all | motor | mobil)
+    const activeVehicleFilter = document.getElementById('kpi-vehicle-filter')?.value || 'all';
+    if (activeVehicleFilter !== 'all') {
+        filteredTrips = filteredTrips.filter(t => (t.vehicleType || 'motor') === activeVehicleFilter);
+    }
+
     const courierStats = {};
     let totalCompleted = 0;
     let grandTotalKM = 0;
@@ -239,9 +245,24 @@ function parseTimestampToMs(timeObj) {
                 completedStops: 0,
                 totalStops: 0,
                 totalKM: 0,
-                totalTime: 0
+                totalTime: 0,
+                motorTrips: 0,
+                mobilTrips: 0,
+                regionsVisited: new Set(),
+                hasHeavyCargo: false
             };
         }
+
+        const vType = t.vehicleType || 'motor';
+        if (vType === 'mobil') {
+            courierStats[cId].mobilTrips++;
+            if (t.adminBulkSjUrl || (Array.isArray(t.adminBulkSjUrls) && t.adminBulkSjUrls.length > 0)) {
+                courierStats[cId].hasHeavyCargo = true;
+            }
+        } else {
+            courierStats[cId].motorTrips++;
+        }
+        if (t.region) courierStats[cId].regionsVisited.add(t.region);
 
         let actualTripKM = 0;
         if (t.destinations && t.destinations.length > 0) {
@@ -373,7 +394,11 @@ function parseTimestampToMs(timeObj) {
     }
     const topSubEl = document.getElementById('kpi-top-subtitle');
     if (topSubEl) {
-        if (currentStatMetric === 'km') {
+        if (activeVehicleFilter === 'motor') {
+            topSubEl.innerHTML = `<i class="bi bi-bicycle me-1 text-primary"></i> Top Kurir Motor (${topCompleted} Selesai)`;
+        } else if (activeVehicleFilter === 'mobil') {
+            topSubEl.innerHTML = `<i class="bi bi-truck me-1 text-primary"></i> Top Driver Mobil (${topKM.toFixed(1)} km)`;
+        } else if (currentStatMetric === 'km') {
             topSubEl.innerHTML = `<i class="bi bi-geo-alt-fill me-1"></i> Terjauh (${topKM.toFixed(1)} km)`;
         } else {
             topSubEl.innerHTML = `<i class="bi bi-star-fill me-1"></i> MVP (${topCompleted} Selesai)`;
@@ -385,6 +410,9 @@ function parseTimestampToMs(timeObj) {
     if (document.getElementById('kpi-total-km')) {
         document.getElementById('kpi-total-km').innerText = `${topKM.toFixed(1)} km`;
     }
+
+    // Render Achievement Showcase Badges
+    renderAchievementsShowcase(displayCouriers, activeVehicleFilter);
 
     window.courierPodStore = {};
     const tableRowsHtml = [];
@@ -475,8 +503,30 @@ function parseTimestampToMs(timeObj) {
         const mins = Math.round(c.totalTime % 60);
         const durationStr = hours > 0 ? `${hours}j ${mins}m` : `${mins}m`;
 
+        // Calculate badges
+        const badges = [];
+        if (c.completedStops >= 20) badges.push('<span class="badge bg-warning-subtle text-warning-emphasis extra-small" style="font-size:0.62rem;" title="Drop Master: 20+ Titik Selesai">🛵 Drop Master</span>');
+        if (c.totalKM >= 80) badges.push('<span class="badge bg-primary-subtle text-primary-emphasis extra-small" style="font-size:0.62rem;" title="Kilometer King: 80+ KM">🛣️ Km King</span>');
+        if (c.totalStops >= 5 && c.completedStops >= c.totalStops) badges.push('<span class="badge bg-success-subtle text-success-emphasis extra-small" style="font-size:0.62rem;" title="Zero Pending: 100% Selesai">🎯 Zero Pending</span>');
+        if (c.completedStops >= 5 && (c.totalTime / c.completedStops) <= 25) badges.push('<span class="badge bg-info-subtle text-info-emphasis extra-small" style="font-size:0.62rem;" title="Speed Runner: Cepat">⚡ Speed Runner</span>');
+        if (c.regionsVisited && c.regionsVisited.size >= 2) badges.push('<span class="badge text-white extra-small" style="background-color:#8b5cf6; font-size:0.62rem;" title="Road Captain: Lintas Wilayah">🧭 Road Captain</span>');
+        if (c.mobilTrips > 0 && c.hasHeavyCargo) badges.push('<span class="badge bg-danger-subtle text-danger-emphasis extra-small" style="font-size:0.62rem;" title="Heavy Cargo: Muatan Mobil Tuntas">📦 Heavy Cargo</span>');
+
+        const vehicleBadge = c.mobilTrips > c.motorTrips 
+            ? '<span class="badge bg-primary-subtle text-primary border border-primary-subtle extra-small px-1.5 py-0.5 me-1" style="font-size:0.65rem;"><i class="bi bi-truck me-0.5"></i>Mobil</span>'
+            : '<span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle extra-small px-1.5 py-0.5 me-1" style="font-size:0.65rem;"><i class="bi bi-bicycle me-0.5"></i>Motor</span>';
+
+        const badgesHtml = badges.length > 0 ? `<div class="d-flex flex-wrap gap-1 mt-1">${badges.join('')}</div>` : '';
+
         tableRowsHtml.push(`<tr>
-            <td class="fw-semibold text-dark">${c.name} ${podBtnHtml}</td>
+            <td class="fw-semibold text-dark">
+                <div class="d-flex align-items-center flex-wrap">
+                    ${vehicleBadge}
+                    <span>${c.name}</span>
+                    ${podBtnHtml}
+                </div>
+                ${badgesHtml}
+            </td>
             <td><span class="badge-pill ${isOnline ? 'badge-delivered' : 'badge-delayed'} fw-normal">${isOnline ? 'Active' : 'Offline'}</span></td>
             <td><span class="fw-semibold">${c.completedStops}</span> / <span class="text-muted">${c.totalStops}</span></td>
             <td><i class="bi bi-star-fill text-warning me-1"></i> <span class="fw-semibold">${stars.toFixed(1)}</span></td>
@@ -488,6 +538,114 @@ function parseTimestampToMs(timeObj) {
     tbody.innerHTML = tableRowsHtml.join('');
 
     updateKPICharts(displayCouriers, filteredTrips);
+}
+
+function renderAchievementsShowcase(couriers, vehicleFilter) {
+    const container = document.getElementById('kpi-achievements-container');
+    if (!container) return;
+
+    if (!couriers || couriers.length === 0) {
+        container.innerHTML = '<div class="col-12 text-center text-muted py-3 extra-small">Belum ada data pencapaian untuk filter armada ini.</div>';
+        return;
+    }
+
+    // 1. Drop Master: Most completed stops (motor focus)
+    let dropMaster = couriers.slice().sort((a,b) => (b.completedStops || 0) - (a.completedStops || 0))[0];
+    if (dropMaster && dropMaster.completedStops === 0) dropMaster = null;
+
+    // 2. Kilometer King: Longest distance (mobil focus)
+    let kmKing = couriers.slice().sort((a,b) => (b.totalKM || 0) - (a.totalKM || 0))[0];
+    if (kmKing && kmKing.totalKM === 0) kmKing = null;
+
+    // 3. Zero Pending: Best completion rate with min 5 stops
+    let zeroPending = couriers.filter(c => c.totalStops >= 5 && c.completedStops >= c.totalStops).sort((a,b) => b.completedStops - a.completedStops)[0];
+
+    // 4. Speed Runner: Lowest avg minutes per stop (min 5 stops)
+    let speedRunner = couriers.filter(c => c.completedStops >= 5 && c.totalTime > 0).sort((a,b) => (a.totalTime / a.completedStops) - (b.totalTime / b.completedStops))[0];
+
+    // 5. Road Captain: Most regions visited
+    let roadCaptain = couriers.filter(c => c.regionsVisited && c.regionsVisited.size >= 2).sort((a,b) => b.regionsVisited.size - a.regionsVisited.size)[0];
+
+    // 6. Heavy Cargo: Completed mobil trips with bulk cargo
+    let heavyCargo = couriers.filter(c => c.mobilTrips > 0 && c.hasHeavyCargo).sort((a,b) => b.mobilTrips - a.mobilTrips)[0];
+
+    const cards = [
+        {
+            icon: '🛵',
+            title: 'Drop Master',
+            armada: 'Kurir Motor',
+            badgeBg: 'bg-warning-subtle text-warning-emphasis',
+            desc: 'Penyelesai titik antar terbanyak',
+            holder: dropMaster ? `${dropMaster.name} (${dropMaster.completedStops} Selesai)` : 'Belum tercapai',
+            show: vehicleFilter !== 'mobil'
+        },
+        {
+            icon: '🛣️',
+            title: 'Kilometer King',
+            armada: 'Driver Mobil',
+            badgeBg: 'bg-primary-subtle text-primary-emphasis',
+            desc: 'Penjelajah rute jalan terjauh',
+            holder: kmKing ? `${kmKing.name} (${kmKing.totalKM.toFixed(1)} km)` : 'Belum tercapai',
+            show: vehicleFilter !== 'motor'
+        },
+        {
+            icon: '🎯',
+            title: 'Zero Pending',
+            armada: 'Semua Armada',
+            badgeBg: 'bg-success-subtle text-success-emphasis',
+            desc: '100% tuntas tanpa ada kendala/toko tutup',
+            holder: zeroPending ? `${zeroPending.name} (${zeroPending.completedStops} Selesai)` : 'Belum tercapai',
+            show: true
+        },
+        {
+            icon: '⚡',
+            title: 'Speed Runner',
+            armada: 'Kurir Motor',
+            badgeBg: 'bg-info-subtle text-info-emphasis',
+            desc: 'Pengantaran tercepat per titik',
+            holder: speedRunner ? `${speedRunner.name} (~${Math.round(speedRunner.totalTime / speedRunner.completedStops)}m/titik)` : 'Belum tercapai',
+            show: vehicleFilter !== 'mobil'
+        },
+        {
+            icon: '🧭',
+            title: 'Road Captain',
+            armada: 'Driver Mobil',
+            badgeBg: 'text-white',
+            badgeStyle: 'background-color:#8b5cf6;',
+            desc: 'Penguasa rute lintas wilayah luar kota',
+            holder: roadCaptain ? `${roadCaptain.name} (${roadCaptain.regionsVisited.size} Wilayah)` : 'Belum tercapai',
+            show: vehicleFilter !== 'motor'
+        },
+        {
+            icon: '📦',
+            title: 'Heavy Cargo',
+            armada: 'Driver Mobil',
+            badgeBg: 'bg-danger-subtle text-danger-emphasis',
+            desc: 'Pengiriman muatan mobil tuntas',
+            holder: heavyCargo ? `${heavyCargo.name} (${heavyCargo.mobilTrips} Rute)` : 'Belum tercapai',
+            show: vehicleFilter !== 'motor'
+        }
+    ];
+
+    const visibleCards = cards.filter(c => c.show);
+    const colClass = visibleCards.length <= 3 ? 'col-md-4' : 'col-md-4 col-lg-4';
+
+    container.innerHTML = visibleCards.map(c => `
+        <div class="${colClass}">
+            <div class="card h-100 border shadow-sm p-3" style="border-radius: 12px; background: #fafafa;">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="fs-4">${c.icon}</span>
+                    <span class="badge ${c.badgeBg} extra-small fw-semibold px-2 py-1" ${c.badgeStyle ? `style="${c.badgeStyle}"` : ''}>${c.armada}</span>
+                </div>
+                <div class="fw-bold text-dark fs-6 mb-0.5">${c.title}</div>
+                <small class="text-muted extra-small mb-2 d-block" style="font-size: 0.72rem;">${c.desc}</small>
+                <div class="mt-auto pt-2 border-top d-flex align-items-center gap-1 extra-small">
+                    <i class="bi bi-award-fill text-warning"></i>
+                    <span class="fw-bold text-dark text-truncate" title="${c.holder}">${c.holder}</span>
+                </div>
+            </div>
+        </div>
+    `).join('');
 }
 
 function updateKPICharts(data, filteredTrips) {
