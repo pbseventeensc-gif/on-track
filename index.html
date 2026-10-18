@@ -210,6 +210,22 @@
         }
 
         document.addEventListener('DOMContentLoaded', function() {
+            const now = new Date();
+            const y = now.getFullYear();
+            const m = String(now.getMonth() + 1).padStart(2, '0');
+            const d = String(now.getDate()).padStart(2, '0');
+            const todayStr = `${y}-${m}-${d}`;
+
+            const sStart = document.getElementById('recent-start-date');
+            const sEnd = document.getElementById('recent-end-date');
+            if (sStart && !sStart.value) sStart.value = todayStr;
+            if (sEnd && !sEnd.value) sEnd.value = todayStr;
+
+            const aStart = document.getElementById('archive-start-date');
+            const aEnd = document.getElementById('archive-end-date');
+            if (aStart && !aStart.value) aStart.value = todayStr;
+            if (aEnd && !aEnd.value) aEnd.value = todayStr;
+
             if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
                 setTimeout(function() {
                     if (typeof loginAsLocalDemoAdmin === 'function') {
@@ -631,10 +647,11 @@
                                     <div class="d-flex align-items-center gap-1 bg-light border p-1 px-2" style="border-radius: 10px;">
                                         <i class="bi bi-calendar3 text-muted extra-small ms-1"></i>
                                         <span class="extra-small text-muted fw-bold">Dari:</span>
-                                        <input type="date" id="recent-start-date" class="form-control form-control-sm border-0 bg-transparent fw-normal py-1" style="width: 125px; font-size: 0.8rem;" onchange="renderRecentShipments()">
+                                        <input type="date" id="recent-start-date" class="form-control form-control-sm border-0 bg-transparent fw-normal py-1" style="width: 125px; font-size: 0.8rem;" onchange="renderRecentShipments()" oninput="renderRecentShipments()">
                                         <span class="extra-small text-muted fw-bold ms-1">Sampai:</span>
-                                        <input type="date" id="recent-end-date" class="form-control form-control-sm border-0 bg-transparent fw-normal py-1" style="width: 125px; font-size: 0.8rem;" onchange="renderRecentShipments()">
+                                        <input type="date" id="recent-end-date" class="form-control form-control-sm border-0 bg-transparent fw-normal py-1" style="width: 125px; font-size: 0.8rem;" onchange="renderRecentShipments()" oninput="renderRecentShipments()">
                                     </div>
+                                    <button class="btn btn-sm btn-light border py-1 px-2 text-muted fw-semibold" style="border-radius: 10px; font-size: 0.75rem;" onclick="setRecentDateAllTime()" title="Tampilkan Semua Riwayat Tanggal">Semua Tanggal</button>
                                     <select id="recent-carrier-filter" class="form-select form-select-sm fw-normal py-2" style="border-radius: 10px; width: auto; min-width: 135px; font-size: 0.8rem; background: #f8fafc;" onchange="renderRecentShipments()">
                                         <option value="all">Semua Kurir</option>
                                     </select>

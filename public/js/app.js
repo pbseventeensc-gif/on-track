@@ -132,6 +132,88 @@ let notificationItems = [];
 let currentUserRole = "super_admin";
 let currentUserBranchId = "pusat";
 
+function getLocalTodayDateString() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+window.getLocalTodayDateString = getLocalTodayDateString;
+
+function parseDateBoundary(dateVal, isEnd = false) {
+    if (!dateVal || typeof dateVal !== 'string') return null;
+    const trimmed = dateVal.trim();
+    if (!trimmed) return null;
+
+    let y, m, d;
+    if (trimmed.includes('-')) {
+        const parts = trimmed.split('-');
+        if (parts[0].length === 4) {
+            y = parseInt(parts[0], 10);
+            m = parseInt(parts[1], 10) - 1;
+            d = parseInt(parts[2], 10);
+        } else {
+            d = parseInt(parts[0], 10);
+            m = parseInt(parts[1], 10) - 1;
+            y = parseInt(parts[2], 10);
+        }
+    } else if (trimmed.includes('/')) {
+        const parts = trimmed.split('/');
+        if (parts[0].length === 4) {
+            y = parseInt(parts[0], 10);
+            m = parseInt(parts[1], 10) - 1;
+            d = parseInt(parts[2], 10);
+        } else {
+            d = parseInt(parts[0], 10);
+            m = parseInt(parts[1], 10) - 1;
+            y = parseInt(parts[2], 10);
+        }
+    } else {
+        const parsed = new Date(trimmed);
+        if (!isNaN(parsed.getTime())) {
+            y = parsed.getFullYear();
+            m = parsed.getMonth();
+            d = parsed.getDate();
+        }
+    }
+
+    if (isNaN(y) || isNaN(m) || isNaN(d)) return null;
+
+    if (isEnd) {
+        return new Date(y, m, d, 23, 59, 59, 999).getTime();
+    } else {
+        return new Date(y, m, d, 0, 0, 0, 0).getTime();
+    }
+}
+window.parseDateBoundary = parseDateBoundary;
+
+function initDefaultDateFilters() {
+    const todayStr = getLocalTodayDateString();
+    const sStart = document.getElementById('recent-start-date');
+    const sEnd = document.getElementById('recent-end-date');
+    if (sStart && !sStart.value) sStart.value = todayStr;
+    if (sEnd && !sEnd.value) sEnd.value = todayStr;
+
+    const aStart = document.getElementById('archive-start-date');
+    const aEnd = document.getElementById('archive-end-date');
+    if (aStart && !aStart.value) aStart.value = todayStr;
+    if (aEnd && !aEnd.value) aEnd.value = todayStr;
+}
+window.initDefaultDateFilters = initDefaultDateFilters;
+
+function setRecentDateAllTime() {
+    const sStart = document.getElementById('recent-start-date');
+    const sEnd = document.getElementById('recent-end-date');
+    const sDate = document.getElementById('recent-date-filter');
+    if (sStart) sStart.value = "";
+    if (sEnd) sEnd.value = "";
+    if (sDate) sDate.value = "all";
+    renderRecentShipments();
+    showToast("Menampilkan data pengiriman Semua Tanggal.");
+}
+window.setRecentDateAllTime = setRecentDateAllTime;
+
 function getActiveBranchId() {
     if (currentUserRole === 'branch_admin' || currentUserRole === 'branch') {
         return currentUserBranchId || 'cikokol';
@@ -1491,6 +1573,7 @@ function initTripsSnapshot() {
             trips.push(t);
         });
         allCurrentTrips = trips;
+        if (typeof initDefaultDateFilters === 'function') initDefaultDateFilters();
         updateGlobalStats();
         renderRecentShipments();
         if (typeof renderMonitorUI === 'function') renderMonitorUI();
@@ -1531,21 +1614,21 @@ function updateGlobalStats() {
         const now = new Date();
         const todayDayMs = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
 
-        let filterStartMs = 0;
-        let filterEndMs = Infinity;
+        let filterStartMs = todayDayMs;
+        let filterEndMs = todayDayMs + (24 * 60 * 60 * 1000) - 1;
 
         if (startDateVal) {
-            const d = new Date(startDateVal + "T00:00:00");
-            if (!isNaN(d.getTime())) filterStartMs = d.getTime();
+            const parsed = parseDateBoundary(startDateVal, false);
+            if (parsed !== null) filterStartMs = parsed;
         }
         if (endDateVal) {
-            const d = new Date(endDateVal + "T23:59:59.999");
-            if (!isNaN(d.getTime())) filterEndMs = d.getTime();
+            const parsed = parseDateBoundary(endDateVal, true);
+            if (parsed !== null) filterEndMs = parsed;
         }
 
         if (!startDateVal && !endDateVal) {
-            const selectedDateMode = document.getElementById('recent-date-filter')?.value || "all";
-            if (selectedDateMode === "today") {
+            const selectedDateMode = document.getElementById('recent-date-filter')?.value || "today";
+            if (selectedDateMode === "today" || !selectedDateMode) {
                 filterStartMs = todayDayMs;
                 filterEndMs = todayDayMs + (24 * 60 * 60 * 1000) - 1;
             } else if (selectedDateMode === "3days") {
@@ -1557,7 +1640,7 @@ function updateGlobalStats() {
             } else if (selectedDateMode === "month") {
                 filterStartMs = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
                 filterEndMs = todayDayMs + (24 * 60 * 60 * 1000) - 1;
-            } else {
+            } else if (selectedDateMode === "all") {
                 filterStartMs = 0;
                 filterEndMs = Infinity;
             }
@@ -2569,7 +2652,7 @@ function filterTableByCard(cardType) {
     const sStart = document.getElementById('recent-start-date');
     const sEnd = document.getElementById('recent-end-date');
 
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getLocalTodayDateString();
 
     if (cardType === 'active_tasks') {
         if (sStatus) sStatus.value = "active_all";
@@ -2633,21 +2716,21 @@ function renderRecentShipments(filter = "") {
     const now = new Date();
     const todayDayMs = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
 
-    let filterStartMs = 0;
-    let filterEndMs = Infinity;
+    let filterStartMs = todayDayMs;
+    let filterEndMs = todayDayMs + (24 * 60 * 60 * 1000) - 1;
 
     if (startDateVal) {
-        const d = new Date(startDateVal + "T00:00:00");
-        if (!isNaN(d.getTime())) filterStartMs = d.getTime();
+        const parsed = parseDateBoundary(startDateVal, false);
+        if (parsed !== null) filterStartMs = parsed;
     }
     if (endDateVal) {
-        const d = new Date(endDateVal + "T23:59:59.999");
-        if (!isNaN(d.getTime())) filterEndMs = d.getTime();
+        const parsed = parseDateBoundary(endDateVal, true);
+        if (parsed !== null) filterEndMs = parsed;
     }
 
     if (!startDateVal && !endDateVal) {
-        const selectedDateMode = document.getElementById('recent-date-filter')?.value || "all";
-        if (selectedDateMode === "today") {
+        const selectedDateMode = document.getElementById('recent-date-filter')?.value || "today";
+        if (selectedDateMode === "today" || !selectedDateMode) {
             filterStartMs = todayDayMs;
             filterEndMs = todayDayMs + (24 * 60 * 60 * 1000) - 1;
         } else if (selectedDateMode === "3days") {
@@ -2659,7 +2742,7 @@ function renderRecentShipments(filter = "") {
         } else if (selectedDateMode === "month") {
             filterStartMs = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
             filterEndMs = todayDayMs + (24 * 60 * 60 * 1000) - 1;
-        } else {
+        } else if (selectedDateMode === "all") {
             filterStartMs = 0;
             filterEndMs = Infinity;
         }
@@ -2882,6 +2965,18 @@ function renderRecentShipments(filter = "") {
             </td>
         </tr>`);
     });
+
+    if (shipmentRows.length === 0) {
+        const isSunday = new Date().getDay() === 0;
+        const isFilteringToday = (!startDateVal && !endDateVal) || (startDateVal === getLocalTodayDateString() && endDateVal === getLocalTodayDateString());
+        const emptyMsg = (isSunday && isFilteringToday)
+            ? "Hari ini hari Minggu (Libur Operasional). Tidak ada jadwal pengiriman kurir aktif."
+            : "Tidak ada data pengiriman yang cocok dengan filter yang dipilih.";
+        table.innerHTML = `<tr><td colspan="7" class="text-center py-5 text-muted"><i class="bi bi-calendar2-check fs-2 d-block mb-2 text-secondary"></i>${emptyMsg}</td></tr>`;
+        updateGlobalStats();
+        return;
+    }
+
     table.innerHTML = rowsHtml.join('');
     updateGlobalStats();
 }
@@ -2894,18 +2989,20 @@ function resetRecentFilters() {
     const sStart = document.getElementById('recent-start-date');
     const sEnd = document.getElementById('recent-end-date');
 
+    const todayStr = getLocalTodayDateString();
+
     if (sSearch) sSearch.value = "";
     if (sStatus) sStatus.value = "all";
     if (sCarrier) sCarrier.value = "all";
-    if (sDate) sDate.value = "all";
-    if (sStart) sStart.value = "";
-    if (sEnd) sEnd.value = "";
+    if (sDate) sDate.value = "today";
+    if (sStart) sStart.value = todayStr;
+    if (sEnd) sEnd.value = todayStr;
 
     recentSortField = 'date';
     recentSortAsc = false;
 
     renderRecentShipments();
-    showToast("Filter tabel dikembalikan ke awal.");
+    showToast("Filter tabel dikembalikan ke Hari Ini.");
 }
 
 function openManualUploadModal(tripId, stopIndex, locationName) {
@@ -3043,12 +3140,12 @@ function exportRecentShipmentsToExcel() {
     let filterEndMs = Infinity;
 
     if (startDateVal) {
-        const d = new Date(startDateVal + "T00:00:00");
-        if (!isNaN(d.getTime())) filterStartMs = d.getTime();
+        const parsed = parseDateBoundary(startDateVal, false);
+        if (parsed !== null) filterStartMs = parsed;
     }
     if (endDateVal) {
-        const d = new Date(endDateVal + "T23:59:59.999");
-        if (!isNaN(d.getTime())) filterEndMs = d.getTime();
+        const parsed = parseDateBoundary(endDateVal, true);
+        if (parsed !== null) filterEndMs = parsed;
     }
 
     if (!startDateVal && !endDateVal) {
@@ -3836,12 +3933,12 @@ function renderPoDArchiveView(filter = "") {
     let filterEndMs = Infinity;
 
     if (startDateVal) {
-        const d = new Date(startDateVal + "T00:00:00");
-        if (!isNaN(d.getTime())) filterStartMs = d.getTime();
+        const parsed = parseDateBoundary(startDateVal, false);
+        if (parsed !== null) filterStartMs = parsed;
     }
     if (endDateVal) {
-        const d = new Date(endDateVal + "T23:59:59.999");
-        if (!isNaN(d.getTime())) filterEndMs = d.getTime();
+        const parsed = parseDateBoundary(endDateVal, true);
+        if (parsed !== null) filterEndMs = parsed;
     }
 
     const archiveCourierSelect = document.getElementById('archive-courier-filter');
