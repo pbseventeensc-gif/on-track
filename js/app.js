@@ -1342,9 +1342,10 @@ async function deleteClient(id, name) {
         const activeDb = getDb();
         if (!activeDb) return;
         await activeDb.collection('clients').doc(id).delete();
+        cachedAllClients = null;
         showToast("Client berhasil dihapus.");
         const regEl = document.getElementById('region-filter');
-        loadClientsByRegion(regEl ? regEl.value : "");
+        loadClientsByRegion(regEl ? regEl.value : "", true);
     } catch (e) {
         alert("Gagal menghapus client: " + e.message);
     }
@@ -1364,9 +1365,10 @@ async function clearAllClients() {
         snap.forEach(doc => batch.delete(doc.ref));
         await batch.commit();
 
+        cachedAllClients = null;
         showToast("Seluruh database client telah dikosongkan.");
         const regEl = document.getElementById('region-filter');
-        loadClientsByRegion(regEl ? regEl.value : "");
+        loadClientsByRegion(regEl ? regEl.value : "", true);
     } catch (e) {
         alert("Gagal mengosongkan database client: " + e.message);
     }
@@ -1577,7 +1579,12 @@ function getTripTimestamp(t) {
     return 0;
 }
 
+let isPurgingPastMonths = false;
+
 async function purgePastMonthsTripsFromDb(manual = false) {
+    if (isPurgingPastMonths) return;
+    isPurgingPastMonths = true;
+
     try {
         const activeDb = getDb();
         if (!activeDb) return;
@@ -1635,6 +1642,8 @@ async function purgePastMonthsTripsFromDb(manual = false) {
     } catch (e) {
         console.error("Purge past trips error:", e);
         if (manual) alert("Gagal membersihkan data lama: " + e.message);
+    } finally {
+        isPurgingPastMonths = false;
     }
 }
 window.purgePastMonthsTripsFromDb = purgePastMonthsTripsFromDb;
@@ -3551,9 +3560,12 @@ async function importClientsFromExcel() {
         }
 
         await batch.commit();
+        cachedAllClients = null;
         status.innerHTML = `<span class="text-success">SUCCESS! ${rows.length} Clients synced to database.</span>`;
         setTimeout(() => progress.classList.add('d-none'), 2000);
         showToast("Clients Database Updated!");
+        const regEl = document.getElementById('region-filter');
+        loadClientsByRegion(regEl ? regEl.value : "", true);
     };
     reader.readAsArrayBuffer(file);
 }
