@@ -5,6 +5,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
     <!-- Favicon & Apple Icon -->
@@ -31,7 +32,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 
     <!-- Google Maps JS API with Places -->
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCAR9bhj6u72OpTqYLEuBvBGvCaaFSPUGQ&libraries=places"></script>
+    <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCAR9bhj6u72OpTqYLEuBvBGvCaaFSPUGQ&libraries=places&loading=async"></script>
 
     <script>
         // Helper: Individual Courier Colors
@@ -40,11 +41,6 @@
             let hash = 0; for (let i = 0; i < id.length; i++) hash = id.charCodeAt(i) + ((hash << 5) - hash);
             return colors[Math.abs(hash) % colors.length];
         }
-
-        (g=>{var h,a,k,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("callback",c+".maps."+q);a.src=`https://maps.${c}apis.com/maps/api/js?`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=m.querySelector("script[nonce]")?.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Re-referencing library name."):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})({
-            key: "AIzaSyCAR9bhj6u72OpTqYLEuBvBGvCaaFSPUGQ",
-            v: "weekly"
-        });
 
         // Global Auth & Firebase Initializer
         window.firebaseConfig = window.firebaseConfig || {
@@ -144,6 +140,7 @@
             } else if (viewId === 'monitor') {
                 if (typeof renderMonitorUI === 'function') renderMonitorUI();
             } else if (viewId === 'dispatch') {
+                if (typeof renderCourierOptions === 'function') renderCourierOptions();
                 if (typeof loadClientsByRegion === 'function') loadClientsByRegion("");
             } else if (viewId === 'fleet') {
                 if (typeof renderKPIView === 'function') renderKPIView();
@@ -524,7 +521,7 @@
                     </div>
                 </div>
                 <div id="branch-selector-wrapper" class="d-flex align-items-center gap-2 me-2">
-                    <select id="header-branch-filter" class="form-select form-select-sm fw-bold border-success-subtle" style="border-radius: 10px; width: 140px; font-size: 0.8rem; background: #f0fdf4; color: #15803d; cursor: pointer;" onchange="switchBranchFilter(this.value)">
+                    <select id="header-branch-filter" class="form-select form-select-sm fw-bold border-success-subtle" style="border-radius: 10px; width: auto; min-width: 155px; font-size: 0.8rem; background: #f0fdf4; color: #15803d; cursor: pointer;" onchange="switchBranchFilter(this.value)">
                         <option value="all" selected>🏢 Semua Cabang</option>
                         <option value="pusat">📍 Pusat</option>
                         <option value="cikokol">📍 Cikokol</option>
@@ -638,7 +635,10 @@
                                         <span class="extra-small text-muted fw-bold ms-1">Sampai:</span>
                                         <input type="date" id="recent-end-date" class="form-control form-control-sm border-0 bg-transparent fw-normal py-1" style="width: 125px; font-size: 0.8rem;" onchange="renderRecentShipments()">
                                     </div>
-                                    <select id="recent-status-filter" class="form-select form-select-sm fw-normal py-2" style="border-radius: 10px; width: 140px; font-size: 0.8rem; background: #f8fafc;" onchange="renderRecentShipments()">
+                                    <select id="recent-carrier-filter" class="form-select form-select-sm fw-normal py-2" style="border-radius: 10px; width: auto; min-width: 135px; font-size: 0.8rem; background: #f8fafc;" onchange="renderRecentShipments()">
+                                        <option value="all">Semua Kurir</option>
+                                    </select>
+                                    <select id="recent-status-filter" class="form-select form-select-sm fw-normal py-2" style="border-radius: 10px; width: auto; min-width: 140px; font-size: 0.8rem; background: #f8fafc;" onchange="renderRecentShipments()">
                                         <option value="all">Semua Status</option>
                                         <option value="active_all">Semua Aktif</option>
                                         <option value="in_progress">On Delivery</option>
@@ -647,8 +647,9 @@
                                     </select>
                                     <div class="position-relative">
                                         <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"></i>
-                                        <input type="text" id="recent-shipment-search" class="form-control form-control-sm ps-5 py-2 fw-normal" style="border-radius: 10px; width: 220px; background: #f8fafc;" placeholder="Cari ID, Alamat, Kurir..." oninput="renderRecentShipments(this.value)" autocomplete="off">
+                                        <input type="text" id="recent-shipment-search" class="form-control form-control-sm ps-5 py-2 fw-normal" style="border-radius: 10px; width: 200px; background: #f8fafc;" placeholder="Cari ID, Alamat, Kurir..." oninput="renderRecentShipments(this.value)" autocomplete="off">
                                     </div>
+                                    <button class="btn btn-sm btn-light border py-2 px-2" style="border-radius: 10px;" title="Reset Filter" onclick="resetRecentFilters()"><i class="bi bi-arrow-counterclockwise"></i></button>
                                     <button class="btn btn-sm btn-outline-dark fw-bold px-3 py-2" style="border-radius: 10px;" onclick="exportRecentShipmentsToExcel()"><i class="bi bi-file-earmark-excel me-1"></i> Excel Report</button>
                                 </div>
                             </div>
@@ -682,7 +683,7 @@
 
                             <div class="mb-4">
                                 <label class="extra-small fw-bold text-muted text-uppercase mb-2">1. Select Courier</label>
-                                <select id="sel-courier" class="form-select border-1 py-2" style="border-radius: 10px;"></select>
+                                <select id="sel-courier" class="form-select border-1 py-2" style="border-radius: 10px;" onfocus="renderCourierOptions()"></select>
                             </div>
 
                             <div class="mb-4">

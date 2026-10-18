@@ -118,7 +118,11 @@ class TripViewModel : ViewModel() {
                         batteryOnArrival = (map["batteryOnArrival"] as? Number)?.toInt(),
                         proofPhotoUrl = map["proofPhotoUrl"] as? String ?: "",
                         proofPhotoSj = map["proofPhotoSj"] as? String ?: "",
-                        proofPhotoItems = (map["proofPhotoItems"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList(),
+                        proofPhotoItems = when (val items = map["proofPhotoItems"]) {
+                            is List<*> -> items.mapNotNull { it as? String }
+                            is String -> if (items.isNotBlank()) items.split(",").map { it.trim() }.filter { it.isNotEmpty() } else emptyList()
+                            else -> emptyList()
+                        },
                         pendingReason = map["pendingReason"] as? String ?: "",
                         pendingProofPhotoUrl = map["pendingProofPhotoUrl"] as? String ?: ""
                     )

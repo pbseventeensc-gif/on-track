@@ -103,13 +103,18 @@ let auth = getAuth();
 
 if (db) {
     try {
-        db.settings({ experimentalAutoDetectLongPolling: true });
+        db.settings({ experimentalAutoDetectLongPolling: true, merge: true });
     } catch (e) {
         console.log("Firestore long polling settings info:", e);
     }
 }
 
 var registeredUsers = window.registeredUsers || {};
+try {
+    const cached = localStorage.getItem('cached_couriers');
+    if (cached) registeredUsers = JSON.parse(cached);
+} catch(e) {}
+window.registeredUsers = registeredUsers;
 var registeredUsersObjects = window.registeredUsersObjects || {};
 var userRoles = window.userRoles || {};
 
@@ -286,7 +291,7 @@ function extractDestinationPhotos(d) {
 
     // 1. Explicit proofPhotoSj
     if (d.proofPhotoSj && typeof d.proofPhotoSj === 'string' && d.proofPhotoSj.trim().length > 0) {
-        explicitSj = d.proofPhotoSj.trim();
+        explicitSj = d.proofPhotoSj.split(',')[0].trim();
     }
 
     // 2. Explicit proofPhotoItems
@@ -1499,7 +1504,7 @@ async function promptEditCourierName(id, currentName) {
 
 function renderCourierOptions() {
     const sel = document.getElementById('sel-courier'); if(!sel) return;
-    sel.innerHTML = '<option value="">Select Carrier...</option>';
+    const currentVal = sel.value;
 
     const sortedCouriers = [];
     for (const uid in registeredUsers) {
@@ -1509,9 +1514,12 @@ function renderCourierOptions() {
     }
     sortedCouriers.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
 
+    const options = ['<option value="">Select Carrier...</option>'];
     sortedCouriers.forEach(c => {
-        sel.innerHTML += `<option value="${c.uid}">${c.name}</option>`;
+        options.push(`<option value="${c.uid}">${c.name}</option>`);
     });
+    sel.innerHTML = options.join('');
+    if (currentVal) sel.value = currentVal;
 }
 
 function initRtdbListener() {
@@ -2502,12 +2510,15 @@ function openAuditSjModal(tripId) {
             trip.destinations.forEach((d, idx) => {
                 const locName = d.locationName || `Stop ${d.stopIndex || (idx + 1)}`;
                 if (d.proofPhotoSj) {
-                    podSjItems.push({
-                        url: d.proofPhotoSj,
-                        stopName: locName,
-                        stopIndex: d.stopIndex || (idx + 1),
-                        status: d.status
-                    });
+                    const firstUrl = d.proofPhotoSj.split(',')[0].trim();
+                    if (firstUrl) {
+                        podSjItems.push({
+                            url: firstUrl,
+                            stopName: locName,
+                            stopIndex: d.stopIndex || (idx + 1),
+                            status: d.status
+                        });
+                    }
                 } else if (d.proofPhotoUrl) {
                     const firstUrl = d.proofPhotoUrl.split(',')[0].trim();
                     if (firstUrl) {
@@ -4098,19 +4109,22 @@ function renderPoDArchiveView(filter = "") {
 
                 // 1. Process Surat Jalan (SJ) photo
                 if (d.proofPhotoSj) {
+                    const sjUrls = String(d.proofPhotoSj).split(',').map(s => s.trim()).filter(Boolean);
                     if (selectedCategory === 'all' || selectedCategory === 'sj') {
-                        photos.push({
-                            url: d.proofPhotoSj,
-                            category: 'sj',
-                            categoryTag: '📄 Surat Jalan',
-                            badgeClass: 'bg-primary',
-                            shipmentId: uniqueShipmentId,
-                            clientName: locName,
-                            fullAddress: fullAddress,
-                            courierName: cName,
-                            dateStr: tripDateStr,
-                            tripMs: tripMs,
-                            stopIndex: stopIdx
+                        sjUrls.forEach((sjUrl, sIdx) => {
+                            photos.push({
+                                url: sjUrl,
+                                category: 'sj',
+                                categoryTag: sjUrls.length > 1 ? `📄 Surat Jalan #${sIdx + 1}` : '📄 Surat Jalan',
+                                badgeClass: 'bg-primary',
+                                shipmentId: uniqueShipmentId,
+                                clientName: locName,
+                                fullAddress: fullAddress,
+                                courierName: cName,
+                                dateStr: tripDateStr,
+                                tripMs: tripMs,
+                                stopIndex: stopIdx
+                            });
                         });
                     }
                 }
@@ -4118,7 +4132,11 @@ function renderPoDArchiveView(filter = "") {
                 // 2. Process Item / Barang photos
                 let itemArr = [];
                 if (Array.isArray(d.proofPhotoItems)) {
-                    itemArr = d.proofPhotoItems.filter(Boolean);
+                    d.proofPhotoItems.forEach(item => {
+                        if (typeof item === 'string') {
+                            item.split(',').map(s => s.trim()).filter(Boolean).forEach(u => itemArr.push(u));
+                        }
+                    });
                 } else if (typeof d.proofPhotoItems === 'string' && d.proofPhotoItems.trim().length > 0) {
                     itemArr = d.proofPhotoItems.split(',').map(s => s.trim()).filter(Boolean);
                 }
@@ -4191,7 +4209,7 @@ function renderPoDArchiveView(filter = "") {
             <div class="col-6 col-sm-4 col-md-3 col-lg-2">
                 <div class="card h-100 border shadow-sm overflow-hidden" style="border-radius: 12px;">
                     <div class="position-relative" style="height: 120px; background: #f1f5f9;">
-                        <img src="${p.url}" class="w-100 h-100 object-fit-cover cursor-pointer" onclick="openPoDModal('${p.url}')" title="Klik untuk memperbesar">
+                        <img src="${p.url}" onerror="this.onerror=null; this.src='https://placehold.co/100x100?text=Gambar+Rusak';" class="w-100 h-100 object-fit-cover cursor-pointer" onclick="openPoDModal('${p.url}')" title="Klik untuk memperbesar">
                         <span class="position-absolute top-0 start-0 m-1 badge bg-dark opacity-75 extra-small fw-normal">${p.shipmentId}</span>
                         <span class="position-absolute bottom-0 start-0 m-1 badge ${p.badgeClass || 'bg-secondary'} extra-small fw-bold" style="font-size: 0.625rem;">${p.categoryTag || 'POD'}</span>
                     </div>

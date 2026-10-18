@@ -22,9 +22,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -214,7 +214,8 @@ private fun checkLocationAndExecute(
     }
     val res = FloatArray(1)
     Location.distanceBetween(loc.latitude, loc.longitude, targetLat, targetLng, res)
-    if (res[0] > radius) {
+    val effectiveDistance = if (loc.hasAccuracy()) maxOf(0f, res[0] - loc.accuracy) else res[0]
+    if (effectiveDistance > radius) {
         Toast.makeText(context, "Terlalu Jauh dari Lokasi! Jarak: %.0f m (Maks %.0f m)".format(res[0], radius), Toast.LENGTH_LONG).show()
     } else {
         onValid()
@@ -243,7 +244,7 @@ fun DestinationItem(
     // Categorized photos state
     var capturedSjBitmap by remember { mutableStateOf<Bitmap?>(null) }
     val capturedItemBitmaps = remember { mutableStateListOf<Bitmap>() }
-    var activeCaptureMode by remember { mutableStateOf("sj") } // "sj" or "item"
+    var activeCaptureMode by rememberSaveable { mutableStateOf("sj") } // "sj" or "item"
 
     // Pending Approval Dialog state
     var showPendingDialog by remember { mutableStateOf(false) }
@@ -251,7 +252,7 @@ fun DestinationItem(
     var customPendingReason by remember { mutableStateOf("") }
     var pendingPhotoBitmap by remember { mutableStateOf<Bitmap?>(null) }
 
-    var photoUri by remember { mutableStateOf<Uri?>(null) }
+    var photoUriString by rememberSaveable { mutableStateOf<String?>(null) }
 
     // Helper to decode bitmap with downsampling & OOM protection for low-end phones
     fun decodeSampledBitmap(uri: Uri, reqWidth: Int = 1024, reqHeight: Int = 1024): Bitmap? {
@@ -313,8 +314,9 @@ fun DestinationItem(
     }
 
     val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
-        if (success && photoUri != null) {
-            val bitmap = decodeSampledBitmap(photoUri!!, 1024, 1024)
+        val currentUri = photoUriString?.let { Uri.parse(it) }
+        if (success && currentUri != null) {
+            val bitmap = decodeSampledBitmap(currentUri, 1024, 1024)
             if (bitmap != null) {
                 if (activeCaptureMode == "sj") {
                     capturedSjBitmap = bitmap
@@ -338,7 +340,7 @@ fun DestinationItem(
             activeCaptureMode = "sj"
             val file = File(context.cacheDir, "temp_proof_sj_${System.currentTimeMillis()}.jpg")
             val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-            photoUri = uri
+            photoUriString = uri.toString()
             cameraLauncher.launch(uri)
         } catch (e: Exception) {
             Toast.makeText(context, "Gagal membuka kamera: ${e.message}", Toast.LENGTH_SHORT).show()
@@ -354,7 +356,7 @@ fun DestinationItem(
             activeCaptureMode = "item"
             val file = File(context.cacheDir, "temp_proof_item_${System.currentTimeMillis()}.jpg")
             val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-            photoUri = uri
+            photoUriString = uri.toString()
             cameraLauncher.launch(uri)
         } catch (e: Exception) {
             Toast.makeText(context, "Gagal membuka kamera: ${e.message}", Toast.LENGTH_SHORT).show()
@@ -366,7 +368,7 @@ fun DestinationItem(
             activeCaptureMode = "pending"
             val file = File(context.cacheDir, "temp_proof_pending_${System.currentTimeMillis()}.jpg")
             val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-            photoUri = uri
+            photoUriString = uri.toString()
             cameraLauncher.launch(uri)
         } catch (e: Exception) {
             Toast.makeText(context, "Gagal membuka kamera: ${e.message}", Toast.LENGTH_SHORT).show()
@@ -1269,20 +1271,34 @@ private fun uploadSinglePhotoBytes(storage: FirebaseStorage, bytes: ByteArray, o
     val timeoutRunnable = Runnable {
         safeComplete(null)
     }
-    handler.postDelayed(timeoutRunnable, 10000)
+    handler.postDelayed(timeoutRunnable, 30000)
 
-    val ref = storage.reference.child("proofs/${UUID.randomUUID()}.jpg")
-    ref.putBytes(bytes).addOnSuccessListener {
-        ref.downloadUrl.addOnSuccessListener { uri ->
+    // Primary: Cloudinary (Fast, direct unsigned preset, reliable on mobile data)
+    uploadToCloudinaryFallback(bytes) { cloudUrl ->
+        if (!cloudUrl.isNullOrEmpty()) {
             handler.removeCallbacks(timeoutRunnable)
-            safeComplete(uri.toString())
-        }.addOnFailureListener {
-            handler.removeCallbacks(timeoutRunnable)
-            uploadToCloudinaryFallback(bytes) { url -> safeComplete(url) }
+            safeComplete(cloudUrl)
+        } else {
+            // Secondary fallback: Firebase Storage
+            try {
+                val ref = storage.reference.child("proofs/${UUID.randomUUID()}.jpg")
+                ref.putBytes(bytes).addOnSuccessListener {
+                    ref.downloadUrl.addOnSuccessListener { uri ->
+                        handler.removeCallbacks(timeoutRunnable)
+                        safeComplete(uri.toString())
+                    }.addOnFailureListener {
+                        handler.removeCallbacks(timeoutRunnable)
+                        safeComplete(null)
+                    }
+                }.addOnFailureListener {
+                    handler.removeCallbacks(timeoutRunnable)
+                    safeComplete(null)
+                }
+            } catch (e: Exception) {
+                handler.removeCallbacks(timeoutRunnable)
+                safeComplete(null)
+            }
         }
-    }.addOnFailureListener {
-        handler.removeCallbacks(timeoutRunnable)
-        uploadToCloudinaryFallback(bytes) { url -> safeComplete(url) }
     }
 }
 
