@@ -854,6 +854,7 @@ function switchTab(viewId, el) {
     } else if (viewId === 'monitor') {
         if (typeof renderMonitorUI === 'function') renderMonitorUI();
     } else if (viewId === 'dispatch') {
+        if (typeof renderCourierOptions === 'function') renderCourierOptions();
         if (typeof loadClientsByRegion === 'function') loadClientsByRegion("");
     } else if (viewId === 'fleet') {
         if (typeof updateKPIChartsFromFilter === 'function') updateKPIChartsFromFilter();
@@ -1101,9 +1102,12 @@ function toggleAllClients(checked) {
     document.querySelectorAll('.client-checkbox').forEach(cb => cb.checked = checked);
 }
 
+let isMasterClientsSeeded = false;
 async function ensureMasterClientsSeeded() {
+    if (isMasterClientsSeeded) return;
     const activeDb = getDb();
     if (!activeDb) return;
+    isMasterClientsSeeded = true;
     try {
         const docRef = activeDb.collection('clients').doc('CLIENT_AZKO_SYAFEI_SERANG');
         const snap = await docRef.get();
@@ -1312,71 +1316,6 @@ function addSelectedClients() {
     }
 }
 
-async function deleteOrphanTrips() {
-    try {
-        const activeDb = getDb();
-        if (!activeDb) return;
-
-        const snap = await activeDb.collection('trips').get();
-        if (snap.empty) return;
-
-        const batch = activeDb.batch();
-        let deleteCount = 0;
-
-        snap.forEach(doc => {
-            const t = doc.data();
-            const courierId = (t.courierId || '').trim();
-            if (!courierId) return;
-
-            const cleanCId = courierId.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-
-            let isKnownUser = false;
-            if (typeof registeredUsers !== 'undefined' && registeredUsers[courierId]) {
-                isKnownUser = true;
-            } else if (typeof registeredUsersObjects !== 'undefined' && registeredUsersObjects) {
-                for (const uid in registeredUsersObjects) {
-                    const u = registeredUsersObjects[uid] || {};
-                    const uName = (u.name || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-                    const uCId = (u.courierId || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-                    const uEmail = (u.email || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-                    const uPrefix = u.email && u.email.includes('@') ? u.email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '').toLowerCase() : '';
-
-                    if (uid === courierId ||
-                        cleanCId === uid.toLowerCase() ||
-                        (cleanCId.length >= 3 && (
-                            uName === cleanCId || cleanCId.includes(uName) || uName.includes(cleanCId) ||
-                            uCId === cleanCId || cleanCId.includes(uCId) || uCId.includes(cleanCId) ||
-                            uEmail === cleanCId || uPrefix === cleanCId
-                        ))
-                    ) {
-                        isKnownUser = true;
-                        break;
-                    }
-                }
-            }
-
-            if (!isKnownUser) {
-                const legacyList = ["xONhqVSNSYcEcGCZyW2cLGJWQt92", "38smknqYbnREY0fQ4Klrnxidv5P2", "3LHRzmg3PyV2wxeRQcCGdBCDrDH2", "pbseventeensc", "joyen99", "joyendriver321"];
-                if (legacyList.some(id => id.toLowerCase() === cleanCId)) {
-                    isKnownUser = true;
-                }
-            }
-
-            if (!isKnownUser || courierId.includes('EK74u0gA') || courierId.toLowerCase().includes('novalgan')) {
-                batch.delete(doc.ref);
-                deleteCount++;
-            }
-        });
-
-        if (deleteCount > 0) {
-            await batch.commit();
-            console.log(`Cleaned up ${deleteCount} orphan trips from Firestore.`);
-            showToast(`Sistem membersihkan ${deleteCount} tugas lama dari database.`);
-        }
-    } catch(e) {
-        console.warn("Orphan trips cleanup info:", e);
-    }
-}
 
 function initUsersSnapshot() {
     // Provide instant default fallback list (8 drivers + 11 couriers) so dropdown loads instantly without 1-2 min network wait
@@ -1440,7 +1379,6 @@ function initUsersSnapshot() {
             localStorage.setItem('cached_couriers', JSON.stringify(registeredUsers));
         } catch(e) {}
 
-        deleteOrphanTrips();
         renderCourierOptions();
         renderManageCouriersList();
         renderRecentShipments();
@@ -1543,12 +1481,6 @@ function initTripsSnapshot() {
     }
 
     activeDb.collection('trips').onSnapshot(snap => {
-        if (snap.empty) {
-            console.log("No trips in Firestore. Auto-seeding demo trip...");
-            if (typeof restoreBayhaqiTrip === 'function') {
-                restoreBayhaqiTrip();
-            }
-        }
         const trips = [];
         snap.forEach(doc => {
             const t = doc.data();
@@ -3758,8 +3690,6 @@ function initAuthListener() {
                 if (loginScreen) loginScreen.style.setProperty('display', 'none', 'important');
                 if (mainWrapper) mainWrapper.style.setProperty('display', 'flex', 'important');
 
-                removeBaliClientsFromMaster();
-
                 const currentDb = getDb();
                 if (currentDb) {
                     currentDb.collection('users').doc(user.uid).get().then(doc => {
@@ -3892,151 +3822,6 @@ async function deleteDestinationStop(tripId, stopIndex, locationName) {
     }
 }
 
-async function restoreBayhaqiTrip() {
-    const bayhaqiUid = "xONhqVSNSYcEcGCZyW2cLGJWQt92";
-    const destinations = [
-        {
-            stopIndex: 1,
-            locationName: "Plaza Indonesia",
-            address: "Jl. M.H. Thamrin No.28-30, Gondangdia, Kec. Menteng, Jakarta Pusat",
-            latitude: -6.1931,
-            longitude: 106.8218,
-            status: "done",
-            proofPhotoSj: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=800&q=80",
-            proofPhotoItems: ["https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&q=80"],
-            proofPhotoUrl: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=800&q=80,https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&q=80"
-        },
-        {
-            stopIndex: 2,
-            locationName: "GO! GO! CURRY - Lippo Mall Nusantara",
-            address: "Lippo Mall Nusantara, Jend. Sudirman, Jakarta Pusat",
-            latitude: -6.2155,
-            longitude: 106.8180,
-            status: "done",
-            proofPhotoSj: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=800&q=80",
-            proofPhotoItems: ["https://images.unsplash.com/photo-1580674684081-7617fbf3d745?auto=format&fit=crop&w=800&q=80"],
-            proofPhotoUrl: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=800&q=80,https://images.unsplash.com/photo-1580674684081-7617fbf3d745?auto=format&fit=crop&w=800&q=80"
-        },
-        {
-            stopIndex: 3,
-            locationName: "Gindaco - Lippo Mall Nusantara",
-            address: "Lippo Mall Nusantara, Jend. Sudirman, Jakarta Pusat",
-            latitude: -6.2155,
-            longitude: 106.8180,
-            status: "done",
-            proofPhotoSj: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=800&q=80",
-            proofPhotoItems: ["https://images.unsplash.com/photo-1578575437130-527eed3abbec?auto=format&fit=crop&w=800&q=80"],
-            proofPhotoUrl: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=800&q=80,https://images.unsplash.com/photo-1578575437130-527eed3abbec?auto=format&fit=crop&w=800&q=80"
-        },
-        {
-            stopIndex: 4,
-            locationName: "GrandLucky Superstore SCBD",
-            address: "Kawasan Komersial SCBD, Jend. Sudirman, Kebayoran Baru, Jakarta Selatan",
-            latitude: -6.2258,
-            longitude: 106.8093,
-            status: "done",
-            proofPhotoSj: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=800&q=80",
-            proofPhotoItems: ["https://images.unsplash.com/photo-1566576721346-d4a3b4eaeb55?auto=format&fit=crop&w=800&q=80"],
-            proofPhotoUrl: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=800&q=80,https://images.unsplash.com/photo-1566576721346-d4a3b4eaeb55?auto=format&fit=crop&w=800&q=80"
-        },
-        {
-            stopIndex: 5,
-            locationName: "Wrapindo Pratama, PT (Wrapinc)",
-            address: "Jl. Kedoya Duri Raya No.64B, Kebon Jeruk, Jakarta Barat",
-            latitude: -6.1725,
-            longitude: 106.7621,
-            status: "arrived",
-            proofPhotoUrl: ""
-        },
-        {
-            stopIndex: 6,
-            locationName: "McDonald's Senayan Trade Center",
-            address: "Senayan Trade Center, Gelora, Tanah Abang, Jakarta Pusat",
-            latitude: -6.2231,
-            longitude: 106.8005,
-            status: "pending",
-            proofPhotoUrl: ""
-        }
-    ];
-
-    const demoTrip = {
-        id: 'TRIP_1788765713947',
-        tripId: 'TRIP_1788765713947',
-        courierId: bayhaqiUid,
-        status: 'in_progress',
-        date: { seconds: Math.floor(Date.now() / 1000) },
-        acceptedTime: { seconds: Math.floor(Date.now() / 1000) },
-        acceptLatitude: -6.2230,
-        acceptLongitude: 106.8010,
-        destinations: destinations
-    };
-
-    if (!window.allCurrentTrips || window.allCurrentTrips.length === 0) {
-        window.allCurrentTrips = [demoTrip];
-    }
-
-    if (!window.registeredUsers || Object.keys(window.registeredUsers).length === 0) {
-        window.registeredUsers = window.registeredUsers || {};
-        window.registeredUsers[bayhaqiUid] = "alturdriver05";
-        window.registeredUsers["courier_alan"] = "alanpasming1";
-        window.registeredUsers["courier_joyen"] = "joyen";
-    }
-
-    if (typeof updateGlobalStats === 'function') updateGlobalStats();
-    if (typeof renderRecentShipments === 'function') renderRecentShipments();
-    if (typeof renderMonitorUI === 'function') renderMonitorUI();
-
-    try {
-        const activeDb = getDb();
-        if (activeDb) {
-            await activeDb.collection('trips').doc('TRIP_1788765713947').set(demoTrip, { merge: true });
-        }
-    } catch(e) {
-        console.warn("Error restoring Bayhaqi trip:", e);
-    }
-}
-
-async function removeBaliClientsFromMaster() {
-    const activeDb = getDb();
-    if (!activeDb) return;
-    try {
-        const snap = await activeDb.collection('clients').get();
-        snap.forEach(doc => {
-            const data = doc.data();
-            const text = ((data.name || '') + ' ' + (data.address || '') + ' ' + (data.region || '')).toLowerCase();
-            if (text.includes('bali') || text.includes('denpasar') || text.includes('kuta') || text.includes('badung')) {
-                activeDb.collection('clients').doc(doc.id).delete();
-                console.log("Deleted Bali client from Master Database:", doc.id);
-            }
-        });
-    } catch(e) {
-        console.warn("Error cleaning Bali clients:", e);
-    }
-}
-
-// Global window exports
-window.switchTab = switchTab;
-window.toggleSidebar = toggleSidebar;
-window.toggleCollapse = toggleCollapse;
-window.toggleDarkMode = toggleDarkMode;
-window.focusOnCourier = focusOnCourier;
-window.filterMonitorAll = filterMonitorAll;
-window.loadClientsByRegion = loadClientsByRegion;
-window.filterClients = filterClients;
-window.deleteClient = deleteClient;
-window.clearAllClients = clearAllClients;
-window.addSelectedClients = addSelectedClients;
-window.submitTrip = submitTrip;
-window.toggleAllClients = toggleAllClients;
-window.promptEditCourierName = promptEditCourierName;
-window.handleLogin = handleLogin;
-window.handleLogout = handleLogout;
-window.logout = logout;
-window.deleteDestinationStop = deleteDestinationStop;
-window.openPoDModal = openPoDModal;
-window.toggleNotifDropdown = toggleNotifDropdown;
-window.handleNotificationClick = handleNotificationClick;
-window.focusOnTrip = focusOnTrip;
 
 function renderPoDArchiveView(filter = "") {
     const grid = document.getElementById('archive-photo-grid');
