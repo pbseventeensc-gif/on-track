@@ -507,7 +507,7 @@ function parseTimestampToMs(timeObj) {
         const badges = [];
         if (c.completedStops >= 20) badges.push('<span class="badge bg-warning-subtle text-warning-emphasis extra-small" style="font-size:0.62rem;" title="Titik Selesai: 20+ Titik Selesai">Titik Selesai</span>');
         if (c.totalKM >= 80) badges.push('<span class="badge bg-primary-subtle text-primary-emphasis extra-small" style="font-size:0.62rem;" title="KM Tertinggi: 80+ KM">KM Tertinggi</span>');
-        if (c.totalStops >= 5 && c.completedStops >= c.totalStops) badges.push('<span class="badge bg-success-subtle text-success-emphasis extra-small" style="font-size:0.62rem;" title="Zero Pending: 100% Selesai">🎯 Zero Pending</span>');
+        if (c.totalStops >= 5 && c.completedStops >= c.totalStops) badges.push('<span class="badge bg-success-subtle text-success-emphasis extra-small" style="font-size:0.62rem;" title="Zero Pending: 100% Selesai">Zero Pending</span>');
         if (c.completedStops >= 5 && (c.totalTime / c.completedStops) <= 25) badges.push('<span class="badge bg-info-subtle text-info-emphasis extra-small" style="font-size:0.62rem;" title="Estimasi Waktu Antar: Cepat">Estimasi Waktu Antar</span>');
         if (c.regionsVisited && c.regionsVisited.size >= 2) badges.push('<span class="badge text-white extra-small" style="background-color:#8b5cf6; font-size:0.62rem;" title="Lintas Wilayah: Lintas Wilayah">Lintas Wilayah</span>');
         if (c.mobilTrips > 0 && c.hasHeavyCargo) badges.push('<span class="badge bg-danger-subtle text-danger-emphasis extra-small" style="font-size:0.62rem;" title="Pengantaran Tuntas: Muatan Mobil Tuntas">Pengantaran Tuntas</span>');
@@ -589,7 +589,7 @@ function renderAchievementsShowcase(couriers, vehicleFilter) {
             show: vehicleFilter !== 'motor'
         },
         {
-            icon: '🎯',
+            icon: '',
             title: 'Zero Pending',
             armada: 'Semua Armada',
             badgeBg: 'bg-success-subtle text-success-emphasis',
@@ -640,7 +640,6 @@ function renderAchievementsShowcase(couriers, vehicleFilter) {
                 <div class="fw-bold text-dark fs-6 mb-0.5">${c.title}</div>
                 <small class="text-muted extra-small mb-2 d-block" style="font-size: 0.72rem;">${c.desc}</small>
                 <div class="mt-auto pt-2 border-top d-flex align-items-center gap-1 extra-small">
-                    <i class="bi bi-award-fill text-warning"></i>
                     <span class="fw-bold text-dark text-truncate" title="${c.holder}">${c.holder}</span>
                 </div>
             </div>
