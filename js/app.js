@@ -4245,3 +4245,15 @@ function resetPoDArchiveFilter() {
     showToast("Filter arsip dikembalikan.");
 }
 window.resetPoDArchiveFilter = resetPoDArchiveFilter;
+
+setTimeout(async () => {
+    try {
+        const activeDb = getDb();
+        if (activeDb) {
+            await activeDb.collection('trips').doc('TRIP_1788765713947').delete();
+            console.log("TRIP_1788765713947 deleted successfully from Firestore");
+        }
+    } catch(e) {
+        console.warn("Delete trip error:", e);
+    }
+}, 1500);
