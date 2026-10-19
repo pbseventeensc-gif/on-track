@@ -505,12 +505,12 @@ function parseTimestampToMs(timeObj) {
 
         // Calculate badges
         const badges = [];
-        if (c.completedStops >= 20) badges.push('<span class="badge bg-warning-subtle text-warning-emphasis extra-small" style="font-size:0.62rem;" title="Drop Master: 20+ Titik Selesai">🛵 Drop Master</span>');
-        if (c.totalKM >= 80) badges.push('<span class="badge bg-primary-subtle text-primary-emphasis extra-small" style="font-size:0.62rem;" title="Kilometer King: 80+ KM">🛣️ Km King</span>');
+        if (c.completedStops >= 20) badges.push('<span class="badge bg-warning-subtle text-warning-emphasis extra-small" style="font-size:0.62rem;" title="Titik Selesai: 20+ Titik Selesai">Titik Selesai</span>');
+        if (c.totalKM >= 80) badges.push('<span class="badge bg-primary-subtle text-primary-emphasis extra-small" style="font-size:0.62rem;" title="KM Tertinggi: 80+ KM">KM Tertinggi</span>');
         if (c.totalStops >= 5 && c.completedStops >= c.totalStops) badges.push('<span class="badge bg-success-subtle text-success-emphasis extra-small" style="font-size:0.62rem;" title="Zero Pending: 100% Selesai">🎯 Zero Pending</span>');
-        if (c.completedStops >= 5 && (c.totalTime / c.completedStops) <= 25) badges.push('<span class="badge bg-info-subtle text-info-emphasis extra-small" style="font-size:0.62rem;" title="Speed Runner: Cepat">⚡ Speed Runner</span>');
-        if (c.regionsVisited && c.regionsVisited.size >= 2) badges.push('<span class="badge text-white extra-small" style="background-color:#8b5cf6; font-size:0.62rem;" title="Road Captain: Lintas Wilayah">🧭 Road Captain</span>');
-        if (c.mobilTrips > 0 && c.hasHeavyCargo) badges.push('<span class="badge bg-danger-subtle text-danger-emphasis extra-small" style="font-size:0.62rem;" title="Heavy Cargo: Muatan Mobil Tuntas">📦 Heavy Cargo</span>');
+        if (c.completedStops >= 5 && (c.totalTime / c.completedStops) <= 25) badges.push('<span class="badge bg-info-subtle text-info-emphasis extra-small" style="font-size:0.62rem;" title="Estimasi Waktu Antar: Cepat">Estimasi Waktu Antar</span>');
+        if (c.regionsVisited && c.regionsVisited.size >= 2) badges.push('<span class="badge text-white extra-small" style="background-color:#8b5cf6; font-size:0.62rem;" title="Lintas Wilayah: Lintas Wilayah">Lintas Wilayah</span>');
+        if (c.mobilTrips > 0 && c.hasHeavyCargo) badges.push('<span class="badge bg-danger-subtle text-danger-emphasis extra-small" style="font-size:0.62rem;" title="Pengantaran Tuntas: Muatan Mobil Tuntas">Pengantaran Tuntas</span>');
 
         const vehicleBadge = c.mobilTrips > c.motorTrips 
             ? '<span class="badge bg-primary-subtle text-primary border border-primary-subtle extra-small px-1.5 py-0.5 me-1" style="font-size:0.65rem;"><i class="bi bi-truck me-0.5"></i>Mobil</span>'
@@ -571,8 +571,8 @@ function renderAchievementsShowcase(couriers, vehicleFilter) {
 
     const cards = [
         {
-            icon: '🛵',
-            title: 'Drop Master',
+            icon: '',
+            title: 'Titik Selesai',
             armada: 'Kurir Motor',
             badgeBg: 'bg-warning-subtle text-warning-emphasis',
             desc: 'Penyelesai titik antar terbanyak',
@@ -580,8 +580,8 @@ function renderAchievementsShowcase(couriers, vehicleFilter) {
             show: vehicleFilter !== 'mobil'
         },
         {
-            icon: '🛣️',
-            title: 'Kilometer King',
+            icon: '',
+            title: 'KM Tertinggi',
             armada: 'Driver Mobil',
             badgeBg: 'bg-primary-subtle text-primary-emphasis',
             desc: 'Penjelajah rute jalan terjauh',
@@ -598,8 +598,8 @@ function renderAchievementsShowcase(couriers, vehicleFilter) {
             show: true
         },
         {
-            icon: '⚡',
-            title: 'Speed Runner',
+            icon: '',
+            title: 'Estimasi Waktu Antar',
             armada: 'Kurir Motor',
             badgeBg: 'bg-info-subtle text-info-emphasis',
             desc: 'Pengantaran tercepat per titik',
@@ -607,8 +607,8 @@ function renderAchievementsShowcase(couriers, vehicleFilter) {
             show: vehicleFilter !== 'mobil'
         },
         {
-            icon: '🧭',
-            title: 'Road Captain',
+            icon: '',
+            title: 'Lintas Wilayah',
             armada: 'Driver Mobil',
             badgeBg: 'text-white',
             badgeStyle: 'background-color:#8b5cf6;',
@@ -617,8 +617,8 @@ function renderAchievementsShowcase(couriers, vehicleFilter) {
             show: vehicleFilter !== 'motor'
         },
         {
-            icon: '📦',
-            title: 'Heavy Cargo',
+            icon: '',
+            title: 'Pengantaran Tuntas',
             armada: 'Driver Mobil',
             badgeBg: 'bg-danger-subtle text-danger-emphasis',
             desc: 'Pengiriman muatan mobil tuntas',
