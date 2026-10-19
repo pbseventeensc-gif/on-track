@@ -1866,6 +1866,9 @@ function updateGlobalStats() {
         const displayKM = filterStartMs > 0 ? grandTotalKM : grandTotalKMToday;
         const displayOnProgress = Math.max(0, displayTotal - displayDelivered - displayReturned);
 
+        if(document.getElementById('stat-completed')) {
+            document.getElementById('stat-completed').innerText = displayDelivered;
+        }
         if(document.getElementById('stat-active-tasks')) {
             document.getElementById('stat-active-tasks').innerText = activeShipmentsCount;
         }
@@ -2770,7 +2773,12 @@ function filterTableByCard(cardType) {
 
     const todayStr = getLocalTodayDateString();
 
-    if (cardType === 'active_tasks') {
+    if (cardType === 'completed') {
+        if (sStatus) sStatus.value = "completed";
+        if (sStart) sStart.value = todayStr;
+        if (sEnd) sEnd.value = todayStr;
+        if (typeof showToast === 'function') showToast("Menampilkan pengiriman Selesai Hari Ini");
+    } else if (cardType === 'active_tasks') {
         if (sStatus) sStatus.value = "active_all";
         if (sStart) sStart.value = "";
         if (sEnd) sEnd.value = "";
