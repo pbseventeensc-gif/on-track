@@ -935,18 +935,32 @@ function getRoleDisplayName(role) {
 function isTabAllowedForRole(role, viewId) {
     if (!role) return false;
     const r = String(role).toLowerCase();
-    const isSuperAdmin = (r === 'super_admin' || r === 'superadmin');
+    const isCentralAdmin = (
+        r === 'super_admin' ||
+        r === 'superadmin' ||
+        r === 'admin' ||
+        r === 'admin_logistik' ||
+        r === 'adminlogistik'
+    ) && (
+        r !== 'sales_admin' &&
+        r !== 'sales' &&
+        r !== 'admin_dm2' &&
+        r !== 'dm2' &&
+        r !== 'branch_admin' &&
+        r !== 'branch' &&
+        r !== 'courier' &&
+        r !== 'kurir' &&
+        r !== 'traffic' &&
+        r !== 'trafik'
+    );
 
-    // AUDIT KURIR HARIAN: HANYA ADA DI MENU SUPERADMIN SAJA!
+    // AUDIT KURIR HARIAN: HANYA ADA DI MENU SUPERADMIN / ADMIN PUSAT (TIDAK BOLEH DI LOGIN CABANG, SALES, KURIR)
     if (viewId === 'courier-audit') {
-        return isSuperAdmin;
+        return isCentralAdmin;
     }
 
-    if (isSuperAdmin) {
+    if (isCentralAdmin) {
         return true;
-    }
-    if (r === 'admin' || r === 'admin_logistik' || r === 'adminlogistik') {
-        return viewId !== 'courier-audit';
     }
     if (r === 'sales_admin' || r === 'sales') {
         return viewId === 'dashboard' || viewId === 'monitor' || viewId === 'pod-archive';
@@ -959,7 +973,24 @@ function isTabAllowedForRole(role, viewId) {
 
 function applyRoleAccessControl() {
     const r = (currentUserRole || '').toLowerCase();
-    const isSuperAdmin = (r === 'super_admin' || r === 'superadmin');
+    const isCentralAdmin = (
+        r === 'super_admin' ||
+        r === 'superadmin' ||
+        r === 'admin' ||
+        r === 'admin_logistik' ||
+        r === 'adminlogistik'
+    ) && (
+        r !== 'sales_admin' &&
+        r !== 'sales' &&
+        r !== 'admin_dm2' &&
+        r !== 'dm2' &&
+        r !== 'branch_admin' &&
+        r !== 'branch' &&
+        r !== 'courier' &&
+        r !== 'kurir' &&
+        r !== 'traffic' &&
+        r !== 'trafik'
+    );
 
     const navDashboard = document.getElementById('nav-dashboard');
     const navMonitor = document.getElementById('nav-monitor');
@@ -972,13 +1003,13 @@ function applyRoleAccessControl() {
     const navSettings = document.getElementById('nav-settings');
     const navCourierAudit = document.getElementById('nav-courier-audit');
 
-    // 1. AUDIT KURIR HARIAN: HANYA ADA DI MENU SUPERADMIN SAJA (TIDAK BOLEH DI LOGIN LAIN)
+    // 1. AUDIT KURIR HARIAN: HANYA ADA DI MENU SUPERADMIN / ADMIN PUSAT (TIDAK BOLEH DI LOGIN LAIN)
     if (navCourierAudit) {
-        navCourierAudit.style.display = isSuperAdmin ? '' : 'none';
+        navCourierAudit.style.display = isCentralAdmin ? 'flex' : 'none';
     }
 
     // Jika user non-superadmin sedang berada di view courier-audit, alihkan ke dashboard
-    if (!isSuperAdmin) {
+    if (!isCentralAdmin) {
         const auditView = document.getElementById('view-courier-audit');
         if (auditView && (auditView.classList.contains('active') || auditView.style.display !== 'none')) {
             if (typeof switchTab === 'function') switchTab('dashboard');
@@ -4046,14 +4077,18 @@ function initAuthListener() {
                         let uRole = (uData.role || '').toLowerCase();
                         let uEmail = (user.email || '').toLowerCase();
 
-                        if (uEmail.includes('sales')) {
-                            uRole = 'sales_admin';
-                        } else if (uEmail.includes('adminlogistik') || uEmail.includes('admin_logistik')) {
-                            uRole = 'admin_logistik';
-                        } else if (uEmail.includes('dm2') && uRole !== 'sales_admin') {
-                            uRole = 'admin_dm2';
-                        } else if (!uRole) {
-                            uRole = 'super_admin';
+                        if (!uRole) {
+                            if (uEmail.includes('sales')) {
+                                uRole = 'sales_admin';
+                            } else if (uEmail.includes('dm2')) {
+                                uRole = 'admin_dm2';
+                            } else if (uEmail.includes('branch') || uEmail.includes('cikokol')) {
+                                uRole = 'branch_admin';
+                            } else if (uEmail.includes('adminlogistik') || uEmail.includes('admin_logistik')) {
+                                uRole = 'super_admin';
+                            } else {
+                                uRole = 'super_admin';
+                            }
                         }
 
                         currentUserRole = uRole;
