@@ -6,6 +6,7 @@ let mapCourierAudit = null;
 let courierAuditMarkersLayer = null;
 let lastCourierAuditData = [];
 let allPendingAuditStops = [];
+let allFailedAuditStops = [];
 let activeAuditCourierFilter = null;
 let isCurrentAuditSingleDay = true;
 
@@ -88,6 +89,7 @@ function calculateCourierDailyAudit() {
 
     const courierMap = {};
     const pendingList = [];
+    const failedList = [];
     const allStopsRawLog = [];
 
     rangeTrips.forEach(t => {
@@ -126,7 +128,8 @@ function calculateCourierDailyAudit() {
                 pendingCount: 0,
                 totalStops: 0,
                 tripsCount: 0,
-                pendingItems: []
+                pendingItems: [],
+                failedItems: []
             };
         }
 
@@ -149,13 +152,26 @@ function calculateCourierDailyAudit() {
             stats.earliestAssignMs = tripAssignMs;
         }
 
-        // Process destinations
+        // Process destinations with strict definitions of Terkirim vs Pending vs Gagal
         if (t.destinations && Array.isArray(t.destinations) && t.destinations.length > 0) {
             t.destinations.forEach((d, idx) => {
                 stats.totalStops++;
+
+                // 1. TERKIRIM (Done / Ada Bukti Foto Pengantaran)
                 const isDelivered = (d.status === 'done' || (d.proofPhotoUrl && d.proofPhotoUrl.length > 0));
-                const isPending = (d.status === 'pending' || d.status === 'pending_approval');
-                const isFailed = (d.status === 'failed' || d.status === 'canceled' || d.status === 'rejected');
+
+                // 2. PENDING = KURIR YANG MENGAJUKAN PENDINGAN DI SISTEM (Klien Tutup / Pending Approval / Ada Bukti Foto Pending)
+                const hasPendingSubmission = !!(
+                    d.status === 'pending_approval' ||
+                    d.status === 'klien_tutup' ||
+                    (d.pendingReason && typeof d.pendingReason === 'string' && d.pendingReason.trim().length > 0) ||
+                    (d.pendingProofPhotoUrl && d.pendingProofPhotoUrl.length > 0)
+                );
+                const isPending = !isDelivered && hasPendingSubmission;
+
+                // 3. GAGAL = MURNI KARENA TIDAK DIANTAR
+                // (Paket belum terkirim dan TIDAK ADA pengajuan pending oleh kurir di sistem)
+                const isFailed = !isDelivered && !isPending;
 
                 const finishMs = parseAuditTimestamp(d.completedTime) || parseAuditTimestamp(d.arrivalTime);
                 
@@ -176,6 +192,7 @@ function calculateCourierDailyAudit() {
                 if (isDelivered) {
                     stats.deliveredCount++;
                 } else if (isPending) {
+                    // Masuk kategori PENDING karena kurir mengajukan di sistem
                     stats.pendingCount++;
                     const pItem = {
                         tripId: t.id || `TRIP_${idx}`,
@@ -189,15 +206,37 @@ function calculateCourierDailyAudit() {
                         region: d.region || t.region || 'Jabodetabek',
                         latitude: parseFloat(d.latitude || 0),
                         longitude: parseFloat(d.longitude || 0),
-                        status: d.status === 'pending_approval' ? 'Pending Approval' : 'Pending',
-                        reason: d.pendingReason || 'Klien Tutup / Toko Tutup',
+                        type: 'pending',
+                        status: d.status === 'pending_approval' ? 'Pending Approval' : 'Pending (Diajukan Kurir)',
+                        reason: d.pendingReason || 'Toko Tutup / Klien Tutup (Diajukan Kurir)',
                         proofPhotoUrl: d.pendingProofPhotoUrl || d.proofPhotoUrl || '',
                         reportedTime: parseAuditTimestamp(d.arrivalTime) || parseAuditTimestamp(d.completedTime) || tripAssignMs
                     };
                     stats.pendingItems.push(pItem);
                     pendingList.push(pItem);
                 } else if (isFailed) {
+                    // Masuk kategori GAGAL karena murni tidak diantar
                     stats.failedCount++;
+                    const fItem = {
+                        tripId: t.id || `TRIP_${idx}`,
+                        stopIndex: d.stopIndex || (idx + 1),
+                        dateStr: tripDateKey || startDateVal,
+                        courierId: cCanonicalId,
+                        courierName: cDisplayName,
+                        vehicleType: vType,
+                        locationName: d.locationName || `Destinasi ${idx + 1}`,
+                        address: d.address || '-',
+                        region: d.region || t.region || 'Jabodetabek',
+                        latitude: parseFloat(d.latitude || 0),
+                        longitude: parseFloat(d.longitude || 0),
+                        type: 'failed',
+                        status: d.status === 'canceled' ? 'Dibatalkan' : (d.status === 'rejected' ? 'Ditolak' : 'Gagal (Tidak Diantar)'),
+                        reason: d.status === 'canceled' ? 'Dibatalkan' : (d.status === 'rejected' ? 'Ditolak' : 'Murni Tidak Diantar (Belum Sempat Didatangi)'),
+                        proofPhotoUrl: '',
+                        reportedTime: tripAssignMs
+                    };
+                    stats.failedItems.push(fItem);
+                    failedList.push(fItem);
                 }
 
                 // Raw chronological audit log
@@ -210,7 +249,7 @@ function calculateCourierDailyAudit() {
                     customer: d.locationName || '-',
                     address: d.address || '-',
                     region: d.region || t.region || '-',
-                    status: isDelivered ? 'Terkirim (Done)' : (isPending ? 'Pending' : (isFailed ? 'Gagal' : 'In Progress')),
+                    status: isDelivered ? 'Terkirim (Done)' : (isPending ? 'Pending (Diajukan Kurir)' : 'Gagal (Tidak Diantar)'),
                     arrivalTime: formatTimeHHMM(parseAuditTimestamp(d.arrivalTime)),
                     completedTime: formatTimeHHMM(finishMs),
                     proofUrl: d.proofPhotoUrl || d.pendingProofPhotoUrl || ''
@@ -281,6 +320,7 @@ function calculateCourierDailyAudit() {
         endDateStr: endDateVal,
         couriers: courierList,
         pendingList: pendingList,
+        failedList: failedList,
         rawLogs: allStopsRawLog
     };
 }
@@ -291,7 +331,8 @@ function calculateCourierDailyAudit() {
 function renderCourierAuditView() {
     const auditResult = calculateCourierDailyAudit();
     lastCourierAuditData = auditResult.couriers;
-    allPendingAuditStops = auditResult.pendingList;
+    allPendingAuditStops = auditResult.pendingList || [];
+    allFailedAuditStops = auditResult.failedList || [];
 
     // 1. Update 4 KPI Summary Cards
     let totalDelivered = 0;
@@ -317,7 +358,9 @@ function renderCourierAuditView() {
     const elDelivered = document.getElementById('audit-stat-delivered');
     const elDeliveredSub = document.getElementById('audit-stat-delivered-sub');
     const elFailed = document.getElementById('audit-stat-failed');
+    const elFailedSub = document.getElementById('audit-stat-failed-sub');
     const elPending = document.getElementById('audit-stat-pending');
+    const elPendingSub = document.getElementById('audit-stat-pending-sub');
     const elAvgHours = document.getElementById('audit-stat-avg-hours');
     const elAvgSub = document.getElementById('audit-stat-avg-sub');
     const elCourierCount = document.getElementById('audit-courier-count');
@@ -325,7 +368,9 @@ function renderCourierAuditView() {
     if (elDelivered) elDelivered.innerText = totalDelivered.toLocaleString();
     if (elDeliveredSub) elDeliveredSub.innerText = `${overallRate}% dari total ${totalStopsOverall} pengantaran`;
     if (elFailed) elFailed.innerText = totalFailed.toLocaleString();
+    if (elFailedSub) elFailedSub.innerText = totalFailed > 0 ? `${totalFailed} Paket murni tidak diantar` : 'Semua paket diantar kurir';
     if (elPending) elPending.innerText = totalPending.toLocaleString();
+    if (elPendingSub) elPendingSub.innerText = totalPending > 0 ? `${totalPending} Paket diajukan kurir di sistem` : 'Tidak ada pengajuan pending';
     
     if (elAvgHours) {
         elAvgHours.innerText = auditResult.isSingleDay 
@@ -539,21 +584,27 @@ function renderAuditMapMarkers(courierIdFilter = null) {
     const pendingStops = courierIdFilter 
         ? allPendingAuditStops.filter(p => p.courierId === courierIdFilter)
         : allPendingAuditStops;
+    const failedStops = courierIdFilter 
+        ? allFailedAuditStops.filter(f => f.courierId === courierIdFilter)
+        : allFailedAuditStops;
+    
+    // Combine failed first, then pending
+    const combinedIssues = [...failedStops, ...pendingStops];
 
     const listContainer = document.getElementById('audit-pending-list-container');
     const badgeCount = document.getElementById('audit-pending-badge-count');
     const subtitle = document.getElementById('audit-map-subtitle');
 
-    if (badgeCount) badgeCount.innerText = `${pendingStops.length} Titik`;
+    if (badgeCount) badgeCount.innerText = `${combinedIssues.length} Titik Kendala (${failedStops.length} Gagal, ${pendingStops.length} Pending)`;
     if (subtitle) {
         subtitle.innerText = courierIdFilter 
-            ? `Filter: Menampilkan ${pendingStops.length} titik pending kurir ini`
-            : `Menampilkan seluruh ${pendingStops.length} titik pending di periode terpilih`;
+            ? `Filter: Menampilkan ${combinedIssues.length} kendala kurir ini (${failedStops.length} gagal, ${pendingStops.length} pending)`
+            : `Menampilkan seluruh ${combinedIssues.length} titik kendala (${failedStops.length} gagal, ${pendingStops.length} pending)`;
     }
 
-    if (pendingStops.length === 0) {
+    if (combinedIssues.length === 0) {
         if (listContainer) {
-            listContainer.innerHTML = `<div class="text-muted extra-small text-center py-3">Tidak ada paket pending untuk filter ini.</div>`;
+            listContainer.innerHTML = `<div class="text-success extra-small text-center py-3 bg-white rounded border"><i class="bi bi-check-circle-fill me-1"></i> Tidak ada paket gagal ataupun pending. Semua terselesaikan!</div>`;
         }
         return;
     }
@@ -561,44 +612,52 @@ function renderAuditMapMarkers(courierIdFilter = null) {
     const bounds = L.latLngBounds([]);
     let listHtml = '';
 
-    pendingStops.forEach((p, idx) => {
-        const hasCoords = (p.latitude && p.longitude && !isNaN(p.latitude) && !isNaN(p.longitude) && p.latitude !== 0);
+    combinedIssues.forEach((item, idx) => {
+        const hasCoords = (item.latitude && item.longitude && !isNaN(item.latitude) && !isNaN(item.longitude) && item.latitude !== 0);
+        const isFail = item.type === 'failed';
+        const pinColor = isFail ? '#DC2626' : '#EA580C';
+        const pinBadge = isFail 
+            ? `<span class="badge bg-danger-subtle text-danger extra-small fw-bold">Gagal (Tidak Diantar)</span>`
+            : `<span class="badge bg-warning-subtle text-warning-emphasis extra-small fw-bold">Pending (Diajukan Kurir)</span>`;
 
         if (hasCoords) {
-            bounds.extend([p.latitude, p.longitude]);
+            bounds.extend([item.latitude, item.longitude]);
 
             const iconHtml = `
-                <div style="background-color: #EA580C; width: 28px; height: 28px; border-radius: 50%; border: 3px solid #FFF; box-shadow: 0 3px 8px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px;">
-                    ${idx + 1}
+                <div style="background-color: ${pinColor}; width: 28px; height: 28px; border-radius: 50%; border: 3px solid #FFF; box-shadow: 0 3px 8px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 11px;">
+                    ${isFail ? '❌' : (idx + 1)}
                 </div>`;
 
             const customMarkerIcon = L.divIcon({
-                className: 'custom-pending-pin',
+                className: 'custom-issue-pin',
                 html: iconHtml,
                 iconSize: [28, 28],
                 iconAnchor: [14, 14],
                 popupAnchor: [0, -14]
             });
 
-            const marker = L.marker([p.latitude, p.longitude], { icon: customMarkerIcon });
+            const marker = L.marker([item.latitude, item.longitude], { icon: customMarkerIcon });
 
-            const podBtn = p.proofPhotoUrl 
-                ? `<button class="btn btn-xs btn-outline-danger w-100 py-1 extra-small rounded-2 fw-bold mt-2" onclick="openPoDModal('${p.proofPhotoUrl}')"><i class="bi bi-camera me-1"></i>Lihat Foto Kendala</button>`
+            const podBtn = item.proofPhotoUrl 
+                ? `<button class="btn btn-xs btn-outline-danger w-100 py-1 extra-small rounded-2 fw-bold mt-2" onclick="openPoDModal('${item.proofPhotoUrl}')"><i class="bi bi-camera me-1"></i>Lihat Foto Kendala</button>`
                 : '';
 
             const popupContent = `
                 <div style="min-width: 220px; font-size: 0.8rem; font-family: inherit;">
-                    <div class="fw-bold text-dark mb-1" style="font-size: 0.875rem;">${p.locationName}</div>
-                    <div class="text-muted extra-small mb-1"><i class="bi bi-geo-alt me-1 text-danger"></i>${p.address}</div>
+                    <div class="d-flex align-items-center justify-content-between mb-1">
+                        <span class="fw-bold text-dark" style="font-size: 0.875rem;">${item.locationName}</span>
+                        ${pinBadge}
+                    </div>
+                    <div class="text-muted extra-small mb-1"><i class="bi bi-geo-alt me-1 text-danger"></i>${item.address}</div>
                     <div class="d-flex align-items-center justify-content-between mt-2 pt-2 border-top extra-small">
                         <span class="text-muted">Kurir:</span>
-                        <span class="fw-bold text-dark">${p.courierName}</span>
+                        <span class="fw-bold text-dark">${item.courierName}</span>
                     </div>
                     <div class="d-flex align-items-center justify-content-between mt-1 extra-small">
-                        <span class="text-danger fw-semibold">Alasan:</span>
-                        <span class="badge bg-warning-subtle text-warning-emphasis">${p.reason}</span>
+                        <span class="${isFail ? 'text-danger' : 'text-warning-emphasis'} fw-semibold">Status:</span>
+                        <span class="text-dark fw-bold">${item.reason}</span>
                     </div>
-                    <div class="text-muted extra-small mt-1"><i class="bi bi-calendar3 me-1"></i>${p.dateStr || ''}</div>
+                    <div class="text-muted extra-small mt-1"><i class="bi bi-calendar3 me-1"></i>${item.dateStr || ''}</div>
                     ${podBtn}
                 </div>`;
 
@@ -607,15 +666,15 @@ function renderAuditMapMarkers(courierIdFilter = null) {
         }
 
         listHtml += `
-            <div class="card border rounded-3 p-2 bg-white shadow-2fs cursor-pointer" onclick="zoomToPendingStop(${p.latitude}, ${p.longitude})">
+            <div class="card border rounded-3 p-2 bg-white shadow-2fs cursor-pointer" onclick="zoomToPendingStop(${item.latitude}, ${item.longitude})" style="border-left: 3px solid ${pinColor} !important;">
                 <div class="d-flex align-items-center justify-content-between">
-                    <span class="fw-bold text-dark extra-small text-truncate" style="max-width: 180px;">${idx + 1}. ${p.locationName}</span>
-                    <span class="badge bg-warning-subtle text-warning-emphasis extra-small">${p.reason}</span>
+                    <span class="fw-bold text-dark extra-small text-truncate" style="max-width: 170px;">${idx + 1}. ${item.locationName}</span>
+                    ${pinBadge}
                 </div>
-                <div class="text-muted extra-small text-truncate mt-0.5">${p.address}</div>
+                <div class="text-muted extra-small text-truncate mt-0.5">${item.address}</div>
                 <div class="d-flex align-items-center justify-content-between mt-1 text-muted extra-small" style="font-size: 0.7rem;">
-                    <span><i class="bi bi-person me-1"></i>${p.courierName}</span>
-                    <span>${p.dateStr || ''}</span>
+                    <span><i class="bi bi-person me-1"></i>${item.courierName}</span>
+                    <span class="${isFail ? 'text-danger' : 'text-warning-emphasis'} fw-semibold">${item.reason}</span>
                 </div>
             </div>`;
     });
@@ -728,11 +787,11 @@ async function exportCourierAuditToExcel() {
         const headers = isSingle ? [
             "No", "Alokasi Driver / Kurir", "Tipe Armada", "Jam Penugasan Awal", 
             "Jam Upload Akhir", "Total Jam Kerja", "Status Lembur", "Total Titik (Stops)", 
-            "Terkirim (Sukses)", "Pending (Klien Tutup)", "Gagal / Batal", "Persentase Sukses"
+            "Terkirim (Sukses)", "Gagal (Tidak Diantar)", "Pending (Diajukan Kurir)", "Persentase Sukses"
         ] : [
             "No", "Alokasi Driver / Kurir", "Tipe Armada", "Hari Aktif", 
             "Rata Jam / Hari", "Total Jam Kerja", "Hari Lembur", "Total Titik (Stops)", 
-            "Terkirim (Sukses)", "Pending (Klien Tutup)", "Gagal / Batal", "Persentase Sukses"
+            "Terkirim (Sukses)", "Gagal (Tidak Diantar)", "Pending (Diajukan Kurir)", "Persentase Sukses"
         ];
 
         headers.forEach((h, idx) => {
@@ -777,8 +836,8 @@ async function exportCourierAuditToExcel() {
                     c.isOvertime ? "Lembur (>8 Jam)" : "Normal (≤8 Jam)",
                     c.totalStops,
                     c.deliveredCount,
-                    c.pendingCount,
                     c.failedCount,
+                    c.pendingCount,
                     `${c.successRate}%`
                 ];
 
@@ -809,8 +868,8 @@ async function exportCourierAuditToExcel() {
                 "-",
                 totMobilStops,
                 totMobilDelivered,
-                totMobilPending,
                 totMobilFailed,
+                totMobilPending,
                 rateMobil
             ];
             subMobilData.forEach((val, cIdx) => {
@@ -847,8 +906,8 @@ async function exportCourierAuditToExcel() {
                     c.isOvertime ? "Lembur (>8 Jam)" : "Normal (≤8 Jam)",
                     c.totalStops,
                     c.deliveredCount,
-                    c.pendingCount,
                     c.failedCount,
+                    c.pendingCount,
                     `${c.successRate}%`
                 ];
 
@@ -879,8 +938,8 @@ async function exportCourierAuditToExcel() {
                 "-",
                 totMotorStops,
                 totMotorDelivered,
-                totMotorPending,
                 totMotorFailed,
+                totMotorPending,
                 rateMotor
             ];
             subMotorData.forEach((val, cIdx) => {
@@ -915,8 +974,8 @@ async function exportCourierAuditToExcel() {
             "-",
             grandStops,
             grandDelivered,
-            grandPending,
             grandFailed,
+            grandPending,
             grandRate
         ];
         grandData.forEach((val, cIdx) => {
@@ -949,28 +1008,40 @@ async function exportCourierAuditToExcel() {
         note1Row.getCell(1).value = `1. Evaluasi Pengantaran: Total ${grandStops} paket ditugaskan, ${grandDelivered} paket sukses terkirim (${grandRate} keberhasilan).`;
         note1Row.getCell(1).font = { name: 'Calibri', size: 9.5, italic: true, color: { argb: 'FF475569' } };
 
+        const failedCouriersList = couriers.filter(c => c.failedCount > 0);
+        let failedNoteText = `2. Paket Gagal (Murni Tidak Diantar): Terdata ${grandFailed} paket gagal karena tidak sempat didatangi/diantar kurir.`;
+        if (failedCouriersList.length > 0) {
+            const namesWithFailed = failedCouriersList.map(c => `${c.name} (${c.failedCount} pkt)`).join(', ');
+            failedNoteText += ` Kurir bersangkutan: ${namesWithFailed}.`;
+        } else {
+            failedNoteText += ` Tidak ada paket gagal (seluruh paket dikunjungi/diantar).`;
+        }
+        const note2Row = sheet.getRow(currentRowIndex++);
+        note2Row.getCell(1).value = failedNoteText;
+        note2Row.getCell(1).font = { name: 'Calibri', size: 9.5, italic: true, color: { argb: 'FF475569' } };
+
         const pendingCouriersList = couriers.filter(c => c.pendingCount > 0);
-        let pendingNoteText = `2. Kendala Lapangan & Pending: Terdata ${grandPending} paket berstatus pending (klien tutup/reschedule).`;
+        let pendingNoteText = `3. Pengajuan Pending (Diajukan Kurir): Terdata ${grandPending} paket diajukan pending oleh kurir di sistem (klien tutup/reschedule).`;
         if (pendingCouriersList.length > 0) {
             const namesWithPending = pendingCouriersList.map(c => `${c.name} (${c.pendingCount} pkt)`).join(', ');
             pendingNoteText += ` Kurir bersangkutan: ${namesWithPending}.`;
         } else {
-            pendingNoteText += ` Seluruh paket terselesaikan tanpa kendala (0 pending).`;
+            pendingNoteText += ` Tidak ada pengajuan pending oleh kurir di sistem.`;
         }
-        const note2Row = sheet.getRow(currentRowIndex++);
-        note2Row.getCell(1).value = pendingNoteText;
-        note2Row.getCell(1).font = { name: 'Calibri', size: 9.5, italic: true, color: { argb: 'FF475569' } };
+        const note3Row = sheet.getRow(currentRowIndex++);
+        note3Row.getCell(1).value = pendingNoteText;
+        note3Row.getCell(1).font = { name: 'Calibri', size: 9.5, italic: true, color: { argb: 'FF475569' } };
 
         const overtimeCouriers = couriers.filter(c => c.isOvertime);
-        let overtimeNoteText = `3. Jam Kerja & Lembur: `;
+        let overtimeNoteText = `4. Jam Kerja & Lembur: `;
         if (overtimeCouriers.length > 0) {
             overtimeNoteText += `Terdapat ${overtimeCouriers.length} personel yang bekerja lembur (>8 jam): ${overtimeCouriers.map(c => `${c.name} (${c.col3Value})`).join(', ')}.`;
         } else {
             overtimeNoteText += `Seluruh armada bekerja dalam durasi normal (≤8 jam).`;
         }
-        const note3Row = sheet.getRow(currentRowIndex++);
-        note3Row.getCell(1).value = overtimeNoteText;
-        note3Row.getCell(1).font = { name: 'Calibri', size: 9.5, italic: true, color: { argb: 'FF475569' } };
+        const note4Row = sheet.getRow(currentRowIndex++);
+        note4Row.getCell(1).value = overtimeNoteText;
+        note4Row.getCell(1).font = { name: 'Calibri', size: 9.5, italic: true, color: { argb: 'FF475569' } };
 
         // Column widths
         sheet.columns = [
@@ -983,8 +1054,8 @@ async function exportCourierAuditToExcel() {
             { width: 18 },  // Status Lembur
             { width: 18 },  // Total Stops
             { width: 18 },  // Terkirim
-            { width: 20 },  // Pending
-            { width: 15 },  // Gagal
+            { width: 22 },  // Gagal
+            { width: 22 },  // Pending
             { width: 18 }   // Persentase
         ];
 
@@ -1018,8 +1089,8 @@ async function exportCourierAuditToExcel() {
                 "Status Lembur": c.isOvertime ? 'Lembur (>8 Jam)' : 'Normal',
                 "Total Stops": c.totalStops,
                 "Terkirim": c.deliveredCount,
-                "Pending": c.pendingCount,
-                "Gagal": c.failedCount,
+                "Gagal (Tidak Diantar)": c.failedCount,
+                "Pending (Diajukan Kurir)": c.pendingCount,
                 "Persentase": `${c.successRate}%`
             });
         });
@@ -1036,8 +1107,8 @@ async function exportCourierAuditToExcel() {
                 "Status Lembur": c.isOvertime ? 'Lembur (>8 Jam)' : 'Normal',
                 "Total Stops": c.totalStops,
                 "Terkirim": c.deliveredCount,
-                "Pending": c.pendingCount,
-                "Gagal": c.failedCount,
+                "Gagal (Tidak Diantar)": c.failedCount,
+                "Pending (Diajukan Kurir)": c.pendingCount,
                 "Persentase": `${c.successRate}%`
             });
         });
@@ -1204,7 +1275,8 @@ function buildWhatsAppReportText() {
     // Overtime couriers
     const overtimeList = [];
 
-    // Pending grouped by courier
+    // Failed & Pending grouped by courier
+    const failedByCourier = [];
     const pendingByCourier = [];
 
     couriers.forEach(c => {
@@ -1220,17 +1292,21 @@ function buildWhatsAppReportText() {
         if (c.vehicleType === 'mobil') {
             mobilCount++;
             mobilDelivered += c.deliveredCount;
-            mobilPending += c.pendingCount;
             mobilFailed += c.failedCount;
+            mobilPending += c.pendingCount;
         } else {
             motorCount++;
             motorDelivered += c.deliveredCount;
-            motorPending += c.pendingCount;
             motorFailed += c.failedCount;
+            motorPending += c.pendingCount;
         }
 
         if (c.isOvertime) {
             overtimeList.push(c);
+        }
+
+        if (c.failedItems && c.failedItems.length > 0) {
+            failedByCourier.push(c);
         }
 
         if (c.pendingItems && c.pendingItems.length > 0) {
@@ -1250,22 +1326,35 @@ function buildWhatsAppReportText() {
     msg += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
 
     msg += `📈 *RINGKASAN EKSEKUTIF*\n`;
-    msg += `• Total Penugasan : *${totalStopsOverall} Paket*\n`;
-    msg += `• ✅ Terkirim Sukses : *${totalDelivered} Paket (${overallRate}%)*\n`;
-    msg += `• ⚠️ Total Pending   : *${totalPending} Paket*\n`;
-    msg += `• ❌ Gagal/Batal     : *${totalFailed} Paket*\n`;
-    msg += `• ⏱️ Rata-rata Kerja : *${formatDurationHoursMins(avgMins)} / kurir*\n\n`;
+    msg += `• Total Penugasan     : *${totalStopsOverall} Paket*\n`;
+    msg += `• ✅ Terkirim Sukses  : *${totalDelivered} Paket (${overallRate}%)*\n`;
+    msg += `• ❌ Gagal (Tdk Diantar): *${totalFailed} Paket*\n`;
+    msg += `• ⚠️ Pending (Diajukan) : *${totalPending} Paket*\n`;
+    msg += `• ⏱️ Rata-rata Kerja  : *${formatDurationHoursMins(avgMins)} / kurir*\n\n`;
 
     msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
     msg += `🚚 *REKAP PER ARMADA*\n`;
-    msg += `• *Mobil (${mobilCount} Driver)* : ${mobilDelivered + mobilPending + mobilFailed} Pkt (${mobilDelivered} Selesai, ${mobilPending} Pending, ${mobilFailed} Gagal)\n`;
-    msg += `• *Motor (${motorCount} Kurir)* : ${motorDelivered + motorPending + motorFailed} Pkt (${motorDelivered} Selesai, ${motorPending} Pending, ${motorFailed} Gagal)\n\n`;
+    msg += `• *Mobil (${mobilCount} Driver)* : ${mobilDelivered + mobilFailed + mobilPending} Pkt (${mobilDelivered} Sukses, ${mobilFailed} Gagal, ${mobilPending} Pending)\n`;
+    msg += `• *Motor (${motorCount} Kurir)* : ${motorDelivered + motorFailed + motorPending} Pkt (${motorDelivered} Sukses, ${motorFailed} Gagal, ${motorPending} Pending)\n\n`;
+
+    if (failedByCourier.length > 0) {
+        msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
+        msg += `❌ *DAFTAR KURIR DENGAN PAKET GAGAL (TIDAK DIANTAR):*\n`;
+        failedByCourier.forEach((c, idx) => {
+            const vIcon = c.vehicleType === 'mobil' ? '🚚' : '🛵';
+            msg += `\n${idx + 1}. ${vIcon} *${c.name}* — ${c.failedCount} Paket Gagal (Murni tidak diantar)\n`;
+            c.failedItems.forEach(item => {
+                msg += `   • *${item.locationName}*\n     └ Status: Belum sempat diantar\n`;
+            });
+        });
+        msg += `\n`;
+    }
 
     msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
-    msg += `⚠️ *DAFTAR KURIR YANG MEMILIKI PENDING:*\n`;
+    msg += `⚠️ *DAFTAR KURIR PENGAJUAN PENDING (KLIEN TUTUP):*\n`;
 
     if (pendingByCourier.length === 0) {
-        msg += `✅ *SEMUA TUNTAS (0 PENDING)*\nSeluruh paket berhasil terkirim tanpa ada pending.\n\n`;
+        msg += `✅ *0 PENDING (Tidak ada pengajuan kendala toko tutup)*\n\n`;
     } else {
         pendingByCourier.forEach((c, idx) => {
             const vIcon = c.vehicleType === 'mobil' ? '🚚' : '🛵';
@@ -1274,7 +1363,7 @@ function buildWhatsAppReportText() {
                 msg += `   • *${item.locationName}*\n     └ Alasan: ${item.reason}\n`;
             });
         });
-        msg += `\n_(Kurir lainnya tidak memiliki pending / tuntas)_\n\n`;
+        msg += `\n`;
     }
 
     if (overtimeList.length > 0) {
@@ -1336,6 +1425,7 @@ function generateReportPreviews() {
     let totalDelivered = 0, totalFailed = 0, totalPending = 0, totalEffectiveMins = 0, couriersWithTimeCount = 0;
     let mobilDelivered = 0, mobilPending = 0, mobilFailed = 0, mobilCount = 0;
     let motorDelivered = 0, motorPending = 0, motorFailed = 0, motorCount = 0;
+    const failedCouriers = [];
     const pendingCouriers = [];
 
     couriers.forEach(c => {
@@ -1351,13 +1441,17 @@ function generateReportPreviews() {
         if (c.vehicleType === 'mobil') {
             mobilCount++;
             mobilDelivered += c.deliveredCount;
-            mobilPending += c.pendingCount;
             mobilFailed += c.failedCount;
+            mobilPending += c.pendingCount;
         } else {
             motorCount++;
             motorDelivered += c.deliveredCount;
-            motorPending += c.pendingCount;
             motorFailed += c.failedCount;
+            motorPending += c.pendingCount;
+        }
+
+        if (c.failedItems && c.failedItems.length > 0) {
+            failedCouriers.push(c);
         }
 
         if (c.pendingItems && c.pendingItems.length > 0) {
@@ -1373,10 +1467,13 @@ function generateReportPreviews() {
     const elCardStops = document.getElementById('report-card-total-stops');
     const elCardDelivered = document.getElementById('report-card-delivered');
     const elCardSuccessRate = document.getElementById('report-card-success-rate');
+    const elCardFailed = document.getElementById('report-card-failed');
     const elCardPending = document.getElementById('report-card-pending');
     const elCardAvgTime = document.getElementById('report-card-avg-time');
     const elCardMobil = document.getElementById('report-card-mobil-summary');
     const elCardMotor = document.getElementById('report-card-motor-summary');
+    const elCardFailedCount = document.getElementById('report-card-failed-couriers-count');
+    const elCardFailedList = document.getElementById('report-card-failed-list');
     const elCardPendingCount = document.getElementById('report-card-pending-couriers-count');
     const elCardPendingList = document.getElementById('report-card-pending-list');
 
@@ -1384,25 +1481,67 @@ function generateReportPreviews() {
     if (elCardStops) elCardStops.innerText = totalStopsOverall.toLocaleString();
     if (elCardDelivered) elCardDelivered.innerText = totalDelivered.toLocaleString();
     if (elCardSuccessRate) elCardSuccessRate.innerText = `${overallRate}% Sukses`;
+    if (elCardFailed) elCardFailed.innerText = totalFailed.toLocaleString();
     if (elCardPending) elCardPending.innerText = totalPending.toLocaleString();
     if (elCardAvgTime) elCardAvgTime.innerText = formatDurationHoursMins(avgMins);
     
     if (elCardMobil) {
-        elCardMobil.innerText = `Mobil (${mobilCount}): ${mobilDelivered} Selesai, ${mobilPending} Pending`;
+        elCardMobil.innerText = `Mobil (${mobilCount}): ${mobilDelivered} Sukses, ${mobilFailed} Gagal, ${mobilPending} Pending`;
     }
     if (elCardMotor) {
-        elCardMotor.innerText = `Motor (${motorCount}): ${motorDelivered} Selesai, ${motorPending} Pending`;
+        elCardMotor.innerText = `Motor (${motorCount}): ${motorDelivered} Sukses, ${motorFailed} Gagal, ${motorPending} Pending`;
     }
 
+    // Kurir Gagal List
+    if (elCardFailedCount) {
+        elCardFailedCount.innerText = `${failedCouriers.length} Kurir`;
+    }
+    if (elCardFailedList) {
+        if (failedCouriers.length === 0) {
+            elCardFailedList.innerHTML = `
+                <div class="text-success extra-small text-center py-3 bg-white rounded border">
+                    <i class="bi bi-check2 text-success me-1"></i> Tidak ada paket gagal. Seluruh paket telah dikunjungi/diantar!
+                </div>`;
+        } else {
+            let failedCardsHtml = '';
+            failedCouriers.forEach(c => {
+                const vIcon = c.vehicleType === 'mobil' ? '🚚' : '🛵';
+                let destListHtml = '';
+                c.failedItems.forEach(item => {
+                    destListHtml += `
+                        <div class="extra-small py-0.5">
+                            <span class="fw-semibold text-dark">• ${item.locationName}</span>
+                            <span class="text-danger ms-1">(Murni tidak diantar)</span>
+                        </div>`;
+                });
+
+                failedCardsHtml += `
+                    <div class="p-2.5 rounded-3 border bg-white shadow-2fs">
+                        <div class="d-flex align-items-center justify-content-between mb-1">
+                            <div class="fw-bold text-dark extra-small d-flex align-items-center gap-1.5">
+                                <span>${vIcon}</span>
+                                <span>${c.name}</span>
+                            </div>
+                            <span class="badge bg-danger-subtle text-danger extra-small fw-bold">${c.failedCount} Gagal</span>
+                        </div>
+                        <div class="d-flex flex-column gap-0.5 ps-3 border-start ms-1" style="border-left-color: #fca5a5 !important;">
+                            ${destListHtml}
+                        </div>
+                    </div>`;
+            });
+            elCardFailedList.innerHTML = failedCardsHtml;
+        }
+    }
+
+    // Kurir Pending List
     if (elCardPendingCount) {
         elCardPendingCount.innerText = `${pendingCouriers.length} Kurir`;
     }
-
     if (elCardPendingList) {
         if (pendingCouriers.length === 0) {
             elCardPendingList.innerHTML = `
-                <div class="text-success extra-small text-center py-3 bg-light rounded-3 border">
-                    <i class="bi bi-check-circle-fill me-1"></i> Semua pengantaran tuntas. Tidak ada paket pending!
+                <div class="text-muted extra-small text-center py-3 bg-white rounded border">
+                    <i class="bi bi-info-circle me-1"></i> Tidak ada kurir yang mengajukan kendala pending di sistem.
                 </div>`;
         } else {
             let pendingCardsHtml = '';
@@ -1413,7 +1552,7 @@ function generateReportPreviews() {
                     destListHtml += `
                         <div class="extra-small py-0.5">
                             <span class="fw-semibold text-dark">• ${item.locationName}</span>
-                            <span class="text-danger ms-1">(${item.reason})</span>
+                            <span class="text-warning-emphasis ms-1">(${item.reason})</span>
                         </div>`;
                 });
 
@@ -1426,7 +1565,7 @@ function generateReportPreviews() {
                             </div>
                             <span class="badge bg-warning-subtle text-warning-emphasis extra-small fw-bold">${c.pendingCount} Paket</span>
                         </div>
-                        <div class="d-flex flex-column gap-0.5 ps-3 border-start ms-1" style="border-left-color: #cbd5e1 !important;">
+                        <div class="d-flex flex-column gap-0.5 ps-3 border-start ms-1" style="border-left-color: #fed7aa !important;">
                             ${destListHtml}
                         </div>
                     </div>`;
