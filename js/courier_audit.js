@@ -501,14 +501,21 @@ function filterCourierAuditTable() {
         }
 
         const isActiveFilter = (activeAuditCourierFilter === c.courierId);
-        const activeRowStyle = isActiveFilter ? 'style="background-color: #F0FDF4; font-weight: 600;"' : '';
+        const hasFailed = c.failedCount > 0;
+        let activeRowStyle = '';
+        if (isActiveFilter) {
+            activeRowStyle = 'style="background-color: #F0FDF4; font-weight: 600;"';
+        } else if (hasFailed) {
+            activeRowStyle = 'style="background-color: #FFF5F5;"';
+        }
 
         rowsHtml += `
             <tr ${activeRowStyle}>
                 <td>
-                    <div class="fw-bold text-dark d-flex align-items-center">
+                    <div class="fw-bold ${hasFailed ? 'text-danger' : 'text-dark'} d-flex align-items-center">
                         ${c.name}
                         ${vBadge}
+                        ${hasFailed ? '<span class="badge bg-danger text-white extra-small ms-1.5 py-0.5 px-1.5"><i class="bi bi-exclamation-triangle-fill me-0.5"></i>Ada Gagal</span>' : ''}
                     </div>
                     <small class="text-muted extra-small">ID: ${c.courierId.substring(0, 10)}</small>
                 </td>
@@ -528,13 +535,13 @@ function filterCourierAuditTable() {
                     <span class="badge bg-success-subtle text-success px-2.5 py-1 fw-bold fs-7">${c.deliveredCount}</span>
                 </td>
                 <td class="text-center">
-                    <span class="badge ${c.failedCount > 0 ? 'bg-danger-subtle text-danger fw-bold' : 'bg-light text-muted border'} px-2 py-1">${c.failedCount}</span>
+                    <span class="badge ${hasFailed ? 'bg-danger text-white fw-bold shadow-sm' : 'bg-light text-muted border'} px-2.5 py-1">${c.failedCount}</span>
                 </td>
                 <td class="text-center">
                     <span class="badge ${c.pendingCount > 0 ? 'bg-warning-subtle text-warning-emphasis fw-bold' : 'bg-light text-muted border'} px-2 py-1">${c.pendingCount}</span>
                 </td>
                 <td class="text-center">
-                    <button class="btn btn-xs ${isActiveFilter ? 'btn-success' : 'btn-outline-primary'} py-1 px-2.5 rounded-pill extra-small fw-bold" onclick="focusCourierOnAuditMap('${c.courierId}')" title="Lihat Titik Pending di Peta">
+                    <button class="btn btn-xs ${isActiveFilter ? 'btn-success' : 'btn-outline-primary'} py-1 px-2.5 rounded-pill extra-small fw-bold" onclick="focusCourierOnAuditMap('${c.courierId}')" title="Lihat Titik Kendala di Peta">
                         <i class="bi bi-geo-alt-fill me-1"></i>${isActiveFilter ? 'Aktif' : 'Peta'}
                     </button>
                 </td>
@@ -826,6 +833,7 @@ async function exportCourierAuditToExcel() {
             mobilCouriers.forEach((c, idx) => {
                 const row = sheet.getRow(currentRowIndex++);
                 row.height = 20;
+                const hasFailed = c.failedCount > 0;
                 const rowData = [
                     idx + 1,
                     c.name,
@@ -846,9 +854,34 @@ async function exportCourierAuditToExcel() {
                     cell.value = val;
                     cell.font = { name: 'Calibri', size: 10, color: { argb: 'FF1E293B' } };
                     cell.border = thinBorder;
+
+                    // Tint row subtly if courier has failed deliveries
+                    if (hasFailed) {
+                        cell.fill = {
+                            type: 'pattern',
+                            pattern: 'solid',
+                            fgColor: { argb: 'FFFFF5F5' } // Very soft alert tint
+                        };
+                    }
+
                     if (cIdx === 1) {
                         cell.alignment = { vertical: 'middle', horizontal: 'left' };
-                        cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF1E293B' } };
+                        cell.font = { name: 'Calibri', size: 10, bold: true, color: hasFailed ? { argb: 'FF991B1B' } : { argb: 'FF1E293B' } };
+                    } else if (cIdx === 9 && val > 0) {
+                        // OTOMATIS WARNA BLOK MERAH JIKA ADA GAGAL ANTAR
+                        cell.fill = {
+                            type: 'pattern',
+                            pattern: 'solid',
+                            fgColor: { argb: 'FFFFC7CE' } // Soft bright red block (Excel alert standard)
+                        };
+                        cell.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: 'FF9C0006' } };
+                        cell.border = {
+                            top: { style: 'thin', color: { argb: 'FFF87171' } },
+                            bottom: { style: 'thin', color: { argb: 'FFF87171' } },
+                            left: { style: 'thin', color: { argb: 'FFF87171' } },
+                            right: { style: 'thin', color: { argb: 'FFF87171' } }
+                        };
+                        cell.alignment = { vertical: 'middle', horizontal: 'center' };
                     } else {
                         cell.alignment = { vertical: 'middle', horizontal: 'center' };
                     }
@@ -887,6 +920,15 @@ async function exportCourierAuditToExcel() {
                     left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
                     right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
                 };
+                if (cIdx === 9 && val > 0) {
+                    // Blok merah pada subtotal jika ada gagal
+                    cell.fill = {
+                        type: 'pattern',
+                        pattern: 'solid',
+                        fgColor: { argb: 'FFFFC7CE' }
+                    };
+                    cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF9C0006' } };
+                }
                 cell.alignment = { vertical: 'middle', horizontal: cIdx === 1 ? 'left' : 'center' };
             });
         }
@@ -896,6 +938,7 @@ async function exportCourierAuditToExcel() {
             motorCouriers.forEach((c, idx) => {
                 const row = sheet.getRow(currentRowIndex++);
                 row.height = 20;
+                const hasFailed = c.failedCount > 0;
                 const rowData = [
                     idx + 1,
                     c.name,
@@ -916,9 +959,34 @@ async function exportCourierAuditToExcel() {
                     cell.value = val;
                     cell.font = { name: 'Calibri', size: 10, color: { argb: 'FF1E293B' } };
                     cell.border = thinBorder;
+
+                    // Tint row subtly if courier has failed deliveries
+                    if (hasFailed) {
+                        cell.fill = {
+                            type: 'pattern',
+                            pattern: 'solid',
+                            fgColor: { argb: 'FFFFF5F5' } // Very soft alert tint
+                        };
+                    }
+
                     if (cIdx === 1) {
                         cell.alignment = { vertical: 'middle', horizontal: 'left' };
-                        cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF1E293B' } };
+                        cell.font = { name: 'Calibri', size: 10, bold: true, color: hasFailed ? { argb: 'FF991B1B' } : { argb: 'FF1E293B' } };
+                    } else if (cIdx === 9 && val > 0) {
+                        // OTOMATIS WARNA BLOK MERAH JIKA ADA GAGAL ANTAR
+                        cell.fill = {
+                            type: 'pattern',
+                            pattern: 'solid',
+                            fgColor: { argb: 'FFFFC7CE' } // Soft bright red block (Excel alert standard)
+                        };
+                        cell.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: 'FF9C0006' } };
+                        cell.border = {
+                            top: { style: 'thin', color: { argb: 'FFF87171' } },
+                            bottom: { style: 'thin', color: { argb: 'FFF87171' } },
+                            left: { style: 'thin', color: { argb: 'FFF87171' } },
+                            right: { style: 'thin', color: { argb: 'FFF87171' } }
+                        };
+                        cell.alignment = { vertical: 'middle', horizontal: 'center' };
                     } else {
                         cell.alignment = { vertical: 'middle', horizontal: 'center' };
                     }
@@ -957,6 +1025,15 @@ async function exportCourierAuditToExcel() {
                     left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
                     right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
                 };
+                if (cIdx === 9 && val > 0) {
+                    // Blok merah pada subtotal jika ada gagal
+                    cell.fill = {
+                        type: 'pattern',
+                        pattern: 'solid',
+                        fgColor: { argb: 'FFFFC7CE' }
+                    };
+                    cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF9C0006' } };
+                }
                 cell.alignment = { vertical: 'middle', horizontal: cIdx === 1 ? 'left' : 'center' };
             });
         }
@@ -993,8 +1070,45 @@ async function exportCourierAuditToExcel() {
                 left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
                 right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
             };
+            if (cIdx === 9 && val > 0) {
+                // Blok merah pada grand total jika ada gagal
+                cell.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FFFFC7CE' }
+                };
+                cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FF9C0006' } };
+            }
             cell.alignment = { vertical: 'middle', horizontal: cIdx === 1 ? 'left' : 'center' };
         });
+
+        // Add native Excel conditional formatting rule for automatic red block on column J (Gagal)
+        try {
+            sheet.addConditionalFormatting({
+                ref: `J5:J${currentRowIndex - 2}`,
+                rules: [
+                    {
+                        type: 'cellIs',
+                        operator: 'greaterThan',
+                        formulae: ['0'],
+                        style: {
+                            fill: {
+                                type: 'pattern',
+                                pattern: 'solid',
+                                bgColor: { argb: 'FFFFC7CE' },
+                                fgColor: { argb: 'FFFFC7CE' }
+                            },
+                            font: {
+                                color: { argb: 'FF9C0006' },
+                                bold: true
+                            }
+                        }
+                    }
+                ]
+            });
+        } catch(cfErr) {
+            console.warn("Excel conditional formatting error:", cfErr);
+        }
 
         // Blank Row
         sheet.getRow(currentRowIndex++).height = 12;
