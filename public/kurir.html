@@ -6,6 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
 
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="/assets/wellen_logo.svg">
@@ -104,9 +107,9 @@
     <!-- Header Bar -->
     <div class="header-bar d-flex align-items-center justify-content-between shadow-sm">
         <div class="d-flex align-items-center gap-2">
-            <img src="/assets/wellen_logo.svg" height="32" alt="Logo">
+            <img src="/assets/wellen_logo.svg" height="32" alt="Logo" onerror="this.src='https://ui-avatars.com/api/?name=Wellen+Print&background=10B981&color=fff'">
             <div>
-                <h6 class="fw-bold m-0 text-dark" style="font-size: 0.95rem; line-height: 1.1;">Wellen Kita</h6>
+                <h6 class="fw-extrabold m-0 text-dark" style="font-size: 0.95rem; line-height: 1.1;">Wellen Kita</h6>
                 <small class="text-success extra-small fw-bold"><i class="bi bi-circle-fill me-1" style="font-size: 0.5rem;"></i>Portal Kurir Web</small>
             </div>
         </div>
@@ -119,7 +122,7 @@
 
         <!-- Courier Selector Card -->
         <div class="p-3 bg-white rounded-4 border shadow-sm mb-3">
-            <label for="courier-select" class="extra-small fw-bold text-muted text-uppercase mb-1 d-block"><i class="bi bi-person-badge me-1"></i> Identitas Kurir Logistik</label>
+            <label class="extra-small fw-extrabold text-muted text-uppercase mb-1 d-block"><i class="bi bi-person-badge me-1"></i> Identitas Kurir Logistik</label>
             <select id="courier-select" class="form-select form-select-sm fw-bold border-success-subtle py-2" style="border-radius: 12px; background-color: #F0FDF4;" onchange="onCourierChanged(this.value)">
                 <option value="pbseventeensc">🚚 pbseventeensc (Kurir Utama)</option>
                 <option value="UP70R51X">🚚 UP70R51X (ID HP)</option>
@@ -192,7 +195,7 @@
 
                     <div id="modal-status-text" class="extra-small fw-bold text-primary mb-3"></div>
 
-                    <button type="button" id="modal-submit-btn" class="btn btn-success w-100 py-3 fw-bold shadow-sm" style="border-radius: 14px;" onclick="submitStopCompletion()">
+                    <button type="button" id="modal-submit-btn" class="btn btn-success w-100 py-3 fw-extrabold shadow-sm" style="border-radius: 14px;" onclick="submitStopCompletion()">
                         <i class="bi bi-check-circle me-1"></i> SIMPAN & SELESAIKAN
                     </button>
                 </div>
@@ -229,7 +232,7 @@
 
                     <div id="pending-status-text" class="extra-small fw-bold text-danger mb-3"></div>
 
-                    <button type="button" id="pending-submit-btn" class="btn btn-danger w-100 py-3 fw-bold shadow-sm" style="border-radius: 14px;" onclick="submitPendingReport()">
+                    <button type="button" id="pending-submit-btn" class="btn btn-danger w-100 py-3 fw-extrabold shadow-sm" style="border-radius: 14px;" onclick="submitPendingReport()">
                         <i class="bi bi-send-fill me-1"></i> KIRIM LAPORAN PENDING
                     </button>
                 </div>
@@ -334,7 +337,7 @@
             if (cMyCid === 'pbseventeensc' || cMyCid === 'up70r51x') {
                 return cTCid.includes('pbseventeensc') || cTCid.includes('up70r51x');
             }
-            return cTCid.includes(cMyCid) || cMyCid.includes(cTCid);
+            return cTCid.contains(cMyCid) || cMyCid.contains(cTCid);
         }
 
         function renderTasks() {
@@ -365,11 +368,11 @@
                         <div class="p-3 border-bottom bg-light d-flex align-items-center justify-content-between">
                             <div>
                                 <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1 fw-bold extra-small">TUGAS HARI INI</span>
-                                <h6 class="fw-bold text-dark m-0 mt-1" style="font-size:0.95rem;">#${t.id.substring(Math.max(0, t.id.length - 8))}</h6>
+                                <h6 class="fw-extrabold text-dark m-0 mt-1" style="font-size:0.9rem;">#${t.id.substring(Math.max(0, t.id.length - 8))}</h6>
                             </div>
                             <div class="text-end">
                                 <small class="text-muted extra-small fw-bold d-block">Progress Stop</small>
-                                <span class="fw-bold text-dark" style="font-size:0.85rem;">${doneCount}/${totalCount} Selesai</span>
+                                <span class="fw-extrabold text-dark" style="font-size:0.85rem;">${doneCount}/${totalCount} Selesai</span>
                             </div>
                         </div>
 
@@ -442,11 +445,59 @@
             container.innerHTML = html;
         }
 
+        function isWithin3Days(t) {
+            if (!t || !t.date) return true;
+            try {
+                let tripTime = 0;
+                if (t.date.seconds) {
+                    tripTime = t.date.seconds * 1000;
+                } else if (typeof t.date === 'string' || typeof t.date === 'number') {
+                    tripTime = new Date(t.date).getTime();
+                }
+                if (!tripTime) return true;
+
+                const now = new Date();
+                const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+                const startOfCutoff = startOfToday - (2 * 24 * 60 * 60 * 1000);
+                return tripTime >= startOfCutoff;
+            } catch (e) {
+                return true;
+            }
+        }
+
+        function isTripToday(t) {
+            if (!t || !t.date) return false;
+            try {
+                let tripTime = 0;
+                if (t.date.seconds) {
+                    tripTime = t.date.seconds * 1000;
+                } else if (typeof t.date === 'string' || typeof t.date === 'number') {
+                    tripTime = new Date(t.date).getTime();
+                }
+                if (!tripTime) return false;
+
+                const dTrip = new Date(tripTime);
+                const now = new Date();
+                return dTrip.getFullYear() === now.getFullYear() &&
+                       dTrip.getMonth() === now.getMonth() &&
+                       dTrip.getDate() === now.getDate();
+            } catch (e) {
+                return false;
+            }
+        }
+
         function renderHistory() {
             const container = document.getElementById('history-container');
             if (!container) return;
 
-            const completedTrips = allTrips.filter(t => isMatchCourier(t.courierId, currentCourierId) && (t.status === 'completed' || (t.destinations && t.destinations.every(d => d.status === 'done'))));
+            const completedTrips = allTrips.filter(t => {
+                if (!isMatchCourier(t.courierId, currentCourierId)) return false;
+                if (!isWithin3Days(t)) return false;
+
+                const isToday = isTripToday(t);
+                const isDone = t.status === 'completed' || (t.destinations && t.destinations.every(d => d.status === 'done'));
+                return isDone || !isToday;
+            });
 
             if (completedTrips.length === 0) {
                 container.innerHTML = `
@@ -460,13 +511,36 @@
 
             let html = '';
             completedTrips.forEach(t => {
+                const dests = t.destinations || [];
+                let photosHtml = '';
+                dests.forEach(d => {
+                    const photos = [];
+                    if (d.proofPhotoSj) photos.push({ label: 'Surat Jalan', url: d.proofPhotoSj });
+                    if (d.proofPhotoItems && d.proofPhotoItems.length) {
+                        d.proofPhotoItems.forEach((u, i) => photos.push({ label: `Barang #${i+1}`, url: u }));
+                    }
+                    if (!photos.length && d.proofPhotoUrl) {
+                        d.proofPhotoUrl.split(',').forEach((u, i) => {
+                            if (u.trim()) photos.push({ label: `Foto #${i+1}`, url: u.trim() });
+                        });
+                    }
+                    if (photos.length) {
+                        photosHtml += `<div class="mt-2 pt-2 border-top"><small class="fw-bold d-block text-secondary extra-small mb-1">📍 ${d.locationName || 'Tujuan'}:</small><div class="d-flex flex-wrap gap-2">`;
+                        photos.forEach(p => {
+                            photosHtml += `<a href="${p.url}" target="_blank" class="badge bg-light text-primary border text-decoration-none p-2 rounded-3 extra-small"><i class="bi bi-zoom-in me-1"></i>${p.label} (Perbesar)</a>`;
+                        });
+                        photosHtml += `</div></div>`;
+                    }
+                });
+
                 html += `
-                    <div class="trip-card p-3">
+                    <div class="trip-card p-3 mb-3">
                         <div class="d-flex align-items-center justify-content-between mb-2">
                             <h6 class="fw-bold text-dark m-0">#${t.id.substring(Math.max(0, t.id.length - 8))}</h6>
                             <span class="badge bg-success text-white extra-small fw-bold">SELESAI</span>
                         </div>
-                        <small class="text-muted extra-small d-block mb-2">Total Stop: ${(t.destinations || []).length} Titik Pengantaran</small>
+                        <small class="text-muted extra-small d-block mb-1">Total Stop: ${dests.length} Titik Pengantaran</small>
+                        ${photosHtml}
                     </div>`;
             });
             container.innerHTML = html;

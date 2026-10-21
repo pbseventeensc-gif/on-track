@@ -20,6 +20,7 @@
 
     <!-- Libraries -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
@@ -457,6 +458,9 @@
             <a href="javascript:void(0)" class="nav-link-custom" id="nav-fleet" style="cursor: pointer;" onclick="switchTab('fleet', this)">
                 <i class="bi bi-graph-up-arrow"></i> <span>KPI Kurir</span>
             </a>
+            <a href="javascript:void(0)" class="nav-link-custom" id="nav-courier-audit" style="cursor: pointer; display: none;" onclick="switchTab('courier-audit', this)">
+                <i class="bi bi-clock-history"></i> <span>Audit Kurir Harian</span>
+            </a>
             <a href="javascript:void(0)" class="nav-link-custom" id="nav-chat" style="cursor: pointer;" onclick="switchTab('chat', this)">
                 <i class="bi bi-chat-dots"></i> <span>Drivers Chat</span>
             </a>
@@ -700,25 +704,16 @@
 
                             <div class="mb-4">
                                 <label class="extra-small fw-bold text-muted text-uppercase mb-2">1. Select Courier</label>
-                                <select id="sel-courier" class="form-select border-1 py-2" style="border-radius: 10px;"></select>
+                                <select id="sel-courier" class="form-select border-1 py-2" style="border-radius: 10px;" onchange="onDispatchCourierChange()"></select>
+                                <div id="dispatch-courier-auto-info" class="mt-2" style="display: none;">
+                                    <span class="badge" id="dispatch-courier-vehicle-badge" style="font-size: 0.8rem;"></span>
+                                </div>
                             </div>
 
-                            <div class="mb-4">
-                                <label class="extra-small fw-bold text-muted text-uppercase mb-2">Jenis Armada Pengantaran</label>
-                                <div class="row g-2">
-                                    <div class="col-6">
-                                        <input type="radio" class="btn-check" name="dispatch-vehicle-type" id="veh-motor" value="motor" checked>
-                                        <label class="btn btn-outline-primary w-100 py-2 fw-semibold d-flex align-items-center justify-content-center gap-2" for="veh-motor" style="border-radius: 10px; font-size: 0.85rem;">
-                                            <span>🛵</span> <span>Kurir Motor</span>
-                                        </label>
-                                    </div>
-                                    <div class="col-6">
-                                        <input type="radio" class="btn-check" name="dispatch-vehicle-type" id="veh-mobil" value="mobil">
-                                        <label class="btn btn-outline-primary w-100 py-2 fw-semibold d-flex align-items-center justify-content-center gap-2" for="veh-mobil" style="border-radius: 10px; font-size: 0.85rem;">
-                                            <span>🚚</span> <span>Driver Mobil</span>
-                                        </label>
-                                    </div>
-                                </div>
+                            <!-- Jenis Armada Pengantaran Otomatis (Radio Button Manual Disembunyikan) -->
+                            <div class="mb-4" style="display: none;">
+                                <input type="radio" class="btn-check" name="dispatch-vehicle-type" id="veh-motor" value="motor" checked>
+                                <input type="radio" class="btn-check" name="dispatch-vehicle-type" id="veh-mobil" value="mobil">
                             </div>
 
                             <div class="mb-4">
@@ -951,6 +946,578 @@
                             </thead>
                             <tbody id="kpi-table-body"></tbody>
                         </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- COURIER AUDIT & PENDING MAP VIEW -->
+            <div id="view-courier-audit" class="view-section" style="display: none;">
+                <!-- Main Header & Subview Navigation Bar -->
+                <div class="d-flex flex-wrap align-items-center justify-content-between mb-4 gap-3 bg-white p-3 rounded-4 border shadow-sm">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="bg-primary-subtle p-2.5 rounded-3 text-primary">
+                            <i class="bi bi-clock-history fs-4"></i>
+                        </div>
+                        <div>
+                            <h5 class="fw-bold m-0 text-dark" style="font-size: 1.05rem;">Audit Kurir & Pusat Laporan Operasional</h5>
+                            <span class="extra-small text-muted">Rekapitulasi jam kerja efektif, status pengantaran, dan pusat distribusi laporan WA & Email</span>
+                        </div>
+                    </div>
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                        <div class="bg-light p-1 rounded-3 border d-inline-flex gap-1" id="auditViewSwitcher">
+                            <button type="button" class="btn btn-sm btn-primary fw-bold px-3.5 py-1.5 rounded-2 shadow-sm text-white" id="btn-subview-audit-table" onclick="switchAuditSubView('table')">
+                                <i class="bi bi-table me-1.5"></i> Rekap & Peta Audit
+                            </button>
+                            <button type="button" class="btn btn-sm btn-light border fw-bold px-3 py-1.5 rounded-2 text-secondary" id="btn-subview-audit-dist" onclick="switchAuditSubView('distribution')">
+                                <i class="bi bi-send-fill me-1.5 text-primary"></i> Pusat Distribusi & Jadwal (WA & Email)
+                            </button>
+                        </div>
+                        <button class="btn btn-sm btn-outline-success fw-bold d-flex align-items-center gap-1.5 px-3 py-1.5" style="border-radius: 8px;" onclick="exportCourierAuditToExcel()">
+                            <i class="bi bi-file-earmark-excel"></i> Export Excel
+                        </button>
+                    </div>
+                </div>
+
+                <!-- SUBVIEW 1: REKAPITULASI & PETA AUDIT KURIR -->
+                <div id="subview-audit-table">
+                    <!-- Filter Bar -->
+                    <div class="border rounded-4 p-3 bg-white shadow-sm mb-4">
+                        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge bg-light text-dark border px-2.5 py-1.5 extra-small fw-bold">
+                                    <i class="bi bi-funnel me-1 text-primary"></i>Filter Audit
+                                </span>
+                            </div>
+                            <div class="d-flex flex-wrap align-items-center gap-2">
+                                <div class="d-flex align-items-center gap-1">
+                                    <span class="extra-small text-muted fw-bold">Dari:</span>
+                                    <input type="date" id="audit-start-date" class="form-control form-control-sm border fw-bold text-primary" style="border-radius: 8px; width: 135px;" onchange="renderCourierAuditView()">
+                                </div>
+                                <div class="d-flex align-items-center gap-1">
+                                    <span class="extra-small text-muted fw-bold">Sampai:</span>
+                                    <input type="date" id="audit-end-date" class="form-control form-control-sm border fw-bold text-primary" style="border-radius: 8px; width: 135px;" onchange="renderCourierAuditView()">
+                                </div>
+                                <div class="d-flex align-items-center gap-1">
+                                    <span class="extra-small text-muted fw-bold">Armada:</span>
+                                    <select id="audit-vehicle-filter" class="form-select form-select-sm border fw-bold text-primary" style="border-radius: 8px; min-width: 155px;" onchange="renderCourierAuditView()">
+                                        <option value="all" selected>Semua Armada</option>
+                                        <option value="motor">🛵 Motor</option>
+                                        <option value="mobil">🚚 Mobil</option>
+                                    </select>
+                                </div>
+                                <div class="d-flex align-items-center gap-1">
+                                    <span class="extra-small text-muted fw-bold">Kurir:</span>
+                                    <select id="audit-courier-select" class="form-select form-select-sm border fw-bold text-dark" style="border-radius: 8px; min-width: 180px;" onchange="onAuditCourierSelectChange()">
+                                        <option value="" selected>👤 Semua Kurir</option>
+                                    </select>
+                                </div>
+                                <button class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1" style="border-radius: 8px;" onclick="renderCourierAuditView()" title="Refresh Data">
+                                    <i class="bi bi-arrow-clockwise"></i>
+                                </button>
+                                <button class="btn btn-sm btn-primary d-flex align-items-center gap-1.5 fw-bold px-3 shadow-sm" style="border-radius: 8px;" onclick="switchAuditSubView('distribution')">
+                                    <i class="bi bi-send-fill"></i> Buka Pusat Laporan (WA & Email)
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 4 KPI Summary Cards -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-sm-6 col-xl-3">
+                            <div class="card border-0 shadow-sm rounded-4 p-3 bg-white h-100">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <span class="text-muted extra-small text-uppercase fw-bold">Total Terkirim</span>
+                                        <h4 class="fw-bold text-success mt-1 mb-0" id="audit-stat-delivered">0</h4>
+                                    </div>
+                                    <div class="bg-success-subtle p-2.5 rounded-3 text-success">
+                                        <i class="bi bi-check2-circle fs-4"></i>
+                                    </div>
+                                </div>
+                                <div class="extra-small text-muted mt-2" id="audit-stat-delivered-sub">0% dari total pengantaran</div>
+                            </div>
+                        </div>
+                        <div class="col-sm-6 col-xl-3">
+                            <div class="card border-0 shadow-sm rounded-4 p-3 bg-white h-100">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <span class="text-muted extra-small text-uppercase fw-bold">Gagal (Tidak Diantar)</span>
+                                        <h4 class="fw-bold text-danger mt-1 mb-0" id="audit-stat-failed">0</h4>
+                                    </div>
+                                    <div class="bg-danger-subtle p-2.5 rounded-3 text-danger">
+                                        <i class="bi bi-x-circle fs-4"></i>
+                                    </div>
+                                </div>
+                                <div class="extra-small text-muted mt-2" id="audit-stat-failed-sub">Murni karena tidak diantar kurir</div>
+                            </div>
+                        </div>
+                        <div class="col-sm-6 col-xl-3">
+                            <div class="card border-0 shadow-sm rounded-4 p-3 bg-white h-100">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <span class="text-muted extra-small text-uppercase fw-bold">Pending (Diajukan Kurir)</span>
+                                        <h4 class="fw-bold text-warning-emphasis mt-1 mb-0" id="audit-stat-pending">0</h4>
+                                    </div>
+                                    <div class="bg-warning-subtle p-2.5 rounded-3 text-warning-emphasis">
+                                        <i class="bi bi-clock-history fs-4"></i>
+                                    </div>
+                                </div>
+                                <div class="extra-small text-muted mt-2" id="audit-stat-pending-sub">Pengajuan toko tutup di sistem</div>
+                            </div>
+                        </div>
+                        <div class="col-sm-6 col-xl-3">
+                            <div class="card border-0 shadow-sm rounded-4 p-3 bg-white h-100">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <span class="text-muted extra-small text-uppercase fw-bold">Rata-Rata Jam Efektif</span>
+                                        <h4 class="fw-bold text-primary mt-1 mb-0" id="audit-stat-avg-hours">0j 0m</h4>
+                                    </div>
+                                    <div class="bg-primary-subtle p-2.5 rounded-3 text-primary">
+                                        <i class="bi bi-stopwatch fs-4"></i>
+                                    </div>
+                                </div>
+                                <div class="extra-small text-muted mt-2" id="audit-stat-avg-sub">Durasi pertama assign s/d upload akhir</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Split Layout: Table (Left) + Map (Right) -->
+                    <div class="row g-4">
+                        <!-- Left: Table of Courier Daily Audit -->
+                        <div class="col-xl-7 col-lg-12">
+                            <div class="card border-0 shadow-sm rounded-4 bg-white overflow-hidden">
+                                <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
+                                    <h6 class="fw-bold m-0 text-dark" style="font-size: 0.9rem;">
+                                        <i class="bi bi-people-fill text-primary me-2"></i>Rekapitulasi Kurir Harian
+                                    </h6>
+                                    <span class="badge bg-light text-muted border extra-small" id="audit-courier-count">0 Kurir</span>
+                                </div>
+                                <div class="table-responsive" style="max-height: 560px;">
+                                    <table class="table table-hover align-middle mb-0" style="font-size: 0.825rem;">
+                                        <thead class="table-light sticky-top" style="z-index: 2;">
+                                            <tr>
+                                                <th>Kurir</th>
+                                                <th>Assign Awal</th>
+                                                <th>Upload Akhir</th>
+                                                <th>Jam Efektif</th>
+                                                <th class="text-center">Terkirim</th>
+                                                <th class="text-center">Gagal</th>
+                                                <th class="text-center">Pending</th>
+                                                <th class="text-center">Peta</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="courier-audit-table-body">
+                                            <tr>
+                                                <td colspan="8" class="text-center py-4 text-muted extra-small">
+                                                    <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+                                                    Memuat data audit kurir...
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right: Pending Map & Details -->
+                        <div class="col-xl-5 col-lg-12">
+                            <div class="card border-0 shadow-sm rounded-4 bg-white overflow-hidden mb-3">
+                                <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="fw-bold m-0 text-dark" style="font-size: 0.9rem;">
+                                            <i class="bi bi-geo-alt-fill text-danger me-2"></i>Peta Kendala Lapangan (Gagal & Pending)
+                                        </h6>
+                                        <small class="text-muted extra-small" id="audit-map-subtitle">Menampilkan seluruh titik kendala</small>
+                                    </div>
+                                    <button class="btn btn-xs btn-outline-primary fw-bold py-1 px-2.5 rounded-pill extra-small" onclick="resetCourierAuditMapFilter()">
+                                        <i class="bi bi-arrows-fullscreen me-1"></i>Semua Pending
+                                    </button>
+                                </div>
+                                <div id="courier-audit-map" style="height: 380px; width: 100%; background: #e2e8f0; z-index: 1;"></div>
+                                <div class="p-3 bg-light border-top">
+                                    <div class="d-flex align-items-center justify-content-between mb-2">
+                                        <span class="fw-bold extra-small text-dark text-uppercase">Daftar Titik Kendala di Peta:</span>
+                                        <span class="badge bg-danger-subtle text-danger extra-small fw-bold" id="audit-pending-badge-count">0 Titik</span>
+                                    </div>
+                                    <div id="audit-pending-list-container" class="d-flex flex-column gap-2 overflow-y-auto pe-1" style="max-height: 180px;">
+                                        <div class="text-muted extra-small text-center py-3">Tidak ada paket pending untuk tanggal ini.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SUBVIEW 2: PUSAT DISTRIBUSI & JADWAL (WA & EMAIL) - BUKAN POPUP / LEGA -->
+                <div id="subview-audit-distribution" style="display: none;">
+                    <div class="row g-4">
+                        <!-- KOLOM KIRI: LAPORAN WHATSAPP & EXECUTIVE CARD -->
+                        <div class="col-xl-7 col-lg-12">
+                            <!-- WhatsApp Configuration & Preview Card -->
+                            <div class="card border-0 shadow-sm rounded-4 bg-white overflow-hidden mb-4">
+                                <div class="p-3.5 border-bottom d-flex flex-wrap justify-content-between align-items-center gap-2 bg-light">
+                                    <div class="d-flex align-items-center gap-2.5">
+                                        <div class="p-2 rounded-3 bg-success-subtle text-success">
+                                            <i class="bi bi-whatsapp fs-5"></i>
+                                        </div>
+                                        <div>
+                                            <h6 class="fw-bold m-0 text-dark" style="font-size: 0.95rem;">Laporan WhatsApp (Ringkasan Eksekutif)</h6>
+                                            <small class="text-muted extra-small" id="report-card-period-badge">Periode Operasional</small>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <button type="button" class="btn btn-xs btn-outline-secondary py-1 px-3 rounded-pill extra-small fw-semibold" onclick="toggleReportViewMode(this)" id="btn-toggle-report-view">
+                                            <i class="bi bi-code-slash me-1"></i>Teks WhatsApp
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="p-4">
+                                    <!-- WA Frequency & Scope Selector (Multiple Choice / Pilihan Ganda) -->
+                                    <div class="p-3 bg-light rounded-3 border mb-3">
+                                        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                                            <label class="fw-bold extra-small text-dark text-uppercase mb-0">
+                                                <i class="bi bi-calendar-event me-1 text-primary"></i>Pilihan Frekuensi / Periode Ringkasan WA:
+                                            </label>
+                                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle extra-small"><i class="bi bi-check2-square me-1"></i>Multiple Pilihan Aktif</span>
+                                        </div>
+                                        <div class="d-flex flex-wrap gap-3" id="report-wa-freq-group">
+                                            <div class="form-check form-check-inline m-0">
+                                                <input class="form-check-input" type="checkbox" name="reportWaFreq" id="wa-freq-daily" value="daily" checked onchange="onReportPeriodChange('daily')">
+                                                <label class="form-check-label extra-small fw-bold text-dark cursor-pointer" for="wa-freq-daily">Harian (Hari Ini / Kemarin)</label>
+                                            </div>
+                                            <div class="form-check form-check-inline m-0">
+                                                <input class="form-check-input" type="checkbox" name="reportWaFreq" id="wa-freq-weekly" value="weekly" onchange="onReportPeriodChange('weekly')">
+                                                <label class="form-check-label extra-small fw-semibold text-dark cursor-pointer" for="wa-freq-weekly">Mingguan (7 Hari)</label>
+                                            </div>
+                                            <div class="form-check form-check-inline m-0">
+                                                <input class="form-check-input" type="checkbox" name="reportWaFreq" id="wa-freq-monthly" value="monthly" onchange="onReportPeriodChange('monthly')">
+                                                <label class="form-check-label extra-small fw-semibold text-dark cursor-pointer" for="wa-freq-monthly">Bulanan (1 Bulan Penuh)</label>
+                                            </div>
+                                            <div class="form-check form-check-inline m-0">
+                                                <input class="form-check-input" type="checkbox" name="reportWaFreq" id="wa-freq-custom" value="custom" onchange="onReportPeriodChange('custom')">
+                                                <label class="form-check-label extra-small fw-semibold text-dark cursor-pointer" for="wa-freq-custom">Sesuai Filter Tanggal</label>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 3 WhatsApp Recipients -->
+                                    <div class="p-3 bg-light rounded-3 border mb-3">
+                                        <label class="fw-bold extra-small text-dark text-uppercase mb-2 d-block">
+                                            <i class="bi bi-people me-1 text-success"></i>3 Nomor WhatsApp Penerima (Pimpinan & Supervisor):
+                                        </label>
+                                        <div class="row g-2">
+                                            <div class="col-md-4">
+                                                <label class="extra-small text-muted mb-1 d-block">Pimpinan 1:</label>
+                                                <input type="text" id="report-wa-num-1" class="form-control form-control-sm border bg-white" placeholder="08123456789" onchange="saveReportRecipients()">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="extra-small text-muted mb-1 d-block">Pimpinan 2:</label>
+                                                <input type="text" id="report-wa-num-2" class="form-control form-control-sm border bg-white" placeholder="08129876543" onchange="saveReportRecipients()">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="extra-small text-muted mb-1 d-block">Supervisor Ops:</label>
+                                                <input type="text" id="report-wa-num-3" class="form-control form-control-sm border bg-white" placeholder="08131122334" onchange="saveReportRecipients()">
+                                            </div>
+                                        </div>
+                                        <small class="text-muted extra-small mt-1.5 d-block">Nomor tersimpan otomatis di browser & sinkron dengan cloud.</small>
+                                    </div>
+
+                                    <!-- Modern Visual Executive Card View -->
+                                    <div id="report-card-visual-view" class="p-3 bg-white rounded-3 border mb-3 shadow-2fs">
+                                        <!-- 4 KPI Summary Tiles -->
+                                        <div class="row g-2 mb-3">
+                                            <div class="col-6 col-sm-3">
+                                                <div class="p-3 rounded-3 bg-light border text-center">
+                                                    <span class="text-muted extra-small text-uppercase fw-bold d-block">Total Tugas</span>
+                                                    <h4 class="fw-bold text-dark my-1" id="report-card-total-stops">0</h4>
+                                                    <small class="text-muted extra-small">Paket</small>
+                                                </div>
+                                            </div>
+                                            <div class="col-6 col-sm-3">
+                                                <div class="p-3 rounded-3 bg-light border text-center" style="border-left: 3px solid #16a34a !important;">
+                                                    <span class="text-success extra-small text-uppercase fw-bold d-block">Terkirim</span>
+                                                    <h4 class="fw-bold text-success my-1" id="report-card-delivered">0</h4>
+                                                    <small class="text-muted extra-small" id="report-card-success-rate">0% Sukses</small>
+                                                </div>
+                                            </div>
+                                            <div class="col-6 col-sm-3">
+                                                <div class="p-3 rounded-3 bg-light border text-center" style="border-left: 3px solid #dc2626 !important;">
+                                                    <span class="text-danger extra-small text-uppercase fw-bold d-block">Gagal</span>
+                                                    <h4 class="fw-bold text-danger my-1" id="report-card-failed">0</h4>
+                                                    <small class="text-muted extra-small">Tidak Diantar</small>
+                                                </div>
+                                            </div>
+                                            <div class="col-6 col-sm-3">
+                                                <div class="p-3 rounded-3 bg-light border text-center" style="border-left: 3px solid #ea580c !important;">
+                                                    <span class="text-warning-emphasis extra-small text-uppercase fw-bold d-block">Pending</span>
+                                                    <h4 class="fw-bold text-warning-emphasis my-1" id="report-card-pending">0</h4>
+                                                    <small class="text-muted extra-small">Diajukan Kurir</small>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Fleet Summary Badges & Avg Working Hours -->
+                                        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                                            <div class="d-flex flex-wrap gap-2">
+                                                <div class="p-2 px-3 rounded-pill bg-light border extra-small d-flex align-items-center gap-2">
+                                                    <span class="fs-6">🚚</span>
+                                                    <span class="fw-bold text-dark" id="report-card-mobil-summary">Mobil: 0 Selesai</span>
+                                                </div>
+                                                <div class="p-2 px-3 rounded-pill bg-light border extra-small d-flex align-items-center gap-2">
+                                                    <span class="fs-6">🛵</span>
+                                                    <span class="fw-bold text-dark" id="report-card-motor-summary">Motor: 0 Selesai</span>
+                                                </div>
+                                            </div>
+                                            <div class="extra-small text-muted p-1 px-2.5 rounded-pill bg-light border">
+                                                <i class="bi bi-clock me-1 text-primary"></i>Rata Jam: <span class="fw-bold text-primary" id="report-card-avg-time">0j 0m</span>
+                                            </div>
+                                        </div>
+
+                                        <!-- Kurir Gagal & Pending Breakdown Cards -->
+                                        <div class="row g-2 mb-1">
+                                            <!-- Box 1: Kurir Gagal (Tidak Diantar) -->
+                                            <div class="col-md-6">
+                                                <div class="card border rounded-3 p-2.5 bg-light h-100">
+                                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                                        <span class="badge bg-danger-subtle text-danger rounded-pill px-2.5 py-1 extra-small fw-bold">
+                                                            <i class="bi bi-x-circle-fill me-1"></i>Paket Gagal (Tidak Diantar)
+                                                        </span>
+                                                        <span class="badge bg-white text-muted border extra-small" id="report-card-failed-couriers-count">0 Kurir</span>
+                                                    </div>
+                                                    <div id="report-card-failed-list" class="d-flex flex-column gap-1.5 overflow-y-auto pe-1" style="max-height: 180px;">
+                                                        <div class="text-muted extra-small text-center py-3 bg-white rounded border">
+                                                            <i class="bi bi-check2 text-success me-1"></i> Tidak ada paket gagal.
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Box 2: Kurir Pending (Diajukan di Sistem) -->
+                                            <div class="col-md-6">
+                                                <div class="card border rounded-3 p-2.5 bg-light h-100">
+                                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                                        <span class="badge bg-warning-subtle text-warning-emphasis rounded-pill px-2.5 py-1 extra-small fw-bold">
+                                                            <i class="bi bi-exclamation-circle-fill me-1"></i>Pending (Diajukan Kurir)
+                                                        </span>
+                                                        <span class="badge bg-white text-muted border extra-small" id="report-card-pending-couriers-count">0 Kurir</span>
+                                                    </div>
+                                                    <div id="report-card-pending-list" class="d-flex flex-column gap-1.5 overflow-y-auto pe-1" style="max-height: 180px;">
+                                                        <div class="text-muted extra-small text-center py-3 bg-white rounded border">
+                                                            <i class="bi bi-check2 text-success me-1"></i> Tidak ada pengajuan pending.
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Raw WhatsApp Text View (Hidden by default, toggleable) -->
+                                    <div id="report-card-raw-view" style="display: none;" class="mb-3">
+                                        <textarea id="report-wa-preview-text" class="form-control font-monospace border bg-light text-dark p-3" rows="14" style="font-size: 0.825rem; line-height: 1.5;" readonly></textarea>
+                                    </div>
+
+                                    <!-- Action Toolbar -->
+                                    <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center pt-2 border-top">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1" onclick="generateReportPreviews()">
+                                            <i class="bi bi-arrow-clockwise"></i> Perbarui Pratinjau
+                                        </button>
+                                        <div class="d-flex gap-2">
+                                            <button type="button" class="btn btn-sm btn-light border text-dark fw-semibold d-flex align-items-center gap-1" onclick="copyWhatsAppReportText()">
+                                                <i class="bi bi-clipboard"></i> Salin Teks
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-success fw-bold d-flex align-items-center gap-1.5 px-3.5 shadow-sm" onclick="sendWhatsAppViaDirectLink()">
+                                                <i class="bi bi-whatsapp"></i> Buka WhatsApp & Kirim
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- KOLOM KANAN: DISTRIBUSI EMAIL (MINGGUAN & BULANAN) + JADWAL OTOMATIS -->
+                        <div class="col-xl-5 col-lg-12">
+                            <!-- Card Email Distribution (Weekly & Monthly Only) -->
+                            <div class="card border-0 shadow-sm rounded-4 bg-white overflow-hidden mb-4">
+                                <div class="p-3.5 border-bottom d-flex align-items-center gap-2.5 bg-primary-subtle text-primary">
+                                    <i class="bi bi-envelope-paper-fill fs-5"></i>
+                                    <div>
+                                        <h6 class="fw-bold m-0 text-primary-emphasis" style="font-size: 0.95rem;">Distribusi Email (Mingguan & Bulanan)</h6>
+                                        <small class="text-muted extra-small">Kirim rekap komprehensif & lampiran Excel otomatis</small>
+                                    </div>
+                                </div>
+                                <div class="p-4">
+                                    <!-- User Request Note: Email is Weekly & Monthly to prevent daily spam -->
+                                    <div class="alert alert-light border d-flex align-items-start gap-2 py-2.5 px-3 mb-3" style="border-radius: 10px;">
+                                        <i class="bi bi-info-circle-fill text-primary fs-5 mt-0.5"></i>
+                                        <div class="extra-small text-muted">
+                                            <span class="fw-bold text-dark">Distribusi Email Rutin:</span> Khusus untuk rekap <b>Mingguan</b> (setiap Senin) dan <b>Bulanan</b> (setiap tgl 1) agar kotak masuk email tidak menumpuk.
+                                        </div>
+                                    </div>
+
+                                    <!-- Frequency Choice for Email -->
+                                    <div class="mb-3">
+                                        <label class="fw-bold extra-small text-dark text-uppercase mb-1.5 d-block">
+                                            Pilihan Periode Rekap Email:
+                                        </label>
+                                        <div class="d-flex flex-column gap-2" id="report-email-freq-group">
+                                            <label class="p-2.5 border rounded-3 d-flex align-items-center justify-content-between bg-light cursor-pointer">
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <input class="form-check-input mt-0" type="radio" name="reportEmailFreq" id="email-freq-weekly" value="weekly" checked onchange="onEmailFrequencyChange()">
+                                                    <div>
+                                                        <span class="fw-bold extra-small text-dark d-block">📅 Rekap Mingguan (1 Minggu Terakhir)</span>
+                                                        <small class="text-muted extra-small">Evaluasi mingguan performa armada & log pending</small>
+                                                    </div>
+                                                </div>
+                                                <span class="badge bg-white text-primary border extra-small">Senin</span>
+                                            </label>
+                                            <label class="p-2.5 border rounded-3 d-flex align-items-center justify-content-between bg-light cursor-pointer">
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <input class="form-check-input mt-0" type="radio" name="reportEmailFreq" id="email-freq-monthly" value="monthly" onchange="onEmailFrequencyChange()">
+                                                    <div>
+                                                        <span class="fw-bold extra-small text-dark d-block">🗓️ Rekap Bulanan (1 Bulan Penuh)</span>
+                                                        <small class="text-muted extra-small">Untuk HRD & Direksi (Absensi hari kerja, jam kerja, lembur)</small>
+                                                    </div>
+                                                </div>
+                                                <span class="badge bg-white text-success border extra-small">Tanggal 1</span>
+                                            </label>
+                                            <label class="p-2.5 border rounded-3 d-flex align-items-center justify-content-between bg-light cursor-pointer">
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <input class="form-check-input mt-0" type="radio" name="reportEmailFreq" id="email-freq-custom" value="custom" onchange="onEmailFrequencyChange()">
+                                                    <div>
+                                                        <span class="fw-bold extra-small text-dark d-block">📆 Sesuai Rentang Tanggal Aktif</span>
+                                                        <small class="text-muted extra-small">Gunakan tanggal yang sedang dipilih di filter audit</small>
+                                                    </div>
+                                                </div>
+                                                <span class="badge bg-white text-muted border extra-small">Custom</span>
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <!-- Email Recipients Input -->
+                                    <div class="mb-3">
+                                        <label class="fw-bold extra-small text-dark text-uppercase mb-1.5 d-block">
+                                            <i class="bi bi-people me-1 text-primary"></i>Alamat Email Penerima:
+                                        </label>
+                                        <input type="text" id="report-email-recipients" class="form-control form-control-sm border" placeholder="direktur@wellenprint.com, hrd@wellenprint.com, ops@wellenprint.com" onchange="saveReportRecipients()">
+                                        <small class="text-muted extra-small mt-1 d-block">Bisa memasukkan beberapa email dipisahkan tanda koma (,).</small>
+                                    </div>
+
+                                    <!-- Dynamic Subject -->
+                                    <div class="mb-3">
+                                        <label class="fw-bold extra-small text-dark text-uppercase mb-1.5 d-block">Subjek Email:</label>
+                                        <input type="text" id="report-email-subject" class="form-control form-control-sm border fw-semibold bg-light" readonly>
+                                    </div>
+
+                                    <!-- Excel Multi-Sheet Attachment Card -->
+                                    <div class="p-3 border rounded-3 bg-light mb-3">
+                                        <div class="d-flex align-items-center gap-2 mb-2">
+                                            <div class="bg-success text-white p-2 rounded-2">
+                                                <i class="bi bi-file-earmark-excel fs-5"></i>
+                                            </div>
+                                            <div>
+                                                <div class="fw-bold extra-small text-dark" id="report-email-attachment-name">Wtrack_Laporan_Operasional.xlsx</div>
+                                                <small class="text-muted extra-small">Format 1 Sheet Eksekutif Terpadu (Judul Resmi, Header Navy & Grouping)</small>
+                                            </div>
+                                        </div>
+                                        <div class="d-flex flex-wrap gap-1.5">
+                                            <span class="badge bg-white text-dark border extra-small"><i class="bi bi-file-earmark-check me-1 text-primary"></i>1 Sheet Eksekutif Terpadu</span>
+                                            <span class="badge bg-white text-dark border extra-small">🚚 Grouping Armada Mobil & Subtotal</span>
+                                            <span class="badge bg-white text-dark border extra-small">🛵 Grouping Armada Motor & Subtotal</span>
+                                            <span class="badge bg-white text-dark border extra-small">📊 Grand Total & Catatan Operasional</span>
+                                            <span class="badge bg-white text-dark border extra-small">⚠️ Rincian Klien Pending (Diajukan Kurir)</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Actions for Email -->
+                                    <div class="d-flex flex-wrap gap-2 justify-content-end">
+                                        <button type="button" class="btn btn-sm btn-outline-secondary fw-semibold d-flex align-items-center gap-1" onclick="openMailtoClient()">
+                                            <i class="bi bi-box-arrow-up-right"></i> Buka di Gmail / Outlook
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-primary fw-semibold d-flex align-items-center gap-1.5 px-3.5 shadow-sm" onclick="triggerServerEmailDispatch()">
+                                            <i class="bi bi-send"></i> Kirim Email Sekarang
+                                        </button>
+                                    </div>
+                                    <div id="email-dispatch-status" class="mt-2.5 extra-small" style="display: none;"></div>
+                                </div>
+                            </div>
+
+                            <!-- Card Scheduled Cloud Automation -->
+                            <div class="card border-0 shadow-sm rounded-4 bg-white overflow-hidden">
+                                <div class="p-3.5 border-bottom d-flex justify-content-between align-items-center bg-light">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <i class="bi bi-cloud-arrow-up-fill text-primary fs-5"></i>
+                                        <div>
+                                            <h6 class="fw-bold m-0 text-dark" style="font-size: 0.95rem;">Jadwal Pengiriman Otomatis (Cloud)</h6>
+                                            <small class="text-muted extra-small">Serverless worker akan mengirim otomatis tanpa buka website</small>
+                                        </div>
+                                    </div>
+                                    <div class="form-check form-switch fs-5 mb-0">
+                                        <input class="form-check-input cursor-pointer" type="checkbox" id="auto-report-enabled" checked>
+                                    </div>
+                                </div>
+                                <div class="p-4">
+                                    <!-- Time & WA Frequency -->
+                                    <div class="row g-3 mb-3">
+                                        <div class="col-sm-6">
+                                            <label class="fw-bold extra-small text-dark text-uppercase mb-1 d-block">Jam Pengiriman:</label>
+                                            <div class="input-group input-group-sm">
+                                                <span class="input-group-text bg-light text-muted"><i class="bi bi-alarm"></i></span>
+                                                <input type="time" id="auto-report-time" class="form-control form-control-sm border fw-bold text-dark" value="06:00">
+                                                <span class="input-group-text bg-light text-muted extra-small">WIB</span>
+                                            </div>
+                                            <small class="text-muted extra-small">Direkomendasikan: 06:00 pagi.</small>
+                                        </div>
+                                        <div class="col-sm-6">
+                                            <label class="fw-bold extra-small text-dark text-uppercase mb-1 d-block">Jadwal WhatsApp:</label>
+                                            <select id="auto-report-scope" class="form-select form-select-sm border fw-semibold text-dark">
+                                                <option value="yesterday" selected>Harian (Rekap Kemarin H-1)</option>
+                                                <option value="today">Harian (Rekap Hari Ini)</option>
+                                                <option value="weekly">Mingguan (Setiap Senin)</option>
+                                                <option value="monthly">Bulanan (Setiap Tanggal 1)</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <!-- Email Automation Checkboxes (Weekly & Monthly only) -->
+                                    <div class="p-3 bg-light rounded-3 border mb-3">
+                                        <label class="fw-bold extra-small text-dark text-uppercase mb-2 d-block">
+                                            <i class="bi bi-envelope-check me-1 text-primary"></i>Jadwal Otomatis Email (Non-Harian):
+                                        </label>
+                                        <div class="d-flex flex-column gap-2">
+                                            <div class="form-check">
+                                                <input class="form-check-input cursor-pointer" type="checkbox" id="auto-email-weekly-enabled" checked>
+                                                <label class="form-check-label extra-small fw-semibold text-dark cursor-pointer" for="auto-email-weekly-enabled">
+                                                    Kirim Email Mingguan setiap hari <b>Senin pukul 06:00 WIB</b>
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input cursor-pointer" type="checkbox" id="auto-email-monthly-enabled" checked>
+                                                <label class="form-check-label extra-small fw-semibold text-dark cursor-pointer" for="auto-email-monthly-enabled">
+                                                    Kirim Email Bulanan setiap <b>Tanggal 1 pukul 06:00 WIB</b> (Rekap Sebulan Penuh)
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Cloud Status & Save Button -->
+                                    <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center">
+                                        <span class="badge bg-light text-muted border extra-small" id="auto-report-status-badge">
+                                            <i class="bi bi-cloud-check text-success me-1"></i>Tersimpan di Cloud
+                                        </span>
+                                        <div class="d-flex gap-2">
+                                            <button type="button" class="btn btn-sm btn-outline-secondary fw-semibold" onclick="testAutoReportDispatch()">
+                                                <i class="bi bi-play me-1"></i>Tes Sekarang
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-primary fw-bold px-3.5 shadow-sm" onclick="saveAutoReportSettingsToFirestore()">
+                                                <i class="bi bi-check-lg me-1"></i>Simpan Pengaturan
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div id="auto-report-alert" class="mt-2.5 extra-small" style="display: none;"></div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1361,7 +1928,8 @@
 <!-- Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="/js/maps.js?v=156.0"></script>
-<script src="/js/app.js?v=159.0"></script>
+<script src="/js/app.js?v=161.0"></script>
 <script src="/js/kpi.js?v=156.0"></script>
+<script src="/js/courier_audit.js?v=162.0"></script>
 </body>
 </html>

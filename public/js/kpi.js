@@ -235,13 +235,20 @@ function parseTimestampToMs(timeObj) {
     filteredTrips.forEach(t => {
         const cId = t.courierId || '';
         if (typeof isCourierInActiveBranch === 'function' && !isCourierInActiveBranch(cId)) return;
-        if (cId.includes('EK74u0gA') || cId.toLowerCase().includes('novalgan') || cId.toLowerCase().includes('novalempah2')) return;
-        const cName = registeredUsers[cId] || (cId.length > 20 ? getCourierDisplayName(cId) : cId);
-        if (cName.includes('EK74u0gA') || cName.toLowerCase().includes('novalgan') || cName.toLowerCase().includes('novalempah2')) return;
+        if (cId.includes('EK74u0gA') || cId.toLowerCase().includes('novalgan')) return;
+        const rawName = registeredUsers[cId] || (cId.length > 20 ? getCourierDisplayName(cId) : cId);
+        if (rawName.includes('EK74u0gA') || rawName.toLowerCase().includes('novalgan')) return;
 
-        if(!courierStats[cId]) {
-            courierStats[cId] = {
-                name: cName,
+        const courierInfo = (typeof normalizeCourierIdentity === 'function')
+            ? normalizeCourierIdentity(cId, rawName)
+            : { canonicalId: cId, displayName: rawName, vehicleType: t.vehicleType || 'motor' };
+
+        const targetId = courierInfo.canonicalId;
+        const targetName = courierInfo.displayName;
+
+        if(!courierStats[targetId]) {
+            courierStats[targetId] = {
+                name: targetName,
                 completedStops: 0,
                 totalStops: 0,
                 totalKM: 0,
@@ -253,27 +260,27 @@ function parseTimestampToMs(timeObj) {
             };
         }
 
-        const vType = t.vehicleType || 'motor';
+        const vType = courierInfo.vehicleType || t.vehicleType || 'motor';
         if (vType === 'mobil') {
-            courierStats[cId].mobilTrips++;
+            courierStats[targetId].mobilTrips++;
             if (t.adminBulkSjUrl || (Array.isArray(t.adminBulkSjUrls) && t.adminBulkSjUrls.length > 0)) {
-                courierStats[cId].hasHeavyCargo = true;
+                courierStats[targetId].hasHeavyCargo = true;
             }
         } else {
-            courierStats[cId].motorTrips++;
+            courierStats[targetId].motorTrips++;
         }
-        if (t.region) courierStats[cId].regionsVisited.add(t.region);
+        if (t.region) courierStats[targetId].regionsVisited.add(t.region);
 
         let actualTripKM = 0;
         if (t.destinations && t.destinations.length > 0) {
-            courierStats[cId].totalStops += t.destinations.length;
+            courierStats[targetId].totalStops += t.destinations.length;
 
             for (let i = 0; i < t.destinations.length; i++) {
                 const d = t.destinations[i];
                 const isDone = (d.status === 'done' || (d.proofPhotoUrl && d.proofPhotoUrl.length > 0));
 
                 if (isDone) {
-                    courierStats[cId].completedStops++;
+                    courierStats[targetId].completedStops++;
 
                     const start = (i === 0)
                         ? ((t.acceptLatitude && t.acceptLongitude) ? { lat: parseFloat(t.acceptLatitude), lng: parseFloat(t.acceptLongitude) } : { lat: parseFloat(t.destinations[0].latitude || 0), lng: parseFloat(t.destinations[0].longitude || 0) })
@@ -298,13 +305,13 @@ function parseTimestampToMs(timeObj) {
 
             if (startTimeMs > 0 && latestFinishMs > startTimeMs) {
                 const tripDurationMins = (latestFinishMs - startTimeMs) / (60 * 1000);
-                courierStats[cId].totalTime += tripDurationMins;
+                courierStats[targetId].totalTime += tripDurationMins;
             }
         } else {
-            courierStats[cId].totalStops += 1;
-            if (t.status === 'completed') courierStats[cId].completedStops += 1;
+            courierStats[targetId].totalStops += 1;
+            if (t.status === 'completed') courierStats[targetId].completedStops += 1;
         }
-        courierStats[cId].totalKM += actualTripKM;
+        courierStats[targetId].totalKM += actualTripKM;
         grandTotalKM += actualTripKM;
 
         if(t.status === 'completed' || (t.destinations && t.destinations.every(d => d.status === 'done' || d.proofPhotoUrl))) {

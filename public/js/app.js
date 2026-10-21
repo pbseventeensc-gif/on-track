@@ -132,6 +132,93 @@ let notificationItems = [];
 let currentUserRole = "super_admin";
 let currentUserBranchId = "pusat";
 
+// ==========================================
+// MASTER COURIER FLEET & IDENTITY MAPPING
+// ==========================================
+const COURIER_FLEET_MAPPING = {
+    mobil: ['made', 'rizki', 'romi', 'agung', 'iwan', 'husen', 'alanpasming', 'altur', 'yakub'],
+    motor: ['umar', 'haris', 'ahmad', 'beto', 'eri', 'irfan', 'ferdi', 'jay', 'bayhaqi', 'novalempah2', 'jagadbaru1', 'jagat']
+};
+window.COURIER_FLEET_MAPPING = COURIER_FLEET_MAPPING;
+
+function normalizeCourierIdentity(cId, cName) {
+    const id = (cId || '').trim();
+    let name = (cName || '').trim();
+
+    if (!name && typeof registeredUsers !== 'undefined' && registeredUsers[id]) {
+        name = registeredUsers[id];
+    }
+
+    const checkStr = (id + ' ' + name).toLowerCase();
+
+    // 1. Jagat & Jagadbaru1 are 1 person (active login uses jagadbaru1)
+    if (checkStr.includes('jagadbaru1') || checkStr.includes('jagat')) {
+        return {
+            canonicalId: 'jagadbaru1',
+            displayName: 'Jagad (Jagadbaru1)',
+            vehicleType: 'motor'
+        };
+    }
+
+    // 2. Identify fleet vehicle type
+    let vType = 'motor';
+    if (COURIER_FLEET_MAPPING.mobil.some(m => checkStr.includes(m))) {
+        vType = 'mobil';
+    } else if (COURIER_FLEET_MAPPING.motor.some(m => checkStr.includes(m))) {
+        vType = 'motor';
+    } else if (typeof registeredUsersObjects !== 'undefined' && registeredUsersObjects[id] && registeredUsersObjects[id].vehicleType) {
+        vType = registeredUsersObjects[id].vehicleType;
+    }
+
+    return {
+        canonicalId: id,
+        displayName: name || id,
+        vehicleType: vType
+    };
+}
+window.normalizeCourierIdentity = normalizeCourierIdentity;
+
+function getCourierVehicleType(cId, cName) {
+    const info = normalizeCourierIdentity(cId, cName);
+    return info.vehicleType;
+}
+window.getCourierVehicleType = getCourierVehicleType;
+
+function onDispatchCourierChange() {
+    const sel = document.getElementById('sel-courier');
+    const infoDiv = document.getElementById('dispatch-courier-auto-info');
+    const badge = document.getElementById('dispatch-courier-vehicle-badge');
+    const radMotor = document.getElementById('veh-motor');
+    const radMobil = document.getElementById('veh-mobil');
+
+    if (!sel || !sel.value) {
+        if (infoDiv) infoDiv.style.display = 'none';
+        return;
+    }
+
+    const cid = sel.value;
+    const cName = (typeof registeredUsers !== 'undefined') ? (registeredUsers[cid] || '') : '';
+    const courierInfo = normalizeCourierIdentity(cid, cName);
+
+    if (courierInfo.vehicleType === 'mobil') {
+        if (radMobil) radMobil.checked = true;
+        if (radMotor) radMotor.checked = false;
+        if (badge) {
+            badge.className = 'badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-1.5 fw-bold';
+            badge.innerHTML = '<i class="bi bi-truck me-1"></i> Terdeteksi Otomatis: Driver Mobil';
+        }
+    } else {
+        if (radMotor) radMotor.checked = true;
+        if (radMobil) radMobil.checked = false;
+        if (badge) {
+            badge.className = 'badge bg-secondary-subtle text-dark border px-3 py-1.5 fw-bold';
+            badge.innerHTML = '<i class="bi bi-bicycle me-1"></i> Terdeteksi Otomatis: Kurir Motor';
+        }
+    }
+    if (infoDiv) infoDiv.style.display = 'block';
+}
+window.onDispatchCourierChange = onDispatchCourierChange;
+
 function getLocalTodayDateString() {
     const now = new Date();
     const year = now.getFullYear();
@@ -846,43 +933,101 @@ function getRoleDisplayName(role) {
 }
 
 function isTabAllowedForRole(role, viewId) {
-    if (!role) return true;
+    if (!role) return false;
     const r = String(role).toLowerCase();
-    if (r === 'super_admin' || r === 'admin' || r === 'admin_logistik' || r === 'adminlogistik') {
+    const isCentralAdmin = (
+        r === 'super_admin' ||
+        r === 'superadmin' ||
+        r === 'admin' ||
+        r === 'admin_logistik' ||
+        r === 'adminlogistik'
+    ) && (
+        r !== 'sales_admin' &&
+        r !== 'sales' &&
+        r !== 'admin_dm2' &&
+        r !== 'dm2' &&
+        r !== 'branch_admin' &&
+        r !== 'branch' &&
+        r !== 'courier' &&
+        r !== 'kurir' &&
+        r !== 'traffic' &&
+        r !== 'trafik'
+    );
+
+    // AUDIT KURIR HARIAN: HANYA ADA DI MENU SUPERADMIN / ADMIN PUSAT (TIDAK BOLEH DI LOGIN CABANG, SALES, KURIR)
+    if (viewId === 'courier-audit') {
+        return isCentralAdmin;
+    }
+
+    if (isCentralAdmin) {
         return true;
     }
     if (r === 'sales_admin' || r === 'sales') {
         return viewId === 'dashboard' || viewId === 'monitor' || viewId === 'pod-archive';
     }
-    if (r === 'admin_dm2' || r === 'dm2') {
+    if (r === 'admin_dm2' || r === 'dm2' || r === 'branch_admin' || r === 'branch') {
         return viewId === 'dashboard' || viewId === 'monitor' || viewId === 'dispatch' || viewId === 'pod-archive';
     }
-    return true;
+    return false;
 }
 
 function applyRoleAccessControl() {
-    const r = (currentUserRole || 'super_admin').toLowerCase();
+    const r = (currentUserRole || '').toLowerCase();
+    const isCentralAdmin = (
+        r === 'super_admin' ||
+        r === 'superadmin' ||
+        r === 'admin' ||
+        r === 'admin_logistik' ||
+        r === 'adminlogistik'
+    ) && (
+        r !== 'sales_admin' &&
+        r !== 'sales' &&
+        r !== 'admin_dm2' &&
+        r !== 'dm2' &&
+        r !== 'branch_admin' &&
+        r !== 'branch' &&
+        r !== 'courier' &&
+        r !== 'kurir' &&
+        r !== 'traffic' &&
+        r !== 'trafik'
+    );
 
     const navDashboard = document.getElementById('nav-dashboard');
     const navMonitor = document.getElementById('nav-monitor');
     const navDispatch = document.getElementById('nav-dispatch');
     const navFleet = document.getElementById('nav-fleet');
+    const navPool = document.getElementById('nav-pool');
     const navChat = document.getElementById('nav-chat');
     const navPodArchive = document.getElementById('nav-pod-archive');
     const navReports = document.getElementById('nav-reports');
     const navSettings = document.getElementById('nav-settings');
+    const navCourierAudit = document.getElementById('nav-courier-audit');
 
-    [navDashboard, navMonitor, navDispatch, navFleet, navChat, navPodArchive, navReports, navSettings].forEach(el => {
+    // 1. AUDIT KURIR HARIAN: HANYA ADA DI MENU SUPERADMIN / ADMIN PUSAT (TIDAK BOLEH DI LOGIN LAIN)
+    if (navCourierAudit) {
+        navCourierAudit.style.display = isCentralAdmin ? 'flex' : 'none';
+    }
+
+    // Jika user non-superadmin sedang berada di view courier-audit, alihkan ke dashboard
+    if (!isCentralAdmin) {
+        const auditView = document.getElementById('view-courier-audit');
+        if (auditView && (auditView.classList.contains('active') || auditView.style.display !== 'none')) {
+            if (typeof switchTab === 'function') switchTab('dashboard');
+        }
+    }
+
+    [navDashboard, navMonitor, navDispatch, navFleet, navPool, navChat, navPodArchive, navReports, navSettings].forEach(el => {
         if (el) el.style.display = '';
     });
 
     if (r === 'sales_admin' || r === 'sales') {
         if (navDispatch) navDispatch.style.display = 'none';
         if (navFleet) navFleet.style.display = 'none';
+        if (navPool) navPool.style.display = 'none';
         if (navChat) navChat.style.display = 'none';
         if (navReports) navReports.style.display = 'none';
         if (navSettings) navSettings.style.display = 'none';
-    } else if (r === 'admin_dm2' || r === 'dm2') {
+    } else if (r === 'admin_dm2' || r === 'dm2' || r === 'branch_admin' || r === 'branch') {
         if (navFleet) navFleet.style.display = 'none';
         if (navChat) navChat.style.display = 'none';
         if (navReports) navReports.style.display = 'none';
@@ -949,6 +1094,8 @@ function switchTab(viewId, el) {
         if (typeof loadFullHistory === 'function') loadFullHistory();
     } else if (viewId === 'pool') {
         if (typeof loadPoolTrips === 'function') loadPoolTrips();
+    } else if (viewId === 'courier-audit') {
+        if (typeof renderCourierAuditView === 'function') renderCourierAuditView();
     }
 }
 window.switchTab = switchTab;
@@ -1535,20 +1682,35 @@ function renderCourierOptions() {
     const sel = document.getElementById('sel-courier'); if(!sel) return;
     const currentVal = sel.value;
 
+    const seenCanonical = new Set();
     const sortedCouriers = [];
     for (const uid in registeredUsers) {
         if (!isCourierUser(uid)) continue;
         if (typeof isCourierInActiveBranch === 'function' && !isCourierInActiveBranch(uid)) continue;
-        sortedCouriers.push({ uid: uid, name: registeredUsers[uid] });
+
+        const rawName = registeredUsers[uid];
+        const normalized = normalizeCourierIdentity(uid, rawName);
+
+        // If jagat and jagadbaru1 both exist, show only the canonical jagadbaru1
+        if (seenCanonical.has(normalized.canonicalId)) continue;
+        seenCanonical.add(normalized.canonicalId);
+
+        sortedCouriers.push({
+            uid: uid,
+            name: normalized.displayName,
+            vehicleType: normalized.vehicleType
+        });
     }
     sortedCouriers.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
 
-    const options = ['<option value="">Select Carrier...</option>'];
+    const options = ['<option value="">-- Pilih Kurir Pengantaran --</option>'];
     sortedCouriers.forEach(c => {
-        options.push(`<option value="${c.uid}">${c.name}</option>`);
+        const vIcon = c.vehicleType === 'mobil' ? '🚚 Mobil' : '🛵 Motor';
+        options.push(`<option value="${c.uid}">${c.name} (${vIcon})</option>`);
     });
     sel.innerHTML = options.join('');
     if (currentVal) sel.value = currentVal;
+    if (typeof onDispatchCourierChange === 'function') onDispatchCourierChange();
 }
 
 function initRtdbListener() {
@@ -1955,9 +2117,12 @@ function renderQueue() {
     }
 }
 
-async function compressImageFile(file, maxDimension = 1000, quality = 0.7) {
+async function compressImageFile(file, maxDimension = 900, quality = 0.65) {
     return new Promise((resolve) => {
-        if (!file || !file.type || !file.type.startsWith('image/') || file.size < 120 * 1024) {
+        if (!file || !file.type || !file.type.startsWith('image/')) {
+            return resolve(file);
+        }
+        if (file.__isCompressed || file.size < 90 * 1024) {
             return resolve(file);
         }
 
@@ -1982,15 +2147,18 @@ async function compressImageFile(file, maxDimension = 1000, quality = 0.7) {
                 canvas.width = width;
                 canvas.height = height;
                 const ctx = canvas.getContext('2d');
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
                 ctx.drawImage(img, 0, 0, width, height);
 
                 canvas.toBlob(
                     (blob) => {
                         if (blob) {
-                            const compressedFile = new File([blob], file.name.replace(/\.[^/.]+$/, ".jpg"), {
+                            const compressedFile = new File([blob], (file.name || 'proof.jpg').replace(/\.[^/.]+$/, ".jpg"), {
                                 type: 'image/jpeg',
                                 lastModified: Date.now()
                             });
+                            compressedFile.__isCompressed = true;
                             console.log(`[JS Compress] Compressed ${file.size} -> ${compressedFile.size} bytes`);
                             resolve(compressedFile);
                         } else {
@@ -2016,7 +2184,7 @@ function getGdriveScriptUrl() {
 }
 window.getGdriveScriptUrl = getGdriveScriptUrl;
 
-async function uploadToGoogleDrive(file) {
+async function uploadToGoogleDrive(file, timeoutMs = 5000) {
     const scriptUrl = getGdriveScriptUrl();
     if (!scriptUrl) throw new Error("Google Drive Script URL not configured");
 
@@ -2030,40 +2198,52 @@ async function uploadToGoogleDrive(file) {
         reader.readAsDataURL(file);
     });
 
-    const response = await fetch(scriptUrl, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'text/plain;charset=utf-8'
-        },
-        body: JSON.stringify({
-            filename: file.name || 'proof.jpg',
-            contentType: file.type || 'image/jpeg',
-            base64Data: base64Data
-        })
-    });
-    const result = await response.json();
-    if (result && result.status === 'success' && result.url) {
-        return result.url;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+        const response = await fetch(scriptUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'text/plain;charset=utf-8'
+            },
+            body: JSON.stringify({
+                filename: file.name || 'proof.jpg',
+                contentType: file.type || 'image/jpeg',
+                base64Data: base64Data
+            }),
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        const result = await response.json();
+        if (result && result.status === 'success' && result.url) {
+            return result.url;
+        }
+        throw new Error(result.message || 'Google Drive upload failed');
+    } catch(err) {
+        clearTimeout(timeoutId);
+        throw err;
     }
-    throw new Error(result.message || 'Google Drive upload failed');
 }
 
 async function uploadFileToCloudinaryOrFirebase(file) {
-    const targetFile = (file && file.type && file.type.startsWith('image/')) ? await compressImageFile(file, 1000, 0.7) : file;
-    if (!targetFile) return "";
+    if (!file) return "";
+    const targetFile = (!file.__isCompressed && file.type && file.type.startsWith('image/'))
+        ? await compressImageFile(file, 900, 0.65)
+        : file;
 
-    // 1. Primary: Google Drive 5TB Storage
+    // 1. Primary: Google Drive 5TB Storage (dengan timeout 5 detik agar cepat fallback jika Apps Script lambat)
     const scriptUrl = getGdriveScriptUrl();
     if (scriptUrl) {
         try {
-            const gdriveUrl = await uploadToGoogleDrive(targetFile);
+            const gdriveUrl = await uploadToGoogleDrive(targetFile, 5000);
             if (gdriveUrl) return gdriveUrl;
         } catch (e) {
-            console.warn("Google Drive upload warning, attempting Firebase Storage fallback:", e);
+            console.warn("Google Drive upload timeout/warning, beralih instan ke Firebase Storage:", e);
         }
     }
 
-    // 2. Secondary: Firebase Storage
+    // 2. Secondary: Firebase Storage (Sangat cepat ~200ms)
     try {
         const activeStorage = (typeof firebase !== 'undefined' && firebase.storage) ? firebase.storage() : null;
         if (activeStorage) {
@@ -2118,12 +2298,14 @@ async function submitTrip() {
         let adminBulkSjUrls = [];
         const sjFileEl = document.getElementById('dispatch-bulk-sj-file');
         if (sjFileEl && sjFileEl.files && sjFileEl.files.length > 0) {
-            if (btn) btn.innerText = `UPLOADING ${sjFileEl.files.length} BULK SJ PHOTO(S)...`;
-            for (let i = 0; i < sjFileEl.files.length; i++) {
-                const targetFile = await compressImageFile(sjFileEl.files[i], 1000, 0.7);
-                const u = await uploadFileToCloudinaryOrFirebase(targetFile);
-                if (u) adminBulkSjUrls.push(u);
-            }
+            const bulkFiles = Array.from(sjFileEl.files);
+            if (btn) btn.innerText = `UPLOADING ${bulkFiles.length} BULK SJ PHOTO(S)...`;
+            const uploadPromises = bulkFiles.map(async (f) => {
+                const targetFile = await compressImageFile(f, 900, 0.65);
+                return await uploadFileToCloudinaryOrFirebase(targetFile);
+            });
+            const uploadResults = await Promise.all(uploadPromises);
+            adminBulkSjUrls = uploadResults.filter(u => u && typeof u === 'string' && u.trim().length > 0);
             adminBulkSjUrl = adminBulkSjUrls.join(',');
         }
 
@@ -2158,8 +2340,7 @@ async function submitTrip() {
 
         const id = "TRIP_" + Date.now();
         const statusToUse = cid ? "in_progress" : "pool";
-        const vehicleTypeEl = document.querySelector('input[name="dispatch-vehicle-type"]:checked');
-        const vehicleType = vehicleTypeEl ? vehicleTypeEl.value : "motor";
+        const vehicleType = cid ? getCourierVehicleType(cid, (registeredUsers[cid] || '')) : ((document.querySelector('input[name="dispatch-vehicle-type"]:checked')?.value) || "motor");
 
         await activeDb.collection('trips').doc(id).set({
             tripId: id,
@@ -2427,12 +2608,13 @@ async function uploadBulkSjFromCard(tripId) {
 
         showToast(`⏳ Mengompres & mengunggah ${files.length} foto Bulk SJ...`);
 
-        const uploadedUrls = [];
-        for (let i = 0; i < files.length; i++) {
-            const targetFile = await compressImageFile(files[i], 1000, 0.7);
-            const photoUrl = await uploadFileToCloudinaryOrFirebase(targetFile);
-            if (photoUrl) uploadedUrls.push(photoUrl);
-        }
+        const bulkFiles = Array.from(files);
+        const uploadPromises = bulkFiles.map(async (f) => {
+            const targetFile = await compressImageFile(f, 900, 0.65);
+            return await uploadFileToCloudinaryOrFirebase(targetFile);
+        });
+        const uploadResults = await Promise.all(uploadPromises);
+        const uploadedUrls = uploadResults.filter(u => u && typeof u === 'string' && u.trim().length > 0);
 
         if (uploadedUrls.length === 0) throw new Error("Gagal mengunggah foto.");
 
@@ -2543,12 +2725,13 @@ async function uploadBulkSjFromModal(tripId) {
 
         showToast(`⏳ Mengompres & mengunggah ${files.length} foto Bulk SJ...`);
 
-        const uploadedUrls = [];
-        for (let i = 0; i < files.length; i++) {
-            const targetFile = await compressImageFile(files[i], 1000, 0.7);
-            const photoUrl = await uploadFileToCloudinaryOrFirebase(targetFile);
-            if (photoUrl) uploadedUrls.push(photoUrl);
-        }
+        const bulkFiles = Array.from(files);
+        const uploadPromises = bulkFiles.map(async (f) => {
+            const targetFile = await compressImageFile(f, 900, 0.65);
+            return await uploadFileToCloudinaryOrFirebase(targetFile);
+        });
+        const uploadResults = await Promise.all(uploadPromises);
+        const uploadedUrls = uploadResults.filter(u => u && typeof u === 'string' && u.trim().length > 0);
 
         if (uploadedUrls.length === 0) throw new Error("Gagal mengunggah foto.");
 
@@ -3155,21 +3338,40 @@ async function submitManualUploadPhoto() {
 
     if (!tripId || !files || files.length === 0) return alert("Pilih minimal 1 file foto terlebih dahulu!");
 
-    if (btn) { btn.disabled = true; btn.innerText = `UPLOADING (${files.length})...`; }
-    if (statusEl) statusEl.innerText = `Mengunggah ${files.length} foto bukti...`;
+    const fileList = Array.from(files);
+    const totalFiles = fileList.length;
+
+    if (btn) { 
+        btn.disabled = true; 
+        btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>MENGUNGGAH (${totalFiles} Foto)...`; 
+    }
+    if (statusEl) {
+        statusEl.innerHTML = `<span class="text-primary"><i class="bi bi-arrow-repeat me-1"></i>Mengompresi dan mengunggah ${totalFiles} foto sekaligus...</span>`;
+    }
 
     try {
         const activeDb = getDb();
         if (!activeDb) throw new Error("Firestore Database belum terhubung.");
 
-        const uploadedUrls = [];
-        for (let i = 0; i < files.length; i++) {
-            const targetFile = await compressImageFile(files[i], 1000, 0.7);
+        let doneCount = 0;
+        const uploadPromises = fileList.map(async (file) => {
+            const targetFile = await compressImageFile(file, 900, 0.65);
             const photoUrl = await uploadFileToCloudinaryOrFirebase(targetFile);
-            if (photoUrl) uploadedUrls.push(photoUrl);
-        }
+            doneCount++;
+            if (statusEl) {
+                statusEl.innerHTML = `<span class="text-info"><i class="bi bi-cloud-arrow-up me-1"></i>Foto ${doneCount} dari ${totalFiles} selesai diunggah...</span>`;
+            }
+            return photoUrl;
+        });
 
-        if (uploadedUrls.length === 0) throw new Error("Gagal mengunggah foto ke Cloudinary.");
+        const results = await Promise.all(uploadPromises);
+        const uploadedUrls = results.filter(u => u && typeof u === 'string' && u.trim().length > 0);
+
+        if (uploadedUrls.length === 0) throw new Error("Gagal mengunggah foto. Silakan periksa koneksi internet Anda.");
+
+        if (statusEl) {
+            statusEl.innerHTML = `<span class="text-success"><i class="bi bi-check2-all me-1"></i>Menyimpan data stop ke Firestore...</span>`;
+        }
 
         const tripDocRef = activeDb.collection('trips').doc(tripId);
         const tripSnap = await tripDocRef.get();
@@ -3916,14 +4118,18 @@ function initAuthListener() {
                         let uRole = (uData.role || '').toLowerCase();
                         let uEmail = (user.email || '').toLowerCase();
 
-                        if (uEmail.includes('sales')) {
-                            uRole = 'sales_admin';
-                        } else if (uEmail.includes('adminlogistik') || uEmail.includes('admin_logistik')) {
-                            uRole = 'admin_logistik';
-                        } else if (uEmail.includes('dm2') && uRole !== 'sales_admin') {
-                            uRole = 'admin_dm2';
-                        } else if (!uRole) {
-                            uRole = 'super_admin';
+                        if (!uRole) {
+                            if (uEmail.includes('sales')) {
+                                uRole = 'sales_admin';
+                            } else if (uEmail.includes('dm2')) {
+                                uRole = 'admin_dm2';
+                            } else if (uEmail.includes('branch') || uEmail.includes('cikokol')) {
+                                uRole = 'branch_admin';
+                            } else if (uEmail.includes('adminlogistik') || uEmail.includes('admin_logistik')) {
+                                uRole = 'super_admin';
+                            } else {
+                                uRole = 'super_admin';
+                            }
                         }
 
                         currentUserRole = uRole;
