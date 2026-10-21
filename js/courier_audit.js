@@ -62,10 +62,10 @@ function parseAuditTimestamp(timeObj) {
 // --------------------------------------------------------------------------
 // 1. DATA COMPUTATION & AGGREGATION
 // --------------------------------------------------------------------------
-function calculateCourierDailyAudit() {
+function calculateCourierDailyAudit(customStartDate = null, customEndDate = null) {
     const todayStr = new Date().toISOString().slice(0, 10);
-    const startDateVal = document.getElementById('audit-start-date')?.value || todayStr;
-    const endDateVal = document.getElementById('audit-end-date')?.value || startDateVal;
+    const startDateVal = customStartDate || document.getElementById('audit-start-date')?.value || todayStr;
+    const endDateVal = customEndDate || document.getElementById('audit-end-date')?.value || startDateVal;
 
     const isSingleDay = (startDateVal === endDateVal);
     isCurrentAuditSingleDay = isSingleDay;
@@ -1282,25 +1282,43 @@ function openSendReportModal() {
 }
 window.openSendReportModal = openSendReportModal;
 
-function onReportPeriodChange() {
-    const selectedFreq = document.querySelector('input[name="reportWaFreq"]:checked')?.value || 'daily';
+let activePreviewWaFreq = 'daily';
+
+function getSelectedWaFrequencies() {
+    const checked = Array.from(document.querySelectorAll('input[name="reportWaFreq"]:checked')).map(el => el.value);
+    return checked.length > 0 ? checked : ['daily'];
+}
+window.getSelectedWaFrequencies = getSelectedWaFrequencies;
+
+function onReportPeriodChange(toggledKey = null) {
+    const checkedBoxes = Array.from(document.querySelectorAll('input[name="reportWaFreq"]:checked'));
+    if (checkedBoxes.length === 0) {
+        // Prevent all unchecked, keep the toggled one checked
+        const fallbackId = toggledKey ? `wa-freq-${toggledKey}` : 'wa-freq-daily';
+        const fallback = document.getElementById(fallbackId);
+        if (fallback) fallback.checked = true;
+    }
+
+    if (toggledKey && document.getElementById(`wa-freq-${toggledKey}`)?.checked) {
+        activePreviewWaFreq = toggledKey;
+    } else {
+        const remaining = Array.from(document.querySelectorAll('input[name="reportWaFreq"]:checked')).map(el => el.value);
+        activePreviewWaFreq = remaining[0] || 'daily';
+    }
+
     const startInput = document.getElementById('audit-start-date');
     const endInput = document.getElementById('audit-end-date');
-
     const now = new Date();
     const todayStr = now.toISOString().slice(0, 10);
 
-    if (selectedFreq === 'daily') {
-        // Today
+    if (activePreviewWaFreq === 'daily') {
         if (startInput) startInput.value = todayStr;
         if (endInput) endInput.value = todayStr;
-    } else if (selectedFreq === 'weekly') {
-        // Last 7 days
+    } else if (activePreviewWaFreq === 'weekly') {
         const lastWeek = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000);
         if (startInput) startInput.value = lastWeek.toISOString().slice(0, 10);
         if (endInput) endInput.value = todayStr;
-    } else if (selectedFreq === 'monthly') {
-        // 1st of this month to today
+    } else if (activePreviewWaFreq === 'monthly') {
         const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
         if (startInput) startInput.value = firstOfMonth.toISOString().slice(0, 10);
         if (endInput) endInput.value = todayStr;
@@ -1368,8 +1386,8 @@ function saveReportRecipients() {
 }
 window.saveReportRecipients = saveReportRecipients;
 
-function buildWhatsAppReportText() {
-    const auditResult = calculateCourierDailyAudit();
+function buildSinglePeriodSectionText(startDateVal, endDateVal, periodTitle, sectionNum = null) {
+    const auditResult = calculateCourierDailyAudit(startDateVal, endDateVal);
     const couriers = auditResult.couriers;
     const isSingle = auditResult.isSingleDay;
     const periodLabel = isSingle 
@@ -1382,14 +1400,10 @@ function buildWhatsAppReportText() {
     let totalEffectiveMins = 0;
     let couriersWithTimeCount = 0;
 
-    // Mobil vs Motor breakdown
     let mobilDelivered = 0, mobilPending = 0, mobilFailed = 0, mobilCount = 0;
     let motorDelivered = 0, motorPending = 0, motorFailed = 0, motorCount = 0;
 
-    // Overtime couriers
     const overtimeList = [];
-
-    // Failed & Pending grouped by courier
     const failedByCourier = [];
     const pendingByCourier = [];
 
@@ -1415,89 +1429,113 @@ function buildWhatsAppReportText() {
             motorPending += c.pendingCount;
         }
 
-        if (c.isOvertime) {
-            overtimeList.push(c);
-        }
-
-        if (c.failedItems && c.failedItems.length > 0) {
-            failedByCourier.push(c);
-        }
-
-        if (c.pendingItems && c.pendingItems.length > 0) {
-            pendingByCourier.push(c);
-        }
+        if (c.isOvertime) overtimeList.push(c);
+        if (c.failedItems && c.failedItems.length > 0) failedByCourier.push(c);
+        if (c.pendingItems && c.pendingItems.length > 0) pendingByCourier.push(c);
     });
 
     const totalStopsOverall = totalDelivered + totalFailed + totalPending;
     const overallRate = totalStopsOverall > 0 ? Math.round((totalDelivered / totalStopsOverall) * 100) : 0;
     const avgMins = couriersWithTimeCount > 0 ? Math.round(totalEffectiveMins / couriersWithTimeCount) : 0;
 
-    const branchName = (typeof activeBranch !== 'undefined' && activeBranch) ? activeBranch : 'Wellen Pusat';
+    let header = sectionNum 
+        ? `📍 *BAGIAN ${sectionNum}: REKAP ${periodTitle.toUpperCase()}*\n🗓️ *Periode* : ${periodLabel}\n`
+        : `🗓️ *Periode* : ${periodLabel} (${periodTitle})\n`;
 
-    let msg = `📊 *LAPORAN OPERASIONAL LOGISTIK*\n`;
-    msg += `🗓️ *Periode* : ${periodLabel}\n`;
-    msg += `🏢 *Cabang*  : ${branchName}\n`;
-    msg += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
-
-    msg += `📈 *RINGKASAN EKSEKUTIF*\n`;
+    let msg = `${header}`;
     msg += `• Total Penugasan     : *${totalStopsOverall} Paket*\n`;
     msg += `• ✅ Terkirim Sukses  : *${totalDelivered} Paket (${overallRate}%)*\n`;
     msg += `• ❌ Gagal (Tdk Diantar): *${totalFailed} Paket*\n`;
     msg += `• ⚠️ Pending (Diajukan) : *${totalPending} Paket*\n`;
     msg += `• ⏱️ Rata-rata Kerja  : *${formatDurationHoursMins(avgMins)} / kurir*\n\n`;
 
-    msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
-    msg += `🚚 *REKAP PER ARMADA*\n`;
-    msg += `• *Mobil (${mobilCount} Driver)* : ${mobilDelivered + mobilFailed + mobilPending} Pkt (${mobilDelivered} Sukses, ${mobilFailed} Gagal, ${mobilPending} Pending)\n`;
-    msg += `• *Motor (${motorCount} Kurir)* : ${motorDelivered + motorFailed + motorPending} Pkt (${motorDelivered} Sukses, ${motorFailed} Gagal, ${motorPending} Pending)\n\n`;
+    msg += `🚚 *Rekap Armada:*\n`;
+    msg += `• Mobil (${mobilCount} Driver): ${mobilDelivered + mobilFailed + mobilPending} Pkt (${mobilDelivered} Sukses, ${mobilFailed} Gagal, ${mobilPending} Pending)\n`;
+    msg += `• Motor (${motorCount} Kurir): ${motorDelivered + motorFailed + motorPending} Pkt (${motorDelivered} Sukses, ${motorFailed} Gagal, ${motorPending} Pending)\n\n`;
 
     if (failedByCourier.length > 0) {
-        msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
-        msg += `❌ *DAFTAR KURIR DENGAN PAKET GAGAL (TIDAK DIANTAR):*\n`;
+        msg += `❌ *Kurir dengan Paket Gagal (Murni Tidak Diantar):*\n`;
         failedByCourier.forEach((c, idx) => {
             const vIcon = c.vehicleType === 'mobil' ? '🚚' : '🛵';
-            msg += `\n${idx + 1}. ${vIcon} *${c.name}* — ${c.failedCount} Paket Gagal (Murni tidak diantar)\n`;
-            c.failedItems.forEach(item => {
-                msg += `   • *${item.locationName}*\n     └ Status: Belum sempat diantar\n`;
-            });
+            msg += `${idx + 1}. ${vIcon} *${c.name}* : ${c.failedCount} Gagal\n`;
         });
         msg += `\n`;
     }
 
-    msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
-    msg += `⚠️ *DAFTAR KURIR PENGAJUAN PENDING (KLIEN TUTUP):*\n`;
-
-    if (pendingByCourier.length === 0) {
-        msg += `✅ *0 PENDING (Tidak ada pengajuan kendala toko tutup)*\n\n`;
-    } else {
+    if (pendingByCourier.length > 0) {
+        msg += `⚠️ *Kurir dengan Pengajuan Pending:*\n`;
         pendingByCourier.forEach((c, idx) => {
             const vIcon = c.vehicleType === 'mobil' ? '🚚' : '🛵';
-            msg += `\n${idx + 1}. ${vIcon} *${c.name}* — ${c.pendingCount} Paket Pending\n`;
-            c.pendingItems.forEach(item => {
-                msg += `   • *${item.locationName}*\n     └ Alasan: ${item.reason}\n`;
-            });
+            msg += `${idx + 1}. ${vIcon} *${c.name}* : ${c.pendingCount} Pending (${c.pendingItems[0]?.reason || 'Toko Tutup'})\n`;
         });
         msg += `\n`;
     }
 
     if (overtimeList.length > 0) {
-        msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
-        msg += `⭐ *CATATAN LEMBUR (>8 JAM):*\n`;
+        msg += `⭐ *Catatan Lembur (>8 Jam):*\n`;
         overtimeList.forEach(c => {
             const vIcon = c.vehicleType === 'mobil' ? '🚚' : '🛵';
-            if (isSingle) {
-                msg += `• ${vIcon} ${c.name}: ${c.col1Value} - ${c.col2Value} (*${c.col3Value}*)\n`;
-            } else {
-                msg += `• ${vIcon} ${c.name}: ${c.overtimeDaysCount}x Lembur (*Total: ${c.col3Value}*)\n`;
-            }
+            msg += `• ${vIcon} ${c.name} (${c.col3Value})\n`;
         });
         msg += `\n`;
     }
 
-    msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
+    return msg;
+}
+
+function buildWhatsAppReportText() {
+    const selectedFreqs = getSelectedWaFrequencies();
+    const branchName = (typeof activeBranch !== 'undefined' && activeBranch) ? activeBranch : 'Wellen Pusat';
+    const now = new Date();
+    const todayStr = now.toISOString().slice(0, 10);
+
+    const getDatesForFreq = (freq) => {
+        if (freq === 'daily') {
+            const curStart = document.getElementById('audit-start-date')?.value;
+            const curEnd = document.getElementById('audit-end-date')?.value;
+            if (curStart && curStart === curEnd) {
+                return { start: curStart, end: curEnd, title: 'Harian' };
+            }
+            return { start: todayStr, end: todayStr, title: 'Harian' };
+        } else if (freq === 'weekly') {
+            const lastWeek = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000);
+            return { start: lastWeek.toISOString().slice(0, 10), end: todayStr, title: 'Mingguan (7 Hari)' };
+        } else if (freq === 'monthly') {
+            const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+            return { start: firstOfMonth.toISOString().slice(0, 10), end: todayStr, title: 'Bulanan (1 Bulan Penuh)' };
+        } else {
+            const s = document.getElementById('audit-start-date')?.value || todayStr;
+            const e = document.getElementById('audit-end-date')?.value || s;
+            return { start: s, end: e, title: 'Sesuai Filter Tanggal' };
+        }
+    };
+
+    if (selectedFreqs.length === 1) {
+        const info = getDatesForFreq(selectedFreqs[0]);
+        let msg = `📊 *LAPORAN OPERASIONAL LOGISTIK*\n`;
+        msg += `🏢 *Cabang*  : ${branchName}\n`;
+        msg += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
+        msg += buildSinglePeriodSectionText(info.start, info.end, info.title);
+        msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
+        msg += `🔗 *Audit & Foto Bukti Lengkap:*\n`;
+        msg += `https://wtrack.wellenprint.com`;
+        return msg;
+    }
+
+    // MULTIPLE CHOICES (Pilihan Ganda)
+    let msg = `📊 *LAPORAN OPERASIONAL LOGISTIK (MULTI-PERIODE)*\n`;
+    msg += `🏢 *Cabang*  : ${branchName}\n`;
+    msg += `📋 *Mode*    : Ringkasan Terpadu (${selectedFreqs.length} Periode Dipilih)\n`;
+    msg += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+    selectedFreqs.forEach((freq, idx) => {
+        const info = getDatesForFreq(freq);
+        msg += buildSinglePeriodSectionText(info.start, info.end, info.title, idx + 1);
+        msg += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
+    });
+
     msg += `🔗 *Audit & Foto Bukti Lengkap:*\n`;
     msg += `https://wtrack.wellenprint.com`;
-
     return msg;
 }
 window.buildWhatsAppReportText = buildWhatsAppReportText;
@@ -1825,6 +1863,12 @@ async function loadAutoReportSettingsFromFirestore() {
             if (emailWeeklyEl && data.emailWeeklyEnabled !== undefined) emailWeeklyEl.checked = data.emailWeeklyEnabled;
             if (emailMonthlyEl && data.emailMonthlyEnabled !== undefined) emailMonthlyEl.checked = data.emailMonthlyEnabled;
 
+            if (Array.isArray(data.waFrequencies) && data.waFrequencies.length > 0) {
+                document.querySelectorAll('input[name="reportWaFreq"]').forEach(input => {
+                    input.checked = data.waFrequencies.includes(input.value);
+                });
+            }
+
             // Also sync saved recipients from cloud if local is empty
             if (Array.isArray(data.waRecipients)) {
                 if (data.waRecipients[0] && !document.getElementById('report-wa-num-1')?.value) {
@@ -1864,10 +1908,13 @@ async function saveAutoReportSettingsToFirestore() {
 
     saveReportRecipients();
 
+    const checkedWaFreqs = getSelectedWaFrequencies();
+
     const payload = {
         enabled: enabled,
         scheduledTime: scheduledTime,
         dataScope: dataScope,
+        waFrequencies: checkedWaFreqs,
         emailWeeklyEnabled: emailWeeklyEnabled,
         emailMonthlyEnabled: emailMonthlyEnabled,
         waRecipients: [wa1, wa2, wa3].filter(Boolean),

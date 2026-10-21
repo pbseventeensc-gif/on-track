@@ -458,7 +458,7 @@
             <a href="javascript:void(0)" class="nav-link-custom" id="nav-fleet" style="cursor: pointer;" onclick="switchTab('fleet', this)">
                 <i class="bi bi-graph-up-arrow"></i> <span>KPI Kurir</span>
             </a>
-            <a href="javascript:void(0)" class="nav-link-custom" id="nav-courier-audit" style="cursor: pointer;" onclick="switchTab('courier-audit', this)">
+            <a href="javascript:void(0)" class="nav-link-custom" id="nav-courier-audit" style="cursor: pointer; display: none;" onclick="switchTab('courier-audit', this)">
                 <i class="bi bi-clock-history"></i> <span>Audit Kurir Harian</span>
             </a>
             <a href="javascript:void(0)" class="nav-link-custom" id="nav-chat" style="cursor: pointer;" onclick="switchTab('chat', this)">
@@ -1173,29 +1173,29 @@
                                 </div>
 
                                 <div class="p-4">
-                                    <!-- WA Frequency & Scope Selector -->
+                                    <!-- WA Frequency & Scope Selector (Multiple Choice / Pilihan Ganda) -->
                                     <div class="p-3 bg-light rounded-3 border mb-3">
                                         <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
                                             <label class="fw-bold extra-small text-dark text-uppercase mb-0">
                                                 <i class="bi bi-calendar-event me-1 text-primary"></i>Pilihan Frekuensi / Periode Ringkasan WA:
                                             </label>
-                                            <span class="badge bg-white text-muted border extra-small">Fleksibel</span>
+                                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle extra-small"><i class="bi bi-check2-square me-1"></i>Multiple Pilihan Aktif</span>
                                         </div>
                                         <div class="d-flex flex-wrap gap-3" id="report-wa-freq-group">
                                             <div class="form-check form-check-inline m-0">
-                                                <input class="form-check-input" type="radio" name="reportWaFreq" id="wa-freq-daily" value="daily" checked onchange="onReportPeriodChange()">
+                                                <input class="form-check-input" type="checkbox" name="reportWaFreq" id="wa-freq-daily" value="daily" checked onchange="onReportPeriodChange('daily')">
                                                 <label class="form-check-label extra-small fw-bold text-dark cursor-pointer" for="wa-freq-daily">Harian (Hari Ini / Kemarin)</label>
                                             </div>
                                             <div class="form-check form-check-inline m-0">
-                                                <input class="form-check-input" type="radio" name="reportWaFreq" id="wa-freq-weekly" value="weekly" onchange="onReportPeriodChange()">
+                                                <input class="form-check-input" type="checkbox" name="reportWaFreq" id="wa-freq-weekly" value="weekly" onchange="onReportPeriodChange('weekly')">
                                                 <label class="form-check-label extra-small fw-semibold text-dark cursor-pointer" for="wa-freq-weekly">Mingguan (7 Hari)</label>
                                             </div>
                                             <div class="form-check form-check-inline m-0">
-                                                <input class="form-check-input" type="radio" name="reportWaFreq" id="wa-freq-monthly" value="monthly" onchange="onReportPeriodChange()">
+                                                <input class="form-check-input" type="checkbox" name="reportWaFreq" id="wa-freq-monthly" value="monthly" onchange="onReportPeriodChange('monthly')">
                                                 <label class="form-check-label extra-small fw-semibold text-dark cursor-pointer" for="wa-freq-monthly">Bulanan (1 Bulan Penuh)</label>
                                             </div>
                                             <div class="form-check form-check-inline m-0">
-                                                <input class="form-check-input" type="radio" name="reportWaFreq" id="wa-freq-custom" value="custom" onchange="onReportPeriodChange()">
+                                                <input class="form-check-input" type="checkbox" name="reportWaFreq" id="wa-freq-custom" value="custom" onchange="onReportPeriodChange('custom')">
                                                 <label class="form-check-label extra-small fw-semibold text-dark cursor-pointer" for="wa-freq-custom">Sesuai Filter Tanggal</label>
                                             </div>
                                         </div>

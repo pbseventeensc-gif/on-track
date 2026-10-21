@@ -933,45 +933,70 @@ function getRoleDisplayName(role) {
 }
 
 function isTabAllowedForRole(role, viewId) {
-    if (!role) return true;
+    if (!role) return false;
     const r = String(role).toLowerCase();
-    if (r === 'super_admin' || r === 'admin' || r === 'admin_logistik' || r === 'adminlogistik') {
+    const isSuperAdmin = (r === 'super_admin' || r === 'superadmin');
+
+    // AUDIT KURIR HARIAN: HANYA ADA DI MENU SUPERADMIN SAJA!
+    if (viewId === 'courier-audit') {
+        return isSuperAdmin;
+    }
+
+    if (isSuperAdmin) {
         return true;
+    }
+    if (r === 'admin' || r === 'admin_logistik' || r === 'adminlogistik') {
+        return viewId !== 'courier-audit';
     }
     if (r === 'sales_admin' || r === 'sales') {
         return viewId === 'dashboard' || viewId === 'monitor' || viewId === 'pod-archive';
     }
-    if (r === 'admin_dm2' || r === 'dm2') {
+    if (r === 'admin_dm2' || r === 'dm2' || r === 'branch_admin' || r === 'branch') {
         return viewId === 'dashboard' || viewId === 'monitor' || viewId === 'dispatch' || viewId === 'pod-archive';
     }
-    return true;
+    return false;
 }
 
 function applyRoleAccessControl() {
-    const r = (currentUserRole || 'super_admin').toLowerCase();
+    const r = (currentUserRole || '').toLowerCase();
+    const isSuperAdmin = (r === 'super_admin' || r === 'superadmin');
 
     const navDashboard = document.getElementById('nav-dashboard');
     const navMonitor = document.getElementById('nav-monitor');
     const navDispatch = document.getElementById('nav-dispatch');
     const navFleet = document.getElementById('nav-fleet');
+    const navPool = document.getElementById('nav-pool');
     const navChat = document.getElementById('nav-chat');
     const navPodArchive = document.getElementById('nav-pod-archive');
     const navReports = document.getElementById('nav-reports');
     const navSettings = document.getElementById('nav-settings');
     const navCourierAudit = document.getElementById('nav-courier-audit');
 
-    [navDashboard, navMonitor, navDispatch, navFleet, navCourierAudit, navChat, navPodArchive, navReports, navSettings].forEach(el => {
+    // 1. AUDIT KURIR HARIAN: HANYA ADA DI MENU SUPERADMIN SAJA (TIDAK BOLEH DI LOGIN LAIN)
+    if (navCourierAudit) {
+        navCourierAudit.style.display = isSuperAdmin ? '' : 'none';
+    }
+
+    // Jika user non-superadmin sedang berada di view courier-audit, alihkan ke dashboard
+    if (!isSuperAdmin) {
+        const auditView = document.getElementById('view-courier-audit');
+        if (auditView && (auditView.classList.contains('active') || auditView.style.display !== 'none')) {
+            if (typeof switchTab === 'function') switchTab('dashboard');
+        }
+    }
+
+    [navDashboard, navMonitor, navDispatch, navFleet, navPool, navChat, navPodArchive, navReports, navSettings].forEach(el => {
         if (el) el.style.display = '';
     });
 
     if (r === 'sales_admin' || r === 'sales') {
         if (navDispatch) navDispatch.style.display = 'none';
         if (navFleet) navFleet.style.display = 'none';
-        if (navCourierAudit) navCourierAudit.style.display = 'none';
+        if (navPool) navPool.style.display = 'none';
         if (navChat) navChat.style.display = 'none';
         if (navReports) navReports.style.display = 'none';
         if (navSettings) navSettings.style.display = 'none';
-    } else if (r === 'admin_dm2' || r === 'dm2') {
+    } else if (r === 'admin_dm2' || r === 'dm2' || r === 'branch_admin' || r === 'branch') {
         if (navFleet) navFleet.style.display = 'none';
         if (navChat) navChat.style.display = 'none';
         if (navReports) navReports.style.display = 'none';
