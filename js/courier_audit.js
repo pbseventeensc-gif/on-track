@@ -201,15 +201,15 @@ function calculateCourierDailyAudit(customStartDate = null, customEndDate = null
                         courierId: cCanonicalId,
                         courierName: cDisplayName,
                         vehicleType: vType,
-                        locationName: d.locationName || `Destinasi ${idx + 1}`,
-                        address: d.address || '-',
+                        locationName: d.locationName || d.name || d.recipientName || `Destinasi ${idx + 1}`,
+                        address: d.address || d.fullAddress || '-',
                         region: d.region || t.region || 'Jabodetabek',
                         latitude: parseFloat(d.latitude || 0),
                         longitude: parseFloat(d.longitude || 0),
                         type: 'pending',
                         status: d.status === 'pending_approval' ? 'Pending Approval' : 'Pending (Diajukan Kurir)',
-                        reason: d.pendingReason || 'Toko Tutup / Klien Tutup (Diajukan Kurir)',
-                        proofPhotoUrl: d.pendingProofPhotoUrl || d.proofPhotoUrl || '',
+                        reason: d.pendingReason || (d.status === 'klien_tutup' ? 'Klien Tutup' : 'Toko Tutup / Klien Tutup (Diajukan Kurir)'),
+                        proofPhotoUrl: d.pendingProofPhotoUrl || d.proofPhotoUrl || d.proofPhotoSj || d.photoUrl || '',
                         reportedTime: parseAuditTimestamp(d.arrivalTime) || parseAuditTimestamp(d.completedTime) || tripAssignMs
                     };
                     stats.pendingItems.push(pItem);
@@ -224,8 +224,8 @@ function calculateCourierDailyAudit(customStartDate = null, customEndDate = null
                         courierId: cCanonicalId,
                         courierName: cDisplayName,
                         vehicleType: vType,
-                        locationName: d.locationName || `Destinasi ${idx + 1}`,
-                        address: d.address || '-',
+                        locationName: d.locationName || d.name || d.recipientName || `Destinasi ${idx + 1}`,
+                        address: d.address || d.fullAddress || '-',
                         region: d.region || t.region || 'Jabodetabek',
                         latitude: parseFloat(d.latitude || 0),
                         longitude: parseFloat(d.longitude || 0),
@@ -722,12 +722,14 @@ function resetCourierAuditMapFilter() {
 window.resetCourierAuditMapFilter = resetCourierAuditMapFilter;
 
 // --------------------------------------------------------------------------
-// 4. ENTERPRISE SINGLE-SHEET EXCEL EXPORT (EXECUTIVE STYLED, GROUPED MOBIL & MOTOR)
+// 4. ENTERPRISE SINGLE-SHEET EXCEL EXPORT (EXECUTIVE STYLED, GROUPED MOBIL & MOTOR + RINCIAN KLIEN PENDING)
 // --------------------------------------------------------------------------
 async function exportCourierAuditToExcel() {
     const auditResult = calculateCourierDailyAudit();
     const couriers = auditResult.couriers;
     const isSingle = auditResult.isSingleDay;
+    const pendingList = auditResult.pendingList || [];
+    const failedList = auditResult.failedList || [];
     const periodLabel = isSingle 
         ? auditResult.startDateStr 
         : `${auditResult.startDateStr} s/d ${auditResult.endDateStr}`;
@@ -1082,10 +1084,12 @@ async function exportCourierAuditToExcel() {
             cell.alignment = { vertical: 'middle', horizontal: cIdx === 1 ? 'left' : 'center' };
         });
 
-        // Add native Excel conditional formatting rule for automatic red block on column J (Gagal)
+        const topTableEndRow = currentRowIndex - 1;
+
+        // Add native Excel conditional formatting rule for automatic red block on column J (Gagal) for driver summary only
         try {
             sheet.addConditionalFormatting({
-                ref: `J5:J${currentRowIndex - 2}`,
+                ref: `J5:J${topTableEndRow}`,
                 rules: [
                     {
                         type: 'cellIs',
@@ -1157,20 +1161,347 @@ async function exportCourierAuditToExcel() {
         note4Row.getCell(1).value = overtimeNoteText;
         note4Row.getCell(1).font = { name: 'Calibri', size: 9.5, italic: true, color: { argb: 'FF475569' } };
 
-        // Column widths
+        // ------------------------------------------------------------------
+        // SECTION 2: RINCIAN KLIEN PENDING (DIAJUKAN KURIR / KLIEN TUTUP)
+        // ------------------------------------------------------------------
+        // Blank Separator Row
+        sheet.getRow(currentRowIndex++).height = 14;
+
+        // Section Title Banner Row (A:L merged)
+        const pendingBannerRowIdx = currentRowIndex++;
+        const pendingBannerRow = sheet.getRow(pendingBannerRowIdx);
+        pendingBannerRow.height = 24;
+        sheet.mergeCells(`A${pendingBannerRowIdx}:L${pendingBannerRowIdx}`);
+        for (let c = 1; c <= 12; c++) {
+            pendingBannerRow.getCell(c).fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'FFB45309' } // Elegant Amber-700
+            };
+        }
+        const pendingBannerCell = pendingBannerRow.getCell(1);
+        pendingBannerCell.value = `DAFTAR RINCIAN KLIEN PENDING (DIAJUKAN KURIR / KLIEN TUTUP)`;
+        pendingBannerCell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+        pendingBannerCell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+
+        // Subtitle / Info Row (A:L merged)
+        const pendingSubRowIdx = currentRowIndex++;
+        const pendingSubRow = sheet.getRow(pendingSubRowIdx);
+        pendingSubRow.height = 20;
+        sheet.mergeCells(`A${pendingSubRowIdx}:L${pendingSubRowIdx}`);
+        for (let c = 1; c <= 12; c++) {
+            const cell = pendingSubRow.getCell(c);
+            cell.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'FFFEF3C7' } // Light warm amber
+            };
+            cell.border = {
+                top: { style: 'thin', color: { argb: 'FFF59E0B' } },
+                bottom: { style: 'thin', color: { argb: 'FFF59E0B' } }
+            };
+        }
+        const pendingSubCell = pendingSubRow.getCell(1);
+        pendingSubCell.value = `Total Klien Pending: ${pendingList.length} Titik  |  Klien di bawah ini dilaporkan kendala/toko tutup oleh armada dan memerlukan tindak lanjut CS`;
+        pendingSubCell.font = { name: 'Calibri', size: 9.5, italic: true, bold: true, color: { argb: 'FF92400E' } };
+        pendingSubCell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+
+        // Pending Table Column Headers Row
+        const pendingHeaderRow = sheet.getRow(currentRowIndex++);
+        pendingHeaderRow.height = 26;
+        const pendingHeaders = [
+            "No",
+            "Nama Klien / Toko",
+            "Armada",
+            "Kurir Pelapor",
+            "Wilayah",
+            "Waktu Lapor",
+            "Alamat Lengkap Klien",
+            "ID Trip / Stop",
+            "Status Laporan",
+            "Alasan / Kendala Kurir",
+            "Rekomendasi Tindak Lanjut",
+            "Bukti Foto PoD"
+        ];
+
+        pendingHeaders.forEach((h, idx) => {
+            const cell = pendingHeaderRow.getCell(idx + 1);
+            cell.value = h;
+            cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+            cell.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'FF78350F' } // Deep Warm Brown-Amber Header
+            };
+            cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+            cell.border = {
+                top: { style: 'thin', color: { argb: 'FF78350F' } },
+                left: { style: 'thin', color: { argb: 'FFD97706' } },
+                bottom: { style: 'medium', color: { argb: 'FF451A03' } },
+                right: { style: 'thin', color: { argb: 'FFD97706' } }
+            };
+        });
+
+        if (pendingList.length === 0) {
+            // Row if 0 pending
+            const emptyPendingRowIdx = currentRowIndex++;
+            const emptyRow = sheet.getRow(emptyPendingRowIdx);
+            emptyRow.height = 26;
+            sheet.mergeCells(`A${emptyPendingRowIdx}:L${emptyPendingRowIdx}`);
+            for (let c = 1; c <= 12; c++) {
+                const cell = emptyRow.getCell(c);
+                cell.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FFF0FDF4' } // Soft Green
+                };
+                cell.border = thinBorder;
+            }
+            const emptyCell = emptyRow.getCell(1);
+            emptyCell.value = "✅ Tidak ada klien pending pada periode ini. Seluruh pengiriman berhasil diselesaikan ke klien tanpa kendala.";
+            emptyCell.font = { name: 'Calibri', size: 10, italic: true, bold: true, color: { argb: 'FF166534' } };
+            emptyCell.alignment = { vertical: 'middle', horizontal: 'center' };
+        } else {
+            // Sort pending list: Mobil first, then Motor, then courier name
+            const sortedPending = [...pendingList].sort((a, b) => {
+                if (a.vehicleType !== b.vehicleType) {
+                    return a.vehicleType === 'mobil' ? -1 : 1;
+                }
+                return (a.courierName || '').localeCompare(b.courierName || '');
+            });
+
+            sortedPending.forEach((p, idx) => {
+                const pRow = sheet.getRow(currentRowIndex++);
+                pRow.height = 26;
+                const isEven = (idx % 2 === 0);
+                const bgArgb = isEven ? 'FFFFFFFF' : 'FFFFFBEB'; // Alternate subtle amber-white
+
+                let timeStr = '-';
+                if (p.reportedTime && p.reportedTime > 0) {
+                    timeStr = isSingle 
+                        ? `${formatTimeHHMM(p.reportedTime)} WIB` 
+                        : `${p.dateStr || ''} ${formatTimeHHMM(p.reportedTime)}`;
+                }
+
+                const pRowData = [
+                    idx + 1,
+                    p.locationName || `Destinasi #${p.stopIndex}`,
+                    p.vehicleType === 'mobil' ? 'Mobil' : 'Motor',
+                    p.courierName || '-',
+                    p.region || 'Jabodetabek',
+                    timeStr,
+                    p.address || '-',
+                    `${p.tripId || ''} (#${p.stopIndex || 1})`,
+                    p.status || 'Pending (Diajukan Kurir)',
+                    p.reason || 'Klien Tutup / Belum Buka',
+                    'Konfirmasi Ulang Klien & Jadwalkan Pengantaran Ulang',
+                    p.proofPhotoUrl
+                ];
+
+                pRowData.forEach((val, cIdx) => {
+                    const cell = pRow.getCell(cIdx + 1);
+                    cell.border = thinBorder;
+                    cell.fill = {
+                        type: 'pattern',
+                        pattern: 'solid',
+                        fgColor: { argb: bgArgb }
+                    };
+
+                    if (cIdx === 0) { // No
+                        cell.value = val;
+                        cell.font = { name: 'Calibri', size: 9.5, color: { argb: 'FF475569' } };
+                        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                    } else if (cIdx === 1) { // Nama Klien
+                        cell.value = val;
+                        cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF0F172A' } };
+                        cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+                    } else if (cIdx === 2) { // Armada
+                        cell.value = val;
+                        cell.font = { name: 'Calibri', size: 9.5, color: { argb: 'FF334155' } };
+                        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                    } else if (cIdx === 3) { // Kurir
+                        cell.value = val;
+                        cell.font = { name: 'Calibri', size: 9.5, bold: true, color: { argb: 'FF1E293B' } };
+                        cell.alignment = { vertical: 'middle', horizontal: 'left' };
+                    } else if (cIdx === 4) { // Wilayah
+                        cell.value = val;
+                        cell.font = { name: 'Calibri', size: 9, color: { argb: 'FF475569' } };
+                        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                    } else if (cIdx === 5) { // Waktu Lapor
+                        cell.value = val;
+                        cell.font = { name: 'Calibri', size: 9, color: { argb: 'FF475569' } };
+                        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                    } else if (cIdx === 6) { // Alamat Lengkap
+                        cell.value = val;
+                        cell.font = { name: 'Calibri', size: 8.5, color: { argb: 'FF334155' } };
+                        cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+                    } else if (cIdx === 7) { // ID Trip / Stop
+                        cell.value = val;
+                        cell.font = { name: 'Calibri', size: 8.5, color: { argb: 'FF64748B' } };
+                        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                    } else if (cIdx === 8) { // Status Laporan
+                        cell.value = val;
+                        cell.font = { name: 'Calibri', size: 9, bold: true, color: { argb: 'FFB45309' } };
+                        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                        cell.fill = {
+                            type: 'pattern',
+                            pattern: 'solid',
+                            fgColor: { argb: 'FFFEF3C7' } // Light amber badge
+                        };
+                    } else if (cIdx === 9) { // Alasan / Kendala
+                        cell.value = val;
+                        cell.font = { name: 'Calibri', size: 9.5, bold: true, color: { argb: 'FF991B1B' } }; // Alert Red
+                        cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+                    } else if (cIdx === 10) { // Tindak Lanjut
+                        cell.value = val;
+                        cell.font = { name: 'Calibri', size: 8.5, italic: true, color: { argb: 'FF475569' } };
+                        cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+                    } else if (cIdx === 11) { // Bukti Foto PoD
+                        if (val && typeof val === 'string' && val.startsWith('http')) {
+                            cell.value = {
+                                text: '📸 Lihat Foto PoD',
+                                hyperlink: val
+                            };
+                            cell.font = { name: 'Calibri', size: 9.5, bold: true, color: { argb: 'FF1D4ED8' }, underline: true };
+                        } else {
+                            cell.value = '- (Tanpa Foto)';
+                            cell.font = { name: 'Calibri', size: 8.5, italic: true, color: { argb: 'FF94A3B8' } };
+                        }
+                        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                    }
+                });
+            });
+        }
+
+        // Section 3: If any failed packages (murni tidak diantar)
+        if (failedList.length > 0) {
+            // Blank Row
+            sheet.getRow(currentRowIndex++).height = 14;
+
+            // Section Banner for Failed Deliveries
+            const failedBannerRowIdx = currentRowIndex++;
+            const failedBannerRow = sheet.getRow(failedBannerRowIdx);
+            failedBannerRow.height = 24;
+            sheet.mergeCells(`A${failedBannerRowIdx}:L${failedBannerRowIdx}`);
+            for (let c = 1; c <= 12; c++) {
+                failedBannerRow.getCell(c).fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FF991B1B' } // Crimson Red
+                };
+            }
+            const failedBannerCell = failedBannerRow.getCell(1);
+            failedBannerCell.value = `DAFTAR PAKET GAGAL (MURNI TIDAK DIANTAR / BELUM DIKUNJUNGI) - TOTAL: ${failedList.length} TITIK`;
+            failedBannerCell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+            failedBannerCell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+
+            // Failed Header Row
+            const failedHeaderRow = sheet.getRow(currentRowIndex++);
+            failedHeaderRow.height = 26;
+            const failedHeaders = [
+                "No", "Nama Klien / Toko", "Armada", "Kurir Penanggung Jawab", "Wilayah", 
+                "Tanggal", "Alamat Lengkap Klien", "ID Trip / Stop", "Status Kendala", 
+                "Alasan / Penyebab", "Tindak Lanjut CS", "Bukti / Status"
+            ];
+            failedHeaders.forEach((h, idx) => {
+                const cell = failedHeaderRow.getCell(idx + 1);
+                cell.value = h;
+                cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+                cell.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FF7F1D1D' } // Darker Red
+                };
+                cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+                cell.border = {
+                    top: { style: 'thin', color: { argb: 'FF7F1D1D' } },
+                    left: { style: 'thin', color: { argb: 'FFF87171' } },
+                    bottom: { style: 'medium', color: { argb: 'FF450A0A' } },
+                    right: { style: 'thin', color: { argb: 'FFF87171' } }
+                };
+            });
+
+            failedList.forEach((f, idx) => {
+                const fRow = sheet.getRow(currentRowIndex++);
+                fRow.height = 26;
+                const isEven = (idx % 2 === 0);
+                const bgArgb = isEven ? 'FFFFFFFF' : 'FFFFF5F5'; // Alternate soft red
+
+                const fRowData = [
+                    idx + 1,
+                    f.locationName || `Destinasi #${f.stopIndex}`,
+                    f.vehicleType === 'mobil' ? 'Mobil' : 'Motor',
+                    f.courierName || '-',
+                    f.region || 'Jabodetabek',
+                    f.dateStr || '-',
+                    f.address || '-',
+                    `${f.tripId || ''} (#${f.stopIndex || 1})`,
+                    f.status || 'Gagal (Tidak Diantar)',
+                    f.reason || 'Murni Tidak Diantar (Belum Sempat Didatangi Kurir)',
+                    'Wajib Ditugaskan Ulang Hari Kerja Berikutnya',
+                    '- (Tidak Dikunjungi)'
+                ];
+
+                fRowData.forEach((val, cIdx) => {
+                    const cell = fRow.getCell(cIdx + 1);
+                    cell.border = thinBorder;
+                    cell.fill = {
+                        type: 'pattern',
+                        pattern: 'solid',
+                        fgColor: { argb: bgArgb }
+                    };
+                    if (cIdx === 0) {
+                        cell.value = val;
+                        cell.font = { name: 'Calibri', size: 9.5, color: { argb: 'FF475569' } };
+                        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                    } else if (cIdx === 1) {
+                        cell.value = val;
+                        cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF991B1B' } };
+                        cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+                    } else if (cIdx === 6) { // Alamat
+                        cell.value = val;
+                        cell.font = { name: 'Calibri', size: 8.5, color: { argb: 'FF334155' } };
+                        cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+                    } else if (cIdx === 8) { // Status
+                        cell.value = val;
+                        cell.font = { name: 'Calibri', size: 9, bold: true, color: { argb: 'FF9C0006' } };
+                        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                        cell.fill = {
+                            type: 'pattern',
+                            pattern: 'solid',
+                            fgColor: { argb: 'FFFFC7CE' }
+                        };
+                    } else if (cIdx === 9) { // Alasan
+                        cell.value = val;
+                        cell.font = { name: 'Calibri', size: 9, bold: true, color: { argb: 'FF7F1D1D' } };
+                        cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+                    } else if (cIdx === 10) {
+                        cell.value = val;
+                        cell.font = { name: 'Calibri', size: 8.5, italic: true, color: { argb: 'FF475569' } };
+                        cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+                    } else {
+                        cell.value = val;
+                        cell.font = { name: 'Calibri', size: 9, color: { argb: 'FF334155' } };
+                        cell.alignment = { vertical: 'middle', horizontal: cIdx === 3 ? 'left' : 'center' };
+                    }
+                });
+            });
+        }
+
+        // Column widths - Balanced to ensure both tables and notes fit seamlessly on one sheet
         sheet.columns = [
             { width: 6 },   // No
-            { width: 28 },  // Alokasi Driver
+            { width: 28 },  // Alokasi Driver / Nama Klien
             { width: 14 },  // Tipe Armada
-            { width: 20 },  // Jam Awal
-            { width: 20 },  // Upload Akhir
-            { width: 18 },  // Total Jam
-            { width: 18 },  // Status Lembur
-            { width: 18 },  // Total Stops
-            { width: 18 },  // Terkirim
-            { width: 22 },  // Gagal
-            { width: 22 },  // Pending
-            { width: 18 }   // Persentase
+            { width: 22 },  // Jam Awal / Kurir Pelapor
+            { width: 18 },  // Upload Akhir / Wilayah
+            { width: 18 },  // Total Jam / Waktu Lapor
+            { width: 28 },  // Status Lembur / Alamat Lengkap
+            { width: 18 },  // Total Titik / ID Trip
+            { width: 18 },  // Terkirim / Status Pengajuan
+            { width: 24 },  // Gagal / Alasan Kendala
+            { width: 24 },  // Pending / Tindak Lanjut CS
+            { width: 18 }   // Persentase / Bukti Foto PoD
         ];
 
         // Trigger browser download of the single styled sheet
@@ -1226,6 +1557,42 @@ async function exportCourierAuditToExcel() {
                 "Persentase": `${c.successRate}%`
             });
         });
+
+        if (pendingList.length > 0) {
+            sheet1GroupedData.push({});
+            sheet1GroupedData.push({
+                "No": "DAFTAR KLIEN PENDING (DIAJUKAN KURIR / KLIEN TUTUP)",
+                "Kelompok Armada": `Total: ${pendingList.length} Titik`,
+                "Nama Driver / Kurir": "",
+                "Tipe Armada": "",
+                "Jam Penugasan Awal": "",
+                "Jam Upload Akhir": "",
+                "Total Jam Kerja": "",
+                "Status Lembur": "",
+                "Total Stops": "",
+                "Terkirim": "",
+                "Gagal (Tidak Diantar)": "",
+                "Pending (Diajukan Kurir)": "",
+                "Persentase": ""
+            });
+            pendingList.forEach((p, idx) => {
+                sheet1GroupedData.push({
+                    "No": idx + 1,
+                    "Kelompok Armada": "KLIEN PENDING",
+                    "Nama Driver / Kurir": p.courierName || '-',
+                    "Tipe Armada": p.vehicleType === 'mobil' ? 'Mobil' : 'Motor',
+                    "Jam Penugasan Awal": p.locationName || `Destinasi #${p.stopIndex}`,
+                    "Jam Upload Akhir": p.region || '-',
+                    "Total Jam Kerja": p.address || '-',
+                    "Status Lembur": p.status || 'Pending',
+                    "Total Stops": p.reason || 'Klien Tutup',
+                    "Terkirim": p.dateStr || '-',
+                    "Gagal (Tidak Diantar)": formatTimeHHMM(p.reportedTime),
+                    "Pending (Diajukan Kurir)": p.proofPhotoUrl ? "Ada Bukti Foto" : "Tanpa Foto",
+                    "Persentase": p.proofPhotoUrl || '-'
+                });
+            });
+        }
 
         const wb = XLSX.utils.book_new();
         const ws = XLSX.utils.json_to_sheet(sheet1GroupedData);
