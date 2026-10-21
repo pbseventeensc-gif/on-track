@@ -2117,9 +2117,12 @@ function renderQueue() {
     }
 }
 
-async function compressImageFile(file, maxDimension = 1000, quality = 0.7) {
+async function compressImageFile(file, maxDimension = 900, quality = 0.65) {
     return new Promise((resolve) => {
-        if (!file || !file.type || !file.type.startsWith('image/') || file.size < 120 * 1024) {
+        if (!file || !file.type || !file.type.startsWith('image/')) {
+            return resolve(file);
+        }
+        if (file.__isCompressed || file.size < 90 * 1024) {
             return resolve(file);
         }
 
@@ -2144,15 +2147,18 @@ async function compressImageFile(file, maxDimension = 1000, quality = 0.7) {
                 canvas.width = width;
                 canvas.height = height;
                 const ctx = canvas.getContext('2d');
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
                 ctx.drawImage(img, 0, 0, width, height);
 
                 canvas.toBlob(
                     (blob) => {
                         if (blob) {
-                            const compressedFile = new File([blob], file.name.replace(/\.[^/.]+$/, ".jpg"), {
+                            const compressedFile = new File([blob], (file.name || 'proof.jpg').replace(/\.[^/.]+$/, ".jpg"), {
                                 type: 'image/jpeg',
                                 lastModified: Date.now()
                             });
+                            compressedFile.__isCompressed = true;
                             console.log(`[JS Compress] Compressed ${file.size} -> ${compressedFile.size} bytes`);
                             resolve(compressedFile);
                         } else {
@@ -2178,7 +2184,7 @@ function getGdriveScriptUrl() {
 }
 window.getGdriveScriptUrl = getGdriveScriptUrl;
 
-async function uploadToGoogleDrive(file) {
+async function uploadToGoogleDrive(file, timeoutMs = 5000) {
     const scriptUrl = getGdriveScriptUrl();
     if (!scriptUrl) throw new Error("Google Drive Script URL not configured");
 
@@ -2192,40 +2198,52 @@ async function uploadToGoogleDrive(file) {
         reader.readAsDataURL(file);
     });
 
-    const response = await fetch(scriptUrl, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'text/plain;charset=utf-8'
-        },
-        body: JSON.stringify({
-            filename: file.name || 'proof.jpg',
-            contentType: file.type || 'image/jpeg',
-            base64Data: base64Data
-        })
-    });
-    const result = await response.json();
-    if (result && result.status === 'success' && result.url) {
-        return result.url;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+        const response = await fetch(scriptUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'text/plain;charset=utf-8'
+            },
+            body: JSON.stringify({
+                filename: file.name || 'proof.jpg',
+                contentType: file.type || 'image/jpeg',
+                base64Data: base64Data
+            }),
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        const result = await response.json();
+        if (result && result.status === 'success' && result.url) {
+            return result.url;
+        }
+        throw new Error(result.message || 'Google Drive upload failed');
+    } catch(err) {
+        clearTimeout(timeoutId);
+        throw err;
     }
-    throw new Error(result.message || 'Google Drive upload failed');
 }
 
 async function uploadFileToCloudinaryOrFirebase(file) {
-    const targetFile = (file && file.type && file.type.startsWith('image/')) ? await compressImageFile(file, 1000, 0.7) : file;
-    if (!targetFile) return "";
+    if (!file) return "";
+    const targetFile = (!file.__isCompressed && file.type && file.type.startsWith('image/'))
+        ? await compressImageFile(file, 900, 0.65)
+        : file;
 
-    // 1. Primary: Google Drive 5TB Storage
+    // 1. Primary: Google Drive 5TB Storage (dengan timeout 5 detik agar cepat fallback jika Apps Script lambat)
     const scriptUrl = getGdriveScriptUrl();
     if (scriptUrl) {
         try {
-            const gdriveUrl = await uploadToGoogleDrive(targetFile);
+            const gdriveUrl = await uploadToGoogleDrive(targetFile, 5000);
             if (gdriveUrl) return gdriveUrl;
         } catch (e) {
-            console.warn("Google Drive upload warning, attempting Firebase Storage fallback:", e);
+            console.warn("Google Drive upload timeout/warning, beralih instan ke Firebase Storage:", e);
         }
     }
 
-    // 2. Secondary: Firebase Storage
+    // 2. Secondary: Firebase Storage (Sangat cepat ~200ms)
     try {
         const activeStorage = (typeof firebase !== 'undefined' && firebase.storage) ? firebase.storage() : null;
         if (activeStorage) {
@@ -2280,12 +2298,14 @@ async function submitTrip() {
         let adminBulkSjUrls = [];
         const sjFileEl = document.getElementById('dispatch-bulk-sj-file');
         if (sjFileEl && sjFileEl.files && sjFileEl.files.length > 0) {
-            if (btn) btn.innerText = `UPLOADING ${sjFileEl.files.length} BULK SJ PHOTO(S)...`;
-            for (let i = 0; i < sjFileEl.files.length; i++) {
-                const targetFile = await compressImageFile(sjFileEl.files[i], 1000, 0.7);
-                const u = await uploadFileToCloudinaryOrFirebase(targetFile);
-                if (u) adminBulkSjUrls.push(u);
-            }
+            const bulkFiles = Array.from(sjFileEl.files);
+            if (btn) btn.innerText = `UPLOADING ${bulkFiles.length} BULK SJ PHOTO(S)...`;
+            const uploadPromises = bulkFiles.map(async (f) => {
+                const targetFile = await compressImageFile(f, 900, 0.65);
+                return await uploadFileToCloudinaryOrFirebase(targetFile);
+            });
+            const uploadResults = await Promise.all(uploadPromises);
+            adminBulkSjUrls = uploadResults.filter(u => u && typeof u === 'string' && u.trim().length > 0);
             adminBulkSjUrl = adminBulkSjUrls.join(',');
         }
 
@@ -2588,12 +2608,13 @@ async function uploadBulkSjFromCard(tripId) {
 
         showToast(`⏳ Mengompres & mengunggah ${files.length} foto Bulk SJ...`);
 
-        const uploadedUrls = [];
-        for (let i = 0; i < files.length; i++) {
-            const targetFile = await compressImageFile(files[i], 1000, 0.7);
-            const photoUrl = await uploadFileToCloudinaryOrFirebase(targetFile);
-            if (photoUrl) uploadedUrls.push(photoUrl);
-        }
+        const bulkFiles = Array.from(files);
+        const uploadPromises = bulkFiles.map(async (f) => {
+            const targetFile = await compressImageFile(f, 900, 0.65);
+            return await uploadFileToCloudinaryOrFirebase(targetFile);
+        });
+        const uploadResults = await Promise.all(uploadPromises);
+        const uploadedUrls = uploadResults.filter(u => u && typeof u === 'string' && u.trim().length > 0);
 
         if (uploadedUrls.length === 0) throw new Error("Gagal mengunggah foto.");
 
@@ -2704,12 +2725,13 @@ async function uploadBulkSjFromModal(tripId) {
 
         showToast(`⏳ Mengompres & mengunggah ${files.length} foto Bulk SJ...`);
 
-        const uploadedUrls = [];
-        for (let i = 0; i < files.length; i++) {
-            const targetFile = await compressImageFile(files[i], 1000, 0.7);
-            const photoUrl = await uploadFileToCloudinaryOrFirebase(targetFile);
-            if (photoUrl) uploadedUrls.push(photoUrl);
-        }
+        const bulkFiles = Array.from(files);
+        const uploadPromises = bulkFiles.map(async (f) => {
+            const targetFile = await compressImageFile(f, 900, 0.65);
+            return await uploadFileToCloudinaryOrFirebase(targetFile);
+        });
+        const uploadResults = await Promise.all(uploadPromises);
+        const uploadedUrls = uploadResults.filter(u => u && typeof u === 'string' && u.trim().length > 0);
 
         if (uploadedUrls.length === 0) throw new Error("Gagal mengunggah foto.");
 
@@ -3316,21 +3338,40 @@ async function submitManualUploadPhoto() {
 
     if (!tripId || !files || files.length === 0) return alert("Pilih minimal 1 file foto terlebih dahulu!");
 
-    if (btn) { btn.disabled = true; btn.innerText = `UPLOADING (${files.length})...`; }
-    if (statusEl) statusEl.innerText = `Mengunggah ${files.length} foto bukti...`;
+    const fileList = Array.from(files);
+    const totalFiles = fileList.length;
+
+    if (btn) { 
+        btn.disabled = true; 
+        btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>MENGUNGGAH (${totalFiles} Foto)...`; 
+    }
+    if (statusEl) {
+        statusEl.innerHTML = `<span class="text-primary"><i class="bi bi-arrow-repeat me-1"></i>Mengompresi dan mengunggah ${totalFiles} foto sekaligus...</span>`;
+    }
 
     try {
         const activeDb = getDb();
         if (!activeDb) throw new Error("Firestore Database belum terhubung.");
 
-        const uploadedUrls = [];
-        for (let i = 0; i < files.length; i++) {
-            const targetFile = await compressImageFile(files[i], 1000, 0.7);
+        let doneCount = 0;
+        const uploadPromises = fileList.map(async (file) => {
+            const targetFile = await compressImageFile(file, 900, 0.65);
             const photoUrl = await uploadFileToCloudinaryOrFirebase(targetFile);
-            if (photoUrl) uploadedUrls.push(photoUrl);
-        }
+            doneCount++;
+            if (statusEl) {
+                statusEl.innerHTML = `<span class="text-info"><i class="bi bi-cloud-arrow-up me-1"></i>Foto ${doneCount} dari ${totalFiles} selesai diunggah...</span>`;
+            }
+            return photoUrl;
+        });
 
-        if (uploadedUrls.length === 0) throw new Error("Gagal mengunggah foto ke Cloudinary.");
+        const results = await Promise.all(uploadPromises);
+        const uploadedUrls = results.filter(u => u && typeof u === 'string' && u.trim().length > 0);
+
+        if (uploadedUrls.length === 0) throw new Error("Gagal mengunggah foto. Silakan periksa koneksi internet Anda.");
+
+        if (statusEl) {
+            statusEl.innerHTML = `<span class="text-success"><i class="bi bi-check2-all me-1"></i>Menyimpan data stop ke Firestore...</span>`;
+        }
 
         const tripDocRef = activeDb.collection('trips').doc(tripId);
         const tripSnap = await tripDocRef.get();
