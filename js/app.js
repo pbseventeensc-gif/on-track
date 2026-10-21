@@ -132,6 +132,93 @@ let notificationItems = [];
 let currentUserRole = "super_admin";
 let currentUserBranchId = "pusat";
 
+// ==========================================
+// MASTER COURIER FLEET & IDENTITY MAPPING
+// ==========================================
+const COURIER_FLEET_MAPPING = {
+    mobil: ['made', 'rizki', 'romi', 'agung', 'iwan', 'husen', 'alanpasming', 'altur', 'yakub'],
+    motor: ['umar', 'haris', 'ahmad', 'beto', 'eri', 'irfan', 'ferdi', 'jay', 'bayhaqi', 'novalempah2', 'jagadbaru1', 'jagat']
+};
+window.COURIER_FLEET_MAPPING = COURIER_FLEET_MAPPING;
+
+function normalizeCourierIdentity(cId, cName) {
+    const id = (cId || '').trim();
+    let name = (cName || '').trim();
+
+    if (!name && typeof registeredUsers !== 'undefined' && registeredUsers[id]) {
+        name = registeredUsers[id];
+    }
+
+    const checkStr = (id + ' ' + name).toLowerCase();
+
+    // 1. Jagat & Jagadbaru1 are 1 person (active login uses jagadbaru1)
+    if (checkStr.includes('jagadbaru1') || checkStr.includes('jagat')) {
+        return {
+            canonicalId: 'jagadbaru1',
+            displayName: 'Jagad (Jagadbaru1)',
+            vehicleType: 'motor'
+        };
+    }
+
+    // 2. Identify fleet vehicle type
+    let vType = 'motor';
+    if (COURIER_FLEET_MAPPING.mobil.some(m => checkStr.includes(m))) {
+        vType = 'mobil';
+    } else if (COURIER_FLEET_MAPPING.motor.some(m => checkStr.includes(m))) {
+        vType = 'motor';
+    } else if (typeof registeredUsersObjects !== 'undefined' && registeredUsersObjects[id] && registeredUsersObjects[id].vehicleType) {
+        vType = registeredUsersObjects[id].vehicleType;
+    }
+
+    return {
+        canonicalId: id,
+        displayName: name || id,
+        vehicleType: vType
+    };
+}
+window.normalizeCourierIdentity = normalizeCourierIdentity;
+
+function getCourierVehicleType(cId, cName) {
+    const info = normalizeCourierIdentity(cId, cName);
+    return info.vehicleType;
+}
+window.getCourierVehicleType = getCourierVehicleType;
+
+function onDispatchCourierChange() {
+    const sel = document.getElementById('sel-courier');
+    const infoDiv = document.getElementById('dispatch-courier-auto-info');
+    const badge = document.getElementById('dispatch-courier-vehicle-badge');
+    const radMotor = document.getElementById('veh-motor');
+    const radMobil = document.getElementById('veh-mobil');
+
+    if (!sel || !sel.value) {
+        if (infoDiv) infoDiv.style.display = 'none';
+        return;
+    }
+
+    const cid = sel.value;
+    const cName = (typeof registeredUsers !== 'undefined') ? (registeredUsers[cid] || '') : '';
+    const courierInfo = normalizeCourierIdentity(cid, cName);
+
+    if (courierInfo.vehicleType === 'mobil') {
+        if (radMobil) radMobil.checked = true;
+        if (radMotor) radMotor.checked = false;
+        if (badge) {
+            badge.className = 'badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-1.5 fw-bold';
+            badge.innerHTML = '<i class="bi bi-truck me-1"></i> Terdeteksi Otomatis: Driver Mobil';
+        }
+    } else {
+        if (radMotor) radMotor.checked = true;
+        if (radMobil) radMobil.checked = false;
+        if (badge) {
+            badge.className = 'badge bg-secondary-subtle text-dark border px-3 py-1.5 fw-bold';
+            badge.innerHTML = '<i class="bi bi-bicycle me-1"></i> Terdeteksi Otomatis: Kurir Motor';
+        }
+    }
+    if (infoDiv) infoDiv.style.display = 'block';
+}
+window.onDispatchCourierChange = onDispatchCourierChange;
+
 function getLocalTodayDateString() {
     const now = new Date();
     const year = now.getFullYear();
@@ -871,14 +958,16 @@ function applyRoleAccessControl() {
     const navPodArchive = document.getElementById('nav-pod-archive');
     const navReports = document.getElementById('nav-reports');
     const navSettings = document.getElementById('nav-settings');
+    const navCourierAudit = document.getElementById('nav-courier-audit');
 
-    [navDashboard, navMonitor, navDispatch, navFleet, navChat, navPodArchive, navReports, navSettings].forEach(el => {
+    [navDashboard, navMonitor, navDispatch, navFleet, navCourierAudit, navChat, navPodArchive, navReports, navSettings].forEach(el => {
         if (el) el.style.display = '';
     });
 
     if (r === 'sales_admin' || r === 'sales') {
         if (navDispatch) navDispatch.style.display = 'none';
         if (navFleet) navFleet.style.display = 'none';
+        if (navCourierAudit) navCourierAudit.style.display = 'none';
         if (navChat) navChat.style.display = 'none';
         if (navReports) navReports.style.display = 'none';
         if (navSettings) navSettings.style.display = 'none';
@@ -949,6 +1038,8 @@ function switchTab(viewId, el) {
         if (typeof loadFullHistory === 'function') loadFullHistory();
     } else if (viewId === 'pool') {
         if (typeof loadPoolTrips === 'function') loadPoolTrips();
+    } else if (viewId === 'courier-audit') {
+        if (typeof renderCourierAuditView === 'function') renderCourierAuditView();
     }
 }
 window.switchTab = switchTab;
@@ -1535,20 +1626,35 @@ function renderCourierOptions() {
     const sel = document.getElementById('sel-courier'); if(!sel) return;
     const currentVal = sel.value;
 
+    const seenCanonical = new Set();
     const sortedCouriers = [];
     for (const uid in registeredUsers) {
         if (!isCourierUser(uid)) continue;
         if (typeof isCourierInActiveBranch === 'function' && !isCourierInActiveBranch(uid)) continue;
-        sortedCouriers.push({ uid: uid, name: registeredUsers[uid] });
+
+        const rawName = registeredUsers[uid];
+        const normalized = normalizeCourierIdentity(uid, rawName);
+
+        // If jagat and jagadbaru1 both exist, show only the canonical jagadbaru1
+        if (seenCanonical.has(normalized.canonicalId)) continue;
+        seenCanonical.add(normalized.canonicalId);
+
+        sortedCouriers.push({
+            uid: uid,
+            name: normalized.displayName,
+            vehicleType: normalized.vehicleType
+        });
     }
     sortedCouriers.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
 
-    const options = ['<option value="">Select Carrier...</option>'];
+    const options = ['<option value="">-- Pilih Kurir Pengantaran --</option>'];
     sortedCouriers.forEach(c => {
-        options.push(`<option value="${c.uid}">${c.name}</option>`);
+        const vIcon = c.vehicleType === 'mobil' ? '🚚 Mobil' : '🛵 Motor';
+        options.push(`<option value="${c.uid}">${c.name} (${vIcon})</option>`);
     });
     sel.innerHTML = options.join('');
     if (currentVal) sel.value = currentVal;
+    if (typeof onDispatchCourierChange === 'function') onDispatchCourierChange();
 }
 
 function initRtdbListener() {
@@ -2158,8 +2264,7 @@ async function submitTrip() {
 
         const id = "TRIP_" + Date.now();
         const statusToUse = cid ? "in_progress" : "pool";
-        const vehicleTypeEl = document.querySelector('input[name="dispatch-vehicle-type"]:checked');
-        const vehicleType = vehicleTypeEl ? vehicleTypeEl.value : "motor";
+        const vehicleType = cid ? getCourierVehicleType(cid, (registeredUsers[cid] || '')) : ((document.querySelector('input[name="dispatch-vehicle-type"]:checked')?.value) || "motor");
 
         await activeDb.collection('trips').doc(id).set({
             tripId: id,

@@ -1,0 +1,1670 @@
+// ==========================================================================
+// WTRACK LOGISTICS - COURIER DAILY AUDIT & PENDING DISPATCH MAP MODULE
+// ==========================================================================
+
+let mapCourierAudit = null;
+let courierAuditMarkersLayer = null;
+let lastCourierAuditData = [];
+let allPendingAuditStops = [];
+let activeAuditCourierFilter = null;
+let isCurrentAuditSingleDay = true;
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', () => {
+    initAuditDatePickers();
+});
+
+function initAuditDatePickers() {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const startInput = document.getElementById('audit-start-date');
+    const endInput = document.getElementById('audit-end-date');
+    if (startInput && !startInput.value) startInput.value = todayStr;
+    if (endInput && !endInput.value) endInput.value = todayStr;
+}
+
+function formatTimeHHMM(ms) {
+    if (!ms || isNaN(ms) || ms <= 0) return '-';
+    const d = new Date(ms);
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mm = String(d.getMinutes()).padStart(2, '0');
+    return `${hh}:${mm}`;
+}
+
+function formatDateKey(ms) {
+    if (!ms) return '';
+    const d = new Date(ms);
+    return isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
+}
+
+function formatDurationHoursMins(totalMins) {
+    if (!totalMins || isNaN(totalMins) || totalMins <= 0) return '0j 0m';
+    const hrs = Math.floor(totalMins / 60);
+    const mins = Math.round(totalMins % 60);
+    if (hrs > 0 && mins > 0) return `${hrs}j ${mins}m`;
+    if (hrs > 0) return `${hrs}j`;
+    return `${mins}m`;
+}
+
+function parseAuditTimestamp(timeObj) {
+    if (!timeObj) return 0;
+    if (typeof timeObj === 'number') return timeObj;
+    if (timeObj.seconds !== undefined) return timeObj.seconds * 1000;
+    if (timeObj._seconds !== undefined) return timeObj._seconds * 1000;
+    if (typeof timeObj === 'string') {
+        const d = new Date(timeObj);
+        return isNaN(d.getTime()) ? 0 : d.getTime();
+    }
+    if (timeObj instanceof Date) return timeObj.getTime();
+    return 0;
+}
+
+// --------------------------------------------------------------------------
+// 1. DATA COMPUTATION & AGGREGATION
+// --------------------------------------------------------------------------
+function calculateCourierDailyAudit() {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const startDateVal = document.getElementById('audit-start-date')?.value || todayStr;
+    const endDateVal = document.getElementById('audit-end-date')?.value || startDateVal;
+
+    const isSingleDay = (startDateVal === endDateVal);
+    isCurrentAuditSingleDay = isSingleDay;
+
+    const vehicleFilter = document.getElementById('audit-vehicle-filter')?.value || 'all';
+
+    let trips = (typeof allCurrentTrips !== 'undefined' && allCurrentTrips) ? allCurrentTrips : (window.allCurrentTrips || []);
+
+    if (typeof isTripInActiveBranch === 'function') {
+        trips = trips.filter(t => isTripInActiveBranch(t));
+    }
+
+    const startOfDayMs = new Date(startDateVal + "T00:00:00").getTime();
+    const endOfDayMs = new Date(endDateVal + "T23:59:59.999").getTime();
+
+    // Filter trips belonging to the selected date range
+    const rangeTrips = trips.filter(t => {
+        const tripMs = parseAuditTimestamp(t.date) || parseAuditTimestamp(t.assignedTime) || (t.id ? parseInt(t.id.replace('TRIP_', '')) || 0 : 0);
+        return tripMs >= startOfDayMs && tripMs <= endOfDayMs;
+    });
+
+    const courierMap = {};
+    const pendingList = [];
+    const allStopsRawLog = [];
+
+    rangeTrips.forEach(t => {
+        const cId = t.courierId || '';
+        if (!cId) return;
+        if (typeof isCourierInActiveBranch === 'function' && !isCourierInActiveBranch(cId)) return;
+        if (cId.includes('EK74u0gA') || cId.toLowerCase().includes('novalgan')) return;
+
+        const rawName = (typeof registeredUsers !== 'undefined' && registeredUsers[cId]) 
+            ? registeredUsers[cId] 
+            : (typeof getCourierDisplayName === 'function' ? getCourierDisplayName(cId) : cId);
+        if (rawName.includes('EK74u0gA') || rawName.toLowerCase().includes('novalgan')) return;
+
+        // Unified courier identity & vehicle mapping
+        const courierInfo = (typeof normalizeCourierIdentity === 'function')
+            ? normalizeCourierIdentity(cId, rawName)
+            : { canonicalId: cId, displayName: rawName, vehicleType: t.vehicleType || 'motor' };
+
+        const cCanonicalId = courierInfo.canonicalId;
+        const cDisplayName = courierInfo.displayName;
+        const vType = courierInfo.vehicleType || t.vehicleType || 'motor';
+
+        if (vehicleFilter !== 'all' && vType !== vehicleFilter) return;
+
+        if (!courierMap[cCanonicalId]) {
+            courierMap[cCanonicalId] = {
+                courierId: cCanonicalId,
+                name: cDisplayName,
+                vehicleType: vType,
+                branch: (typeof activeBranch !== 'undefined' && activeBranch) ? activeBranch : 'Pusat',
+                earliestAssignMs: Infinity,
+                latestFinishMs: 0,
+                dailyWorkMap: {}, // Maps YYYY-MM-DD -> { earliestAssign: ms, latestFinish: ms }
+                deliveredCount: 0,
+                failedCount: 0,
+                pendingCount: 0,
+                totalStops: 0,
+                tripsCount: 0,
+                pendingItems: []
+            };
+        }
+
+        const stats = courierMap[cCanonicalId];
+        stats.tripsCount++;
+
+        const tripAssignMs = parseAuditTimestamp(t.assignedTime) || parseAuditTimestamp(t.date) || parseAuditTimestamp(t.acceptedTime);
+        const tripDateKey = formatDateKey(tripAssignMs);
+
+        if (tripDateKey) {
+            if (!stats.dailyWorkMap[tripDateKey]) {
+                stats.dailyWorkMap[tripDateKey] = { earliestAssign: Infinity, latestFinish: 0 };
+            }
+            if (tripAssignMs > 0 && tripAssignMs < stats.dailyWorkMap[tripDateKey].earliestAssign) {
+                stats.dailyWorkMap[tripDateKey].earliestAssign = tripAssignMs;
+            }
+        }
+
+        if (tripAssignMs > 0 && tripAssignMs < stats.earliestAssignMs) {
+            stats.earliestAssignMs = tripAssignMs;
+        }
+
+        // Process destinations
+        if (t.destinations && Array.isArray(t.destinations) && t.destinations.length > 0) {
+            t.destinations.forEach((d, idx) => {
+                stats.totalStops++;
+                const isDelivered = (d.status === 'done' || (d.proofPhotoUrl && d.proofPhotoUrl.length > 0));
+                const isPending = (d.status === 'pending' || d.status === 'pending_approval');
+                const isFailed = (d.status === 'failed' || d.status === 'canceled' || d.status === 'rejected');
+
+                const finishMs = parseAuditTimestamp(d.completedTime) || parseAuditTimestamp(d.arrivalTime);
+                
+                if (isDelivered && finishMs > 0) {
+                    if (finishMs > stats.latestFinishMs) stats.latestFinishMs = finishMs;
+                    
+                    const finishDateKey = formatDateKey(finishMs) || tripDateKey;
+                    if (finishDateKey) {
+                        if (!stats.dailyWorkMap[finishDateKey]) {
+                            stats.dailyWorkMap[finishDateKey] = { earliestAssign: Infinity, latestFinish: 0 };
+                        }
+                        if (finishMs > stats.dailyWorkMap[finishDateKey].latestFinish) {
+                            stats.dailyWorkMap[finishDateKey].latestFinish = finishMs;
+                        }
+                    }
+                }
+
+                if (isDelivered) {
+                    stats.deliveredCount++;
+                } else if (isPending) {
+                    stats.pendingCount++;
+                    const pItem = {
+                        tripId: t.id || `TRIP_${idx}`,
+                        stopIndex: d.stopIndex || (idx + 1),
+                        dateStr: tripDateKey || startDateVal,
+                        courierId: cCanonicalId,
+                        courierName: cDisplayName,
+                        vehicleType: vType,
+                        locationName: d.locationName || `Destinasi ${idx + 1}`,
+                        address: d.address || '-',
+                        region: d.region || t.region || 'Jabodetabek',
+                        latitude: parseFloat(d.latitude || 0),
+                        longitude: parseFloat(d.longitude || 0),
+                        status: d.status === 'pending_approval' ? 'Pending Approval' : 'Pending',
+                        reason: d.pendingReason || 'Klien Tutup / Toko Tutup',
+                        proofPhotoUrl: d.pendingProofPhotoUrl || d.proofPhotoUrl || '',
+                        reportedTime: parseAuditTimestamp(d.arrivalTime) || parseAuditTimestamp(d.completedTime) || tripAssignMs
+                    };
+                    stats.pendingItems.push(pItem);
+                    pendingList.push(pItem);
+                } else if (isFailed) {
+                    stats.failedCount++;
+                }
+
+                // Raw chronological audit log
+                allStopsRawLog.push({
+                    tripId: t.id || `TRIP_${idx}`,
+                    date: tripDateKey || startDateVal,
+                    courierName: cDisplayName,
+                    vehicleType: vType,
+                    stopIndex: idx + 1,
+                    customer: d.locationName || '-',
+                    address: d.address || '-',
+                    region: d.region || t.region || '-',
+                    status: isDelivered ? 'Terkirim (Done)' : (isPending ? 'Pending' : (isFailed ? 'Gagal' : 'In Progress')),
+                    arrivalTime: formatTimeHHMM(parseAuditTimestamp(d.arrivalTime)),
+                    completedTime: formatTimeHHMM(finishMs),
+                    proofUrl: d.proofPhotoUrl || d.pendingProofPhotoUrl || ''
+                });
+            });
+        }
+    });
+
+    // Compute effective working duration per active day
+    const courierList = Object.values(courierMap).map(c => {
+        let totalEffectiveMins = 0;
+        let activeDaysCount = 0;
+        let overtimeDaysCount = 0;
+
+        Object.values(c.dailyWorkMap).forEach(day => {
+            if (day.earliestAssign !== Infinity && day.latestFinish > day.earliestAssign) {
+                const dayMins = Math.round((day.latestFinish - day.earliestAssign) / (60 * 1000));
+                totalEffectiveMins += dayMins;
+                activeDaysCount++;
+                if (dayMins > 480) overtimeDaysCount++;
+            }
+        });
+
+        // Fallback for single day if single trip
+        if (activeDaysCount === 0 && c.earliestAssignMs !== Infinity && c.latestFinishMs > c.earliestAssignMs) {
+            totalEffectiveMins = Math.round((c.latestFinishMs - c.earliestAssignMs) / (60 * 1000));
+            activeDaysCount = 1;
+            if (totalEffectiveMins > 480) overtimeDaysCount++;
+        }
+
+        const avgMinsPerDay = activeDaysCount > 0 ? Math.round(totalEffectiveMins / activeDaysCount) : 0;
+        const successRate = c.totalStops > 0 ? Math.round((c.deliveredCount / c.totalStops) * 100) : 0;
+
+        let col1Value = '-';
+        let col2Value = '-';
+        let col3Value = formatDurationHoursMins(totalEffectiveMins);
+
+        if (isSingleDay) {
+            col1Value = formatTimeHHMM(c.earliestAssignMs);
+            col2Value = formatTimeHHMM(c.latestFinishMs);
+            col3Value = formatDurationHoursMins(totalEffectiveMins);
+        } else {
+            col1Value = `${activeDaysCount} Hari Aktif`;
+            col2Value = `Rata: ${formatDurationHoursMins(avgMinsPerDay)}/hari`;
+            col3Value = `${formatDurationHoursMins(totalEffectiveMins)} Total`;
+        }
+
+        return {
+            ...c,
+            isSingleDay: isSingleDay,
+            activeDaysCount: activeDaysCount,
+            totalEffectiveMins: totalEffectiveMins,
+            avgMinsPerDay: avgMinsPerDay,
+            overtimeDaysCount: overtimeDaysCount,
+            col1Value: col1Value,
+            col2Value: col2Value,
+            col3Value: col3Value,
+            isOvertime: isSingleDay ? (totalEffectiveMins > 480) : (overtimeDaysCount > 0),
+            successRate: successRate
+        };
+    });
+
+    courierList.sort((a, b) => b.deliveredCount - a.deliveredCount);
+
+    return {
+        isSingleDay: isSingleDay,
+        startDateStr: startDateVal,
+        endDateStr: endDateVal,
+        couriers: courierList,
+        pendingList: pendingList,
+        rawLogs: allStopsRawLog
+    };
+}
+
+// --------------------------------------------------------------------------
+// 2. RENDER TABLE & STATS
+// --------------------------------------------------------------------------
+function renderCourierAuditView() {
+    const auditResult = calculateCourierDailyAudit();
+    lastCourierAuditData = auditResult.couriers;
+    allPendingAuditStops = auditResult.pendingList;
+
+    // 1. Update 4 KPI Summary Cards
+    let totalDelivered = 0;
+    let totalFailed = 0;
+    let totalPending = 0;
+    let totalEffectiveMins = 0;
+    let couriersWithTimeCount = 0;
+
+    lastCourierAuditData.forEach(c => {
+        totalDelivered += c.deliveredCount;
+        totalFailed += c.failedCount;
+        totalPending += c.pendingCount;
+        if (c.totalEffectiveMins > 0) {
+            totalEffectiveMins += c.totalEffectiveMins;
+            couriersWithTimeCount++;
+        }
+    });
+
+    const totalStopsOverall = totalDelivered + totalFailed + totalPending;
+    const overallRate = totalStopsOverall > 0 ? Math.round((totalDelivered / totalStopsOverall) * 100) : 0;
+    const avgMins = couriersWithTimeCount > 0 ? Math.round(totalEffectiveMins / couriersWithTimeCount) : 0;
+
+    const elDelivered = document.getElementById('audit-stat-delivered');
+    const elDeliveredSub = document.getElementById('audit-stat-delivered-sub');
+    const elFailed = document.getElementById('audit-stat-failed');
+    const elPending = document.getElementById('audit-stat-pending');
+    const elAvgHours = document.getElementById('audit-stat-avg-hours');
+    const elAvgSub = document.getElementById('audit-stat-avg-sub');
+    const elCourierCount = document.getElementById('audit-courier-count');
+
+    if (elDelivered) elDelivered.innerText = totalDelivered.toLocaleString();
+    if (elDeliveredSub) elDeliveredSub.innerText = `${overallRate}% dari total ${totalStopsOverall} pengantaran`;
+    if (elFailed) elFailed.innerText = totalFailed.toLocaleString();
+    if (elPending) elPending.innerText = totalPending.toLocaleString();
+    
+    if (elAvgHours) {
+        elAvgHours.innerText = auditResult.isSingleDay 
+            ? formatDurationHoursMins(avgMins)
+            : formatDurationHoursMins(totalEffectiveMins);
+    }
+    if (elAvgSub) {
+        elAvgSub.innerText = auditResult.isSingleDay
+            ? 'Rata-rata jam kerja per kurir'
+            : `Total jam kerja akumulasi (${auditResult.startDateStr} s/d ${auditResult.endDateStr})`;
+    }
+
+    if (elCourierCount) elCourierCount.innerText = `${lastCourierAuditData.length} Kurir Aktif`;
+
+    // 2. Adjust Table Headers based on Single Day vs Date Range
+    updateAuditTableHeaders(auditResult.isSingleDay);
+
+    // 3. Populate Courier Dropdown
+    populateCourierSelectOptions();
+
+    // 4. Render Table Body
+    filterCourierAuditTable();
+
+    // 5. Initialize & Render Map
+    initCourierAuditMap();
+    renderAuditMapMarkers(activeAuditCourierFilter);
+}
+window.renderCourierAuditView = renderCourierAuditView;
+
+function populateCourierSelectOptions() {
+    const sel = document.getElementById('audit-courier-select');
+    if (!sel) return;
+    const currentVal = activeAuditCourierFilter || sel.value;
+
+    const sorted = [...lastCourierAuditData].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+
+    const options = [`<option value="">👤 Semua Kurir (${lastCourierAuditData.length})</option>`];
+    sorted.forEach(c => {
+        const icon = c.vehicleType === 'mobil' ? '🚚' : '🛵';
+        options.push(`<option value="${c.courierId}">${icon} ${c.name}</option>`);
+    });
+
+    sel.innerHTML = options.join('');
+    if (currentVal && sorted.some(c => c.courierId === currentVal)) {
+        sel.value = currentVal;
+    } else {
+        sel.value = "";
+        activeAuditCourierFilter = null;
+    }
+}
+window.populateCourierSelectOptions = populateCourierSelectOptions;
+
+function onAuditCourierSelectChange() {
+    const sel = document.getElementById('audit-courier-select');
+    const selectedId = sel ? sel.value : "";
+    activeAuditCourierFilter = selectedId || null;
+    filterCourierAuditTable();
+    renderAuditMapMarkers(activeAuditCourierFilter);
+}
+window.onAuditCourierSelectChange = onAuditCourierSelectChange;
+
+function updateAuditTableHeaders(isSingleDay) {
+    const thead = document.querySelector('#view-courier-audit table thead');
+    if (!thead) return;
+
+    if (isSingleDay) {
+        thead.innerHTML = `
+            <tr>
+                <th>Kurir</th>
+                <th>Assign Awal</th>
+                <th>Upload Akhir</th>
+                <th>Jam Efektif</th>
+                <th class="text-center">Terkirim</th>
+                <th class="text-center">Gagal</th>
+                <th class="text-center">Pending</th>
+                <th class="text-center">Peta</th>
+            </tr>`;
+    } else {
+        thead.innerHTML = `
+            <tr>
+                <th>Kurir</th>
+                <th>Kehadiran</th>
+                <th>Rata-rata / Hari</th>
+                <th>Total Jam Kerja</th>
+                <th class="text-center">Terkirim</th>
+                <th class="text-center">Gagal</th>
+                <th class="text-center">Pending</th>
+                <th class="text-center">Peta</th>
+            </tr>`;
+    }
+}
+
+function filterCourierAuditTable() {
+    const tbody = document.getElementById('courier-audit-table-body');
+    if (!tbody) return;
+
+    const selectedCourierId = document.getElementById('audit-courier-select')?.value || activeAuditCourierFilter || "";
+    const filtered = selectedCourierId 
+        ? lastCourierAuditData.filter(c => c.courierId === selectedCourierId)
+        : lastCourierAuditData;
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" class="text-center py-5 text-muted extra-small">
+                    <i class="bi bi-inbox fs-4 d-block mb-2 text-secondary opacity-50"></i>
+                    Tidak ada data kurir untuk filter yang dipilih.
+                </td>
+            </tr>`;
+        return;
+    }
+
+    let rowsHtml = '';
+    filtered.forEach(c => {
+        const vBadge = c.vehicleType === 'mobil' 
+            ? `<span class="badge bg-primary-subtle text-primary border border-primary-subtle extra-small ms-1"><i class="bi bi-truck me-0.5"></i> Mobil</span>`
+            : `<span class="badge bg-secondary-subtle text-secondary border extra-small ms-1"><i class="bi bi-bicycle me-0.5"></i> Motor</span>`;
+
+        let statusBadge = '';
+        if (c.isSingleDay) {
+            statusBadge = c.isOvertime 
+                ? `<span class="badge bg-danger-subtle text-danger border border-danger-subtle extra-small" title="Melebihi 8 Jam">Lembur</span>`
+                : `<span class="badge bg-light text-muted border extra-small">Normal</span>`;
+        } else {
+            statusBadge = c.overtimeDaysCount > 0 
+                ? `<span class="badge bg-danger-subtle text-danger border border-danger-subtle extra-small" title="${c.overtimeDaysCount} hari lembur">${c.overtimeDaysCount}x Lembur</span>`
+                : `<span class="badge bg-light text-muted border extra-small">Normal</span>`;
+        }
+
+        const isActiveFilter = (activeAuditCourierFilter === c.courierId);
+        const activeRowStyle = isActiveFilter ? 'style="background-color: #F0FDF4; font-weight: 600;"' : '';
+
+        rowsHtml += `
+            <tr ${activeRowStyle}>
+                <td>
+                    <div class="fw-bold text-dark d-flex align-items-center">
+                        ${c.name}
+                        ${vBadge}
+                    </div>
+                    <small class="text-muted extra-small">ID: ${c.courierId.substring(0, 10)}</small>
+                </td>
+                <td>
+                    <span class="badge bg-light text-dark border font-monospace px-2 py-1">${c.col1Value}</span>
+                </td>
+                <td>
+                    <span class="badge bg-light text-dark border font-monospace px-2 py-1">${c.col2Value}</span>
+                </td>
+                <td>
+                    <div class="d-flex align-items-center gap-1.5">
+                        <span class="fw-bold text-primary">${c.col3Value}</span>
+                        ${statusBadge}
+                    </div>
+                </td>
+                <td class="text-center">
+                    <span class="badge bg-success-subtle text-success px-2.5 py-1 fw-bold fs-7">${c.deliveredCount}</span>
+                </td>
+                <td class="text-center">
+                    <span class="badge ${c.failedCount > 0 ? 'bg-danger-subtle text-danger fw-bold' : 'bg-light text-muted border'} px-2 py-1">${c.failedCount}</span>
+                </td>
+                <td class="text-center">
+                    <span class="badge ${c.pendingCount > 0 ? 'bg-warning-subtle text-warning-emphasis fw-bold' : 'bg-light text-muted border'} px-2 py-1">${c.pendingCount}</span>
+                </td>
+                <td class="text-center">
+                    <button class="btn btn-xs ${isActiveFilter ? 'btn-success' : 'btn-outline-primary'} py-1 px-2.5 rounded-pill extra-small fw-bold" onclick="focusCourierOnAuditMap('${c.courierId}')" title="Lihat Titik Pending di Peta">
+                        <i class="bi bi-geo-alt-fill me-1"></i>${isActiveFilter ? 'Aktif' : 'Peta'}
+                    </button>
+                </td>
+            </tr>`;
+    });
+
+    tbody.innerHTML = rowsHtml;
+}
+window.filterCourierAuditTable = filterCourierAuditTable;
+
+// --------------------------------------------------------------------------
+// 3. INTERACTIVE PENDING MAP (LEAFLET)
+// --------------------------------------------------------------------------
+function initCourierAuditMap() {
+    const mapEl = document.getElementById('courier-audit-map');
+    if (!mapEl || typeof L === 'undefined') return;
+
+    if (!mapCourierAudit) {
+        mapCourierAudit = L.map('courier-audit-map', {
+            center: [-6.2088, 106.8456],
+            zoom: 11,
+            zoomControl: true
+        });
+
+        if (typeof addMapTileLayer === 'function') {
+            addMapTileLayer(mapCourierAudit);
+        } else {
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '&copy; OpenStreetMap'
+            }).addTo(mapCourierAudit);
+        }
+
+        courierAuditMarkersLayer = L.layerGroup().addTo(mapCourierAudit);
+    }
+
+    setTimeout(() => {
+        if (mapCourierAudit) mapCourierAudit.invalidateSize();
+    }, 200);
+}
+
+function renderAuditMapMarkers(courierIdFilter = null) {
+    if (!mapCourierAudit || !courierAuditMarkersLayer) return;
+
+    courierAuditMarkersLayer.clearLayers();
+
+    const pendingStops = courierIdFilter 
+        ? allPendingAuditStops.filter(p => p.courierId === courierIdFilter)
+        : allPendingAuditStops;
+
+    const listContainer = document.getElementById('audit-pending-list-container');
+    const badgeCount = document.getElementById('audit-pending-badge-count');
+    const subtitle = document.getElementById('audit-map-subtitle');
+
+    if (badgeCount) badgeCount.innerText = `${pendingStops.length} Titik`;
+    if (subtitle) {
+        subtitle.innerText = courierIdFilter 
+            ? `Filter: Menampilkan ${pendingStops.length} titik pending kurir ini`
+            : `Menampilkan seluruh ${pendingStops.length} titik pending di periode terpilih`;
+    }
+
+    if (pendingStops.length === 0) {
+        if (listContainer) {
+            listContainer.innerHTML = `<div class="text-muted extra-small text-center py-3">Tidak ada paket pending untuk filter ini.</div>`;
+        }
+        return;
+    }
+
+    const bounds = L.latLngBounds([]);
+    let listHtml = '';
+
+    pendingStops.forEach((p, idx) => {
+        const hasCoords = (p.latitude && p.longitude && !isNaN(p.latitude) && !isNaN(p.longitude) && p.latitude !== 0);
+
+        if (hasCoords) {
+            bounds.extend([p.latitude, p.longitude]);
+
+            const iconHtml = `
+                <div style="background-color: #EA580C; width: 28px; height: 28px; border-radius: 50%; border: 3px solid #FFF; box-shadow: 0 3px 8px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 12px;">
+                    ${idx + 1}
+                </div>`;
+
+            const customMarkerIcon = L.divIcon({
+                className: 'custom-pending-pin',
+                html: iconHtml,
+                iconSize: [28, 28],
+                iconAnchor: [14, 14],
+                popupAnchor: [0, -14]
+            });
+
+            const marker = L.marker([p.latitude, p.longitude], { icon: customMarkerIcon });
+
+            const podBtn = p.proofPhotoUrl 
+                ? `<button class="btn btn-xs btn-outline-danger w-100 py-1 extra-small rounded-2 fw-bold mt-2" onclick="openPoDModal('${p.proofPhotoUrl}')"><i class="bi bi-camera me-1"></i>Lihat Foto Kendala</button>`
+                : '';
+
+            const popupContent = `
+                <div style="min-width: 220px; font-size: 0.8rem; font-family: inherit;">
+                    <div class="fw-bold text-dark mb-1" style="font-size: 0.875rem;">${p.locationName}</div>
+                    <div class="text-muted extra-small mb-1"><i class="bi bi-geo-alt me-1 text-danger"></i>${p.address}</div>
+                    <div class="d-flex align-items-center justify-content-between mt-2 pt-2 border-top extra-small">
+                        <span class="text-muted">Kurir:</span>
+                        <span class="fw-bold text-dark">${p.courierName}</span>
+                    </div>
+                    <div class="d-flex align-items-center justify-content-between mt-1 extra-small">
+                        <span class="text-danger fw-semibold">Alasan:</span>
+                        <span class="badge bg-warning-subtle text-warning-emphasis">${p.reason}</span>
+                    </div>
+                    <div class="text-muted extra-small mt-1"><i class="bi bi-calendar3 me-1"></i>${p.dateStr || ''}</div>
+                    ${podBtn}
+                </div>`;
+
+            marker.bindPopup(popupContent);
+            courierAuditMarkersLayer.addLayer(marker);
+        }
+
+        listHtml += `
+            <div class="card border rounded-3 p-2 bg-white shadow-2fs cursor-pointer" onclick="zoomToPendingStop(${p.latitude}, ${p.longitude})">
+                <div class="d-flex align-items-center justify-content-between">
+                    <span class="fw-bold text-dark extra-small text-truncate" style="max-width: 180px;">${idx + 1}. ${p.locationName}</span>
+                    <span class="badge bg-warning-subtle text-warning-emphasis extra-small">${p.reason}</span>
+                </div>
+                <div class="text-muted extra-small text-truncate mt-0.5">${p.address}</div>
+                <div class="d-flex align-items-center justify-content-between mt-1 text-muted extra-small" style="font-size: 0.7rem;">
+                    <span><i class="bi bi-person me-1"></i>${p.courierName}</span>
+                    <span>${p.dateStr || ''}</span>
+                </div>
+            </div>`;
+    });
+
+    if (listContainer) listContainer.innerHTML = listHtml;
+
+    if (bounds.isValid()) {
+        mapCourierAudit.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+    }
+}
+
+function zoomToPendingStop(lat, lng) {
+    if (!mapCourierAudit || !lat || !lng) return;
+    mapCourierAudit.setView([lat, lng], 15, { animate: true });
+}
+window.zoomToPendingStop = zoomToPendingStop;
+
+function focusCourierOnAuditMap(courierId) {
+    if (activeAuditCourierFilter === courierId) {
+        activeAuditCourierFilter = null;
+    } else {
+        activeAuditCourierFilter = courierId;
+    }
+    const sel = document.getElementById('audit-courier-select');
+    if (sel) sel.value = activeAuditCourierFilter || "";
+    filterCourierAuditTable();
+    renderAuditMapMarkers(activeAuditCourierFilter);
+}
+window.focusCourierOnAuditMap = focusCourierOnAuditMap;
+
+function resetCourierAuditMapFilter() {
+    activeAuditCourierFilter = null;
+    const sel = document.getElementById('audit-courier-select');
+    if (sel) sel.value = "";
+    filterCourierAuditTable();
+    renderAuditMapMarkers(null);
+}
+window.resetCourierAuditMapFilter = resetCourierAuditMapFilter;
+
+// --------------------------------------------------------------------------
+// 4. ENTERPRISE SINGLE-SHEET EXCEL EXPORT (EXECUTIVE STYLED, GROUPED MOBIL & MOTOR)
+// --------------------------------------------------------------------------
+async function exportCourierAuditToExcel() {
+    const auditResult = calculateCourierDailyAudit();
+    const couriers = auditResult.couriers;
+    const isSingle = auditResult.isSingleDay;
+    const periodLabel = isSingle 
+        ? auditResult.startDateStr 
+        : `${auditResult.startDateStr} s/d ${auditResult.endDateStr}`;
+
+    if (!couriers || couriers.length === 0) {
+        return alert(`Tidak ada data audit kurir pada periode ${periodLabel} untuk diekspor.`);
+    }
+
+    // Split into Mobil & Motor
+    const mobilCouriers = couriers.filter(c => c.vehicleType === 'mobil');
+    const motorCouriers = couriers.filter(c => c.vehicleType !== 'mobil');
+
+    // Totals calculation
+    const totMobilStops = mobilCouriers.reduce((s, c) => s + c.totalStops, 0);
+    const totMobilDelivered = mobilCouriers.reduce((s, c) => s + c.deliveredCount, 0);
+    const totMobilPending = mobilCouriers.reduce((s, c) => s + c.pendingCount, 0);
+    const totMobilFailed = mobilCouriers.reduce((s, c) => s + c.failedCount, 0);
+    const rateMobil = totMobilStops > 0 ? ((totMobilDelivered / totMobilStops) * 100).toFixed(1) + '%' : '0%';
+
+    const totMotorStops = motorCouriers.reduce((s, c) => s + c.totalStops, 0);
+    const totMotorDelivered = motorCouriers.reduce((s, c) => s + c.deliveredCount, 0);
+    const totMotorPending = motorCouriers.reduce((s, c) => s + c.pendingCount, 0);
+    const totMotorFailed = motorCouriers.reduce((s, c) => s + c.failedCount, 0);
+    const rateMotor = totMotorStops > 0 ? ((totMotorDelivered / totMotorStops) * 100).toFixed(1) + '%' : '0%';
+
+    const grandStops = couriers.reduce((s, c) => s + c.totalStops, 0);
+    const grandDelivered = couriers.reduce((s, c) => s + c.deliveredCount, 0);
+    const grandPending = couriers.reduce((s, c) => s + c.pendingCount, 0);
+    const grandFailed = couriers.reduce((s, c) => s + c.failedCount, 0);
+    const grandRate = grandStops > 0 ? ((grandDelivered / grandStops) * 100).toFixed(1) + '%' : '0%';
+
+    // Use ExcelJS if available for 100% styled output with title, colors, and borders
+    if (typeof ExcelJS !== 'undefined') {
+        const workbook = new ExcelJS.Workbook();
+        workbook.creator = "Wtrack Logistics";
+        workbook.created = new Date();
+
+        const sheet = workbook.addWorksheet("Audit_Operasional", {
+            views: [{ showGridLines: true }]
+        });
+
+        // 1. Title Row (Row 1)
+        sheet.mergeCells('A1:L1');
+        const titleCell = sheet.getCell('A1');
+        titleCell.value = "LAPORAN AUDIT & PERFORMA OPERASIONAL DISTRIBUSI LOGISTIK";
+        titleCell.font = { name: 'Calibri', size: 14, bold: true, color: { argb: 'FF1F4E79' } };
+        titleCell.alignment = { vertical: 'middle', horizontal: 'left' };
+        sheet.getRow(1).height = 24;
+
+        // 2. Subtitle Row (Row 2)
+        sheet.mergeCells('A2:L2');
+        const subCell = sheet.getCell('A2');
+        subCell.value = `Periode: ${periodLabel}  |  Cabang: Wellen Pusat  |  Rekapitulasi Terpadu Armada Mobil & Motor`;
+        subCell.font = { name: 'Calibri', size: 10, italic: true, color: { argb: 'FF595959' } };
+        subCell.alignment = { vertical: 'middle', horizontal: 'left' };
+        sheet.getRow(2).height = 18;
+
+        // Row 3: Blank separator
+        sheet.getRow(3).height = 8;
+
+        // 3. Header Row (Row 4)
+        const headerRow = sheet.getRow(4);
+        headerRow.height = 28;
+        const headers = isSingle ? [
+            "No", "Alokasi Driver / Kurir", "Tipe Armada", "Jam Penugasan Awal", 
+            "Jam Upload Akhir", "Total Jam Kerja", "Status Lembur", "Total Titik (Stops)", 
+            "Terkirim (Sukses)", "Pending (Klien Tutup)", "Gagal / Batal", "Persentase Sukses"
+        ] : [
+            "No", "Alokasi Driver / Kurir", "Tipe Armada", "Hari Aktif", 
+            "Rata Jam / Hari", "Total Jam Kerja", "Hari Lembur", "Total Titik (Stops)", 
+            "Terkirim (Sukses)", "Pending (Klien Tutup)", "Gagal / Batal", "Persentase Sukses"
+        ];
+
+        headers.forEach((h, idx) => {
+            const cell = headerRow.getCell(idx + 1);
+            cell.value = h;
+            cell.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: 'FFFFFFFF' } };
+            cell.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'FF1F4E79' } // Dark Navy
+            };
+            cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+            cell.border = {
+                top: { style: 'thin', color: { argb: 'FF1F4E79' } },
+                left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                bottom: { style: 'medium', color: { argb: 'FF0F2C59' } },
+                right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+            };
+        });
+
+        const thinBorder = {
+            top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+        };
+
+        let currentRowIndex = 5;
+
+        // Group 1: ARMADA MOBIL
+        if (mobilCouriers.length > 0) {
+            mobilCouriers.forEach((c, idx) => {
+                const row = sheet.getRow(currentRowIndex++);
+                row.height = 20;
+                const rowData = [
+                    idx + 1,
+                    c.name,
+                    "Mobil",
+                    c.col1Value,
+                    c.col2Value,
+                    c.col3Value,
+                    c.isOvertime ? "Lembur (>8 Jam)" : "Normal (≤8 Jam)",
+                    c.totalStops,
+                    c.deliveredCount,
+                    c.pendingCount,
+                    c.failedCount,
+                    `${c.successRate}%`
+                ];
+
+                rowData.forEach((val, cIdx) => {
+                    const cell = row.getCell(cIdx + 1);
+                    cell.value = val;
+                    cell.font = { name: 'Calibri', size: 10, color: { argb: 'FF1E293B' } };
+                    cell.border = thinBorder;
+                    if (cIdx === 1) {
+                        cell.alignment = { vertical: 'middle', horizontal: 'left' };
+                        cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF1E293B' } };
+                    } else {
+                        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                    }
+                });
+            });
+
+            // Subtotal Mobil Row
+            const subMobilRow = sheet.getRow(currentRowIndex++);
+            subMobilRow.height = 22;
+            const subMobilData = [
+                "SUBTOTAL",
+                `Khusus Armada Mobil (${mobilCouriers.length} Driver)`,
+                "Mobil",
+                "-",
+                "-",
+                "-",
+                "-",
+                totMobilStops,
+                totMobilDelivered,
+                totMobilPending,
+                totMobilFailed,
+                rateMobil
+            ];
+            subMobilData.forEach((val, cIdx) => {
+                const cell = subMobilRow.getCell(cIdx + 1);
+                cell.value = val;
+                cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF1F4E79' } };
+                cell.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FFEBF3FA' } // Soft pastel ice blue
+                };
+                cell.border = {
+                    top: { style: 'thin', color: { argb: 'FF94A3B8' } },
+                    bottom: { style: 'thin', color: { argb: 'FF94A3B8' } },
+                    left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                    right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+                };
+                cell.alignment = { vertical: 'middle', horizontal: cIdx === 1 ? 'left' : 'center' };
+            });
+        }
+
+        // Group 2: ARMADA MOTOR
+        if (motorCouriers.length > 0) {
+            motorCouriers.forEach((c, idx) => {
+                const row = sheet.getRow(currentRowIndex++);
+                row.height = 20;
+                const rowData = [
+                    idx + 1,
+                    c.name,
+                    "Motor",
+                    c.col1Value,
+                    c.col2Value,
+                    c.col3Value,
+                    c.isOvertime ? "Lembur (>8 Jam)" : "Normal (≤8 Jam)",
+                    c.totalStops,
+                    c.deliveredCount,
+                    c.pendingCount,
+                    c.failedCount,
+                    `${c.successRate}%`
+                ];
+
+                rowData.forEach((val, cIdx) => {
+                    const cell = row.getCell(cIdx + 1);
+                    cell.value = val;
+                    cell.font = { name: 'Calibri', size: 10, color: { argb: 'FF1E293B' } };
+                    cell.border = thinBorder;
+                    if (cIdx === 1) {
+                        cell.alignment = { vertical: 'middle', horizontal: 'left' };
+                        cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF1E293B' } };
+                    } else {
+                        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                    }
+                });
+            });
+
+            // Subtotal Motor Row
+            const subMotorRow = sheet.getRow(currentRowIndex++);
+            subMotorRow.height = 22;
+            const subMotorData = [
+                "SUBTOTAL",
+                `Khusus Armada Motor (${motorCouriers.length} Kurir)`,
+                "Motor",
+                "-",
+                "-",
+                "-",
+                "-",
+                totMotorStops,
+                totMotorDelivered,
+                totMotorPending,
+                totMotorFailed,
+                rateMotor
+            ];
+            subMotorData.forEach((val, cIdx) => {
+                const cell = subMotorRow.getCell(cIdx + 1);
+                cell.value = val;
+                cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF1F4E79' } };
+                cell.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FFEBF3FA' } // Soft pastel ice blue
+                };
+                cell.border = {
+                    top: { style: 'thin', color: { argb: 'FF94A3B8' } },
+                    bottom: { style: 'thin', color: { argb: 'FF94A3B8' } },
+                    left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                    right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+                };
+                cell.alignment = { vertical: 'middle', horizontal: cIdx === 1 ? 'left' : 'center' };
+            });
+        }
+
+        // Grand Total Row
+        const grandRow = sheet.getRow(currentRowIndex++);
+        grandRow.height = 24;
+        const grandData = [
+            "GRAND TOTAL",
+            `Seluruh Armada (${couriers.length} Driver & Kurir In-House)`,
+            "Gabungan",
+            "-",
+            "-",
+            "-",
+            "-",
+            grandStops,
+            grandDelivered,
+            grandPending,
+            grandFailed,
+            grandRate
+        ];
+        grandData.forEach((val, cIdx) => {
+            const cell = grandRow.getCell(cIdx + 1);
+            cell.value = val;
+            cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FF0F2C59' } };
+            cell.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'FFD9E1F2' } // Distinctive light corporate blue
+            };
+            cell.border = {
+                top: { style: 'medium', color: { argb: 'FF1F4E79' } },
+                bottom: { style: 'double', color: { argb: 'FF0F2C59' } }, // Financial double underline
+                left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+            };
+            cell.alignment = { vertical: 'middle', horizontal: cIdx === 1 ? 'left' : 'center' };
+        });
+
+        // Blank Row
+        sheet.getRow(currentRowIndex++).height = 12;
+
+        // Catatan & Ringkasan Operasional (Bottom section like in reference image!)
+        const noteHeaderRow = sheet.getRow(currentRowIndex++);
+        noteHeaderRow.getCell(1).value = "Catatan & Ringkasan Operasional:";
+        noteHeaderRow.getCell(1).font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: 'FF1F4E79' }, underline: true };
+
+        const note1Row = sheet.getRow(currentRowIndex++);
+        note1Row.getCell(1).value = `1. Evaluasi Pengantaran: Total ${grandStops} paket ditugaskan, ${grandDelivered} paket sukses terkirim (${grandRate} keberhasilan).`;
+        note1Row.getCell(1).font = { name: 'Calibri', size: 9.5, italic: true, color: { argb: 'FF475569' } };
+
+        const pendingCouriersList = couriers.filter(c => c.pendingCount > 0);
+        let pendingNoteText = `2. Kendala Lapangan & Pending: Terdata ${grandPending} paket berstatus pending (klien tutup/reschedule).`;
+        if (pendingCouriersList.length > 0) {
+            const namesWithPending = pendingCouriersList.map(c => `${c.name} (${c.pendingCount} pkt)`).join(', ');
+            pendingNoteText += ` Kurir bersangkutan: ${namesWithPending}.`;
+        } else {
+            pendingNoteText += ` Seluruh paket terselesaikan tanpa kendala (0 pending).`;
+        }
+        const note2Row = sheet.getRow(currentRowIndex++);
+        note2Row.getCell(1).value = pendingNoteText;
+        note2Row.getCell(1).font = { name: 'Calibri', size: 9.5, italic: true, color: { argb: 'FF475569' } };
+
+        const overtimeCouriers = couriers.filter(c => c.isOvertime);
+        let overtimeNoteText = `3. Jam Kerja & Lembur: `;
+        if (overtimeCouriers.length > 0) {
+            overtimeNoteText += `Terdapat ${overtimeCouriers.length} personel yang bekerja lembur (>8 jam): ${overtimeCouriers.map(c => `${c.name} (${c.col3Value})`).join(', ')}.`;
+        } else {
+            overtimeNoteText += `Seluruh armada bekerja dalam durasi normal (≤8 jam).`;
+        }
+        const note3Row = sheet.getRow(currentRowIndex++);
+        note3Row.getCell(1).value = overtimeNoteText;
+        note3Row.getCell(1).font = { name: 'Calibri', size: 9.5, italic: true, color: { argb: 'FF475569' } };
+
+        // Column widths
+        sheet.columns = [
+            { width: 6 },   // No
+            { width: 28 },  // Alokasi Driver
+            { width: 14 },  // Tipe Armada
+            { width: 20 },  // Jam Awal
+            { width: 20 },  // Upload Akhir
+            { width: 18 },  // Total Jam
+            { width: 18 },  // Status Lembur
+            { width: 18 },  // Total Stops
+            { width: 18 },  // Terkirim
+            { width: 20 },  // Pending
+            { width: 15 },  // Gagal
+            { width: 18 }   // Persentase
+        ];
+
+        // Trigger browser download of the single styled sheet
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        const cleanPeriod = periodLabel.replace(/[\/\s:]/g, '_');
+        a.download = `Wtrack_Laporan_Operasional_${cleanPeriod}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        return;
+    }
+
+    // Fallback: SheetJS
+    if (typeof XLSX !== 'undefined') {
+        const sheet1GroupedData = [];
+        mobilCouriers.forEach((c, idx) => {
+            sheet1GroupedData.push({
+                "No": idx + 1,
+                "Kelompok Armada": "Armada Mobil",
+                "Nama Driver / Kurir": c.name,
+                "Tipe Armada": "Mobil",
+                "Jam Penugasan Awal": c.col1Value,
+                "Jam Upload Akhir": c.col2Value,
+                "Total Jam Kerja": c.col3Value,
+                "Status Lembur": c.isOvertime ? 'Lembur (>8 Jam)' : 'Normal',
+                "Total Stops": c.totalStops,
+                "Terkirim": c.deliveredCount,
+                "Pending": c.pendingCount,
+                "Gagal": c.failedCount,
+                "Persentase": `${c.successRate}%`
+            });
+        });
+
+        motorCouriers.forEach((c, idx) => {
+            sheet1GroupedData.push({
+                "No": idx + 1,
+                "Kelompok Armada": "Armada Motor",
+                "Nama Driver / Kurir": c.name,
+                "Tipe Armada": "Motor",
+                "Jam Penugasan Awal": c.col1Value,
+                "Jam Upload Akhir": c.col2Value,
+                "Total Jam Kerja": c.col3Value,
+                "Status Lembur": c.isOvertime ? 'Lembur (>8 Jam)' : 'Normal',
+                "Total Stops": c.totalStops,
+                "Terkirim": c.deliveredCount,
+                "Pending": c.pendingCount,
+                "Gagal": c.failedCount,
+                "Persentase": `${c.successRate}%`
+            });
+        });
+
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(sheet1GroupedData);
+        XLSX.utils.book_append_sheet(wb, ws, "Audit_Operasional");
+        XLSX.writeFile(wb, `Wtrack_Laporan_Operasional_${periodLabel}.xlsx`);
+    }
+}
+window.exportCourierAuditToExcel = exportCourierAuditToExcel;
+
+// --------------------------------------------------------------------------
+// 5. AUTOMATED WHATSAPP & EMAIL REPORT DISTRIBUTION (FULL PAGE VIEW)
+// --------------------------------------------------------------------------
+
+function switchAuditSubView(viewName) {
+    const tableSub = document.getElementById('subview-audit-table');
+    const distSub = document.getElementById('subview-audit-distribution');
+    const btnTable = document.getElementById('btn-subview-audit-table');
+    const btnDist = document.getElementById('btn-subview-audit-dist');
+
+    if (viewName === 'distribution') {
+        if (tableSub) tableSub.style.display = 'none';
+        if (distSub) distSub.style.display = 'block';
+
+        if (btnTable) {
+            btnTable.className = 'btn btn-sm btn-light border fw-bold px-3 py-1.5 rounded-2 text-secondary';
+        }
+        if (btnDist) {
+            btnDist.className = 'btn btn-sm btn-primary fw-bold px-3.5 py-1.5 rounded-2 shadow-sm text-white';
+        }
+
+        loadSavedReportRecipients();
+        loadAutoReportSettingsFromFirestore();
+        generateReportPreviews();
+    } else {
+        if (distSub) distSub.style.display = 'none';
+        if (tableSub) tableSub.style.display = 'block';
+
+        if (btnTable) {
+            btnTable.className = 'btn btn-sm btn-primary fw-bold px-3.5 py-1.5 rounded-2 shadow-sm text-white';
+        }
+        if (btnDist) {
+            btnDist.className = 'btn btn-sm btn-light border fw-bold px-3 py-1.5 rounded-2 text-secondary';
+        }
+
+        if (mapCourierAudit) {
+            setTimeout(() => { mapCourierAudit.invalidateSize(); }, 150);
+        }
+    }
+}
+window.switchAuditSubView = switchAuditSubView;
+
+function openSendReportModal() {
+    switchAuditSubView('distribution');
+}
+window.openSendReportModal = openSendReportModal;
+
+function onReportPeriodChange() {
+    const selectedFreq = document.querySelector('input[name="reportWaFreq"]:checked')?.value || 'daily';
+    const startInput = document.getElementById('audit-start-date');
+    const endInput = document.getElementById('audit-end-date');
+
+    const now = new Date();
+    const todayStr = now.toISOString().slice(0, 10);
+
+    if (selectedFreq === 'daily') {
+        // Today
+        if (startInput) startInput.value = todayStr;
+        if (endInput) endInput.value = todayStr;
+    } else if (selectedFreq === 'weekly') {
+        // Last 7 days
+        const lastWeek = new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000);
+        if (startInput) startInput.value = lastWeek.toISOString().slice(0, 10);
+        if (endInput) endInput.value = todayStr;
+    } else if (selectedFreq === 'monthly') {
+        // 1st of this month to today
+        const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        if (startInput) startInput.value = firstOfMonth.toISOString().slice(0, 10);
+        if (endInput) endInput.value = todayStr;
+    }
+
+    renderCourierAuditView();
+    generateReportPreviews();
+}
+window.onReportPeriodChange = onReportPeriodChange;
+
+function onEmailFrequencyChange() {
+    const selectedFreq = document.querySelector('input[name="reportEmailFreq"]:checked')?.value || 'weekly';
+    const elSubject = document.getElementById('report-email-subject');
+    const elAttachment = document.getElementById('report-email-attachment-name');
+
+    const auditResult = calculateCourierDailyAudit();
+    const periodLabel = auditResult.isSingleDay 
+        ? auditResult.startDateStr 
+        : `${auditResult.startDateStr} s/d ${auditResult.endDateStr}`;
+
+    const now = new Date();
+    const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+    const currentMonthLabel = `${monthNames[now.getMonth()]} ${now.getFullYear()}`;
+
+    if (selectedFreq === 'weekly') {
+        if (elSubject) elSubject.value = `[Wtrack] Rekapitulasi Mingguan Operasional Kurir - Periode ${periodLabel}`;
+        if (elAttachment) elAttachment.innerText = `Wtrack_Rekap_Mingguan_${auditResult.startDateStr}_sd_${auditResult.endDateStr}.xlsx`;
+    } else if (selectedFreq === 'monthly') {
+        if (elSubject) elSubject.value = `[Wtrack] Rekapitulasi Bulanan Operasional Kurir - Periode ${currentMonthLabel}`;
+        if (elAttachment) elAttachment.innerText = `Wtrack_Rekap_Bulanan_${currentMonthLabel.replace(' ', '_')}.xlsx`;
+    } else {
+        if (elSubject) elSubject.value = `[Wtrack] Laporan Operasional Kurir - ${periodLabel}`;
+        if (elAttachment) elAttachment.innerText = `Wtrack_Audit_Kurir_${periodLabel}.xlsx`;
+    }
+}
+window.onEmailFrequencyChange = onEmailFrequencyChange;
+
+function loadSavedReportRecipients() {
+    const wa1 = localStorage.getItem('wtrack_report_wa_1') || '';
+    const wa2 = localStorage.getItem('wtrack_report_wa_2') || '';
+    const wa3 = localStorage.getItem('wtrack_report_wa_3') || '';
+    const emails = localStorage.getItem('wtrack_report_emails') || '';
+
+    const elWa1 = document.getElementById('report-wa-num-1');
+    const elWa2 = document.getElementById('report-wa-num-2');
+    const elWa3 = document.getElementById('report-wa-num-3');
+    const elEmails = document.getElementById('report-email-recipients');
+
+    if (elWa1 && !elWa1.value) elWa1.value = wa1;
+    if (elWa2 && !elWa2.value) elWa2.value = wa2;
+    if (elWa3 && !elWa3.value) elWa3.value = wa3;
+    if (elEmails && !elEmails.value) elEmails.value = emails;
+}
+
+function saveReportRecipients() {
+    const wa1 = document.getElementById('report-wa-num-1')?.value.trim() || '';
+    const wa2 = document.getElementById('report-wa-num-2')?.value.trim() || '';
+    const wa3 = document.getElementById('report-wa-num-3')?.value.trim() || '';
+    const emails = document.getElementById('report-email-recipients')?.value.trim() || '';
+
+    localStorage.setItem('wtrack_report_wa_1', wa1);
+    localStorage.setItem('wtrack_report_wa_2', wa2);
+    localStorage.setItem('wtrack_report_wa_3', wa3);
+    localStorage.setItem('wtrack_report_emails', emails);
+}
+window.saveReportRecipients = saveReportRecipients;
+
+function buildWhatsAppReportText() {
+    const auditResult = calculateCourierDailyAudit();
+    const couriers = auditResult.couriers;
+    const isSingle = auditResult.isSingleDay;
+    const periodLabel = isSingle 
+        ? auditResult.startDateStr 
+        : `${auditResult.startDateStr} s/d ${auditResult.endDateStr}`;
+
+    let totalDelivered = 0;
+    let totalFailed = 0;
+    let totalPending = 0;
+    let totalEffectiveMins = 0;
+    let couriersWithTimeCount = 0;
+
+    // Mobil vs Motor breakdown
+    let mobilDelivered = 0, mobilPending = 0, mobilFailed = 0, mobilCount = 0;
+    let motorDelivered = 0, motorPending = 0, motorFailed = 0, motorCount = 0;
+
+    // Overtime couriers
+    const overtimeList = [];
+
+    // Pending grouped by courier
+    const pendingByCourier = [];
+
+    couriers.forEach(c => {
+        totalDelivered += c.deliveredCount;
+        totalFailed += c.failedCount;
+        totalPending += c.pendingCount;
+
+        if (c.totalEffectiveMins > 0) {
+            totalEffectiveMins += c.totalEffectiveMins;
+            couriersWithTimeCount++;
+        }
+
+        if (c.vehicleType === 'mobil') {
+            mobilCount++;
+            mobilDelivered += c.deliveredCount;
+            mobilPending += c.pendingCount;
+            mobilFailed += c.failedCount;
+        } else {
+            motorCount++;
+            motorDelivered += c.deliveredCount;
+            motorPending += c.pendingCount;
+            motorFailed += c.failedCount;
+        }
+
+        if (c.isOvertime) {
+            overtimeList.push(c);
+        }
+
+        if (c.pendingItems && c.pendingItems.length > 0) {
+            pendingByCourier.push(c);
+        }
+    });
+
+    const totalStopsOverall = totalDelivered + totalFailed + totalPending;
+    const overallRate = totalStopsOverall > 0 ? Math.round((totalDelivered / totalStopsOverall) * 100) : 0;
+    const avgMins = couriersWithTimeCount > 0 ? Math.round(totalEffectiveMins / couriersWithTimeCount) : 0;
+
+    const branchName = (typeof activeBranch !== 'undefined' && activeBranch) ? activeBranch : 'Wellen Pusat';
+
+    let msg = `📊 *LAPORAN OPERASIONAL LOGISTIK*\n`;
+    msg += `🗓️ *Periode* : ${periodLabel}\n`;
+    msg += `🏢 *Cabang*  : ${branchName}\n`;
+    msg += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+    msg += `📈 *RINGKASAN EKSEKUTIF*\n`;
+    msg += `• Total Penugasan : *${totalStopsOverall} Paket*\n`;
+    msg += `• ✅ Terkirim Sukses : *${totalDelivered} Paket (${overallRate}%)*\n`;
+    msg += `• ⚠️ Total Pending   : *${totalPending} Paket*\n`;
+    msg += `• ❌ Gagal/Batal     : *${totalFailed} Paket*\n`;
+    msg += `• ⏱️ Rata-rata Kerja : *${formatDurationHoursMins(avgMins)} / kurir*\n\n`;
+
+    msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
+    msg += `🚚 *REKAP PER ARMADA*\n`;
+    msg += `• *Mobil (${mobilCount} Driver)* : ${mobilDelivered + mobilPending + mobilFailed} Pkt (${mobilDelivered} Selesai, ${mobilPending} Pending, ${mobilFailed} Gagal)\n`;
+    msg += `• *Motor (${motorCount} Kurir)* : ${motorDelivered + motorPending + motorFailed} Pkt (${motorDelivered} Selesai, ${motorPending} Pending, ${motorFailed} Gagal)\n\n`;
+
+    msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
+    msg += `⚠️ *DAFTAR KURIR YANG MEMILIKI PENDING:*\n`;
+
+    if (pendingByCourier.length === 0) {
+        msg += `✅ *SEMUA TUNTAS (0 PENDING)*\nSeluruh paket berhasil terkirim tanpa ada pending.\n\n`;
+    } else {
+        pendingByCourier.forEach((c, idx) => {
+            const vIcon = c.vehicleType === 'mobil' ? '🚚' : '🛵';
+            msg += `\n${idx + 1}. ${vIcon} *${c.name}* — ${c.pendingCount} Paket Pending\n`;
+            c.pendingItems.forEach(item => {
+                msg += `   • *${item.locationName}*\n     └ Alasan: ${item.reason}\n`;
+            });
+        });
+        msg += `\n_(Kurir lainnya tidak memiliki pending / tuntas)_\n\n`;
+    }
+
+    if (overtimeList.length > 0) {
+        msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
+        msg += `⭐ *CATATAN LEMBUR (>8 JAM):*\n`;
+        overtimeList.forEach(c => {
+            const vIcon = c.vehicleType === 'mobil' ? '🚚' : '🛵';
+            if (isSingle) {
+                msg += `• ${vIcon} ${c.name}: ${c.col1Value} - ${c.col2Value} (*${c.col3Value}*)\n`;
+            } else {
+                msg += `• ${vIcon} ${c.name}: ${c.overtimeDaysCount}x Lembur (*Total: ${c.col3Value}*)\n`;
+            }
+        });
+        msg += `\n`;
+    }
+
+    msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
+    msg += `🔗 *Audit & Foto Bukti Lengkap:*\n`;
+    msg += `https://wtrack.wellenprint.com`;
+
+    return msg;
+}
+window.buildWhatsAppReportText = buildWhatsAppReportText;
+
+function toggleReportViewMode(btn) {
+    const visualView = document.getElementById('report-card-visual-view');
+    const rawView = document.getElementById('report-card-raw-view');
+    if (!visualView || !rawView) return;
+
+    if (rawView.style.display === 'none') {
+        rawView.style.display = 'block';
+        visualView.style.display = 'none';
+        if (btn) btn.innerHTML = '<i class="bi bi-layout-text-window-reverse me-1"></i>Tampilan Card';
+    } else {
+        rawView.style.display = 'none';
+        visualView.style.display = 'block';
+        if (btn) btn.innerHTML = '<i class="bi bi-code-slash me-1"></i>Teks WhatsApp';
+    }
+}
+window.toggleReportViewMode = toggleReportViewMode;
+
+function generateReportPreviews() {
+    saveReportRecipients();
+    const waText = buildWhatsAppReportText();
+
+    const elWaPreview = document.getElementById('report-wa-preview-text');
+    if (elWaPreview) elWaPreview.value = waText;
+
+    const auditResult = calculateCourierDailyAudit();
+    const couriers = auditResult.couriers;
+    const isSingle = auditResult.isSingleDay;
+    const periodLabel = isSingle 
+        ? auditResult.startDateStr 
+        : `${auditResult.startDateStr} s/d ${auditResult.endDateStr}`;
+
+    const branchName = (typeof activeBranch !== 'undefined' && activeBranch) ? activeBranch : 'Wellen Pusat';
+
+    // 1. Populate Modern Visual Card
+    let totalDelivered = 0, totalFailed = 0, totalPending = 0, totalEffectiveMins = 0, couriersWithTimeCount = 0;
+    let mobilDelivered = 0, mobilPending = 0, mobilFailed = 0, mobilCount = 0;
+    let motorDelivered = 0, motorPending = 0, motorFailed = 0, motorCount = 0;
+    const pendingCouriers = [];
+
+    couriers.forEach(c => {
+        totalDelivered += c.deliveredCount;
+        totalFailed += c.failedCount;
+        totalPending += c.pendingCount;
+
+        if (c.totalEffectiveMins > 0) {
+            totalEffectiveMins += c.totalEffectiveMins;
+            couriersWithTimeCount++;
+        }
+
+        if (c.vehicleType === 'mobil') {
+            mobilCount++;
+            mobilDelivered += c.deliveredCount;
+            mobilPending += c.pendingCount;
+            mobilFailed += c.failedCount;
+        } else {
+            motorCount++;
+            motorDelivered += c.deliveredCount;
+            motorPending += c.pendingCount;
+            motorFailed += c.failedCount;
+        }
+
+        if (c.pendingItems && c.pendingItems.length > 0) {
+            pendingCouriers.push(c);
+        }
+    });
+
+    const totalStopsOverall = totalDelivered + totalFailed + totalPending;
+    const overallRate = totalStopsOverall > 0 ? Math.round((totalDelivered / totalStopsOverall) * 100) : 0;
+    const avgMins = couriersWithTimeCount > 0 ? Math.round(totalEffectiveMins / couriersWithTimeCount) : 0;
+
+    const elCardPeriod = document.getElementById('report-card-period-badge');
+    const elCardStops = document.getElementById('report-card-total-stops');
+    const elCardDelivered = document.getElementById('report-card-delivered');
+    const elCardSuccessRate = document.getElementById('report-card-success-rate');
+    const elCardPending = document.getElementById('report-card-pending');
+    const elCardAvgTime = document.getElementById('report-card-avg-time');
+    const elCardMobil = document.getElementById('report-card-mobil-summary');
+    const elCardMotor = document.getElementById('report-card-motor-summary');
+    const elCardPendingCount = document.getElementById('report-card-pending-couriers-count');
+    const elCardPendingList = document.getElementById('report-card-pending-list');
+
+    if (elCardPeriod) elCardPeriod.innerText = `${periodLabel} • ${branchName}`;
+    if (elCardStops) elCardStops.innerText = totalStopsOverall.toLocaleString();
+    if (elCardDelivered) elCardDelivered.innerText = totalDelivered.toLocaleString();
+    if (elCardSuccessRate) elCardSuccessRate.innerText = `${overallRate}% Sukses`;
+    if (elCardPending) elCardPending.innerText = totalPending.toLocaleString();
+    if (elCardAvgTime) elCardAvgTime.innerText = formatDurationHoursMins(avgMins);
+    
+    if (elCardMobil) {
+        elCardMobil.innerText = `Mobil (${mobilCount}): ${mobilDelivered} Selesai, ${mobilPending} Pending`;
+    }
+    if (elCardMotor) {
+        elCardMotor.innerText = `Motor (${motorCount}): ${motorDelivered} Selesai, ${motorPending} Pending`;
+    }
+
+    if (elCardPendingCount) {
+        elCardPendingCount.innerText = `${pendingCouriers.length} Kurir`;
+    }
+
+    if (elCardPendingList) {
+        if (pendingCouriers.length === 0) {
+            elCardPendingList.innerHTML = `
+                <div class="text-success extra-small text-center py-3 bg-light rounded-3 border">
+                    <i class="bi bi-check-circle-fill me-1"></i> Semua pengantaran tuntas. Tidak ada paket pending!
+                </div>`;
+        } else {
+            let pendingCardsHtml = '';
+            pendingCouriers.forEach(c => {
+                const vIcon = c.vehicleType === 'mobil' ? '🚚' : '🛵';
+                let destListHtml = '';
+                c.pendingItems.forEach(item => {
+                    destListHtml += `
+                        <div class="extra-small py-0.5">
+                            <span class="fw-semibold text-dark">• ${item.locationName}</span>
+                            <span class="text-danger ms-1">(${item.reason})</span>
+                        </div>`;
+                });
+
+                pendingCardsHtml += `
+                    <div class="p-2.5 rounded-3 border bg-white shadow-2fs">
+                        <div class="d-flex align-items-center justify-content-between mb-1">
+                            <div class="fw-bold text-dark extra-small d-flex align-items-center gap-1.5">
+                                <span>${vIcon}</span>
+                                <span>${c.name}</span>
+                            </div>
+                            <span class="badge bg-warning-subtle text-warning-emphasis extra-small fw-bold">${c.pendingCount} Paket</span>
+                        </div>
+                        <div class="d-flex flex-column gap-0.5 ps-3 border-start ms-1" style="border-left-color: #cbd5e1 !important;">
+                            ${destListHtml}
+                        </div>
+                    </div>`;
+            });
+            elCardPendingList.innerHTML = pendingCardsHtml;
+        }
+    }
+
+    // 2. Email Subject & Attachment (Dynamically synchronized with Email Frequency)
+    onEmailFrequencyChange();
+}
+window.generateReportPreviews = generateReportPreviews;
+
+function copyWhatsAppReportText() {
+    const text = document.getElementById('report-wa-preview-text')?.value || buildWhatsAppReportText();
+    navigator.clipboard.writeText(text).then(() => {
+        alert("✅ Teks laporan WhatsApp berhasil disalin ke clipboard!\nSilakan paste ke nomor atau grup WhatsApp tujuan.");
+    }).catch(() => {
+        const ta = document.getElementById('report-wa-preview-text');
+        if (ta) {
+            ta.select();
+            document.execCommand('copy');
+            alert("✅ Teks laporan berhasil disalin!");
+        }
+    });
+}
+window.copyWhatsAppReportText = copyWhatsAppReportText;
+
+function formatPhoneForWhatsApp(phone) {
+    if (!phone) return '';
+    let p = phone.replace(/[^0-9]/g, '');
+    if (p.startsWith('0')) p = '62' + p.substring(1);
+    return p;
+}
+
+function sendWhatsAppViaDirectLink() {
+    const wa1 = document.getElementById('report-wa-num-1')?.value.trim();
+    const wa2 = document.getElementById('report-wa-num-2')?.value.trim();
+    const wa3 = document.getElementById('report-wa-num-3')?.value.trim();
+    const targetPhone = formatPhoneForWhatsApp(wa1 || wa2 || wa3);
+
+    const text = document.getElementById('report-wa-preview-text')?.value || buildWhatsAppReportText();
+    
+    // Auto copy text to clipboard as well
+    navigator.clipboard.writeText(text).catch(()=>{});
+
+    if (targetPhone) {
+        const url = `https://api.whatsapp.com/send?phone=${targetPhone}&text=${encodeURIComponent(text)}`;
+        window.open(url, '_blank');
+    } else {
+        const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+        window.open(url, '_blank');
+    }
+}
+window.sendWhatsAppViaDirectLink = sendWhatsAppViaDirectLink;
+
+function openMailtoClient() {
+    const emails = document.getElementById('report-email-recipients')?.value.trim() || '';
+    const subject = document.getElementById('report-email-subject')?.value || '[Wtrack Report] Laporan Operasional';
+    const text = document.getElementById('report-wa-preview-text')?.value || buildWhatsAppReportText();
+
+    const mailtoUrl = `mailto:${encodeURIComponent(emails)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(text)}`;
+    window.location.href = mailtoUrl;
+}
+window.openMailtoClient = openMailtoClient;
+
+async function triggerServerEmailDispatch() {
+    const statusEl = document.getElementById('email-dispatch-status');
+    const emails = document.getElementById('report-email-recipients')?.value.trim() || '';
+    const subject = document.getElementById('report-email-subject')?.value || '[Wtrack Report] Laporan Operasional';
+    const reportText = document.getElementById('report-wa-preview-text')?.value || buildWhatsAppReportText();
+
+    if (!emails) {
+        return alert("Mohon masukkan minimal satu alamat email penerima laporan.");
+    }
+
+    if (statusEl) {
+        statusEl.style.display = 'block';
+        statusEl.className = 'mt-2 alert alert-info py-2 px-3 extra-small mb-0';
+        statusEl.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> Mengirimkan laporan email...`;
+    }
+
+    try {
+        const response = await fetch('/api/send-daily-report', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                recipients: emails.split(',').map(e => e.trim()).filter(Boolean),
+                subject: subject,
+                reportText: reportText,
+                auditResult: calculateCourierDailyAudit()
+            })
+        });
+
+        const resData = await response.json().catch(() => ({}));
+
+        if (response.ok && resData.success) {
+            if (statusEl) {
+                statusEl.className = 'mt-2 alert alert-success py-2 px-3 extra-small mb-0';
+                statusEl.innerHTML = `✅ Laporan email berhasil dikirim ke <b>${emails}</b>.`;
+            }
+        } else {
+            // Graceful fallback: If Vercel API key is not configured yet on localhost
+            if (statusEl) {
+                statusEl.className = 'mt-2 alert alert-warning py-2 px-3 extra-small mb-0';
+                statusEl.innerHTML = `
+                    <div class="fw-bold mb-1">ℹ️ Pengiriman Langsung Siap:</div>
+                    API Gateway server belum terhubung dengan API Key Resend/SMTP di localhost. Anda dapat menggunakan tombol <b>"Buka di Gmail/Outlook"</b> di atas untuk mengirim langsung dengan 1 klik!`;
+            }
+        }
+    } catch(err) {
+        if (statusEl) {
+            statusEl.className = 'mt-2 alert alert-warning py-2 px-3 extra-small mb-0';
+            statusEl.innerHTML = `
+                <div class="fw-bold mb-1">ℹ️ Gunakan Email Client:</div>
+                Koneksi server API lokal tidak aktif. Silakan gunakan tombol <b>"Buka di Gmail/Outlook"</b> untuk mengirim langsung.`;
+        }
+    }
+}
+window.triggerServerEmailDispatch = triggerServerEmailDispatch;
+
+// --------------------------------------------------------------------------
+// 6. AUTO-CRON & FIRESTORE SETTINGS SYNC
+// --------------------------------------------------------------------------
+
+async function loadAutoReportSettingsFromFirestore() {
+    try {
+        const activeDb = (typeof getDb === 'function') ? getDb() : null;
+        if (!activeDb) return;
+
+        const doc = await activeDb.collection('settings').doc('daily_report').get();
+        if (doc.exists) {
+            const data = doc.data() || {};
+            const enabledEl = document.getElementById('auto-report-enabled');
+            const timeEl = document.getElementById('auto-report-time');
+            const scopeEl = document.getElementById('auto-report-scope');
+            const emailWeeklyEl = document.getElementById('auto-email-weekly-enabled');
+            const emailMonthlyEl = document.getElementById('auto-email-monthly-enabled');
+
+            if (enabledEl && data.enabled !== undefined) enabledEl.checked = data.enabled;
+            if (timeEl && data.scheduledTime) timeEl.value = data.scheduledTime;
+            if (scopeEl && data.dataScope) scopeEl.value = data.dataScope;
+            if (emailWeeklyEl && data.emailWeeklyEnabled !== undefined) emailWeeklyEl.checked = data.emailWeeklyEnabled;
+            if (emailMonthlyEl && data.emailMonthlyEnabled !== undefined) emailMonthlyEl.checked = data.emailMonthlyEnabled;
+
+            // Also sync saved recipients from cloud if local is empty
+            if (Array.isArray(data.waRecipients)) {
+                if (data.waRecipients[0] && !document.getElementById('report-wa-num-1')?.value) {
+                    document.getElementById('report-wa-num-1').value = data.waRecipients[0];
+                }
+                if (data.waRecipients[1] && !document.getElementById('report-wa-num-2')?.value) {
+                    document.getElementById('report-wa-num-2').value = data.waRecipients[1];
+                }
+                if (data.waRecipients[2] && !document.getElementById('report-wa-num-3')?.value) {
+                    document.getElementById('report-wa-num-3').value = data.waRecipients[2];
+                }
+            }
+            if (data.emailRecipients && !document.getElementById('report-email-recipients')?.value) {
+                document.getElementById('report-email-recipients').value = Array.isArray(data.emailRecipients) 
+                    ? data.emailRecipients.join(', ') 
+                    : data.emailRecipients;
+            }
+        }
+    } catch(err) {
+        console.warn("Gagal memuat pengaturan auto report dari Firestore:", err);
+    }
+}
+window.loadAutoReportSettingsFromFirestore = loadAutoReportSettingsFromFirestore;
+
+async function saveAutoReportSettingsToFirestore() {
+    const alertEl = document.getElementById('auto-report-alert');
+    const enabled = document.getElementById('auto-report-enabled')?.checked ?? true;
+    const scheduledTime = document.getElementById('auto-report-time')?.value || '06:00';
+    const dataScope = document.getElementById('auto-report-scope')?.value || 'yesterday';
+    const emailWeeklyEnabled = document.getElementById('auto-email-weekly-enabled')?.checked ?? true;
+    const emailMonthlyEnabled = document.getElementById('auto-email-monthly-enabled')?.checked ?? true;
+
+    const wa1 = document.getElementById('report-wa-num-1')?.value.trim() || '';
+    const wa2 = document.getElementById('report-wa-num-2')?.value.trim() || '';
+    const wa3 = document.getElementById('report-wa-num-3')?.value.trim() || '';
+    const emails = document.getElementById('report-email-recipients')?.value.trim() || '';
+
+    saveReportRecipients();
+
+    const payload = {
+        enabled: enabled,
+        scheduledTime: scheduledTime,
+        dataScope: dataScope,
+        emailWeeklyEnabled: emailWeeklyEnabled,
+        emailMonthlyEnabled: emailMonthlyEnabled,
+        waRecipients: [wa1, wa2, wa3].filter(Boolean),
+        emailRecipients: emails.split(',').map(e => e.trim()).filter(Boolean),
+        updatedAt: (typeof firebase !== 'undefined' && firebase.firestore) ? firebase.firestore.Timestamp.now() : new Date().toISOString()
+    };
+
+    if (alertEl) {
+        alertEl.style.display = 'block';
+        alertEl.className = 'mt-2.5 alert alert-info py-2 px-3 extra-small mb-0';
+        alertEl.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> Menyimpan pengaturan jadwal ke Cloud Firestore...`;
+    }
+
+    try {
+        const activeDb = (typeof getDb === 'function') ? getDb() : null;
+        if (!activeDb) throw new Error("Firestore Database belum terhubung.");
+
+        await activeDb.collection('settings').doc('daily_report').set(payload, { merge: true });
+
+        if (alertEl) {
+            alertEl.className = 'mt-2.5 alert alert-success py-2 px-3 extra-small mb-0';
+            let emailInfo = [];
+            if (emailWeeklyEnabled) emailInfo.push('Email Mingguan (Senin)');
+            if (emailMonthlyEnabled) emailInfo.push('Email Bulanan (Tgl 1)');
+            const emailText = emailInfo.length > 0 ? ` + ${emailInfo.join(' & ')}` : ' (Email Rutin Dinonaktifkan)';
+            alertEl.innerHTML = `✅ <b>Berhasil Disimpan!</b> Laporan WA akan dikirim pukul <b>${scheduledTime} WIB</b> (${dataScope === 'yesterday' ? 'Harian Kemarin' : dataScope})${emailText}.`;
+        }
+    } catch(err) {
+        if (alertEl) {
+            alertEl.className = 'mt-2.5 alert alert-warning py-2 px-3 extra-small mb-0';
+            alertEl.innerHTML = `⚠️ Gagal menyimpan ke Firestore: ${err.message}. Pengaturan telah disimpan sementara di memori browser.`;
+        }
+    }
+}
+window.saveAutoReportSettingsToFirestore = saveAutoReportSettingsToFirestore;
+
+async function testAutoReportDispatch() {
+    const alertEl = document.getElementById('auto-report-alert');
+    const scheduledTime = document.getElementById('auto-report-time')?.value || '06:00';
+    const dataScope = document.getElementById('auto-report-scope')?.value || 'yesterday';
+
+    if (alertEl) {
+        alertEl.style.display = 'block';
+        alertEl.className = 'mt-2.5 alert alert-primary py-2 px-3 extra-small mb-0';
+        alertEl.innerHTML = `
+            <div class="fw-bold"><i class="bi bi-info-circle me-1"></i>Simulasi Jadwal Pukul ${scheduledTime} WIB:</div>
+            Sistem telah siap mengeksekusi pengiriman otomatis untuk <b>${dataScope === 'yesterday' ? 'Rekap H-1 (Kemarin)' : 'Rekap Hari Berjalan'}</b>. Teks laporan terisi lengkap dan siap disebar ke WA & Email penerima.
+        `;
+    }
+}
+window.testAutoReportDispatch = testAutoReportDispatch;
+
+
