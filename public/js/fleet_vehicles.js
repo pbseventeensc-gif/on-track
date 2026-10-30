@@ -611,8 +611,9 @@
                 rowStyle = 'style="border-left: 3.5px solid transparent;"';
             }
 
-            // Driver Initials Avatar
+            // Driver Initials Avatar & Photo
             const initials = (v.assigned_person_name || 'D').split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
+            const driverPhotoUrl = (typeof window.getCourierPhoto === 'function') ? window.getCourierPhoto(v.assigned_person_id, v.assigned_person_name) : null;
 
             return `
                 <tr ${rowStyle}>
@@ -632,10 +633,10 @@
                     <!-- 2. DRIVER -->
                     <td class="py-3">
                         <div class="d-flex align-items-center gap-2">
-                            <div class="rounded-circle d-flex align-items-center justify-content-center text-dark fw-bold"
-                                 style="width: 32px; height: 32px; background: #e0e7ff; color: #3730a3; font-size: 0.75rem; flex-shrink: 0; border: 1px solid #c7d2fe;">
-                                ${initials}
-                            </div>
+                            ${driverPhotoUrl 
+                                ? `<img src="${driverPhotoUrl}" class="rounded-circle shadow-xs" style="width: 32px; height: 32px; object-fit: cover; border: 1.5px solid #c7d2fe; flex-shrink: 0;" alt="${v.assigned_person_name}">`
+                                : `<div class="rounded-circle d-flex align-items-center justify-content-center text-dark fw-bold" style="width: 32px; height: 32px; background: #e0e7ff; color: #3730a3; font-size: 0.75rem; flex-shrink: 0; border: 1px solid #c7d2fe;">${initials}</div>`
+                            }
                             <div class="fw-bold text-dark text-truncate" style="font-size: 0.85rem; max-width: 160px;">
                                 ${v.assigned_person_name || '-'}
                             </div>

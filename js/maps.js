@@ -154,6 +154,7 @@ function initMaps() {
         if (elMap && !map) {
             map = L.map('map', {
                 zoomControl: false,
+                scrollWheelZoom: false,
                 maxBounds: jabodetabekMaxBounds,
                 maxBoundsViscosity: 1.0,
                 minZoom: 9
@@ -168,6 +169,7 @@ function initMaps() {
         if (elMonitor && !mapMonitor) {
             mapMonitor = L.map('map-monitor', {
                 zoomControl: false,
+                scrollWheelZoom: false,
                 maxBounds: jabodetabekMaxBounds,
                 maxBoundsViscosity: 1.0,
                 minZoom: 9
@@ -183,6 +185,7 @@ function initMaps() {
         if (elDispatch && !mapDispatch) {
             mapDispatch = L.map('map-dispatch', {
                 zoomControl: false,
+                scrollWheelZoom: false,
                 maxBounds: jabodetabekMaxBounds,
                 maxBoundsViscosity: 1.0,
                 minZoom: 9
@@ -206,21 +209,35 @@ function setFocusedDriver(driverId) {
     if (!driverId) return;
     window.focusedDriverId = driverId;
 
+    const norm = (typeof normalizeCourierIdentity === 'function') ? normalizeCourierIdentity(driverId, '') : null;
+    const canonId = norm?.canonicalId || driverId.toLowerCase();
+
     const dName = (typeof registeredUsers !== 'undefined' && registeredUsers[driverId])
         ? registeredUsers[driverId]
-        : (typeof getCourierDisplayName === 'function' ? getCourierDisplayName(driverId) : driverId);
+        : (norm?.displayName || (typeof getCourierDisplayName === 'function' ? getCourierDisplayName(driverId) : driverId));
 
     const targetMap = window.mapMonitor || window.map;
 
     // Determine coordinate of the focused personil
     let targetPos = null;
-    if (typeof currentOnlineCouriers !== 'undefined' && currentOnlineCouriers[driverId]) {
-        const c = currentOnlineCouriers[driverId];
-        if (c && c.lat && c.lng) targetPos = [parseFloat(c.lat), parseFloat(c.lng)];
+    if (typeof currentOnlineCouriers !== 'undefined') {
+        for (const k in currentOnlineCouriers) {
+            const kNorm = (typeof normalizeCourierIdentity === 'function') ? normalizeCourierIdentity(k, '') : null;
+            if (k === driverId || k === canonId || (kNorm && kNorm.canonicalId === canonId)) {
+                const c = currentOnlineCouriers[k];
+                if (c && c.lat && c.lng) {
+                    targetPos = [parseFloat(c.lat), parseFloat(c.lng)];
+                    break;
+                }
+            }
+        }
     }
 
     if (!targetPos && typeof allCurrentTrips !== 'undefined') {
-        const t = allCurrentTrips.find(x => x.courierId === driverId && x.destinations && x.destinations.length > 0);
+        const t = allCurrentTrips.find(x => {
+            const tNorm = (typeof normalizeCourierIdentity === 'function') ? normalizeCourierIdentity(x.courierId, '') : null;
+            return (x.courierId === driverId || x.courierId === canonId || (tNorm && tNorm.canonicalId === canonId)) && x.destinations && x.destinations.length > 0;
+        });
         if (t && t.destinations[0]) {
             const d = t.destinations[0];
             const lat = parseFloat(d.latitude || d.lat);
@@ -316,17 +333,35 @@ function updateMapMarkers(filter = "") {
 
             const color = window.getCourierColor(id, name);
             const pos = [c.lat, c.lng];
+            const livePhotoUrl = (typeof window.getCourierPhoto === 'function') ? window.getCourierPhoto(id, name) : null;
+
+            let liveIconHtml = '';
+            if (livePhotoUrl) {
+                liveIconHtml = `
+                    <div style="position:relative; width:34px; height:34px; cursor:pointer;" title="Kurir: ${name}">
+                        <div style="width:34px; height:34px; border-radius:50%; border:2.5px solid #ffffff; box-shadow:0 0 10px ${color}, 0 2px 6px rgba(0,0,0,0.3); overflow:hidden; background:#ffffff;">
+                            <img src="${livePhotoUrl}" style="width:100%; height:100%; object-fit:cover;" alt="${name}">
+                        </div>
+                        <span style="position:absolute; bottom:-1px; right:-1px; width:10px; height:10px; border-radius:50%; background:#10B981; border:2px solid #fff;"></span>
+                    </div>
+                `;
+            } else {
+                liveIconHtml = `<div style="background:${color}; width:28px; height:28px; border-radius:50%; border:3px solid #fff; box-shadow:0 0 10px ${color}; display:flex; align-items:center; justify-content:center; color:#fff; font-size:12px; font-weight:bold; cursor:pointer;"><i class="bi bi-geo-alt-fill"></i></div>`;
+            }
 
             const courierIcon = L.divIcon({
                 className: 'custom-div-icon',
-                html: `<div style="background:${color}; width:26px; height:26px; border-radius:50%; border:3px solid #fff; box-shadow:0 0 10px ${color}; display:flex; align-items:center; justify-content:center; color:#fff; font-size:11px; font-weight:bold; cursor:pointer;"><i class="bi bi-geo-alt-fill"></i></div>`,
-                iconSize: [26, 26],
-                iconAnchor: [13, 13]
+                html: liveIconHtml,
+                iconSize: livePhotoUrl ? [34, 34] : [28, 28],
+                iconAnchor: livePhotoUrl ? [17, 17] : [14, 14]
             });
 
             const popupHtml = `
                 <div style="min-width:160px; font-family: inherit;">
-                    <div style="font-weight:800; font-size:13px; color:#111827; margin-bottom:2px;">${name}</div>
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        ${livePhotoUrl ? `<img src="${livePhotoUrl}" style="width:28px; height:28px; border-radius:50%; object-fit:cover; border:1px solid ${color};">` : ''}
+                        <div style="font-weight:800; font-size:13px; color:#111827;">${name}</div>
+                    </div>
                     <div style="color:${color}; font-size:10px; font-weight:800; letter-spacing:0.5px;">LIVE GPS ON-TRACK</div>
                     <button class="btn btn-xs btn-dark w-100 mt-2 py-1 fw-bold" style="font-size:0.7rem; border-radius:6px;" onclick="setFocusedDriver('${id}')">
                         <i class="bi bi-crosshair me-1"></i> Fokus Driver Ini
@@ -358,12 +393,22 @@ function updateMapMarkers(filter = "") {
     const now = new Date();
     const todayDayMs = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
 
+    // Track 1 single photo pin per courier (stops 2..N remain regular numbered pins)
+    const couriersWithPhotoPinPlaced = {};
+
     allCurrentTrips.forEach(t => {
         if (typeof isTripInActiveBranch === 'function' && !isTripInActiveBranch(t)) return;
 
         // DRIVER FOCUS MODE: If a driver is focused, hide all destination stops for other drivers/couriers
-        if (window.focusedDriverId && window.focusedDriverId !== t.courierId) {
-            return;
+        if (window.focusedDriverId) {
+            const normFocused = (typeof normalizeCourierIdentity === 'function') ? normalizeCourierIdentity(window.focusedDriverId, '') : null;
+            const focusedCanon = normFocused?.canonicalId || window.focusedDriverId.toLowerCase();
+            const thisNorm = (typeof normalizeCourierIdentity === 'function') ? normalizeCourierIdentity(t.courierId, '') : null;
+            const thisCanon = thisNorm?.canonicalId || t.courierId.toLowerCase();
+
+            if (thisCanon !== focusedCanon && t.courierId !== window.focusedDriverId) {
+                return;
+            }
         }
 
         const cName = (typeof registeredUsers !== 'undefined' && registeredUsers[t.courierId])
@@ -376,6 +421,10 @@ function updateMapMarkers(filter = "") {
         if (tripMs < todayDayMs) {
             return;
         }
+
+        const cNorm = (typeof normalizeCourierIdentity === 'function') ? normalizeCourierIdentity(t.courierId, cName) : null;
+        const cKey = cNorm?.canonicalId || (t.courierId || cName || '').toLowerCase();
+        const photoUrl = (typeof window.getCourierPhoto === 'function') ? window.getCourierPhoto(t.courierId, cName) : null;
 
         if (t.status !== 'completed' && t.destinations && t.destinations.length > 0) {
             t.destinations.forEach((d, idx) => {
@@ -419,11 +468,39 @@ function updateMapMarkers(filter = "") {
                     badgeContent = numBadge;
                 }
 
+                // Exactly 1 pin per courier features their photo avatar (Stop #1)
+                const shouldShowPhotoPin = photoUrl && (!couriersWithPhotoPinPlaced[cKey]) && (idx === 0);
+                if (shouldShowPhotoPin) {
+                    couriersWithPhotoPinPlaced[cKey] = true;
+                }
+
+                let iconHtml = '';
+                let iconSize = [30, 42];
+                let iconAnchor = [15, 42];
+
+                if (shouldShowPhotoPin) {
+                    iconHtml = `
+                        <div style="position:relative; width:40px; height:52px; cursor:pointer;" title="Area Pengantaran: ${cName}">
+                            <div style="width:36px; height:36px; border-radius:50%; border:3px solid ${pinColor}; box-shadow:0 3px 10px rgba(0,0,0,0.35); overflow:hidden; background:#fff; position:absolute; top:0; left:2px;">
+                                <img src="${photoUrl}" style="width:100%; height:100%; object-fit:cover;" alt="${cName}">
+                            </div>
+                            <div style="position:absolute; bottom:1px; left:50%; transform:translateX(-50%); width:0; height:0; border-left:6px solid transparent; border-right:6px solid transparent; border-top:12px solid ${pinColor};"></div>
+                            <div style="position:absolute; top:-3px; right:0px; background:${pinColor}; color:#fff; font-size:9.5px; font-weight:800; border-radius:50%; width:16px; height:16px; display:flex; align-items:center; justify-content:center; border:2px solid #fff; box-shadow:0 1px 3px rgba(0,0,0,0.2);">${numBadge}</div>
+                        </div>
+                    `;
+                    iconSize = [40, 52];
+                    iconAnchor = [20, 52];
+                } else {
+                    iconHtml = `<div class='marker-pin' style='background:${pinColor}'></div><div class='marker-num'>${badgeContent}</div>`;
+                    iconSize = [30, 42];
+                    iconAnchor = [15, 42];
+                }
+
                 const icon = L.divIcon({
                     className: 'custom-div-icon',
-                    html: `<div class='marker-pin' style='background:${pinColor}'></div><div class='marker-num'>${badgeContent}</div>`,
-                    iconSize: [30, 42],
-                    iconAnchor: [15, 42]
+                    html: iconHtml,
+                    iconSize: iconSize,
+                    iconAnchor: iconAnchor
                 });
 
                 const popupHtml = `
@@ -433,8 +510,9 @@ function updateMapMarkers(filter = "") {
                         </div>
                         <div style="font-weight:800; font-size:13px; color:#111827; margin-bottom:2px;">${d.locationName}</div>
                         <div style="font-size:11px; color:#6B7280; margin-bottom:6px;">${d.address || 'Alamat tidak tersedia'}</div>
-                        <div style="font-size:11px; font-weight:700; border-top:1px solid #E5E7EB; padding-top:4px;">
-                            Personil: <span style="color:${cColor};">${cName}</span> | Status: <b>${t.status.toUpperCase()}</b>
+                        <div style="font-size:11px; font-weight:700; border-top:1px solid #E5E7EB; padding-top:4px;" class="d-flex align-items-center gap-1.5">
+                            ${photoUrl ? `<img src="${photoUrl}" style="width:20px; height:20px; border-radius:50%; object-fit:cover;">` : ''}
+                            <span>Personil: <b style="color:${cColor};">${cName}</b></span>
                         </div>
                     </div>
                 `;

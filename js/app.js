@@ -155,7 +155,6 @@ const MASTER_COURIERS = [
     { canonicalId: 'jay', displayName: 'Jay', role: 'kurir', vehicleType: 'motor', defaultUid: 'XFAoplNpgjc0QzqE6gcTIa5OA0r2', matchTokens: ['jay', 'andiwijaya', 'andiwijaya27', 'xfaop', '38smk'] },
     { canonicalId: 'ferdi', displayName: 'Ferdi', role: 'kurir', vehicleType: 'motor', defaultUid: 'BOMM2Wmk9LXs90qO3RWskGyIOk72', matchTokens: ['ferdi', 'fredisambo1', 'fredisambo', 'bomm2'] },
     { canonicalId: 'jagat', displayName: 'Jagat', role: 'kurir', vehicleType: 'motor', defaultUid: 'kwpGbShXoog9kFiRmevZpwTgVxv2', matchTokens: ['jagat', 'jagad', 'jagadbaru1', '3lhr', 'kwpgb'] },
-    { canonicalId: 'pbseventeensc', displayName: 'pbseventeensc', role: 'kurir', vehicleType: 'motor', defaultUid: 'uP70R51x7CbR5ggHEyeXfsjSTfO2', matchTokens: ['pbseventeensc', 'pbseventensc', 'up70'] },
 
     // Driver (10 Personil)
     { canonicalId: 'altur', displayName: 'Altur', role: 'driver', vehicleType: 'mobil', defaultUid: 'U7A5dYrb4iZaB7VaWMqorLeqqgg2', matchTokens: ['altur', 'alturdriver05', 'u7a5d'] },
@@ -176,6 +175,46 @@ const COURIER_FLEET_MAPPING = {
     motor: MASTER_COURIERS.filter(m => m.vehicleType === 'motor').map(m => m.canonicalId)
 };
 window.COURIER_FLEET_MAPPING = COURIER_FLEET_MAPPING;
+
+const COURIER_PHOTO_MAP = {
+    'agung': '/assets/couriers/Agung.jpeg',
+    'ahmad': '/assets/couriers/Ahmad.jpeg',
+    'baikaqi': '/assets/couriers/Baykaqi.jpeg',
+    'bayhaqi': '/assets/couriers/Baykaqi.jpeg',
+    'baykaqi': '/assets/couriers/Baykaqi.jpeg',
+    'beto': '/assets/couriers/Beto.jpeg',
+    'eri': '/assets/couriers/Eri.jpeg',
+    'haris': '/assets/couriers/Haris.jpeg',
+    'husen': '/assets/couriers/Husen.jpeg',
+    'irfan': '/assets/couriers/Irfan.jpeg',
+    'jagat': '/assets/couriers/Jagat.jpeg',
+    'jagad': '/assets/couriers/Jagat.jpeg',
+    'jagatbaru1': '/assets/couriers/Jagat.jpeg',
+    'jay': '/assets/couriers/Jaya.jpeg',
+    'jaya': '/assets/couriers/Jaya.jpeg',
+    'noval': '/assets/couriers/Noval.jpeg',
+    'novalempah2': '/assets/couriers/Noval.jpeg',
+    'rizki': '/assets/couriers/Rizki.jpeg',
+    'umar': '/assets/couriers/Umar.jpeg'
+};
+window.COURIER_PHOTO_MAP = COURIER_PHOTO_MAP;
+
+function getCourierPhoto(cId, cName) {
+    if (!cId && !cName) return null;
+    const norm = (typeof normalizeCourierIdentity === 'function') 
+        ? normalizeCourierIdentity(cId, cName) 
+        : { canonicalId: (cId || '').toLowerCase() };
+
+    const canon = norm.canonicalId || (cId || '').toLowerCase();
+    if (COURIER_PHOTO_MAP[canon]) return COURIER_PHOTO_MAP[canon];
+
+    const str = `${cId || ''} ${cName || ''}`.toLowerCase();
+    for (const k in COURIER_PHOTO_MAP) {
+        if (str.includes(k)) return COURIER_PHOTO_MAP[k];
+    }
+    return null;
+}
+window.getCourierPhoto = getCourierPhoto;
 
 function normalizeCourierIdentity(cId, cName) {
     const id = (cId || '').trim();
@@ -2773,7 +2812,7 @@ function renderMonitorUI(filter = "") {
 
     const courierGroups = {};
 
-    // 1. Gather couriers with today's trips
+    // 1. Gather couriers with today's trips (Merged & Deduplicated by Canonical ID)
     allCurrentTrips.forEach(t => {
         const tripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : 0);
         if (tripMs < todayDayMs) return; // Clean H+1: Only show today's trips
@@ -2784,39 +2823,60 @@ function renderMonitorUI(filter = "") {
         // HAPUS / HIDE NON-MASTER / ANONYMOUS "Carrier (...)"
         if (typeof isRecognizedCourier === 'function' && !isRecognizedCourier(cId, cName)) return;
 
+        const norm = (typeof normalizeCourierIdentity === 'function')
+            ? normalizeCourierIdentity(cId, cName)
+            : { canonicalId: cId.toLowerCase(), displayName: cName };
+        const key = norm.canonicalId || cId.toLowerCase();
+        const displayName = norm.displayName || cName || key;
+
         const clients = t.destinations ? t.destinations.map(d => d.locationName.toLowerCase()).join(" ") : "";
 
-        if (cName.toLowerCase().includes(search) || t.id.toLowerCase().includes(search) || clients.includes(search)) {
-            if (!courierGroups[cId]) {
-                courierGroups[cId] = { id: cId, name: cName, trips: [], totalStops: 0, doneStops: 0 };
+        if (displayName.toLowerCase().includes(search) || t.id.toLowerCase().includes(search) || clients.includes(search) || key.includes(search)) {
+            if (!courierGroups[key]) {
+                courierGroups[key] = { id: key, rawId: cId, name: displayName, trips: [], totalStops: 0, doneStops: 0 };
             }
-            courierGroups[cId].trips.push(t);
+            courierGroups[key].trips.push(t);
             if (t.destinations) {
-                courierGroups[cId].totalStops += t.destinations.length;
-                courierGroups[cId].doneStops += t.destinations.filter(d => d.status === 'done' || d.proofPhotoUrl || t.status === 'completed').length;
+                courierGroups[key].totalStops += t.destinations.length;
+                courierGroups[key].doneStops += t.destinations.filter(d => d.status === 'done' || d.proofPhotoUrl || t.status === 'completed').length;
             } else {
-                courierGroups[cId].totalStops += 1;
-                if (t.status === 'completed') courierGroups[cId].doneStops += 1;
+                courierGroups[key].totalStops += 1;
+                if (t.status === 'completed') courierGroups[key].doneStops += 1;
             }
         }
     });
 
-    // 2. Also include online couriers even if no trips assigned yet (ONLY RECOGNIZED COURIERS)
+    // 2. Also include online couriers even if no trips assigned yet (ONLY RECOGNIZED COURIERS WHO ARE CURRENTLY ONLINE)
     if (typeof currentOnlineCouriers !== 'undefined') {
         for (const cId in currentOnlineCouriers) {
+            // ONLY include if actually online right now!
+            if (!isCourierOnline(cId)) continue;
+
             const cName = (typeof registeredUsers !== 'undefined' && registeredUsers[cId]) ? registeredUsers[cId] : (typeof getCourierDisplayName === 'function' ? getCourierDisplayName(cId) : '');
             
             // HAPUS / HIDE NON-MASTER / ANONYMOUS "Carrier (...)"
             if (typeof isRecognizedCourier === 'function' && !isRecognizedCourier(cId, cName)) continue;
 
-            const norm = normalizeCourierIdentity(cId, cName);
-            const displayName = norm.displayName || cName;
+            const norm = (typeof normalizeCourierIdentity === 'function')
+                ? normalizeCourierIdentity(cId, cName)
+                : { canonicalId: cId.toLowerCase(), displayName: cName };
+            const key = norm.canonicalId || cId.toLowerCase();
+            const displayName = norm.displayName || cName || key;
 
-            if (!courierGroups[cId]) {
-                if (!search || displayName.toLowerCase().includes(search) || cId.toLowerCase().includes(search)) {
-                    courierGroups[cId] = { id: cId, name: displayName, trips: [], totalStops: 0, doneStops: 0 };
+            if (!courierGroups[key]) {
+                if (!search || displayName.toLowerCase().includes(search) || cId.toLowerCase().includes(search) || key.includes(search)) {
+                    courierGroups[key] = { id: key, rawId: cId, name: displayName, trips: [], totalStops: 0, doneStops: 0 };
                 }
             }
+        }
+    }
+
+    // 3. Filter out any inactive courier with 0 trips and offline (Hapus duplicate/kosong 0 shipment)
+    for (const key in courierGroups) {
+        const c = courierGroups[key];
+        const isOnline = isCourierOnline(c.rawId || c.id);
+        if (c.trips.length === 0 && !isOnline) {
+            delete courierGroups[key];
         }
     }
 
@@ -2841,17 +2901,18 @@ function renderMonitorUI(filter = "") {
     });
 
     // Calculate online / idle counters
-    const kurirOnlineCount = kurirList.filter(c => isCourierOnline(c.id)).length;
+    const kurirOnlineCount = kurirList.filter(c => isCourierOnline(c.rawId || c.id)).length;
     const kurirIdleCount = kurirList.length - kurirOnlineCount;
 
-    const driverOnlineCount = driverList.filter(c => isCourierOnline(c.id)).length;
+    const driverOnlineCount = driverList.filter(c => isCourierOnline(c.rawId || c.id)).length;
     const driverIdleCount = driverList.length - driverOnlineCount;
 
     // Helper to build individual card HTML
     const buildCard = (c, catName) => {
         const cColor = getCourierColor(c.id, c.name);
         const progress = c.totalStops > 0 ? Math.round((c.doneStops / c.totalStops) * 100) : 0;
-        const isOnline = isCourierOnline(c.id);
+        const isOnline = isCourierOnline(c.rawId || c.id);
+        const photoUrl = (typeof window.getCourierPhoto === 'function') ? window.getCourierPhoto(c.id, c.name) : null;
 
         const pendingStops = c.trips.reduce((acc, t) => acc + (t.destinations ? t.destinations.filter(d => d.status === 'pending_approval' || (d.status === 'pending' && d.pendingReason)).length : 0), 0);
         const pendingBadgeHtml = pendingStops > 0 ? `<span class="badge rounded-pill bg-danger text-white extra-small py-1 px-2 fw-bold ms-1" style="font-size:0.65rem"><i class="bi bi-exclamation-triangle-fill me-1"></i>${pendingStops} Pending</span>` : '';
@@ -2889,15 +2950,17 @@ function renderMonitorUI(filter = "") {
                 </div>`;
         }
 
+        const avatarHtml = photoUrl
+            ? `<img src="${photoUrl}" class="rounded-circle shadow-xs" style="width:34px; height:34px; object-fit:cover; border:2px solid ${cColor}; flex-shrink:0;" alt="${c.name}">`
+            : `<div style="width:34px; height:34px; border-radius:50%; background:${cColor}; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:0.85rem; flex-shrink:0;">${(c.name || 'P').charAt(0).toUpperCase()}</div>`;
+
         return `
             <div class="col-sm-6 col-md-4 col-lg-3 col-xl-3 mb-3">
                 <div class="border rounded-3 p-2.5 px-3 bg-white shadow-sm h-100 d-flex flex-column justify-content-between" style="border-top: 4px solid ${cColor} !important">
                     <div>
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <div class="d-flex align-items-center gap-2">
-                                <div style="width:32px; height:32px; border-radius:8px; background:${cColor}; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:0.85rem;">
-                                    ${(c.name || 'P').charAt(0).toUpperCase()}
-                                </div>
+                                ${avatarHtml}
                                 <div>
                                     <div class="fw-bold mb-0 text-dark text-truncate" style="font-size:0.875rem; max-width: 110px;" title="${c.name}">${c.name}</div>
                                     <small class="${isOnline ? 'text-success' : 'text-muted'} fw-semibold" style="font-size:0.65rem">
@@ -2908,7 +2971,7 @@ function renderMonitorUI(filter = "") {
                             <div class="d-flex align-items-center gap-1">
                                 <span class="badge rounded-pill bg-light text-dark border extra-small py-1 px-2" style="font-size:0.65rem">${c.trips.length} Tugas</span>
                                 ${pendingBadgeHtml}
-                                ${c.trips.length > 0 ? `<button class="btn btn-sm btn-link text-danger p-0 ms-1 text-decoration-none" onclick="deleteCourierActiveTrips('${c.id}', '${c.name.replace(/'/g, "\\'")}')" title="Batalkan Semua Tugas"><i class="bi bi-trash" style="font-size:0.8rem"></i></button>` : ''}
+                                ${c.trips.length > 0 ? `<button class="btn btn-sm btn-link text-danger p-0 ms-1 text-decoration-none" onclick="deleteCourierActiveTrips('${c.rawId || c.id}', '${c.name.replace(/'/g, "\\'")}')" title="Batalkan Semua Tugas"><i class="bi bi-trash" style="font-size:0.8rem"></i></button>` : ''}
                             </div>
                         </div>
 
@@ -2924,7 +2987,7 @@ function renderMonitorUI(filter = "") {
                     </div>
 
                     <div>
-                        <button class="btn btn-sm btn-dark w-100 py-1.5 fw-bold" style="border-radius: 8px; font-size:0.75rem" data-id="${c.id}" onclick="if(window.setFocusedDriver) window.setFocusedDriver(this.dataset.id); else focusOnCourier(this.dataset.id, true);">
+                        <button class="btn btn-sm btn-dark w-100 py-1.5 fw-bold" style="border-radius: 8px; font-size:0.75rem" data-id="${c.rawId || c.id}" onclick="if(window.setFocusedDriver) window.setFocusedDriver(this.dataset.id); else focusOnCourier(this.dataset.id, true);">
                             <i class="bi bi-crosshair me-1"></i> FOCUS TRACKING
                         </button>
                         ${bulkSjSectionHtml}
@@ -2935,19 +2998,19 @@ function renderMonitorUI(filter = "") {
 
     const currentTab = window.monitorCategoryTab || 'all';
 
-    // Top Segmented Control & Counters
+    // Top Segmented Control & Counters (Clean: Armada, Kurir, Driver tanpa icon)
     let html = `
         <div class="col-12 mb-3">
             <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 bg-white p-2.5 rounded-3 border shadow-sm">
                 <div class="btn-group p-1 bg-light rounded-3 border" role="group">
                     <button type="button" class="btn btn-sm ${currentTab === 'all' ? 'btn-white fw-bold shadow-xs active text-dark' : 'text-secondary fw-semibold'}" onclick="setMonitorCategoryTab('all')">
-                        Semua Armada (${courierIds.length})
+                        Armada
                     </button>
                     <button type="button" class="btn btn-sm ${currentTab === 'kurir' ? 'btn-white fw-bold shadow-xs active text-primary' : 'text-secondary fw-semibold'}" onclick="setMonitorCategoryTab('kurir')">
-                        🛵 Kategori Kurir <span class="badge bg-success-subtle text-success ms-1">${kurirOnlineCount} Online</span> <span class="badge bg-secondary-subtle text-muted ms-1">${kurirIdleCount} Idle</span>
+                        Kurir <span class="badge bg-success-subtle text-success ms-1">${kurirOnlineCount} Online</span> <span class="badge bg-secondary-subtle text-muted ms-1">${kurirIdleCount} Idle</span>
                     </button>
                     <button type="button" class="btn btn-sm ${currentTab === 'driver' ? 'btn-white fw-bold shadow-xs active text-primary' : 'text-secondary fw-semibold'}" onclick="setMonitorCategoryTab('driver')">
-                        🚚 Kategori Driver <span class="badge bg-success-subtle text-success ms-1">${driverOnlineCount} Online</span> <span class="badge bg-secondary-subtle text-muted ms-1">${driverIdleCount} Idle</span>
+                        Driver <span class="badge bg-success-subtle text-success ms-1">${driverOnlineCount} Online</span> <span class="badge bg-secondary-subtle text-muted ms-1">${driverIdleCount} Idle</span>
                     </button>
                 </div>
                 <div class="extra-small text-muted fw-semibold">
@@ -2957,14 +3020,14 @@ function renderMonitorUI(filter = "") {
         </div>
     `;
 
-    // Render Kategori Kurir Section
+    // Render Kurir Section
     if ((currentTab === 'all' || currentTab === 'kurir') && kurirList.length > 0) {
         html += `
             <div class="col-12 mt-2 mb-2">
                 <div class="d-flex align-items-center justify-content-between p-2.5 px-3 bg-light border rounded-3">
                     <div class="d-flex align-items-center gap-2">
-                        <span class="badge bg-primary text-white fw-bold px-2.5 py-1">KATEGORI KURIR</span>
-                        <span class="fw-bold text-dark fs-6">Personil Kurir Motor (${kurirList.length})</span>
+                        <span class="badge bg-primary text-white fw-bold px-2.5 py-1">KURIR</span>
+                        <span class="fw-bold text-dark fs-6">Kurir Motor (${kurirList.length})</span>
                     </div>
                     <div class="d-flex align-items-center gap-2 extra-small">
                         <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1"><i class="bi bi-circle-fill me-1" style="font-size:5px;"></i>${kurirOnlineCount} Online</span>
@@ -2976,14 +3039,14 @@ function renderMonitorUI(filter = "") {
         kurirList.forEach(c => { html += buildCard(c, 'Kurir'); });
     }
 
-    // Render Kategori Driver Section
+    // Render Driver Section
     if ((currentTab === 'all' || currentTab === 'driver') && driverList.length > 0) {
         html += `
             <div class="col-12 mt-3 mb-2">
                 <div class="d-flex align-items-center justify-content-between p-2.5 px-3 bg-light border rounded-3">
                     <div class="d-flex align-items-center gap-2">
-                        <span class="badge bg-dark text-white fw-bold px-2.5 py-1">KATEGORI DRIVER</span>
-                        <span class="fw-bold text-dark fs-6">Personil Driver Mobil (${driverList.length})</span>
+                        <span class="badge bg-warning text-dark fw-bold px-2.5 py-1">DRIVER</span>
+                        <span class="fw-bold text-dark fs-6">Driver Mobil (${driverList.length})</span>
                     </div>
                     <div class="d-flex align-items-center gap-2 extra-small">
                         <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1"><i class="bi bi-circle-fill me-1" style="font-size:5px;"></i>${driverOnlineCount} Online</span>
