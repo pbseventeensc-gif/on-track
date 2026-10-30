@@ -1450,10 +1450,19 @@
         showFleetToast('Laporan Excel armada berhasil di-generate!');
     }
 
-    function openServiceHistoryModal(id) {
+    // ==============================================================================
+    // DRIBBLE-INSPIRED MODERN STEPPER MODAL: RIWAYAT & LOG SERVIS ARMADA
+    // Sample Reference: https://dribbble.com/shots/27178378-Add-Property-Stepper-Form
+    // ==============================================================================
+    let currentServiceVehicleId = null;
+    let currentServiceStep = 1;
+
+    function openServiceHistoryModal(id, initialStep = 1, prefillUpcoming = false) {
         const fleet = getStoredFleet();
         const v = fleet.find(item => item.id === id);
         if (!v) return;
+
+        currentServiceVehicleId = v.id;
 
         let modalEl = document.getElementById('modal-service-history');
         if (!modalEl) {
@@ -1461,30 +1470,210 @@
             modalEl.id = 'modal-service-history';
             modalEl.className = 'modal fade';
             modalEl.tabIndex = -1;
+            modalEl.style.zIndex = '2150';
             modalEl.innerHTML = `
-                <div class="modal-dialog modal-dialog-centered modal-lg">
-                    <div class="modal-content rounded-4 border-0 shadow-lg" style="overflow: hidden;">
-                        <div class="modal-header border-bottom py-3 px-4 bg-white">
-                            <div>
-                                <div class="d-flex align-items-center gap-2">
-                                    <h6 class="modal-title fw-bold text-dark mb-0">Riwayat Servis Armada</h6>
-                                    <span class="badge border bg-light text-dark font-monospace px-2 py-0.5" id="hist-modal-plate">-</span>
+                <div class="modal-dialog modal-dialog-centered modal-xl" style="max-width: 980px;">
+                    <div class="modal-content border-0 shadow-lg" style="overflow: hidden; border-radius: 20px;">
+                        <!-- Header (Dribbble Stepper Header) -->
+                        <div class="modal-header border-bottom py-3 px-4 bg-white d-flex align-items-center justify-content-between">
+                            <div class="d-flex align-items-center gap-3">
+                                <button type="button" class="btn btn-sm btn-light border rounded-circle d-flex align-items-center justify-content-center p-0 shadow-xs" 
+                                        style="width: 36px; height: 36px;" data-bs-dismiss="modal" title="Kembali / Tutup">
+                                    <i class="bi bi-arrow-left text-dark"></i>
+                                </button>
+                                <div>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <h6 class="modal-title fw-bold text-dark mb-0 fs-6">Manajemen & Riwayat Servis Armada</h6>
+                                        <span class="badge border font-monospace text-dark px-2 py-0.5" id="hist-modal-plate" style="background: #f8fafc; font-size: 0.75rem;">-</span>
+                                    </div>
+                                    <div class="extra-small text-muted mt-0.5" id="hist-modal-subtitle">Pencatatan log servis berkala, riwayat penggantian suku cadang, dan jadwal armada operasional.</div>
                                 </div>
-                                <div class="extra-small text-muted mt-0.5" id="hist-modal-subtitle">-</div>
                             </div>
                             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                         </div>
-                        <div class="modal-body p-4 bg-white" id="hist-modal-body" style="max-height: 72vh; overflow-y: auto;">
-                        </div>
-                        <div class="modal-footer border-top py-2.5 px-4 bg-white d-flex justify-content-between">
-                            <button type="button" class="btn btn-sm btn-outline-secondary px-3 rounded-2 fw-medium" data-bs-dismiss="modal">Tutup</button>
-                            <div class="d-flex align-items-center gap-2">
-                                <button type="button" class="btn btn-sm btn-outline-dark px-3 rounded-2 fw-medium" id="hist-btn-edit-armada">
-                                    <i class="bi bi-pencil me-1"></i> Edit Armada
-                                </button>
-                                <button type="button" class="btn btn-sm btn-dark px-3 rounded-2 fw-semibold d-inline-flex align-items-center gap-1.5" id="hist-btn-add-record">
-                                    <i class="bi bi-plus-lg"></i> Catat Servis Baru
-                                </button>
+
+                        <!-- Body (Two-Column Layout: Left Stepper Navigation + Right Main Content) -->
+                        <div class="modal-body p-0 bg-white">
+                            <div class="d-flex" style="height: 600px; max-height: calc(85vh - 70px);">
+                                <!-- Left Column: Stepper Progress & Info Navigation (Dribbble Style) -->
+                                <div class="p-4 border-end d-flex flex-column justify-content-between" style="width: 295px; flex-shrink: 0; background: #fafbfc; height: 100%;">
+                                    <div>
+                                        <div class="mb-3.5">
+                                            <div class="extra-small text-uppercase fw-bold text-muted" style="letter-spacing: 0.05em; font-size: 0.7rem;">Alur & Navigasi Servis</div>
+                                            <div class="small fw-semibold text-dark mt-0.5" id="stepper-progress-label">Langkah 1 dari 3: Riwayat Servis</div>
+                                            <div class="progress mt-1.5" style="height: 4px; background: #e2e8f0; border-radius: 99px;">
+                                                <div class="progress-bar bg-dark" id="stepper-progress-bar" style="width: 33%; transition: width 0.3s ease;"></div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Stepper Nav Items -->
+                                        <div class="d-flex flex-column gap-2" id="stepper-nav-items">
+                                            <!-- Step 1 Nav -->
+                                            <div class="stepper-nav-item p-2.5 rounded-3 border d-flex align-items-start gap-2.5" id="step-nav-1" onclick="window.fleetModule.setServiceModalStep(1)" style="cursor: pointer; transition: all 0.2s;">
+                                                <div class="step-num-badge rounded-2 d-flex align-items-center justify-content-center fw-bold" style="width: 26px; height: 26px; font-size: 0.78rem; flex-shrink: 0;" id="step-num-1">1</div>
+                                                <div>
+                                                    <div class="fw-bold text-dark extra-small mb-0.5">Riwayat Servis Selesai</div>
+                                                    <div class="text-muted" style="font-size: 0.72rem;" id="step-sub-1">Log & suku cadang diganti</div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Step 2 Nav -->
+                                            <div class="stepper-nav-item p-2.5 rounded-3 border d-flex align-items-start gap-2.5" id="step-nav-2" onclick="window.fleetModule.setServiceModalStep(2)" style="cursor: pointer; transition: all 0.2s;">
+                                                <div class="step-num-badge rounded-2 d-flex align-items-center justify-content-center fw-bold" style="width: 26px; height: 26px; font-size: 0.78rem; flex-shrink: 0;" id="step-num-2">2</div>
+                                                <div>
+                                                    <div class="fw-bold text-dark extra-small mb-0.5">Jadwal Servis Rutin</div>
+                                                    <div class="text-muted" style="font-size: 0.72rem;" id="step-sub-2">Jatuh tempo & rencana item</div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Step 3 Nav -->
+                                            <div class="stepper-nav-item p-2.5 rounded-3 border d-flex align-items-start gap-2.5" id="step-nav-3" onclick="window.fleetModule.setServiceModalStep(3)" style="cursor: pointer; transition: all 0.2s;">
+                                                <div class="step-num-badge rounded-2 d-flex align-items-center justify-content-center fw-bold" style="width: 26px; height: 26px; font-size: 0.78rem; flex-shrink: 0;" id="step-num-3">3</div>
+                                                <div>
+                                                    <div class="fw-bold text-dark extra-small mb-0.5">Catat Servis Baru</div>
+                                                    <div class="text-muted" style="font-size: 0.72rem;">Formulir log & input part</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Bottom Info Card (Persis Kotak Need Assistance Dribbble) -->
+                                    <div class="p-3 rounded-3 mt-3 border bg-white shadow-xs">
+                                        <div class="d-flex align-items-center gap-1.5 mb-2">
+                                            <i class="bi bi-info-circle text-primary" style="font-size: 0.85rem;"></i>
+                                            <span class="fw-bold text-dark extra-small text-uppercase" style="letter-spacing: 0.04em;">Info Kendaraan</span>
+                                        </div>
+                                        <div class="extra-small text-muted d-flex flex-column gap-1" id="hist-sidebar-meta">
+                                            <!-- Injected dynamically -->
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Right Column: Main Content Panels (Step 1, Step 2, Step 3) -->
+                                <div class="p-4 d-flex flex-column justify-content-between flex-grow-1" style="min-width: 0; height: 100%;">
+                                    <div id="hist-panels-wrapper" style="overflow-y: auto; flex-grow: 1; padding-right: 6px;">
+                                        <!-- Step 1 Panel: Riwayat Servis Selesai -->
+                                        <div id="step-panel-1" class="step-panel">
+                                            <div class="mb-3.5 pb-2.5 border-bottom">
+                                                <h6 class="fw-bold text-dark mb-1">Daftar Riwayat Servis Selesai</h6>
+                                                <p class="text-muted extra-small m-0">Semua catatan servis berkala dan riwayat penggantian suku cadang kendaraan ini.</p>
+                                            </div>
+                                            <div id="step-panel-1-list">
+                                                <!-- Injected dynamically -->
+                                            </div>
+                                        </div>
+
+                                        <!-- Step 2 Panel: Jadwal Servis Rutin Mendatang -->
+                                        <div id="step-panel-2" class="step-panel" style="display: none;">
+                                            <div class="mb-3.5 pb-2.5 border-bottom">
+                                                <h6 class="fw-bold text-dark mb-1">Jadwal Servis Rutin Mendatang</h6>
+                                                <p class="text-muted extra-small m-0">Estimasi jadwal pemeliharaan berkala berikutnya berdasarkan standar operasional armada.</p>
+                                            </div>
+                                            <div id="step-panel-2-content">
+                                                <!-- Injected dynamically -->
+                                            </div>
+                                        </div>
+
+                                        <!-- Step 3 Panel: Formulir Catat Servis Baru (Form Stepper Dribbble) -->
+                                        <div id="step-panel-3" class="step-panel" style="display: none;">
+                                            <div class="mb-3.5 pb-2.5 border-bottom">
+                                                <h6 class="fw-bold text-dark mb-1">Formulir Log Servis Baru</h6>
+                                                <p class="text-muted extra-small m-0">Masukkan data pengerjaan servis, kilometer kendaraan, dan suku cadang yang diganti.</p>
+                                            </div>
+                                            <form id="form-stepper-service-record" onsubmit="event.preventDefault(); window.fleetModule.saveServiceRecord();">
+                                                <input type="hidden" id="add-srv-vehicle-id">
+
+                                                <!-- Row 1: Tanggal & Kilometer -->
+                                                <div class="row g-3 mb-3">
+                                                    <div class="col-md-6">
+                                                        <label class="form-label extra-small fw-bold text-muted text-uppercase mb-1">Tanggal Pengerjaan Servis *</label>
+                                                        <input type="date" id="add-srv-date" class="form-control form-control-sm rounded-3 py-2" required>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <label class="form-label extra-small fw-bold text-muted text-uppercase mb-1">Kilometer Odometer</label>
+                                                        <input type="text" id="add-srv-km" class="form-control form-control-sm rounded-3 py-2" placeholder="Contoh: 45.000 km">
+                                                    </div>
+                                                </div>
+
+                                                <!-- Row 2: Tempat Bengkel & Biaya -->
+                                                <div class="row g-3 mb-3">
+                                                    <div class="col-md-6">
+                                                        <label class="form-label extra-small fw-bold text-muted text-uppercase mb-1">Tempat Servis / Bengkel</label>
+                                                        <input type="text" id="add-srv-workshop" class="form-control form-control-sm rounded-3 py-2" placeholder="Contoh: Bengkel Rekanan">
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <label class="form-label extra-small fw-bold text-muted text-uppercase mb-1">Total Biaya Pengerjaan (Rp)</label>
+                                                        <input type="number" id="add-srv-cost" class="form-control form-control-sm rounded-3 py-2" placeholder="Contoh: 650000">
+                                                    </div>
+                                                </div>
+
+                                                <!-- Row 3: Sparepart / Part yang Diganti -->
+                                                <div class="mb-3">
+                                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                                        <label class="form-label extra-small fw-bold text-muted text-uppercase mb-0">Part / Sparepart yang Diganti *</label>
+                                                        <span class="extra-small text-muted">Klik chip untuk tambah cepat</span>
+                                                    </div>
+                                                    <textarea id="add-srv-items" class="form-control form-control-sm rounded-3 py-2 mb-2" rows="3" placeholder="Tuliskan suku cadang atau part apa saja yang diganti..." required></textarea>
+                                                    
+                                                    <!-- Quick Chips -->
+                                                    <div class="d-flex flex-wrap gap-1" id="add-srv-quick-chips">
+                                                        <button type="button" class="btn btn-xs btn-light border py-1 px-2.5 rounded-2 extra-small" onclick="window.fleetModule.appendServiceHistoryTag('Oli Mesin')">+ Oli Mesin</button>
+                                                        <button type="button" class="btn btn-xs btn-light border py-1 px-2.5 rounded-2 extra-small" onclick="window.fleetModule.appendServiceHistoryTag('Filter Oli')">+ Filter Oli</button>
+                                                        <button type="button" class="btn btn-xs btn-light border py-1 px-2.5 rounded-2 extra-small" onclick="window.fleetModule.appendServiceHistoryTag('Filter Udara')">+ Filter Udara</button>
+                                                        <button type="button" class="btn btn-xs btn-light border py-1 px-2.5 rounded-2 extra-small" onclick="window.fleetModule.appendServiceHistoryTag('Filter Solar')">+ Filter Solar</button>
+                                                        <button type="button" class="btn btn-xs btn-light border py-1 px-2.5 rounded-2 extra-small" onclick="window.fleetModule.appendServiceHistoryTag('Kampas Rem Depan')">+ Kampas Rem Depan</button>
+                                                        <button type="button" class="btn btn-xs btn-light border py-1 px-2.5 rounded-2 extra-small" onclick="window.fleetModule.appendServiceHistoryTag('Kampas Rem Belakang')">+ Kampas Rem Belakang</button>
+                                                        <button type="button" class="btn btn-xs btn-light border py-1 px-2.5 rounded-2 extra-small" onclick="window.fleetModule.appendServiceHistoryTag('Tune Up Busi')">+ Tune Up Busi</button>
+                                                        <button type="button" class="btn btn-xs btn-light border py-1 px-2.5 rounded-2 extra-small" onclick="window.fleetModule.appendServiceHistoryTag('Aki')">+ Aki</button>
+                                                        <button type="button" class="btn btn-xs btn-light border py-1 px-2.5 rounded-2 extra-small" onclick="window.fleetModule.appendServiceHistoryTag('Radiator Coolant')">+ Radiator Coolant</button>
+                                                        <button type="button" class="btn btn-xs btn-light border py-1 px-2.5 rounded-2 extra-small" onclick="window.fleetModule.appendServiceHistoryTag('Minyak Rem')">+ Minyak Rem</button>
+                                                        <button type="button" class="btn btn-xs btn-light border py-1 px-2.5 rounded-2 extra-small" onclick="window.fleetModule.appendServiceHistoryTag('Rotasi Ban')">+ Rotasi Ban</button>
+                                                        <button type="button" class="btn btn-xs btn-light border py-1 px-2.5 rounded-2 extra-small" onclick="window.fleetModule.appendServiceHistoryTag('Gemuk As Roda')">+ Gemuk As Roda</button>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Row 4: Catatan Tambahan -->
+                                                <div class="mb-3">
+                                                    <label class="form-label extra-small fw-bold text-muted text-uppercase mb-1">Catatan Tambahan / Kondisi Kendaraan</label>
+                                                    <input type="text" id="add-srv-notes" class="form-control form-control-sm rounded-3 py-2" placeholder="Contoh: Kondisi mesin prima, tekanan ban telah disesuaikan">
+                                                </div>
+
+                                                <!-- Row 5: Auto Update Next Due Date -->
+                                                <div class="p-3 rounded-3 border bg-light mb-2">
+                                                    <div class="form-check form-switch mb-2">
+                                                        <input class="form-check-input" type="checkbox" id="add-srv-update-next" checked onchange="document.getElementById('add-srv-next-panel').style.display = this.checked ? 'block' : 'none';">
+                                                        <label class="form-check-label extra-small fw-bold text-dark" for="add-srv-update-next">
+                                                            Perbarui Jadwal Servis Rutin Berikutnya Otomatis (+3 Bulan)
+                                                        </label>
+                                                    </div>
+                                                    <div id="add-srv-next-panel">
+                                                        <div class="row g-2">
+                                                            <div class="col-md-6">
+                                                                <label class="extra-small text-muted fw-bold mb-1 d-block">Tanggal Servis Baru:</label>
+                                                                <input type="date" id="add-srv-next-date" class="form-control form-control-sm rounded-2">
+                                                            </div>
+                                                            <div class="col-md-6">
+                                                                <label class="extra-small text-muted fw-bold mb-1 d-block">Rencana Servis Berikutnya:</label>
+                                                                <input type="text" id="add-srv-next-plan" class="form-control form-control-sm rounded-2" value="Ganti Oli Mesin, Filter Oli, Servis Berkala">
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </div>
+
+                                    <!-- Bottom Action Bar (Dribbble Stepper Action Bar) -->
+                                    <div class="d-flex align-items-center justify-content-between pt-3 mt-3 border-top">
+                                        <button type="button" class="btn btn-sm btn-link text-muted text-decoration-none fw-semibold p-0" id="hist-btn-left-action" onclick="window.fleetModule.handleServiceModalLeftAction()">
+                                            Tutup
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-dark fw-semibold px-4 py-2 rounded-3 shadow-xs d-inline-flex align-items-center gap-1.5" id="hist-btn-right-action" onclick="window.fleetModule.handleServiceModalRightAction()">
+                                            <span id="hist-btn-right-label">+ Catat Servis Baru</span>
+                                            <i class="bi bi-arrow-right"></i>
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1493,6 +1682,7 @@
             document.body.appendChild(modalEl);
         }
 
+        // Header Meta Info
         const plateEl = document.getElementById('hist-modal-plate');
         if (plateEl) plateEl.innerText = v.plate_number;
 
@@ -1505,28 +1695,46 @@
         const rawPlan = v.service_details || 'Servis Berkala Rutin';
         const planItems = rawPlan.split(/[,;\n•]+/).map(s => s.trim()).filter(Boolean);
 
-        const bodyEl = document.getElementById('hist-modal-body');
-        if (bodyEl) {
-            let historyHtml = '';
+        // Sidebar Meta Card Info
+        const metaEl = document.getElementById('hist-sidebar-meta');
+        if (metaEl) {
+            metaEl.innerHTML = `
+                <div><b class="text-dark">Plat Nomor:</b> ${v.plate_number}</div>
+                <div><b class="text-dark">Driver:</b> ${v.assigned_person_name || '-'}</div>
+                <div><b class="text-dark">Kategori:</b> ${cleanCat}</div>
+                <div><b class="text-dark">Pajak STNK:</b> ${formatPrettyDate(v.tax_due_date)}</div>
+                <div><b class="text-dark">Uji KIR:</b> ${v.kir_due_date ? formatPrettyDate(v.kir_due_date) : 'Bebas KIR'}</div>
+            `;
+        }
+
+        // Stepper Nav Subtitles
+        const sub1 = document.getElementById('step-sub-1');
+        if (sub1) sub1.innerText = `${history.length} Catatan Pengerjaan`;
+
+        const sub2 = document.getElementById('step-sub-2');
+        if (sub2) sub2.innerText = `${ev.serviceAlert.label} (${formatPrettyDate(v.service_due_date)})`;
+
+        // Render Step 1: Riwayat List
+        const list1 = document.getElementById('step-panel-1-list');
+        if (list1) {
             if (history.length === 0) {
-                historyHtml = `
+                list1.innerHTML = `
                     <div class="text-center py-5 bg-white rounded-3 border p-4">
                         <div class="text-secondary mb-2"><i class="bi bi-tools fs-2 text-muted"></i></div>
                         <h6 class="fw-bold text-dark mb-1">Belum Ada Riwayat Servis Tercatat</h6>
-                        <p class="text-muted extra-small mb-3">Catat servis pertama untuk memantau penggantian part kendaraan ini.</p>
-                        <button class="btn btn-sm btn-dark fw-semibold px-3" onclick="window.fleetModule.openAddServiceRecordModal('${v.id}')">
+                        <p class="text-muted extra-small mb-3">Catat servis pertama untuk memantau penggantian suku cadang kendaraan ini.</p>
+                        <button class="btn btn-sm btn-dark fw-semibold px-3 rounded-2" onclick="window.fleetModule.setServiceModalStep(3)">
                             <i class="bi bi-plus-lg me-1"></i> Catat Servis Pertama
                         </button>
                     </div>
                 `;
             } else {
-                historyHtml = history.map((rec, idx) => {
+                list1.innerHTML = history.map((rec, idx) => {
                     const recItems = (rec.replaced_items || '').split(/[,;\n•]+/).map(s => s.trim()).filter(Boolean);
                     const isLatest = idx === 0;
 
                     return `
                         <div class="border rounded-3 p-3.5 mb-3 bg-white shadow-xs">
-                            <!-- Header Baris Riwayat -->
                             <div class="d-flex flex-wrap align-items-center justify-content-between pb-2 mb-2.5 border-bottom gap-2">
                                 <div class="d-flex flex-wrap align-items-center gap-2">
                                     <span class="font-monospace fw-bold text-dark fs-6">${formatPrettyDate(rec.date)}</span>
@@ -1547,7 +1755,6 @@
                                 </div>
                             </div>
 
-                            <!-- Sparepart / Part yang Diganti (Clean Minimal Tags, No Color Block) -->
                             <div class="mb-2.5">
                                 <div class="extra-small text-muted mb-1.5 fw-medium">Sparepart & Part yang Diganti:</div>
                                 <div class="d-flex flex-wrap gap-1.5">
@@ -1560,7 +1767,6 @@
                                 </div>
                             </div>
 
-                            <!-- Catatan & Aksi Hapus -->
                             <div class="d-flex flex-wrap justify-content-between align-items-center pt-2 border-top gap-2">
                                 <div class="extra-small text-muted">
                                     ${rec.notes ? `<span class="text-dark">${rec.notes}</span>` : '<span class="text-muted fst-italic">Tidak ada catatan tambahan</span>'}
@@ -1577,220 +1783,190 @@
                     `;
                 }).join('');
             }
+        }
 
-            bodyEl.innerHTML = `
-                <!-- Jadwal Servis Rutin Berikutnya (Clean Minimalist, No Color Block) -->
-                <div class="card border rounded-3 p-3.5 mb-3.5 bg-white shadow-xs">
-                    <div class="d-flex flex-wrap justify-content-between align-items-center pb-2.5 mb-2.5 border-bottom gap-2">
+        // Render Step 2: Jadwal Rutin Content
+        const content2 = document.getElementById('step-panel-2-content');
+        if (content2) {
+            content2.innerHTML = `
+                <div class="card border rounded-3 p-4 bg-white shadow-xs mb-3">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center pb-3 mb-3 border-bottom gap-2">
                         <div>
                             <div class="extra-small text-muted fw-semibold text-uppercase" style="letter-spacing: 0.04em;">Jadwal Servis Rutin Berikutnya</div>
                             <div class="d-flex align-items-center gap-2 mt-1">
-                                <span class="font-monospace fw-bold text-dark fs-6">${formatPrettyDate(v.service_due_date)}</span>
-                                <span class="badge bg-light text-secondary border px-2 py-0.5 extra-small fw-semibold">
+                                <span class="font-monospace fw-bold text-dark fs-5">${formatPrettyDate(v.service_due_date)}</span>
+                                <span class="badge bg-light text-secondary border px-2.5 py-1 extra-small fw-semibold">
                                     ${ev.serviceAlert.label}
                                 </span>
                             </div>
                         </div>
-                        <button class="btn btn-sm btn-outline-dark fw-semibold px-3 py-1.5 rounded-2 d-inline-flex align-items-center gap-1.5" 
-                                style="font-size: 0.78rem;" 
-                                onclick="window.fleetModule.openAddServiceRecordModal('${v.id}', true)">
+                        <button class="btn btn-sm btn-outline-dark fw-semibold px-3 py-2 rounded-2 d-inline-flex align-items-center gap-1.5"
+                                onclick="window.fleetModule.setServiceModalStep(3, true)">
                             <i class="bi bi-check-lg"></i>
-                            <span>Tandai Servis Selesai</span>
+                            <span>Tandai Selesai & Buka Formulir</span>
                         </button>
                     </div>
-                    <div class="extra-small text-muted mb-1.5 fw-medium">Rencana Item Servis Mendatang:</div>
-                    <div class="d-flex flex-wrap gap-1.5">
-                        ${planItems.map(item => `
-                            <span class="badge bg-light text-dark border px-2.5 py-1 extra-small fw-normal d-inline-flex align-items-center gap-1">
-                                <i class="bi bi-wrench text-muted" style="font-size: 0.68rem;"></i> ${item}
-                            </span>
-                        `).join('')}
-                    </div>
-                </div>
 
-                <!-- Bagian Riwayat Sebelumnya -->
-                <div class="d-flex align-items-center justify-content-between mb-2.5 px-1">
-                    <div class="fw-semibold text-dark extra-small text-uppercase d-flex align-items-center gap-1.5">
-                        <i class="bi bi-journal-text text-secondary"></i>
-                        <span>Riwayat Servis Sebelumnya (${history.length} Catatan)</span>
+                    <div class="mb-3">
+                        <div class="extra-small text-muted mb-2 fw-medium">Rencana Item Servis Mendatang:</div>
+                        <div class="d-flex flex-wrap gap-1.5">
+                            ${planItems.map(item => `
+                                <span class="badge bg-light text-dark border px-2.5 py-1.5 extra-small fw-normal d-inline-flex align-items-center gap-1.5">
+                                    <i class="bi bi-wrench text-muted" style="font-size: 0.72rem;"></i> ${item}
+                                </span>
+                            `).join('')}
+                        </div>
                     </div>
-                    <span class="extra-small text-muted">Diurutkan dari servis terbaru</span>
-                </div>
 
-                <div class="service-history-list">
-                    ${historyHtml}
+                    <div class="p-3 rounded-3 bg-light border extra-small text-muted">
+                        <i class="bi bi-shield-check text-success me-1"></i>
+                        <span>Pemeliharaan rutin dilakukan secara berkala setiap 3-4 bulan atau 10.000 KM demi menjaga kondisi operasional dan efisiensi armada.</span>
+                    </div>
                 </div>
             `;
         }
 
-        const editArmadaBtn = document.getElementById('hist-btn-edit-armada');
-        if (editArmadaBtn) {
-            editArmadaBtn.onclick = () => {
-                const bsModal = bootstrap.Modal.getInstance(modalEl);
-                if (bsModal) bsModal.hide();
-                openEditFleetModal(v.id);
-            };
-        }
+        // Initialize Form Values in Step 3
+        const idInput = document.getElementById('add-srv-vehicle-id');
+        if (idInput) idInput.value = v.id;
+        
+        const now = new Date();
+        const dateInput = document.getElementById('add-srv-date');
+        if (dateInput) dateInput.value = now.toISOString().split('T')[0];
+        
+        const kmInput = document.getElementById('add-srv-km');
+        if (kmInput) kmInput.value = '';
+        
+        const wsInput = document.getElementById('add-srv-workshop');
+        if (wsInput) wsInput.value = '';
+        
+        const costInput = document.getElementById('add-srv-cost');
+        if (costInput) costInput.value = '';
+        
+        const notesInput = document.getElementById('add-srv-notes');
+        if (notesInput) notesInput.value = '';
+        
+        const itemsInput = document.getElementById('add-srv-items');
+        if (itemsInput) itemsInput.value = (prefillUpcoming && v.service_details) ? v.service_details : '';
 
-        const addRecordBtn = document.getElementById('hist-btn-add-record');
-        if (addRecordBtn) {
-            addRecordBtn.onclick = () => {
-                openAddServiceRecordModal(v.id, false);
-            };
-        }
+        const nextMonth = new Date(now.getFullYear(), now.getMonth() + 3, now.getDate());
+        const nextDateInput = document.getElementById('add-srv-next-date');
+        if (nextDateInput) nextDateInput.value = nextMonth.toISOString().split('T')[0];
 
-        const bsModal = new bootstrap.Modal(modalEl);
+        // Activate requested step
+        setServiceModalStep(initialStep, prefillUpcoming);
+
+        const bsModal = bootstrap.Modal.getOrCreateInstance(modalEl);
         bsModal.show();
     }
 
-    function openAddServiceRecordModal(vehicleId, isFromUpcoming = false) {
-        const fleet = getStoredFleet();
-        const v = fleet.find(item => item.id === vehicleId);
-        if (!v) return;
+    function setServiceModalStep(step, prefillUpcoming = false) {
+        currentServiceStep = step;
 
-        let modalEl = document.getElementById('modal-add-service-record');
-        if (!modalEl) {
-            modalEl = document.createElement('div');
-            modalEl.id = 'modal-add-service-record';
-            modalEl.className = 'modal fade';
-            modalEl.tabIndex = -1;
-            modalEl.innerHTML = `
-                <div class="modal-dialog modal-dialog-centered">
-                    <div class="modal-content rounded-4 border-0 shadow-lg" style="overflow: hidden;">
-                        <div class="modal-header border-bottom py-3 px-4 bg-white">
-                            <h6 class="modal-title fw-bold text-dark d-flex align-items-center gap-2">
-                                <i class="bi bi-wrench-adjustable-circle text-primary fs-5"></i>
-                                <span id="add-srv-modal-title">Catat Riwayat Servis Baru</span>
-                            </h6>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                        </div>
-                        <div class="modal-body p-4 bg-white">
-                            <form id="form-add-service-record" onsubmit="event.preventDefault(); window.fleetModule.saveServiceRecord();">
-                                <input type="hidden" id="add-srv-vehicle-id">
-
-                                <!-- Vehicle info pill -->
-                                <div class="d-flex align-items-center justify-content-between p-2.5 rounded-3 mb-3 bg-light border">
-                                    <div>
-                                        <div class="extra-small text-muted fw-bold text-uppercase">Kendaraan</div>
-                                        <div class="fw-bold text-dark font-monospace" id="add-srv-plate">-</div>
-                                    </div>
-                                    <div>
-                                        <div class="extra-small text-muted fw-bold text-uppercase">Driver</div>
-                                        <div class="fw-semibold text-dark small" id="add-srv-driver">-</div>
-                                    </div>
-                                </div>
-
-                                <div class="row g-2.5 mb-3">
-                                    <div class="col-6">
-                                        <label class="form-label extra-small fw-bold text-uppercase text-muted mb-1">Tanggal Pengerjaan Servis *</label>
-                                        <input type="date" id="add-srv-date" class="form-control form-control-sm" required>
-                                    </div>
-                                    <div class="col-6">
-                                        <label class="form-label extra-small fw-bold text-uppercase text-muted mb-1">Kilometer Odometer</label>
-                                        <input type="text" id="add-srv-km" class="form-control form-control-sm" placeholder="Contoh: 45.000 km">
-                                    </div>
-                                </div>
-
-                                <div class="row g-2.5 mb-3">
-                                    <div class="col-7">
-                                        <label class="form-label extra-small fw-bold text-uppercase text-muted mb-1">Bengkel / Tempat Servis</label>
-                                        <input type="text" id="add-srv-workshop" class="form-control form-control-sm" placeholder="Nama bengkel / rekanan">
-                                    </div>
-                                    <div class="col-5">
-                                        <label class="form-label extra-small fw-bold text-uppercase text-muted mb-1">Total Biaya (Rp)</label>
-                                        <input type="number" id="add-srv-cost" class="form-control form-control-sm" placeholder="Contoh: 650000">
-                                    </div>
-                                </div>
-
-                                <!-- Sparepart / Part yang Diganti -->
-                                <div class="mb-3">
-                                    <div class="d-flex justify-content-between align-items-center mb-1">
-                                        <label class="form-label extra-small fw-bold text-uppercase text-muted mb-0">Part / Sparepart yang Diganti *</label>
-                                        <span class="extra-small text-primary fw-semibold">Klik chip untuk tambah cepat</span>
-                                    </div>
-                                    <textarea id="add-srv-items" class="form-control form-control-sm mb-2" rows="3" placeholder="Tuliskan part apa saja yang diganti, pisahkan dengan koma..." required></textarea>
-                                    
-                                    <!-- Quick Tags -->
-                                    <div class="d-flex flex-wrap gap-1" id="add-srv-quick-chips">
-                                        <button type="button" class="btn btn-xs btn-light border py-0.5 px-2 rounded-2 extra-small" onclick="window.fleetModule.appendServiceHistoryTag('Oli Mesin')">+ Oli Mesin</button>
-                                        <button type="button" class="btn btn-xs btn-light border py-0.5 px-2 rounded-2 extra-small" onclick="window.fleetModule.appendServiceHistoryTag('Filter Oli')">+ Filter Oli</button>
-                                        <button type="button" class="btn btn-xs btn-light border py-0.5 px-2 rounded-2 extra-small" onclick="window.fleetModule.appendServiceHistoryTag('Filter Udara')">+ Filter Udara</button>
-                                        <button type="button" class="btn btn-xs btn-light border py-0.5 px-2 rounded-2 extra-small" onclick="window.fleetModule.appendServiceHistoryTag('Filter Solar')">+ Filter Solar</button>
-                                        <button type="button" class="btn btn-xs btn-light border py-0.5 px-2 rounded-2 extra-small" onclick="window.fleetModule.appendServiceHistoryTag('Kampas Rem Depan')">+ Kampas Rem Depan</button>
-                                        <button type="button" class="btn btn-xs btn-light border py-0.5 px-2 rounded-2 extra-small" onclick="window.fleetModule.appendServiceHistoryTag('Kampas Rem Belakang')">+ Kampas Rem Belakang</button>
-                                        <button type="button" class="btn btn-xs btn-light border py-0.5 px-2 rounded-2 extra-small" onclick="window.fleetModule.appendServiceHistoryTag('Tune Up Busi')">+ Tune Up Busi</button>
-                                        <button type="button" class="btn btn-xs btn-light border py-0.5 px-2 rounded-2 extra-small" onclick="window.fleetModule.appendServiceHistoryTag('Aki / Accu')">+ Aki</button>
-                                        <button type="button" class="btn btn-xs btn-light border py-0.5 px-2 rounded-2 extra-small" onclick="window.fleetModule.appendServiceHistoryTag('Radiator Coolant')">+ Radiator Coolant</button>
-                                        <button type="button" class="btn btn-xs btn-light border py-0.5 px-2 rounded-2 extra-small" onclick="window.fleetModule.appendServiceHistoryTag('Minyak Rem')">+ Minyak Rem</button>
-                                        <button type="button" class="btn btn-xs btn-light border py-0.5 px-2 rounded-2 extra-small" onclick="window.fleetModule.appendServiceHistoryTag('Rotasi Ban')">+ Rotasi Ban</button>
-                                        <button type="button" class="btn btn-xs btn-light border py-0.5 px-2 rounded-2 extra-small" onclick="window.fleetModule.appendServiceHistoryTag('Grease As Roda')">+ Gemuk As Roda</button>
-                                    </div>
-                                </div>
-
-                                <div class="mb-3">
-                                    <label class="form-label extra-small fw-bold text-uppercase text-muted mb-1">Catatan Tambahan / Kondisi</label>
-                                    <input type="text" id="add-srv-notes" class="form-control form-control-sm" placeholder="Contoh: Kondisi mesin prima, tekanan ban disesuaikan">
-                                </div>
-
-                                <!-- Auto-Update Next Service Due Date -->
-                                <div class="p-3 rounded-3 bg-light border mb-2">
-                                    <div class="form-check form-switch mb-2">
-                                        <input class="form-check-input" type="checkbox" id="add-srv-update-next" checked onchange="document.getElementById('add-srv-next-panel').style.display = this.checked ? 'block' : 'none';">
-                                        <label class="form-check-label extra-small fw-bold text-dark" for="add-srv-update-next">
-                                            Perbarui Jadwal Servis Rutin Berikutnya Otomatis
-                                        </label>
-                                    </div>
-                                    <div id="add-srv-next-panel">
-                                        <div class="row g-2">
-                                            <div class="col-6">
-                                                <label class="extra-small text-muted fw-bold mb-1 d-block">Tanggal Servis Baru (+3 Bulan):</label>
-                                                <input type="date" id="add-srv-next-date" class="form-control form-control-sm">
-                                            </div>
-                                            <div class="col-6">
-                                                <label class="extra-small text-muted fw-bold mb-1 d-block">Rencana Servis Baru:</label>
-                                                <input type="text" id="add-srv-next-plan" class="form-control form-control-sm" value="Ganti Oli Mesin, Filter Oli, Servis Berkala">
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="d-flex justify-content-end gap-2 mt-3 pt-2 border-top">
-                                    <button type="button" class="btn btn-sm btn-outline-secondary fw-medium px-3 rounded-2" data-bs-dismiss="modal">Batal</button>
-                                    <button type="submit" class="btn btn-sm btn-dark fw-semibold px-3 rounded-2">Simpan Riwayat Servis</button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-            `;
-            document.body.appendChild(modalEl);
-        }
-
-        document.getElementById('add-srv-vehicle-id').value = v.id;
-        document.getElementById('add-srv-plate').innerText = v.plate_number;
-        document.getElementById('add-srv-driver').innerText = v.assigned_person_name || '-';
-
-        const now = new Date();
-        const todayStr = now.toISOString().split('T')[0];
-        document.getElementById('add-srv-date').value = todayStr;
-        document.getElementById('add-srv-km').value = '';
-        document.getElementById('add-srv-workshop').value = '';
-        document.getElementById('add-srv-cost').value = '';
-        document.getElementById('add-srv-notes').value = '';
-
-        if (isFromUpcoming && v.service_details) {
-            document.getElementById('add-srv-items').value = v.service_details;
+        // Progress bar and labels
+        const labelEl = document.getElementById('stepper-progress-label');
+        const barEl = document.getElementById('stepper-progress-bar');
+        if (step === 1) {
+            if (labelEl) labelEl.innerText = 'Langkah 1 dari 3: Riwayat Servis Selesai';
+            if (barEl) barEl.style.width = '33%';
+        } else if (step === 2) {
+            if (labelEl) labelEl.innerText = 'Langkah 2 dari 3: Jadwal Rutin';
+            if (barEl) barEl.style.width = '66%';
         } else {
-            document.getElementById('add-srv-items').value = '';
+            if (labelEl) labelEl.innerText = 'Langkah 3 dari 3: Formulir Servis Baru';
+            if (barEl) barEl.style.width = '100%';
         }
 
-        // Set default next service date 3 months ahead
-        const nextMonth = new Date(now.getFullYear(), now.getMonth() + 3, now.getDate());
-        const nextStr = nextMonth.toISOString().split('T')[0];
-        document.getElementById('add-srv-next-date').value = nextStr;
+        // Nav Items Highlighting
+        [1, 2, 3].forEach(s => {
+            const navEl = document.getElementById(`step-nav-${s}`);
+            const badgeEl = document.getElementById(`step-num-${s}`);
+            const panelEl = document.getElementById(`step-panel-${s}`);
 
-        const bsModal = new bootstrap.Modal(modalEl);
-        bsModal.show();
+            if (s === step) {
+                if (navEl) {
+                    navEl.style.background = '#ffffff';
+                    navEl.style.borderColor = '#0f172a';
+                    navEl.style.boxShadow = '0 2px 8px rgba(15, 23, 42, 0.08)';
+                }
+                if (badgeEl) {
+                    badgeEl.style.background = '#0f172a';
+                    badgeEl.style.color = '#ffffff';
+                }
+                if (panelEl) panelEl.style.display = 'block';
+            } else {
+                if (navEl) {
+                    navEl.style.background = 'transparent';
+                    navEl.style.borderColor = '#e2e8f0';
+                    navEl.style.boxShadow = 'none';
+                }
+                if (badgeEl) {
+                    badgeEl.style.background = '#e2e8f0';
+                    badgeEl.style.color = '#475569';
+                }
+                if (panelEl) panelEl.style.display = 'none';
+            }
+        });
+
+        // Prefill upcoming items if requested
+        if (prefillUpcoming && currentServiceVehicleId) {
+            const fleet = getStoredFleet();
+            const v = fleet.find(item => item.id === currentServiceVehicleId);
+            if (v && v.service_details) {
+                const itemsArea = document.getElementById('add-srv-items');
+                if (itemsArea) itemsArea.value = v.service_details;
+            }
+        }
+
+        // Update Bottom Action Bar Buttons
+        const leftBtn = document.getElementById('hist-btn-left-action');
+        const rightLabel = document.getElementById('hist-btn-right-label');
+
+        if (step === 1) {
+            if (leftBtn) {
+                leftBtn.innerText = 'Tutup';
+                leftBtn.setAttribute('data-bs-dismiss', 'modal');
+            }
+            if (rightLabel) rightLabel.innerText = '+ Catat Servis Baru';
+        } else if (step === 2) {
+            if (leftBtn) {
+                leftBtn.innerText = '← Lihat Riwayat';
+                leftBtn.removeAttribute('data-bs-dismiss');
+            }
+            if (rightLabel) rightLabel.innerText = 'Buka Formulir Servis';
+        } else {
+            if (leftBtn) {
+                leftBtn.innerText = '← Kembali ke Riwayat';
+                leftBtn.removeAttribute('data-bs-dismiss');
+            }
+            if (rightLabel) rightLabel.innerText = 'Simpan Riwayat Servis';
+        }
+    }
+
+    function handleServiceModalLeftAction() {
+        if (currentServiceStep === 1) {
+            const modalEl = document.getElementById('modal-service-history');
+            if (modalEl) {
+                const bsModal = bootstrap.Modal.getInstance(modalEl);
+                if (bsModal) bsModal.hide();
+            }
+        } else {
+            setServiceModalStep(1);
+        }
+    }
+
+    function handleServiceModalRightAction() {
+        if (currentServiceStep === 1) {
+            setServiceModalStep(3, false);
+        } else if (currentServiceStep === 2) {
+            setServiceModalStep(3, true);
+        } else {
+            saveServiceRecord();
+        }
+    }
+
+    function openAddServiceRecordModal(vehicleId, isFromUpcoming = false) {
+        openServiceHistoryModal(vehicleId, 3, isFromUpcoming);
     }
 
     function appendServiceHistoryTag(tagName) {
@@ -1855,16 +2031,25 @@
 
         saveStoredFleet(fleet);
 
-        // Hide add modal
-        const addModalEl = document.getElementById('modal-add-service-record');
-        const bsAddModal = bootstrap.Modal.getInstance(addModalEl);
-        if (bsAddModal) bsAddModal.hide();
-
         showFleetToast(`Riwayat servis ${v.plate_number} berhasil disimpan!`);
         renderFleetInventoryView();
+        openServiceHistoryModal(v.id, 1);
+    }
 
-        // Re-render and show history modal
-        openServiceHistoryModal(v.id);
+    function deleteServiceRecord(vehicleId, recordId) {
+        assertSuperAdmin();
+        if (!confirm('Apakah Anda yakin ingin menghapus catatan riwayat servis ini?')) return;
+
+        const fleet = getStoredFleet();
+        const v = fleet.find(item => item.id === vehicleId);
+        if (!v || !Array.isArray(v.service_history)) return;
+
+        v.service_history = v.service_history.filter(r => r.id !== recordId);
+        saveStoredFleet(fleet);
+
+        showFleetToast('Catatan riwayat servis telah dihapus.');
+        renderFleetInventoryView();
+        openServiceHistoryModal(v.id, 1);
     }
 
     function deleteServiceRecord(vehicleId, recordId) {
@@ -1911,7 +2096,10 @@
         openEditCentralPhoneModal,
         sendCentralAlertWhatsApp,
         getCentralPhone,
-        saveCentralPhone
+        saveCentralPhone,
+        setServiceModalStep,
+        handleServiceModalLeftAction,
+        handleServiceModalRightAction
     };
 
     // Auto-init on load if super admin

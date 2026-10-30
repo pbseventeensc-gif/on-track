@@ -922,3 +922,12 @@ select.wtrack-select-hidden {
 .dark-theme .wtrack-dropdown-items-list::-webkit-scrollbar-thumb {
     background: #475569;
 }
+
+/* Modal Z-Index override to stay above sidebar (z-index: 2000) */
+.modal {
+    z-index: 2150 !important;
+}
+.modal-backdrop {
+    z-index: 2140 !important;
+}
+
