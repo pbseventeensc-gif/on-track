@@ -148,7 +148,7 @@ const MASTER_COURIERS = [
     { canonicalId: 'beto', displayName: 'Beto', role: 'kurir', vehicleType: 'motor', defaultUid: 'l6fLsN7ijQdq5m2tcUs2xpmMFv63', matchTokens: ['beto', 'betomotor99'] },
     { canonicalId: 'eri', displayName: 'Eri', role: 'kurir', vehicleType: 'motor', defaultUid: 'CkRWbGxehCfVOi4iMWvnm66W9NM2', matchTokens: ['eri', 'erimotor04', 'ckrwb'] },
     { canonicalId: 'irfan', displayName: 'Irfan', role: 'kurir', vehicleType: 'motor', defaultUid: 'gQyw0Ot9pWY9DuWugNK7IpwaM352', matchTokens: ['irfan', 'irfanmotor05', 'gqyw0'] },
-    { canonicalId: 'baikaqi', displayName: 'Baikaqi', role: 'kurir', vehicleType: 'motor', defaultUid: 'xONhqVSNSYcEcGCZyW2cLGJWQt92', matchTokens: ['baikaqi', 'bayhaqi', 'muhamadbayhaqi0', 'xonh'] },
+    { canonicalId: 'baihaqi', displayName: 'Baihaqi', role: 'kurir', vehicleType: 'motor', defaultUid: 'xONhqVSNSYcEcGCZyW2cLGJWQt92', matchTokens: ['baihaqi', 'baikaqi', 'bayhaqi', 'baykaqi', 'muhamadbayhaqi0', 'xonh'] },
     { canonicalId: 'haris', displayName: 'Haris', role: 'kurir', vehicleType: 'motor', defaultUid: 'uWA0dLFxj0MsGe3YXHuvHjg1GZs1', matchTokens: ['haris', 'harismotor02', 'uwa0d'] },
     { canonicalId: 'umar', displayName: 'Umar', role: 'kurir', vehicleType: 'motor', defaultUid: 'eRg9WzDaEgPPl6jcEzo0ERYNyI82', matchTokens: ['umar', 'umarmotor01', 'erg9w'] },
     { canonicalId: 'noval', displayName: 'Noval', role: 'kurir', vehicleType: 'motor', defaultUid: 'D9hmxHZ2SJa2BgZN8DO2cT6lgGh1', matchTokens: ['noval', 'novalempah2', 'novalganteng1', 'd9hmx', 'ek74'] },
@@ -179,6 +179,7 @@ window.COURIER_FLEET_MAPPING = COURIER_FLEET_MAPPING;
 const COURIER_PHOTO_MAP = {
     'agung': '/assets/couriers/Agung.jpeg',
     'ahmad': '/assets/couriers/Ahmad.jpeg',
+    'baihaqi': '/assets/couriers/Baykaqi.jpeg',
     'baikaqi': '/assets/couriers/Baykaqi.jpeg',
     'bayhaqi': '/assets/couriers/Baykaqi.jpeg',
     'baykaqi': '/assets/couriers/Baykaqi.jpeg',
@@ -544,7 +545,7 @@ function getCourierColor(id, optName = '') {
     if (checkStr.includes('beto')) return '#0D9488';
     if (checkStr.includes('eri')) return '#16A34A';
     if (checkStr.includes('irfan')) return '#D97706';
-    if (checkStr.includes('baikaqi') || checkStr.includes('bayhaqi')) return '#9333EA';
+    if (checkStr.includes('baihaqi') || checkStr.includes('baikaqi') || checkStr.includes('bayhaqi')) return '#9333EA';
     if (checkStr.includes('haris')) return '#DB2777';
     if (checkStr.includes('umar')) return '#0284C7';
     if (checkStr.includes('noval')) return '#EA580C';
@@ -2791,7 +2792,7 @@ window.setMonitorCategoryTab = function(tab) {
 
 function getPersonilCategory(cId, cName) {
     const checkStr = (String(cName || '') + ' ' + String(cId || '')).toLowerCase();
-    const kurirTokens = ['ahmad', 'beto', 'eri', 'irfan', 'baikaqi', 'bayhaqi', 'haris', 'umar', 'noval', 'jay', 'ferdi', 'jagat', 'jagad'];
+    const kurirTokens = ['ahmad', 'beto', 'eri', 'irfan', 'baihaqi', 'baikaqi', 'bayhaqi', 'haris', 'umar', 'noval', 'jay', 'ferdi', 'jagat', 'jagad'];
     const driverTokens = ['altur', 'rizki', 'soleh', 'romi', 'firdaus', 'alan', 'yakub', 'iwan', 'agung', 'husen', 'juhu'];
 
     if (driverTokens.some(d => checkStr.includes(d))) return 'driver';

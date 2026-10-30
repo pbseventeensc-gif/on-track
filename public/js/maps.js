@@ -34,7 +34,7 @@ window.getCourierColor = function(id, optName = '') {
     if (checkStr.includes('beto')) return '#0D9488'; // Teal
     if (checkStr.includes('eri')) return '#16A34A'; // Green
     if (checkStr.includes('irfan')) return '#D97706'; // Amber
-    if (checkStr.includes('baikaqi') || checkStr.includes('bayhaqi') || checkStr.includes('xonh')) return '#9333EA'; // Purple
+    if (checkStr.includes('baihaqi') || checkStr.includes('baikaqi') || checkStr.includes('bayhaqi') || checkStr.includes('xonh')) return '#9333EA'; // Purple
     if (checkStr.includes('haris')) return '#DB2777'; // Pink
     if (checkStr.includes('umar')) return '#0284C7'; // Sky Blue
     if (checkStr.includes('noval') || checkStr.includes('ek74')) return '#EA580C'; // Orange
