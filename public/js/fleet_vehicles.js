@@ -963,8 +963,10 @@
                                     onclick="window.fleetModule.openEditFleetModal('${v.id}')" title="Edit Data Kendaraan">
                                 <i class="bi bi-pencil me-1 text-muted"></i>Edit
                             </button>
-                            <button class="btn btn-sm btn-outline-danger py-1 px-2 fw-semibold" 
-                                    style="border-radius: 6px; font-size: 0.72rem; border-color: #fecaca; color: #dc2626; background: #ffffff;" 
+                            <button class="btn btn-sm py-1 px-2 fw-semibold" 
+                                    style="border-radius: 6px; font-size: 0.72rem; border: 1px solid rgba(239, 68, 68, 0.2); color: #ef4444; background: rgba(239, 68, 68, 0.08); transition: all 0.2s;" 
+                                    onmouseover="this.style.background='rgba(239, 68, 68, 0.18)'; this.style.color='#dc2626';"
+                                    onmouseout="this.style.background='rgba(239, 68, 68, 0.08)'; this.style.color='#ef4444';"
                                     onclick="window.fleetModule.deleteFleetVehicle('${v.id}')" title="Hapus Kendaraan">
                                 <i class="bi bi-trash"></i>
                             </button>
@@ -1475,16 +1477,16 @@
                 <div class="modal-dialog modal-dialog-centered modal-xl" style="max-width: 980px;">
                     <div class="modal-content border-0 shadow-lg" style="overflow: hidden; border-radius: 20px;">
                         <!-- Header (Dribbble Stepper Header) -->
-                        <div class="modal-header border-bottom py-3 px-4 bg-white d-flex align-items-center justify-content-between">
+                        <div class="modal-header border-bottom py-3 px-4 d-flex align-items-center justify-content-between" style="background: #fafbfc; border-color: #e2e8f0;">
                             <div class="d-flex align-items-center gap-3">
-                                <button type="button" class="btn btn-sm btn-light border rounded-circle d-flex align-items-center justify-content-center p-0 shadow-xs" 
-                                        style="width: 36px; height: 36px;" data-bs-dismiss="modal" title="Kembali / Tutup">
+                                <button type="button" class="btn btn-sm btn-white border rounded-circle d-flex align-items-center justify-content-center p-0 shadow-xs" 
+                                        style="width: 36px; height: 36px; background: #ffffff; border-color: #e2e8f0;" data-bs-dismiss="modal" title="Kembali / Tutup">
                                     <i class="bi bi-arrow-left text-dark"></i>
                                 </button>
                                 <div>
                                     <div class="d-flex align-items-center gap-2">
                                         <h6 class="modal-title fw-bold text-dark mb-0 fs-6">Manajemen & Riwayat Servis Armada</h6>
-                                        <span class="badge border font-monospace text-dark px-2 py-0.5" id="hist-modal-plate" style="background: #f8fafc; font-size: 0.75rem;">-</span>
+                                        <span class="badge border font-monospace px-2 py-0.5 rounded-2" id="hist-modal-plate" style="background: rgba(37, 99, 235, 0.08); color: #1d4ed8; border-color: rgba(37, 99, 235, 0.2); font-size: 0.75rem;">-</span>
                                     </div>
                                     <div class="extra-small text-muted mt-0.5" id="hist-modal-subtitle">Pencatatan log servis berkala, riwayat penggantian suku cadang, dan jadwal armada operasional.</div>
                                 </div>
@@ -1496,21 +1498,21 @@
                         <div class="modal-body p-0 bg-white">
                             <div class="d-flex" style="height: 600px; max-height: calc(85vh - 70px);">
                                 <!-- Left Column: Stepper Progress & Info Navigation (Dribbble Style) -->
-                                <div class="p-4 border-end d-flex flex-column justify-content-between" style="width: 295px; flex-shrink: 0; background: #fafbfc; height: 100%;">
+                                <div class="p-4 border-end d-flex flex-column justify-content-between" style="width: 295px; flex-shrink: 0; background: #fafbfc; height: 100%; border-color: #e2e8f0;">
                                     <div>
                                         <div class="mb-3.5">
                                             <div class="extra-small text-uppercase fw-bold text-muted" style="letter-spacing: 0.05em; font-size: 0.7rem;">Alur & Navigasi Servis</div>
                                             <div class="small fw-semibold text-dark mt-0.5" id="stepper-progress-label">Langkah 1 dari 3: Riwayat Servis</div>
-                                            <div class="progress mt-1.5" style="height: 4px; background: #e2e8f0; border-radius: 99px;">
-                                                <div class="progress-bar bg-dark" id="stepper-progress-bar" style="width: 33%; transition: width 0.3s ease;"></div>
+                                            <div class="progress mt-1.5" style="height: 5px; background: #e2e8f0; border-radius: 99px;">
+                                                <div class="progress-bar" id="stepper-progress-bar" style="width: 33%; background: #2563eb; border-radius: 99px; transition: width 0.3s ease;"></div>
                                             </div>
                                         </div>
 
                                         <!-- Stepper Nav Items -->
                                         <div class="d-flex flex-column gap-2" id="stepper-nav-items">
                                             <!-- Step 1 Nav -->
-                                            <div class="stepper-nav-item p-2.5 rounded-3 border d-flex align-items-start gap-2.5" id="step-nav-1" onclick="window.fleetModule.setServiceModalStep(1)" style="cursor: pointer; transition: all 0.2s;">
-                                                <div class="step-num-badge rounded-2 d-flex align-items-center justify-content-center fw-bold" style="width: 26px; height: 26px; font-size: 0.78rem; flex-shrink: 0;" id="step-num-1">1</div>
+                                            <div class="stepper-nav-item p-2.5 rounded-3 border d-flex align-items-start gap-2.5" id="step-nav-1" onclick="window.fleetModule.setServiceModalStep(1)" style="cursor: pointer; transition: all 0.2s; background: #ffffff; border-color: #e2e8f0;">
+                                                <div class="step-num-badge rounded-2 d-flex align-items-center justify-content-center fw-bold" style="width: 26px; height: 26px; font-size: 0.78rem; flex-shrink: 0; background: #2563eb; color: #ffffff;" id="step-num-1">1</div>
                                                 <div>
                                                     <div class="fw-bold text-dark extra-small mb-0.5">Riwayat Servis Selesai</div>
                                                     <div class="text-muted" style="font-size: 0.72rem;" id="step-sub-1">Log & suku cadang diganti</div>
@@ -1518,8 +1520,8 @@
                                             </div>
 
                                             <!-- Step 2 Nav -->
-                                            <div class="stepper-nav-item p-2.5 rounded-3 border d-flex align-items-start gap-2.5" id="step-nav-2" onclick="window.fleetModule.setServiceModalStep(2)" style="cursor: pointer; transition: all 0.2s;">
-                                                <div class="step-num-badge rounded-2 d-flex align-items-center justify-content-center fw-bold" style="width: 26px; height: 26px; font-size: 0.78rem; flex-shrink: 0;" id="step-num-2">2</div>
+                                            <div class="stepper-nav-item p-2.5 rounded-3 border d-flex align-items-start gap-2.5" id="step-nav-2" onclick="window.fleetModule.setServiceModalStep(2)" style="cursor: pointer; transition: all 0.2s; background: #ffffff; border-color: #e2e8f0;">
+                                                <div class="step-num-badge rounded-2 d-flex align-items-center justify-content-center fw-bold" style="width: 26px; height: 26px; font-size: 0.78rem; flex-shrink: 0; background: #f1f5f9; color: #64748b;" id="step-num-2">2</div>
                                                 <div>
                                                     <div class="fw-bold text-dark extra-small mb-0.5">Jadwal Servis Rutin</div>
                                                     <div class="text-muted" style="font-size: 0.72rem;" id="step-sub-2">Jatuh tempo & rencana item</div>
@@ -1527,8 +1529,8 @@
                                             </div>
 
                                             <!-- Step 3 Nav -->
-                                            <div class="stepper-nav-item p-2.5 rounded-3 border d-flex align-items-start gap-2.5" id="step-nav-3" onclick="window.fleetModule.setServiceModalStep(3)" style="cursor: pointer; transition: all 0.2s;">
-                                                <div class="step-num-badge rounded-2 d-flex align-items-center justify-content-center fw-bold" style="width: 26px; height: 26px; font-size: 0.78rem; flex-shrink: 0;" id="step-num-3">3</div>
+                                            <div class="stepper-nav-item p-2.5 rounded-3 border d-flex align-items-start gap-2.5" id="step-nav-3" onclick="window.fleetModule.setServiceModalStep(3)" style="cursor: pointer; transition: all 0.2s; background: #ffffff; border-color: #e2e8f0;">
+                                                <div class="step-num-badge rounded-2 d-flex align-items-center justify-content-center fw-bold" style="width: 26px; height: 26px; font-size: 0.78rem; flex-shrink: 0; background: #f1f5f9; color: #64748b;" id="step-num-3">3</div>
                                                 <div>
                                                     <div class="fw-bold text-dark extra-small mb-0.5">Catat Servis Baru</div>
                                                     <div class="text-muted" style="font-size: 0.72rem;">Formulir log & input part</div>
@@ -1537,11 +1539,11 @@
                                         </div>
                                     </div>
 
-                                    <!-- Bottom Info Card (Persis Kotak Need Assistance Dribbble) -->
-                                    <div class="p-3 rounded-3 mt-3 border bg-white shadow-xs">
+                                    <!-- Bottom Info Card (Persis Kotak Need Assistance Dribbble dengan Soft Style) -->
+                                    <div class="p-3 rounded-3 mt-3 border shadow-xs" style="background: rgba(240, 249, 255, 0.6); border-color: #bae6fd;">
                                         <div class="d-flex align-items-center gap-1.5 mb-2">
                                             <i class="bi bi-info-circle text-primary" style="font-size: 0.85rem;"></i>
-                                            <span class="fw-bold text-dark extra-small text-uppercase" style="letter-spacing: 0.04em;">Info Kendaraan</span>
+                                            <span class="fw-bold text-primary extra-small text-uppercase" style="letter-spacing: 0.04em;">Info Kendaraan</span>
                                         </div>
                                         <div class="extra-small text-muted d-flex flex-column gap-1" id="hist-sidebar-meta">
                                             <!-- Injected dynamically -->
@@ -1554,9 +1556,16 @@
                                     <div id="hist-panels-wrapper" style="overflow-y: auto; flex-grow: 1; padding-right: 6px;">
                                         <!-- Step 1 Panel: Riwayat Servis Selesai -->
                                         <div id="step-panel-1" class="step-panel">
-                                            <div class="mb-3.5 pb-2.5 border-bottom">
-                                                <h6 class="fw-bold text-dark mb-1">Daftar Riwayat Servis Selesai</h6>
-                                                <p class="text-muted extra-small m-0">Semua catatan servis berkala dan riwayat penggantian suku cadang kendaraan ini.</p>
+                                            <div class="mb-3.5 pb-2.5 border-bottom d-flex align-items-center justify-content-between">
+                                                <div>
+                                                    <h6 class="fw-bold text-dark mb-1">Daftar Riwayat Servis Selesai</h6>
+                                                    <p class="text-muted extra-small m-0">Semua catatan servis berkala dan riwayat penggantian suku cadang kendaraan ini.</p>
+                                                </div>
+                                                <button type="button" class="btn btn-sm fw-semibold px-3 py-1.5 rounded-2 d-inline-flex align-items-center gap-1" 
+                                                        style="background: rgba(37, 99, 235, 0.08); color: #1d4ed8; border: 1px solid rgba(37, 99, 235, 0.2); font-size: 0.75rem;"
+                                                        onclick="window.fleetModule.setServiceModalStep(3)">
+                                                    <i class="bi bi-plus-lg"></i> Tambah Log
+                                                </button>
                                             </div>
                                             <div id="step-panel-1-list">
                                                 <!-- Injected dynamically -->
@@ -1587,11 +1596,11 @@
                                                 <div class="row g-3 mb-3">
                                                     <div class="col-md-6">
                                                         <label class="form-label extra-small fw-bold text-muted text-uppercase mb-1">Tanggal Pengerjaan Servis *</label>
-                                                        <input type="date" id="add-srv-date" class="form-control form-control-sm rounded-3 py-2" required>
+                                                        <input type="date" id="add-srv-date" class="form-control form-control-sm rounded-3 py-2" style="background: #fafbfc; border-color: #cbd5e1;" required>
                                                     </div>
                                                     <div class="col-md-6">
                                                         <label class="form-label extra-small fw-bold text-muted text-uppercase mb-1">Kilometer Odometer</label>
-                                                        <input type="text" id="add-srv-km" class="form-control form-control-sm rounded-3 py-2" placeholder="Contoh: 45.000 km">
+                                                        <input type="text" id="add-srv-km" class="form-control form-control-sm rounded-3 py-2" style="background: #fafbfc; border-color: #cbd5e1;" placeholder="Contoh: 45.000 km">
                                                     </div>
                                                 </div>
 
@@ -1599,11 +1608,11 @@
                                                 <div class="row g-3 mb-3">
                                                     <div class="col-md-6">
                                                         <label class="form-label extra-small fw-bold text-muted text-uppercase mb-1">Tempat Servis / Bengkel</label>
-                                                        <input type="text" id="add-srv-workshop" class="form-control form-control-sm rounded-3 py-2" placeholder="Contoh: Bengkel Rekanan">
+                                                        <input type="text" id="add-srv-workshop" class="form-control form-control-sm rounded-3 py-2" style="background: #fafbfc; border-color: #cbd5e1;" placeholder="Contoh: Bengkel Rekanan">
                                                     </div>
                                                     <div class="col-md-6">
                                                         <label class="form-label extra-small fw-bold text-muted text-uppercase mb-1">Total Biaya Pengerjaan (Rp)</label>
-                                                        <input type="number" id="add-srv-cost" class="form-control form-control-sm rounded-3 py-2" placeholder="Contoh: 650000">
+                                                        <input type="number" id="add-srv-cost" class="form-control form-control-sm rounded-3 py-2" style="background: #fafbfc; border-color: #cbd5e1;" placeholder="Contoh: 650000">
                                                     </div>
                                                 </div>
 
@@ -1613,33 +1622,33 @@
                                                         <label class="form-label extra-small fw-bold text-muted text-uppercase mb-0">Part / Sparepart yang Diganti *</label>
                                                         <span class="extra-small text-muted">Klik chip untuk tambah cepat</span>
                                                     </div>
-                                                    <textarea id="add-srv-items" class="form-control form-control-sm rounded-3 py-2 mb-2" rows="3" placeholder="Tuliskan suku cadang atau part apa saja yang diganti..." required></textarea>
+                                                    <textarea id="add-srv-items" class="form-control form-control-sm rounded-3 py-2 mb-2.5" rows="3" style="background: #fafbfc; border-color: #cbd5e1;" placeholder="Tuliskan suku cadang atau part apa saja yang diganti..." required></textarea>
                                                     
-                                                    <!-- Quick Chips -->
-                                                    <div class="d-flex flex-wrap gap-1" id="add-srv-quick-chips">
-                                                        <button type="button" class="btn btn-xs btn-light border py-1 px-2.5 rounded-2 extra-small" onclick="window.fleetModule.appendServiceHistoryTag('Oli Mesin')">+ Oli Mesin</button>
-                                                        <button type="button" class="btn btn-xs btn-light border py-1 px-2.5 rounded-2 extra-small" onclick="window.fleetModule.appendServiceHistoryTag('Filter Oli')">+ Filter Oli</button>
-                                                        <button type="button" class="btn btn-xs btn-light border py-1 px-2.5 rounded-2 extra-small" onclick="window.fleetModule.appendServiceHistoryTag('Filter Udara')">+ Filter Udara</button>
-                                                        <button type="button" class="btn btn-xs btn-light border py-1 px-2.5 rounded-2 extra-small" onclick="window.fleetModule.appendServiceHistoryTag('Filter Solar')">+ Filter Solar</button>
-                                                        <button type="button" class="btn btn-xs btn-light border py-1 px-2.5 rounded-2 extra-small" onclick="window.fleetModule.appendServiceHistoryTag('Kampas Rem Depan')">+ Kampas Rem Depan</button>
-                                                        <button type="button" class="btn btn-xs btn-light border py-1 px-2.5 rounded-2 extra-small" onclick="window.fleetModule.appendServiceHistoryTag('Kampas Rem Belakang')">+ Kampas Rem Belakang</button>
-                                                        <button type="button" class="btn btn-xs btn-light border py-1 px-2.5 rounded-2 extra-small" onclick="window.fleetModule.appendServiceHistoryTag('Tune Up Busi')">+ Tune Up Busi</button>
-                                                        <button type="button" class="btn btn-xs btn-light border py-1 px-2.5 rounded-2 extra-small" onclick="window.fleetModule.appendServiceHistoryTag('Aki')">+ Aki</button>
-                                                        <button type="button" class="btn btn-xs btn-light border py-1 px-2.5 rounded-2 extra-small" onclick="window.fleetModule.appendServiceHistoryTag('Radiator Coolant')">+ Radiator Coolant</button>
-                                                        <button type="button" class="btn btn-xs btn-light border py-1 px-2.5 rounded-2 extra-small" onclick="window.fleetModule.appendServiceHistoryTag('Minyak Rem')">+ Minyak Rem</button>
-                                                        <button type="button" class="btn btn-xs btn-light border py-1 px-2.5 rounded-2 extra-small" onclick="window.fleetModule.appendServiceHistoryTag('Rotasi Ban')">+ Rotasi Ban</button>
-                                                        <button type="button" class="btn btn-xs btn-light border py-1 px-2.5 rounded-2 extra-small" onclick="window.fleetModule.appendServiceHistoryTag('Gemuk As Roda')">+ Gemuk As Roda</button>
+                                                    <!-- Quick Chips with Soft Pastel Colors -->
+                                                    <div class="d-flex flex-wrap gap-1.5" id="add-srv-quick-chips">
+                                                        <button type="button" class="btn btn-xs py-1 px-2.5 rounded-2 extra-small" style="background: rgba(59, 130, 246, 0.08); color: #1d4ed8; border: 1px solid rgba(59, 130, 246, 0.2);" onclick="window.fleetModule.appendServiceHistoryTag('Oli Mesin')">+ Oli Mesin</button>
+                                                        <button type="button" class="btn btn-xs py-1 px-2.5 rounded-2 extra-small" style="background: rgba(59, 130, 246, 0.08); color: #1d4ed8; border: 1px solid rgba(59, 130, 246, 0.2);" onclick="window.fleetModule.appendServiceHistoryTag('Filter Oli')">+ Filter Oli</button>
+                                                        <button type="button" class="btn btn-xs py-1 px-2.5 rounded-2 extra-small" style="background: rgba(16, 185, 129, 0.08); color: #047857; border: 1px solid rgba(16, 185, 129, 0.2);" onclick="window.fleetModule.appendServiceHistoryTag('Filter Udara')">+ Filter Udara</button>
+                                                        <button type="button" class="btn btn-xs py-1 px-2.5 rounded-2 extra-small" style="background: rgba(245, 158, 11, 0.08); color: #b45309; border: 1px solid rgba(245, 158, 11, 0.2);" onclick="window.fleetModule.appendServiceHistoryTag('Filter Solar')">+ Filter Solar</button>
+                                                        <button type="button" class="btn btn-xs py-1 px-2.5 rounded-2 extra-small" style="background: rgba(244, 63, 94, 0.08); color: #be123c; border: 1px solid rgba(244, 63, 94, 0.2);" onclick="window.fleetModule.appendServiceHistoryTag('Kampas Rem Depan')">+ Kampas Rem Depan</button>
+                                                        <button type="button" class="btn btn-xs py-1 px-2.5 rounded-2 extra-small" style="background: rgba(244, 63, 94, 0.08); color: #be123c; border: 1px solid rgba(244, 63, 94, 0.2);" onclick="window.fleetModule.appendServiceHistoryTag('Kampas Rem Belakang')">+ Kampas Rem Belakang</button>
+                                                        <button type="button" class="btn btn-xs py-1 px-2.5 rounded-2 extra-small" style="background: rgba(168, 85, 247, 0.08); color: #7e22ce; border: 1px solid rgba(168, 85, 247, 0.2);" onclick="window.fleetModule.appendServiceHistoryTag('Tune Up Busi')">+ Tune Up Busi</button>
+                                                        <button type="button" class="btn btn-xs py-1 px-2.5 rounded-2 extra-small" style="background: rgba(234, 88, 12, 0.08); color: #c2410c; border: 1px solid rgba(234, 88, 12, 0.2);" onclick="window.fleetModule.appendServiceHistoryTag('Aki')">+ Aki</button>
+                                                        <button type="button" class="btn btn-xs py-1 px-2.5 rounded-2 extra-small" style="background: rgba(6, 182, 212, 0.08); color: #0e7490; border: 1px solid rgba(6, 182, 212, 0.2);" onclick="window.fleetModule.appendServiceHistoryTag('Radiator Coolant')">+ Radiator Coolant</button>
+                                                        <button type="button" class="btn btn-xs py-1 px-2.5 rounded-2 extra-small" style="background: rgba(100, 116, 139, 0.08); color: #334155; border: 1px solid rgba(100, 116, 139, 0.2);" onclick="window.fleetModule.appendServiceHistoryTag('Minyak Rem')">+ Minyak Rem</button>
+                                                        <button type="button" class="btn btn-xs py-1 px-2.5 rounded-2 extra-small" style="background: rgba(139, 92, 246, 0.08); color: #6d28d9; border: 1px solid rgba(139, 92, 246, 0.2);" onclick="window.fleetModule.appendServiceHistoryTag('Rotasi Ban')">+ Rotasi Ban</button>
+                                                        <button type="button" class="btn btn-xs py-1 px-2.5 rounded-2 extra-small" style="background: rgba(217, 119, 6, 0.08); color: #b45309; border: 1px solid rgba(217, 119, 6, 0.2);" onclick="window.fleetModule.appendServiceHistoryTag('Gemuk As Roda')">+ Gemuk As Roda</button>
                                                     </div>
                                                 </div>
 
                                                 <!-- Row 4: Catatan Tambahan -->
                                                 <div class="mb-3">
                                                     <label class="form-label extra-small fw-bold text-muted text-uppercase mb-1">Catatan Tambahan / Kondisi Kendaraan</label>
-                                                    <input type="text" id="add-srv-notes" class="form-control form-control-sm rounded-3 py-2" placeholder="Contoh: Kondisi mesin prima, tekanan ban telah disesuaikan">
+                                                    <input type="text" id="add-srv-notes" class="form-control form-control-sm rounded-3 py-2" style="background: #fafbfc; border-color: #cbd5e1;" placeholder="Contoh: Kondisi mesin prima, tekanan ban telah disesuaikan">
                                                 </div>
 
                                                 <!-- Row 5: Auto Update Next Due Date -->
-                                                <div class="p-3 rounded-3 border bg-light mb-2">
+                                                <div class="p-3 rounded-3 border mb-2" style="background: #f8fafc; border-color: #e2e8f0;">
                                                     <div class="form-check form-switch mb-2">
                                                         <input class="form-check-input" type="checkbox" id="add-srv-update-next" checked onchange="document.getElementById('add-srv-next-panel').style.display = this.checked ? 'block' : 'none';">
                                                         <label class="form-check-label extra-small fw-bold text-dark" for="add-srv-update-next">
@@ -1650,11 +1659,11 @@
                                                         <div class="row g-2">
                                                             <div class="col-md-6">
                                                                 <label class="extra-small text-muted fw-bold mb-1 d-block">Tanggal Servis Baru:</label>
-                                                                <input type="date" id="add-srv-next-date" class="form-control form-control-sm rounded-2">
+                                                                <input type="date" id="add-srv-next-date" class="form-control form-control-sm rounded-2" style="background: #ffffff; border-color: #cbd5e1;">
                                                             </div>
                                                             <div class="col-md-6">
                                                                 <label class="extra-small text-muted fw-bold mb-1 d-block">Rencana Servis Berikutnya:</label>
-                                                                <input type="text" id="add-srv-next-plan" class="form-control form-control-sm rounded-2" value="Ganti Oli Mesin, Filter Oli, Servis Berkala">
+                                                                <input type="text" id="add-srv-next-plan" class="form-control form-control-sm rounded-2" style="background: #ffffff; border-color: #cbd5e1;" value="Ganti Oli Mesin, Filter Oli, Servis Berkala">
                                                             </div>
                                                         </div>
                                                     </div>
@@ -1663,12 +1672,14 @@
                                         </div>
                                     </div>
 
-                                    <!-- Bottom Action Bar (Dribbble Stepper Action Bar) -->
-                                    <div class="d-flex align-items-center justify-content-between pt-3 mt-3 border-top">
-                                        <button type="button" class="btn btn-sm btn-link text-muted text-decoration-none fw-semibold p-0" id="hist-btn-left-action" onclick="window.fleetModule.handleServiceModalLeftAction()">
+                                    <!-- Bottom Action Bar (Dribbble Stepper Action Bar with Soft Accents) -->
+                                    <div class="d-flex align-items-center justify-content-between pt-3 mt-3 border-top bg-white" style="border-color: #e2e8f0;">
+                                        <button type="button" class="btn btn-sm btn-link text-decoration-none fw-semibold p-0" style="color: #64748b;" id="hist-btn-left-action" onclick="window.fleetModule.handleServiceModalLeftAction()">
                                             Tutup
                                         </button>
-                                        <button type="button" class="btn btn-sm btn-dark fw-semibold px-4 py-2 rounded-3 shadow-xs d-inline-flex align-items-center gap-1.5" id="hist-btn-right-action" onclick="window.fleetModule.handleServiceModalRightAction()">
+                                        <button type="button" class="btn btn-sm fw-semibold px-4 py-2 rounded-3 shadow-xs d-inline-flex align-items-center gap-1.5" 
+                                                style="background: #2563eb; color: #ffffff; border: none; box-shadow: 0 2px 6px rgba(37, 99, 235, 0.2);"
+                                                id="hist-btn-right-action" onclick="window.fleetModule.handleServiceModalRightAction()">
                                             <span id="hist-btn-right-label">+ Catat Servis Baru</span>
                                             <i class="bi bi-arrow-right"></i>
                                         </button>
@@ -1699,11 +1710,26 @@
         const metaEl = document.getElementById('hist-sidebar-meta');
         if (metaEl) {
             metaEl.innerHTML = `
-                <div><b class="text-dark">Plat Nomor:</b> ${v.plate_number}</div>
-                <div><b class="text-dark">Driver:</b> ${v.assigned_person_name || '-'}</div>
-                <div><b class="text-dark">Kategori:</b> ${cleanCat}</div>
-                <div><b class="text-dark">Pajak STNK:</b> ${formatPrettyDate(v.tax_due_date)}</div>
-                <div><b class="text-dark">Uji KIR:</b> ${v.kir_due_date ? formatPrettyDate(v.kir_due_date) : 'Bebas KIR'}</div>
+                <div class="d-flex justify-content-between align-items-center py-1 border-bottom" style="border-color: #e2e8f0 !important;">
+                    <span class="text-muted">Plat Nomor:</span>
+                    <span class="fw-bold font-monospace px-1.5 py-0.5 rounded" style="background: rgba(37, 99, 235, 0.08); color: #1d4ed8;">${v.plate_number}</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center py-1 border-bottom" style="border-color: #e2e8f0 !important;">
+                    <span class="text-muted">Driver:</span>
+                    <span class="fw-semibold text-dark">${v.assigned_person_name || '-'}</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center py-1 border-bottom" style="border-color: #e2e8f0 !important;">
+                    <span class="text-muted">Kategori:</span>
+                    <span class="text-dark">${cleanCat}</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center py-1 border-bottom" style="border-color: #e2e8f0 !important;">
+                    <span class="text-muted">Pajak STNK:</span>
+                    <span class="text-dark">${formatPrettyDate(v.tax_due_date)}</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center pt-1">
+                    <span class="text-muted">Uji KIR:</span>
+                    <span class="text-dark">${v.kir_due_date ? formatPrettyDate(v.kir_due_date) : '<span class="text-muted">Bebas KIR</span>'}</span>
+                </div>
             `;
         }
 
@@ -1719,11 +1745,11 @@
         if (list1) {
             if (history.length === 0) {
                 list1.innerHTML = `
-                    <div class="text-center py-5 bg-white rounded-3 border p-4">
-                        <div class="text-secondary mb-2"><i class="bi bi-tools fs-2 text-muted"></i></div>
+                    <div class="text-center py-5 rounded-3 border p-4" style="background: #fafbfc; border-color: #e2e8f0;">
+                        <div class="mb-2" style="color: #94a3b8;"><i class="bi bi-tools fs-2"></i></div>
                         <h6 class="fw-bold text-dark mb-1">Belum Ada Riwayat Servis Tercatat</h6>
                         <p class="text-muted extra-small mb-3">Catat servis pertama untuk memantau penggantian suku cadang kendaraan ini.</p>
-                        <button class="btn btn-sm btn-dark fw-semibold px-3 rounded-2" onclick="window.fleetModule.setServiceModalStep(3)">
+                        <button class="btn btn-sm fw-semibold px-3 py-1.5 rounded-2" style="background: #2563eb; color: #ffffff; border: none;" onclick="window.fleetModule.setServiceModalStep(3)">
                             <i class="bi bi-plus-lg me-1"></i> Catat Servis Pertama
                         </button>
                     </div>
@@ -1734,23 +1760,23 @@
                     const isLatest = idx === 0;
 
                     return `
-                        <div class="border rounded-3 p-3.5 mb-3 bg-white shadow-xs">
-                            <div class="d-flex flex-wrap align-items-center justify-content-between pb-2 mb-2.5 border-bottom gap-2">
+                        <div class="border rounded-3 p-3.5 mb-3 shadow-xs" style="background: #fafbfc; border-color: #e2e8f0;">
+                            <div class="d-flex flex-wrap align-items-center justify-content-between pb-2 mb-2.5 border-bottom gap-2" style="border-color: #e2e8f0 !important;">
                                 <div class="d-flex flex-wrap align-items-center gap-2">
                                     <span class="font-monospace fw-bold text-dark fs-6">${formatPrettyDate(rec.date)}</span>
-                                    ${isLatest ? `<span class="badge bg-light text-dark border px-2 py-0.5 extra-small fw-semibold">Terbaru</span>` : ''}
+                                    ${isLatest ? `<span class="badge px-2 py-0.5 extra-small fw-semibold" style="background: rgba(16, 185, 129, 0.12); color: #047857; border: 1px solid rgba(16, 185, 129, 0.25);">Terbaru</span>` : ''}
                                     ${rec.odometer ? `
-                                        <span class="badge bg-light text-secondary border px-2 py-0.5 extra-small fw-normal">
-                                            <i class="bi bi-speedometer2 me-1 text-muted"></i>${rec.odometer}
+                                        <span class="badge px-2 py-0.5 extra-small fw-normal" style="background: rgba(14, 165, 233, 0.08); color: #0284c7; border: 1px solid rgba(14, 165, 233, 0.2);">
+                                            <i class="bi bi-speedometer2 me-1"></i>${rec.odometer}
                                         </span>
                                     ` : ''}
                                     ${rec.workshop ? `
-                                        <span class="badge bg-light text-secondary border px-2 py-0.5 extra-small fw-normal">
-                                            <i class="bi bi-geo-alt me-1 text-muted"></i>${rec.workshop}
+                                        <span class="badge px-2 py-0.5 extra-small fw-normal" style="background: rgba(99, 102, 241, 0.08); color: #4f46e5; border: 1px solid rgba(99, 102, 241, 0.2);">
+                                            <i class="bi bi-geo-alt me-1"></i>${rec.workshop}
                                         </span>
                                     ` : ''}
                                 </div>
-                                <div class="font-monospace fw-semibold text-dark" style="font-size: 0.85rem;">
+                                <div class="font-monospace fw-semibold px-2.5 py-0.5 rounded-2" style="font-size: 0.85rem; background: rgba(34, 197, 94, 0.1); color: #15803d; border: 1px solid rgba(34, 197, 94, 0.25);">
                                     ${formatRupiah(rec.cost)}
                                 </div>
                             </div>
@@ -1759,24 +1785,26 @@
                                 <div class="extra-small text-muted mb-1.5 fw-medium">Sparepart & Part yang Diganti:</div>
                                 <div class="d-flex flex-wrap gap-1.5">
                                     ${recItems.length > 0 ? recItems.map(item => `
-                                        <span class="badge bg-light text-dark border px-2.5 py-1 extra-small fw-normal d-inline-flex align-items-center gap-1">
-                                            <i class="bi bi-check text-muted" style="font-size: 0.8rem;"></i>
+                                        <span class="badge px-2.5 py-1 extra-small fw-normal d-inline-flex align-items-center gap-1.5" style="background: #ffffff; color: #334155; border: 1px solid #cbd5e1; border-radius: 6px;">
+                                            <i class="bi bi-check2 text-primary fw-bold" style="font-size: 0.82rem;"></i>
                                             <span>${item}</span>
                                         </span>
                                     `).join('') : '<span class="text-muted extra-small">Servis berkala umum</span>'}
                                 </div>
                             </div>
 
-                            <div class="d-flex flex-wrap justify-content-between align-items-center pt-2 border-top gap-2">
+                            <div class="d-flex flex-wrap justify-content-between align-items-center pt-2 border-top gap-2" style="border-color: #e2e8f0 !important;">
                                 <div class="extra-small text-muted">
-                                    ${rec.notes ? `<span class="text-dark">${rec.notes}</span>` : '<span class="text-muted fst-italic">Tidak ada catatan tambahan</span>'}
+                                    ${rec.notes ? `<span class="text-secondary">${rec.notes}</span>` : '<span class="text-muted fst-italic">Tidak ada catatan tambahan</span>'}
                                 </div>
-                                <button class="btn btn-xs btn-link text-muted p-0 text-decoration-none ms-auto" 
-                                        style="font-size: 0.72rem;"
-                                        onmouseover="this.className='btn btn-xs btn-link text-danger p-0 text-decoration-none ms-auto'"
-                                        onmouseout="this.className='btn btn-xs btn-link text-muted p-0 text-decoration-none ms-auto'"
+                                <button type="button" 
+                                        class="btn btn-sm p-0 d-inline-flex align-items-center justify-content-center ms-auto"
+                                        style="width: 28px; height: 28px; border-radius: 8px; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); color: #ef4444; transition: all 0.2s;"
+                                        onmouseover="this.style.background='rgba(239, 68, 68, 0.18)'; this.style.color='#dc2626';"
+                                        onmouseout="this.style.background='rgba(239, 68, 68, 0.08)'; this.style.color='#ef4444';"
+                                        title="Hapus Catatan Servis"
                                         onclick="window.fleetModule.deleteServiceRecord('${v.id}', '${rec.id}')">
-                                    <i class="bi bi-trash me-1"></i> Hapus
+                                    <i class="bi bi-trash" style="font-size: 0.82rem;"></i>
                                 </button>
                             </div>
                         </div>
@@ -1789,18 +1817,21 @@
         const content2 = document.getElementById('step-panel-2-content');
         if (content2) {
             content2.innerHTML = `
-                <div class="card border rounded-3 p-4 bg-white shadow-xs mb-3">
-                    <div class="d-flex flex-wrap justify-content-between align-items-center pb-3 mb-3 border-bottom gap-2">
+                <div class="card border rounded-3 p-4 shadow-xs mb-3" style="background: linear-gradient(135deg, rgba(239, 246, 255, 0.6) 0%, rgba(245, 243, 255, 0.5) 100%); border-color: #dbeafe;">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center pb-3 mb-3 border-bottom gap-2" style="border-color: rgba(219, 234, 254, 0.8) !important;">
                         <div>
-                            <div class="extra-small text-muted fw-semibold text-uppercase" style="letter-spacing: 0.04em;">Jadwal Servis Rutin Berikutnya</div>
+                            <div class="extra-small fw-semibold text-uppercase" style="letter-spacing: 0.04em; color: #1e40af;">Jadwal Servis Rutin Berikutnya</div>
                             <div class="d-flex align-items-center gap-2 mt-1">
-                                <span class="font-monospace fw-bold text-dark fs-5">${formatPrettyDate(v.service_due_date)}</span>
-                                <span class="badge bg-light text-secondary border px-2.5 py-1 extra-small fw-semibold">
+                                <span class="font-monospace fw-bold text-dark fs-4">${formatPrettyDate(v.service_due_date)}</span>
+                                <span class="badge px-2.5 py-1 extra-small fw-semibold" style="background: rgba(245, 158, 11, 0.12); color: #b45309; border: 1px solid rgba(245, 158, 11, 0.25);">
                                     ${ev.serviceAlert.label}
                                 </span>
                             </div>
                         </div>
-                        <button class="btn btn-sm btn-outline-dark fw-semibold px-3 py-2 rounded-2 d-inline-flex align-items-center gap-1.5"
+                        <button class="btn btn-sm fw-semibold px-3 py-2 rounded-2 d-inline-flex align-items-center gap-1.5"
+                                style="background: #ffffff; border: 1px solid #93c5fd; color: #1d4ed8; box-shadow: 0 1px 3px rgba(37,99,235,0.08);"
+                                onmouseover="this.style.background='#eff6ff'"
+                                onmouseout="this.style.background='#ffffff'"
                                 onclick="window.fleetModule.setServiceModalStep(3, true)">
                             <i class="bi bi-check-lg"></i>
                             <span>Tandai Selesai & Buka Formulir</span>
@@ -1811,14 +1842,14 @@
                         <div class="extra-small text-muted mb-2 fw-medium">Rencana Item Servis Mendatang:</div>
                         <div class="d-flex flex-wrap gap-1.5">
                             ${planItems.map(item => `
-                                <span class="badge bg-light text-dark border px-2.5 py-1.5 extra-small fw-normal d-inline-flex align-items-center gap-1.5">
-                                    <i class="bi bi-wrench text-muted" style="font-size: 0.72rem;"></i> ${item}
+                                <span class="badge px-2.5 py-1.5 extra-small fw-normal d-inline-flex align-items-center gap-1.5" style="background: #ffffff; color: #1e293b; border: 1px solid #cbd5e1; border-radius: 6px;">
+                                    <i class="bi bi-wrench text-primary" style="font-size: 0.75rem;"></i> ${item}
                                 </span>
                             `).join('')}
                         </div>
                     </div>
 
-                    <div class="p-3 rounded-3 bg-light border extra-small text-muted">
+                    <div class="p-3 rounded-3 extra-small" style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.2); color: #065f46;">
                         <i class="bi bi-shield-check text-success me-1"></i>
                         <span>Pemeliharaan rutin dilakukan secara berkala setiap 3-4 bulan atau 10.000 KM demi menjaga kondisi operasional dan efisiensi armada.</span>
                     </div>
@@ -1885,24 +1916,24 @@
 
             if (s === step) {
                 if (navEl) {
-                    navEl.style.background = '#ffffff';
-                    navEl.style.borderColor = '#0f172a';
-                    navEl.style.boxShadow = '0 2px 8px rgba(15, 23, 42, 0.08)';
+                    navEl.style.background = 'rgba(37, 99, 235, 0.06)';
+                    navEl.style.borderColor = 'rgba(37, 99, 235, 0.35)';
+                    navEl.style.boxShadow = '0 2px 8px rgba(37, 99, 235, 0.08)';
                 }
                 if (badgeEl) {
-                    badgeEl.style.background = '#0f172a';
+                    badgeEl.style.background = '#2563eb';
                     badgeEl.style.color = '#ffffff';
                 }
                 if (panelEl) panelEl.style.display = 'block';
             } else {
                 if (navEl) {
-                    navEl.style.background = 'transparent';
+                    navEl.style.background = '#ffffff';
                     navEl.style.borderColor = '#e2e8f0';
                     navEl.style.boxShadow = 'none';
                 }
                 if (badgeEl) {
-                    badgeEl.style.background = '#e2e8f0';
-                    badgeEl.style.color = '#475569';
+                    badgeEl.style.background = '#f1f5f9';
+                    badgeEl.style.color = '#64748b';
                 }
                 if (panelEl) panelEl.style.display = 'none';
             }
