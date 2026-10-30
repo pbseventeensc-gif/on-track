@@ -1,15 +1,17 @@
 // ==============================================================================
 // WTRACK LOGISTICS - VEHICLE FLEET INVENTORY MODULE (SUPER ADMIN ONLY)
-// Dedicated Company Fleet: Daihatsu Granmax & Truck Box
+// Dedicated Company Fleet: Granmax & Truk box
 // (Motor vehicles are excluded per company policy as personal vehicles)
 // ==============================================================================
 
 (function() {
     'use strict';
 
-    const STORAGE_KEY = 'wtrack_fleet_vehicles_v5';
+    const STORAGE_KEY = 'wtrack_fleet_vehicles_v6';
+    const CENTRAL_PHONE_KEY = 'wtrack_fleet_central_phone';
+    const DEFAULT_CENTRAL_PHONE = '6281210203040';
 
-    // 12 Company Operational Vehicles (6 Granmax, 4 Truck Box, 1 Pick Up, 1 L300)
+    // 12 Company Operational Vehicles (6 Granmax, 4 Truk Box, 1 Pick Up, 1 L300)
     const DEFAULT_FLEET = [
         // ================= KATEGORI 1: GRANMAX (6 UNIT) =================
         {
@@ -27,7 +29,7 @@
             service_details: 'Ganti Oli Mesin (10W-40), Filter Oli, Cek Kampas Rem Depan, Tune Up Busi',
             fuel_barcode_code: 'BBM-GMX-9227-PERTALITE',
             fuel_barcode_url: 'https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=BBM-GMX-9227-PERTALITE',
-            notes: 'Daihatsu Gran Max Blindvan Operasional'
+            notes: 'Granmax Operasional'
         },
         {
             id: 'FLT-GMX-002',
@@ -44,7 +46,7 @@
             service_details: 'Ganti Oli Mesin, Filter Udara, Cek Minyak Rem & Kopling, Spooring & Balancing',
             fuel_barcode_code: 'BBM-GMX-9939-PERTALITE',
             fuel_barcode_url: 'https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=BBM-GMX-9939-PERTALITE',
-            notes: 'Daihatsu Gran Max Blindvan Logistik'
+            notes: 'Granmax Logistik'
         },
         {
             id: 'FLT-GMX-003',
@@ -61,7 +63,7 @@
             service_details: 'Ganti Oli Mesin, Filter Oli, Kuras Radiator Coolant, Kampas Rem Belakang',
             fuel_barcode_code: 'BBM-GMX-9158-PERTALITE',
             fuel_barcode_url: 'https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=BBM-GMX-9158-PERTALITE',
-            notes: 'Daihatsu Gran Max Blindvan Distribusi'
+            notes: 'Granmax Distribusi'
         },
         {
             id: 'FLT-GMX-004',
@@ -78,7 +80,7 @@
             service_details: 'Ganti Oli Mesin, Cek Fan Belt, Tune Up Busi, Rotasi Ban',
             fuel_barcode_code: 'BBM-GMX-9278-PERTALITE',
             fuel_barcode_url: 'https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=BBM-GMX-9278-PERTALITE',
-            notes: 'Daihatsu Gran Max Blindvan Pasar Minggu'
+            notes: 'Granmax Operasional'
         },
         {
             id: 'FLT-GMX-005',
@@ -92,10 +94,10 @@
             tax_due_date: '2027-02-20',
             kir_due_date: '2027-01-18',
             service_due_date: '2026-11-30',
-            service_details: 'Servis Berkala: Ganti Oli Mesin & Transmisi, Filter Bensin, Cek Kelistrikan',
+            service_details: 'Servis Berkala: Ganti Oli Mesin & Transmisi, Filter Bensin, Cek Gas Pendingin Box',
             fuel_barcode_code: 'BBM-GMX-9107-PERTALITE',
             fuel_barcode_url: 'https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=BBM-GMX-9107-PERTALITE',
-            notes: 'Daihatsu Gran Max Box Pendingin / Delivery'
+            notes: 'Granmax Box Pendingin'
         },
         {
             id: 'FLT-GMX-006',
@@ -105,17 +107,17 @@
             assigned_person_id: 'gudang',
             assigned_person_name: 'Gudang',
             assigned_role: 'driver',
-            assigned_person_phone: '', // KOSONG -> Warning Validasi No WA!
+            assigned_person_phone: '',
             tax_due_date: '2026-11-06', // H-7 (Warning H-7)
             kir_due_date: '2026-11-10',
             service_due_date: '2026-12-05',
             service_details: 'Ganti Oli Mesin (15W-40), Filter Oli, Cek Shock Absorber & Per Daun Bak',
             fuel_barcode_code: 'BBM-GMX-1004BKP-SOLAR',
             fuel_barcode_url: 'https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=BBM-GMX-1004BKP-SOLAR',
-            notes: 'Daihatsu Gran Max Bak Kayu Pick Up (BKP) - Operasional Gudang'
+            notes: 'Pick Up Bak Gudang'
         },
 
-        // ================= KATEGORI 2: TRUCK BOX (4 UNIT) =================
+        // ================= KATEGORI 2: TRUK BOX (4 UNIT) =================
         {
             id: 'FLT-TRK-001',
             plate_number: 'B 9032 SCG',
@@ -126,12 +128,12 @@
             assigned_role: 'driver',
             assigned_person_phone: '6281399887766',
             tax_due_date: '2027-03-10',
-            kir_due_date: '2026-10-27', // Overdue Uji KIR Kemenhub!
+            kir_due_date: '2026-10-27', // Overdue Uji KIR!
             service_due_date: '2026-11-05', // H-6 (Warning H-7)
             service_details: 'Ganti Oli Mesin (15W-40 Heavy Duty), Filter Solar Ganda, Kuras Angin Rem Tabung, Cek Gardan',
             fuel_barcode_code: 'BBM-TRK-9032-SOLAR',
             fuel_barcode_url: 'https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=BBM-TRK-9032-SOLAR',
-            notes: 'Truck Box Isuzu Elf NMR 71 L Heavy Duty'
+            notes: 'Truk box Heavy Duty'
         },
         {
             id: 'FLT-TRK-002',
@@ -145,10 +147,10 @@
             tax_due_date: '2026-11-04', // H-5 (Warning H-7)
             kir_due_date: '2026-11-28',
             service_due_date: '2026-11-15',
-            service_details: 'Ganti Oli Mesin, Filter Oli, Filter Solar, Grease / Gemuk As Roda, Cek Kampas Rem Tromol',
+            service_details: 'Ganti Oli Mesin, Filter Oli, Filter Solar, Gemuk As Roda, Cek Kampas Rem Tromol',
             fuel_barcode_code: 'BBM-TRK-9177-SOLAR',
             fuel_barcode_url: 'https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=BBM-TRK-9177-SOLAR',
-            notes: 'Truck Box Mitsubishi Fuso Canter 125 PS'
+            notes: 'Truk box Logistik'
         },
         {
             id: 'FLT-TRK-003',
@@ -162,10 +164,10 @@
             tax_due_date: '2027-01-22',
             kir_due_date: '2027-02-14',
             service_due_date: '2026-11-01', // H-2 (Warning H-7)
-            service_details: 'Servis Rutin Berkala: Ganti Oli Mesin, Filter Udara, Cek Kampas Rem Angin, Cek Tekanan Ban Ganda',
+            service_details: 'Servis Rutin Berkala: Ganti Oli Mesin, Filter Udara, Cek Kampas Rem Angin, Cek Ban Ganda',
             fuel_barcode_code: 'BBM-TRK-9842-SOLAR',
             fuel_barcode_url: 'https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=BBM-TRK-9842-SOLAR',
-            notes: 'Truck Box Isuzu Giga FRR Long Chasis'
+            notes: 'Truk box Long Chasis'
         },
         {
             id: 'FLT-TRK-004',
@@ -182,7 +184,7 @@
             service_details: 'Ganti Oli Mesin, Filter Solar Utama & Water Separator, Cek Suspensi & Power Steering',
             fuel_barcode_code: 'BBM-TRK-9084-SOLAR',
             fuel_barcode_url: 'https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=BBM-TRK-9084-SOLAR',
-            notes: 'Truck Box Hino Dutro 130 HD Cargo'
+            notes: 'Truk box Kargo'
         },
 
         // ================= KATEGORI 3: PICKUP & L 300 (2 UNIT) =================
@@ -194,14 +196,14 @@
             assigned_person_id: 'gudang',
             assigned_person_name: 'Gudang',
             assigned_role: 'driver',
-            assigned_person_phone: '', // KOSONG -> Warning Validasi No WA!
+            assigned_person_phone: '',
             tax_due_date: '2026-11-20',
             kir_due_date: '2026-11-06', // H-7 (Warning H-7)
             service_due_date: '2026-12-10',
             service_details: 'Ganti Oli Mesin, Filter Udara, Cek Bak & Baut Chasis Pick Up',
             fuel_barcode_code: 'BBM-PKP-9463-PERTALITE',
             fuel_barcode_url: 'https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=BBM-PKP-9463-PERTALITE',
-            notes: 'Mobil Pick Up Bak Terbuka - Operasional Gudang'
+            notes: 'Pick Up Operasional'
         },
         {
             id: 'FLT-L30-001',
@@ -211,14 +213,14 @@
             assigned_person_id: 'gudang',
             assigned_person_name: 'Gudang',
             assigned_role: 'driver',
-            assigned_person_phone: '', // KOSONG -> Warning Validasi No WA!
+            assigned_person_phone: '',
             tax_due_date: '2026-11-15',
             kir_due_date: '2026-11-03', // H-4 (Warning H-7)
             service_due_date: '2026-11-28',
             service_details: 'Ganti Oli Mesin Diesel, Filter Solar, Kuras Radiator Coolant, Cek Minyak Rem',
             fuel_barcode_code: 'BBM-L300-9243-SOLAR',
             fuel_barcode_url: 'https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=BBM-L300-9243-SOLAR',
-            notes: 'Mitsubishi L300 Box / Bak - Operasional Gudang'
+            notes: 'L 300 Operasional'
         }
     ];
 
@@ -262,18 +264,18 @@
                     id: 'SRV-GMX-001-1',
                     date: '2026-08-10',
                     odometer: '42.500 km',
-                    workshop: 'Daihatsu Kebon Jeruk',
+                    workshop: 'Bengkel Rekanan',
                     cost: 680000,
-                    replaced_items: 'Oli Mesin Fastron 10W-40 (3.5L), Filter Oli Denso, Tune Up Busi NGK (4 pcs), Kampas Rem Belakang',
+                    replaced_items: 'Oli Mesin 10W-40 (3.5L), Filter Oli, Tune Up Busi (4 pcs), Kampas Rem Belakang',
                     notes: 'Servis rutin berkala 40.000 KM, rem dibersihkan dan disetel ulang'
                 },
                 {
                     id: 'SRV-GMX-001-2',
                     date: '2026-05-15',
                     odometer: '37.800 km',
-                    workshop: 'Bengkel Sentosa Mobil',
+                    workshop: 'Bengkel Sentosa',
                     cost: 510000,
-                    replaced_items: 'Oli Mesin Fastron 10W-40, Filter Udara, Minyak Rem Dot 3',
+                    replaced_items: 'Oli Mesin 10W-40, Filter Udara, Minyak Rem Dot 3',
                     notes: 'Ganti oli rutin dan pengecekan suspensi depan'
                 }
             ];
@@ -284,16 +286,16 @@
                     id: 'SRV-GMX-002-1',
                     date: '2026-08-20',
                     odometer: '39.200 km',
-                    workshop: 'Daihatsu Pos Pengumben',
+                    workshop: 'Bengkel Rekanan',
                     cost: 620000,
-                    replaced_items: 'Oli Mesin Shell Helix HX7 10W-40, Filter Oli, Filter Udara Aspira, Spooring & Balancing',
+                    replaced_items: 'Oli Mesin 10W-40, Filter Oli, Filter Udara, Spooring & Balancing',
                     notes: 'Setir sempat lari ke kiri sedikit, sudah balancing kembali normal'
                 },
                 {
                     id: 'SRV-GMX-002-2',
                     date: '2026-05-02',
                     odometer: '33.500 km',
-                    workshop: 'Bengkel Sahabat Motor',
+                    workshop: 'Bengkel Sahabat',
                     cost: 470000,
                     replaced_items: 'Oli Mesin, Filter Oli, Minyak Kopling Dot 3',
                     notes: 'Pengecekan rutin dan ganti oli berkala'
@@ -308,16 +310,16 @@
                     odometer: '51.400 km',
                     workshop: 'Bengkel Jaya Mandiri',
                     cost: 1150000,
-                    replaced_items: 'Aki GS Astra Maintenance Free 45A, Ganti Oli Mesin Shell 10W-40, Bohlam Headlamp H4 Philips',
+                    replaced_items: 'Aki Kering 45A, Ganti Oli Mesin 10W-40, Bohlam Headlamp H4',
                     notes: 'Aki lama sudah soak / drop voltase, diganti aki baru bergaransi'
                 },
                 {
                     id: 'SRV-GMX-003-2',
                     date: '2026-04-10',
                     odometer: '46.000 km',
-                    workshop: 'Daihatsu Daan Mogot',
+                    workshop: 'Bengkel Rekanan',
                     cost: 580000,
-                    replaced_items: 'Oli Mesin, Filter Oli, Kuras Radiator Coolant Prestone',
+                    replaced_items: 'Oli Mesin, Filter Oli, Kuras Radiator Coolant',
                     notes: 'Sistem pendingin mesin dibersihkan'
                 }
             ];
@@ -330,7 +332,7 @@
                     odometer: '44.100 km',
                     workshop: 'Bengkel Berkah Abadi',
                     cost: 590000,
-                    replaced_items: 'Oli Mesin Fastron 10W-40, Filter Oli, Fan Belt Alternator Bando, Rotasi Ban',
+                    replaced_items: 'Oli Mesin 10W-40, Filter Oli, Fan Belt Alternator, Rotasi Ban',
                     notes: 'Fan belt lama ada retak halus, diganti baru agar aman jalan luar kota'
                 }
             ];
@@ -341,9 +343,9 @@
                     id: 'SRV-GMX-005-1',
                     date: '2026-08-30',
                     odometer: '36.700 km',
-                    workshop: 'Daihatsu Daan Mogot',
+                    workshop: 'Bengkel Rekanan',
                     cost: 740000,
-                    replaced_items: 'Oli Mesin 10W-40, Oli Transmisi Manual GL-4, Filter Bensin, Cek Gas Freon Pendingin Box',
+                    replaced_items: 'Oli Mesin 10W-40, Oli Transmisi Manual GL-4, Filter Bensin, Cek Gas Pendingin Box',
                     notes: 'Servis transmisi dan filter bensin'
                 }
             ];
@@ -354,9 +356,9 @@
                     id: 'SRV-GMX-006-1',
                     date: '2026-09-02',
                     odometer: '58.200 km',
-                    workshop: 'Bengkel Kaki Mobil Surya',
+                    workshop: 'Bengkel Surya',
                     cost: 850000,
-                    replaced_items: 'Oli Mesin Diesel Meditran 15W-40, Filter Oli, Karet Bushing Per Daun Bak Belakang, Baut Klem U-Bolt',
+                    replaced_items: 'Oli Mesin Diesel 15W-40, Filter Oli, Karet Bushing Per Daun Bak Belakang, Baut Klem U-Bolt',
                     notes: 'Bushing per belakang aus karena muatan material cetak berat, diganti 1 set'
                 }
             ];
@@ -367,9 +369,9 @@
                     id: 'SRV-TRK-001-1',
                     date: '2026-08-05',
                     odometer: '84.500 km',
-                    workshop: 'Astra Isuzu Daan Mogot',
+                    workshop: 'Bengkel Rekanan Resmi',
                     cost: 1850000,
-                    replaced_items: 'Oli Mesin Diesel Isuzu 15W-40 (12 Liter), Filter Solar Utama, Filter Solar Ganda (Water Separator), Filter Oli, Gemuk Grease As Roda',
+                    replaced_items: 'Oli Mesin Diesel 15W-40 (12 Liter), Filter Solar Utama, Filter Solar Ganda, Filter Oli, Gemuk As Roda',
                     notes: 'Perawatan rutin truk box berat 80.000 km, rem angin dalam kondisi aman'
                 },
                 {
@@ -378,7 +380,7 @@
                     odometer: '77.200 km',
                     workshop: 'Bengkel Diesel Sumber Rejeki',
                     cost: 1420000,
-                    replaced_items: 'Kampas Rem Tromol Roda Belakang Bendix Heavy Duty, Kuras Minyak Rem Tabung Angin, Oli Gardan Rored SAE 90',
+                    replaced_items: 'Kampas Rem Tromol Roda Belakang, Kuras Minyak Rem Tabung Angin, Oli Gardan SAE 90',
                     notes: 'Pengereman kembali responsif dan pakem'
                 }
             ];
@@ -389,10 +391,10 @@
                     id: 'SRV-TRK-002-1',
                     date: '2026-08-14',
                     odometer: '79.100 km',
-                    workshop: 'Fuso Kebon Jeruk',
+                    workshop: 'Bengkel Rekanan',
                     cost: 1720000,
-                    replaced_items: 'Oli Mesin Diesel Pertamina Meditran SX 15W-40, Filter Oli Canter ME014833, Filter Solar ME016823, Grease Gardan',
-                    notes: 'Servis berkala Fuso Canter, tekanan kompresi silinder bagus'
+                    replaced_items: 'Oli Mesin Diesel 15W-40, Filter Oli, Filter Solar, Gemuk Gardan',
+                    notes: 'Servis berkala truk box, tekanan kompresi silinder bagus'
                 }
             ];
         }
@@ -402,10 +404,10 @@
                     id: 'SRV-TRK-003-1',
                     date: '2026-07-30',
                     odometer: '92.400 km',
-                    workshop: 'Astra Isuzu Harapan Indah',
+                    workshop: 'Bengkel Rekanan Resmi',
                     cost: 2150000,
                     replaced_items: 'Oli Mesin Diesel Heavy Duty (14L), Filter Udara Double Element, Kampas Rem Angin Roda Depan, Filter Solar Atas & Bawah',
-                    notes: 'Pembersihan air tank tabung kompresor rem'
+                    notes: 'Pembersihan tabung kompresor rem'
                 }
             ];
         }
@@ -415,9 +417,9 @@
                     id: 'SRV-TRK-004-1',
                     date: '2026-08-18',
                     odometer: '71.300 km',
-                    workshop: 'Bengkel Hino Cikokol',
+                    workshop: 'Bengkel Cikokol',
                     cost: 1680000,
-                    replaced_items: 'Oli Mesin Hino 15W-40, Filter Oli, Filter Solar Utama, Kuras Tabung Power Steering & Minyak ATF',
+                    replaced_items: 'Oli Mesin 15W-40, Filter Oli, Filter Solar Utama, Kuras Tabung Power Steering & Minyak ATF',
                     notes: 'Power steering diperiksa, kemudi lancar dan ringan'
                 }
             ];
@@ -431,7 +433,7 @@
                     workshop: 'Bengkel Motor Jaya',
                     cost: 450000,
                     replaced_items: 'Oli Mesin 10W-40, Filter Oli, Filter Udara, Busi Standar (4 pcs)',
-                    notes: 'Servis berkala pick up gudang'
+                    notes: 'Servis berkala pick up operasional'
                 }
             ];
         }
@@ -443,7 +445,7 @@
                     odometer: '64.000 km',
                     workshop: 'Bengkel Diesel Mitra Kawan',
                     cost: 780000,
-                    replaced_items: 'Oli Mesin Diesel Meditran SX, Filter Solar L300, Kuras Radiator Coolant Hijau, Cek Timing Belt',
+                    replaced_items: 'Oli Mesin Diesel, Filter Solar, Kuras Radiator Coolant, Cek Timing Belt',
                     notes: 'Kondisi timing belt masih bagus, radiator bersih'
                 }
             ];
@@ -454,7 +456,7 @@
                 id: 'SRV-' + Date.now(),
                 date: '2026-08-15',
                 odometer: '40.000 km',
-                workshop: 'Bengkel Rekanan Resmi',
+                workshop: 'Bengkel Rekanan',
                 cost: 650000,
                 replaced_items: 'Oli Mesin, Filter Oli, Cek Kampas Rem, Tune Up Ringan',
                 notes: 'Servis berkala sebelumnya'
@@ -583,6 +585,91 @@
         return cleaned;
     }
 
+    function getCentralPhone() {
+        try {
+            const stored = localStorage.getItem(CENTRAL_PHONE_KEY);
+            if (stored && stored.trim()) return stored.trim();
+        } catch (e) {}
+        return DEFAULT_CENTRAL_PHONE;
+    }
+
+    function formatPhoneDisplay(p) {
+        const raw = String(p || '').replace(/\D/g, '');
+        if (raw.startsWith('62')) {
+            const body = raw.slice(2);
+            if (body.length >= 8) {
+                return `+62 ${body.slice(0, 3)}-${body.slice(3, 7)}-${body.slice(7)}`;
+            }
+            return `+62 ${body}`;
+        }
+        return raw || '-';
+    }
+
+    function saveCentralPhone(newPhone) {
+        const cleaned = cleanWhatsAppPhone(newPhone);
+        if (!cleaned || cleaned.length < 9) {
+            alert('Nomor WhatsApp tidak valid. Masukkan nomor yang benar (contoh: 081210203040).');
+            return false;
+        }
+        localStorage.setItem(CENTRAL_PHONE_KEY, cleaned);
+        showFleetToast('Nomor WhatsApp Alert berhasil diperbarui!');
+        renderFleetInventoryView();
+        return true;
+    }
+
+    function openEditCentralPhoneModal() {
+        const current = getCentralPhone();
+        const input = prompt('Ubah Nomor WhatsApp Alert Operasional:\n(Contoh: 081210203040 atau 6281210203040)', current);
+        if (input !== null && input.trim()) {
+            saveCentralPhone(input.trim());
+        }
+    }
+
+    function sendCentralAlertWhatsApp() {
+        const centralPhone = getCentralPhone();
+        const fleet = getStoredFleet();
+        
+        const needAttention = [];
+        fleet.forEach(v => {
+            const ev = evaluateVehicleAlerts(v);
+            const issues = [];
+            if (ev.isOverdueOverall) {
+                if (ev.taxAlert.isOverdue) issues.push(`Pajak LEWAT (${formatPrettyDate(v.tax_due_date)})`);
+                if (ev.kirAlert && ev.kirAlert.isOverdue) issues.push(`KIR LEWAT (${formatPrettyDate(v.kir_due_date)})`);
+                if (ev.serviceAlert.isOverdue) issues.push(`Servis LEWAT (${formatPrettyDate(v.service_due_date)})`);
+            } else if (ev.isH7Overall) {
+                if (ev.taxAlert.isH7) issues.push(`Pajak H-${ev.taxAlert.daysLeft} (${formatPrettyDate(v.tax_due_date)})`);
+                if (ev.kirAlert && ev.kirAlert.isH7) issues.push(`KIR H-${ev.kirAlert.daysLeft} (${formatPrettyDate(v.kir_due_date)})`);
+                if (ev.serviceAlert.isH7) issues.push(`Servis H-${ev.serviceAlert.daysLeft} (${formatPrettyDate(v.service_due_date)})`);
+            }
+            if (issues.length > 0) {
+                needAttention.push({
+                    plate: v.plate_number,
+                    driver: v.assigned_person_name || 'Driver',
+                    issues: issues.join(', ')
+                });
+            }
+        });
+
+        const todayFormatted = new Date().toLocaleDateString('id-ID', {
+            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+        });
+
+        let msg = `*REKAP ALERT & NOTIFIKASI ARMADA WTRACK*\nTanggal: ${todayFormatted}\n\n`;
+        if (needAttention.length === 0) {
+            msg += `✅ Seluruh armada operasional (${fleet.length} unit) terpantau aman dan belum ada jatuh tempo H-7 atau overdue.`;
+        } else {
+            msg += `⚠️ Ditemukan *${needAttention.length} armada* perlu perhatian:\n\n`;
+            needAttention.forEach((item, idx) => {
+                msg += `${idx + 1}. *${item.plate}* (${item.driver})\n   • ${item.issues}\n\n`;
+            });
+            msg += `Mohon segera ditindaklanjuti untuk perpanjangan atau jadwal servis bengkel. Terima kasih.`;
+        }
+
+        const waUrl = `https://wa.me/${centralPhone}?text=${encodeURIComponent(msg)}`;
+        window.open(waUrl, '_blank');
+    }
+
     function buildWhatsAppReminderUrl(vehicle, ev) {
         const cleanPhone = cleanWhatsAppPhone(vehicle.assigned_person_phone);
         if (!cleanPhone) return '#';
@@ -687,6 +774,12 @@
         if (elOverdue) elOverdue.innerText = overdueCount;
         if (elMissingPhone) elMissingPhone.innerText = missingPhoneCount;
 
+        // Update Central WhatsApp Alert Display in Toolbar
+        const elCentralPhone = document.getElementById('fleet-central-phone-display');
+        if (elCentralPhone) {
+            elCentralPhone.innerText = formatPhoneDisplay(getCentralPhone());
+        }
+
         // Filter Rows
         const filtered = evaluatedList.filter(item => {
             const v = item.vehicle;
@@ -703,7 +796,6 @@
             if (filterStatus === 'warning_h7' && !ev.isH7Overall) return false;
             if (filterStatus === 'overdue' && !ev.isOverdueOverall) return false;
             if (filterStatus === 'attention' && !ev.hasDueNotice) return false;
-            if (filterStatus === 'missing_phone' && !ev.phoneRequiredWarning) return false;
 
             if (searchKeyword) {
                 const searchStr = `${v.plate_number} ${v.assigned_person_name || ''} ${cat} ${v.fuel_barcode_code || ''} ${v.assigned_person_phone || ''} ${v.service_details || ''} ${v.notes || ''}`.toLowerCase();
@@ -717,7 +809,7 @@
         if (!tbody) return;
 
         if (filtered.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="7" class="text-center py-5 text-muted"><i class="bi bi-truck fs-2 d-block mb-2 text-secondary"></i>Tidak ada kendaraan yang cocok dengan filter.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="6" class="text-center py-5 text-muted"><i class="bi bi-truck fs-2 d-block mb-2 text-secondary"></i>Tidak ada kendaraan yang cocok dengan filter.</td></tr>`;
             return;
         }
 
@@ -725,58 +817,18 @@
             const v = item.vehicle;
             const ev = item.ev;
             const cat = item.category;
-            const isGranmax = (cat === 'granmax');
 
             let catBadge = '';
             if (cat === 'granmax') {
                 catBadge = `<span class="badge" style="background-color: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; font-size: 0.65rem; font-weight: 700; border-radius: 4px; padding: 2px 6px;">GRANMAX</span>`;
             } else if (cat === 'truck_box') {
-                catBadge = `<span class="badge" style="background-color: #fffbeb; color: #b45309; border: 1px solid #fde68a; font-size: 0.65rem; font-weight: 700; border-radius: 4px; padding: 2px 6px;">TRUCK BOX</span>`;
+                catBadge = `<span class="badge" style="background-color: #fffbeb; color: #b45309; border: 1px solid #fde68a; font-size: 0.65rem; font-weight: 700; border-radius: 4px; padding: 2px 6px;">TRUK BOX</span>`;
             } else if (cat === 'pickup') {
                 catBadge = `<span class="badge" style="background-color: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; font-size: 0.65rem; font-weight: 700; border-radius: 4px; padding: 2px 6px;">PICK UP</span>`;
             } else if (cat === 'l300') {
                 catBadge = `<span class="badge" style="background-color: #faf5ff; color: #6b21a8; border: 1px solid #e9d5ff; font-size: 0.65rem; font-weight: 700; border-radius: 4px; padding: 2px 6px;">L 300</span>`;
             } else {
                 catBadge = `<span class="badge" style="background-color: #f8fafc; color: #475569; border: 1px solid #e2e8f0; font-size: 0.65rem; font-weight: 700; border-radius: 4px; padding: 2px 6px;">${cat.toUpperCase()}</span>`;
-            }
-
-            // WhatsApp Column Content
-            let waCellHtml = '';
-            const cleanPhone = cleanWhatsAppPhone(v.assigned_person_phone);
-
-            if (cleanPhone) {
-                const waUrl = buildWhatsAppReminderUrl(v, ev);
-                waCellHtml = `
-                    <div class="d-flex align-items-center gap-1.5">
-                        <a href="${waUrl}" target="_blank" rel="noopener noreferrer" 
-                           class="btn btn-sm py-1 px-2.5 d-inline-flex align-items-center gap-1.5 fw-semibold text-decoration-none shadow-none" 
-                           style="background-color: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; border-radius: 6px; font-size: 0.75rem;" 
-                           title="Kirim Pesan WhatsApp Langsung">
-                            <i class="bi bi-whatsapp text-success"></i>
-                            <span>+${cleanPhone}</span>
-                        </a>
-                        <button class="btn btn-sm btn-outline-secondary py-1 px-1.5" style="border-radius: 6px; font-size: 0.68rem; border-color: #e2e8f0;" onclick="window.fleetModule.openQuickPhoneModal('${v.id}')" title="Edit Nomor HP">
-                            <i class="bi bi-pencil"></i>
-                        </button>
-                    </div>
-                `;
-            } else {
-                waCellHtml = `
-                    <button class="btn btn-sm btn-outline-danger py-1 px-2 fw-semibold d-inline-flex align-items-center gap-1" style="border-radius: 6px; font-size: 0.72rem;" onclick="window.fleetModule.openQuickPhoneModal('${v.id}')">
-                        <i class="bi bi-plus-circle me-1"></i>Isi No HP
-                    </button>
-                `;
-            }
-
-            // WhatsApp Missing Warning Banner Row if in H-7 or Overdue
-            let warningAlertRow = '';
-            if (ev.phoneRequiredWarning) {
-                warningAlertRow = `
-                    <div class="text-danger extra-small fw-semibold mt-1 d-flex align-items-center gap-1" style="font-size: 0.68rem; line-height: 1.2;">
-                        <i class="bi bi-exclamation-circle-fill"></i>
-                        <span>Wajib diisi untuk notifikasi!</span>
-                    </div>
-                `;
             }
 
             // Due Date Badges
@@ -822,7 +874,7 @@
                     ${v.service_details ? `
                         <div class="mt-0.5">
                             <span class="badge text-start text-truncate fw-normal d-inline-block" 
-                                  style="max-width: 175px; background: #f8fafc; color: #475569; border: 1px solid #e2e8f0; font-size: 0.68rem; padding: 2.5px 6px; border-radius: 4px;" 
+                                  style="max-width: 220px; background: #f8fafc; color: #475569; border: 1px solid #e2e8f0; font-size: 0.68rem; padding: 2.5px 6px; border-radius: 4px;" 
                                   title="Rencana servis berikutnya: ${v.service_details}">
                                 🔧 ${v.service_details}
                             </span>
@@ -830,16 +882,16 @@
                     ` : ''}
 
                     <div class="mt-1 d-flex flex-column align-items-start gap-0.5">
-                        <button class="btn btn-xs btn-outline-primary d-inline-flex align-items-center gap-1.5 py-0.5 px-2 rounded-2 fw-semibold" 
-                                style="font-size: 0.7rem; border-color: #cbd5e1; background: #ffffff;" 
+                        <button class="btn btn-xs btn-outline-secondary d-inline-flex align-items-center gap-1.5 py-0.5 px-2 rounded-2 fw-semibold" 
+                                style="font-size: 0.7rem; border-color: #cbd5e1; background: #ffffff; color: #334155;" 
                                 onclick="window.fleetModule.openServiceHistoryModal('${v.id}')">
-                            <i class="bi bi-clock-history text-primary"></i>
+                            <i class="bi bi-clock-history text-secondary"></i>
                             <span>Riwayat Servis</span>
-                            <span class="badge bg-primary text-white rounded-pill px-1.5 py-0.2" style="font-size: 0.62rem;">${historyCount}</span>
+                            <span class="badge bg-light text-secondary border rounded-pill px-1.5 py-0.2" style="font-size: 0.62rem;">${historyCount}</span>
                         </button>
                         ${lastService ? `
                             <div class="extra-small text-muted mt-0.5" style="font-size: 0.66rem;" title="Servis Terakhir (${formatPrettyDate(lastService.date)}): ${lastService.replaced_items}">
-                                <i class="bi bi-check2-circle text-success me-0.5"></i> Terakhir: <b>${formatPrettyDate(lastService.date)}</b>
+                                <i class="bi bi-check2 text-secondary me-0.5"></i> Terakhir: <b>${formatPrettyDate(lastService.date)}</b>
                             </div>
                         ` : ''}
                     </div>
@@ -888,28 +940,22 @@
                         </div>
                     </td>
 
-                    <!-- 3. NO HP & ALERT -->
-                    <td class="py-3" style="min-width: 180px;">
-                        ${waCellHtml}
-                        ${warningAlertRow}
-                    </td>
-
-                    <!-- 4. PAJAK -->
+                    <!-- 3. PAJAK -->
                     <td class="text-nowrap py-3">
                         ${taxBadge}
                     </td>
 
-                    <!-- 5. KIR -->
+                    <!-- 4. KIR -->
                     <td class="text-nowrap py-3">
                         ${kirBadge}
                     </td>
 
-                    <!-- 6. Jadwal & Rincian Servis -->
+                    <!-- 5. JADWAL & SERVIS -->
                     <td class="py-3" style="min-width: 220px; max-width: 280px;">
                         ${serviceBadge}
                     </td>
 
-                    <!-- 7. AKSI -->
+                    <!-- 6. AKSI -->
                     <td class="text-nowrap py-3 text-end">
                         <div class="d-flex align-items-center justify-content-end gap-1.5">
                             <button class="btn btn-sm btn-outline-secondary py-1 px-2.5 fw-semibold" 
@@ -1016,7 +1062,7 @@
         const serviceDue = document.getElementById('fleet-input-service').value;
         const serviceDetails = document.getElementById('fleet-input-service-details').value.trim();
         const barcodeCode = document.getElementById('fleet-input-barcode')?.value?.trim() || '';
-        const notes = document.getElementById('fleet-input-notes').value.trim() || (category === 'truck_box' ? 'Truck Box Operasional' : 'Daihatsu Gran Max Operasional');
+        const notes = document.getElementById('fleet-input-notes').value.trim() || (category === 'truck_box' ? 'Truk box Operasional' : 'Granmax Operasional');
 
         if (!plate || !taxDue || !serviceDue) {
             return alert('Harap isi Nopol, Jatuh Tempo Pajak, dan Tanggal Servis!');
@@ -1312,7 +1358,7 @@
 
                 const cleanPhone = cleanWhatsAppPhone(v.assigned_person_phone);
                 const phoneDisplay = cleanPhone ? `+${cleanPhone}` : '[WA BELUM DIISI - WAJIB]';
-                const catLabel = item.cat === 'truck_box' ? 'Truck Box' : (item.cat === 'pickup' ? 'Pick Up' : (item.cat === 'l300' ? 'Mitsubishi L300' : 'Granmax'));
+                const catLabel = item.cat === 'truck_box' ? 'Truk box' : (item.cat === 'pickup' ? 'Pick Up' : (item.cat === 'l300' ? 'L 300' : 'Granmax'));
 
                 const rowValues = [
                     num + 1,
@@ -1368,9 +1414,9 @@
         const truckBoxList = enrichedList.filter(item => item.cat === 'truck_box');
         const pickupL300List = enrichedList.filter(item => item.cat === 'pickup' || item.cat === 'l300');
 
-        renderVehicleGroup(`ARMADA DAIHATSU GRANMAX (${granmaxList.length} UNIT)`, granmaxList, 'granmax');
-        renderVehicleGroup(`ARMADA TRUCK BOX KARGO (${truckBoxList.length} UNIT)`, truckBoxList, 'truck_box');
-        renderVehicleGroup(`ARMADA OPERASIONAL PICK UP & MITSUBISHI L 300 (${pickupL300List.length} UNIT)`, pickupL300List, 'pickup_l300');
+        renderVehicleGroup(`ARMADA GRANMAX (${granmaxList.length} UNIT)`, granmaxList, 'granmax');
+        renderVehicleGroup(`ARMADA TRUK BOX (${truckBoxList.length} UNIT)`, truckBoxList, 'truck_box');
+        renderVehicleGroup(`ARMADA OPERASIONAL PICK UP & L 300 (${pickupL300List.length} UNIT)`, pickupL300List, 'pickup_l300');
 
         // Column widths
         sheet.getColumn(1).width = 6;   // No
@@ -1419,30 +1465,25 @@
                 <div class="modal-dialog modal-dialog-centered modal-lg">
                     <div class="modal-content rounded-4 border-0 shadow-lg" style="overflow: hidden;">
                         <div class="modal-header border-bottom py-3 px-4 bg-white">
-                            <div class="d-flex align-items-center gap-2.5">
-                                <div class="rounded-3 p-2 d-flex align-items-center justify-content-center text-white shadow-xs" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); width: 40px; height: 40px;">
-                                    <i class="bi bi-clock-history fs-5"></i>
+                            <div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <h6 class="modal-title fw-bold text-dark mb-0">Riwayat Servis Armada</h6>
+                                    <span class="badge border bg-light text-dark font-monospace px-2 py-0.5" id="hist-modal-plate">-</span>
                                 </div>
-                                <div>
-                                    <div class="d-flex align-items-center gap-2">
-                                        <h6 class="modal-title fw-bold text-dark mb-0">Riwayat & Log Servis Armada</h6>
-                                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle font-monospace" id="hist-modal-plate">-</span>
-                                    </div>
-                                    <div class="extra-small text-muted" id="hist-modal-subtitle">-</div>
-                                </div>
+                                <div class="extra-small text-muted mt-0.5" id="hist-modal-subtitle">-</div>
                             </div>
                             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                         </div>
-                        <div class="modal-body p-4 bg-light" id="hist-modal-body" style="max-height: 72vh; overflow-y: auto;">
+                        <div class="modal-body p-4 bg-white" id="hist-modal-body" style="max-height: 72vh; overflow-y: auto;">
                         </div>
                         <div class="modal-footer border-top py-2.5 px-4 bg-white d-flex justify-content-between">
-                            <button type="button" class="btn btn-sm btn-light border fw-semibold px-3" data-bs-dismiss="modal">Tutup</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary px-3 rounded-2 fw-medium" data-bs-dismiss="modal">Tutup</button>
                             <div class="d-flex align-items-center gap-2">
-                                <button type="button" class="btn btn-sm btn-outline-primary fw-semibold px-3" id="hist-btn-edit-armada">
+                                <button type="button" class="btn btn-sm btn-outline-dark px-3 rounded-2 fw-medium" id="hist-btn-edit-armada">
                                     <i class="bi bi-pencil me-1"></i> Edit Armada
                                 </button>
-                                <button type="button" class="btn btn-sm btn-primary fw-bold px-3 shadow-xs d-inline-flex align-items-center gap-1.5" id="hist-btn-add-record">
-                                    <i class="bi bi-plus-circle"></i> + Catat Servis Baru
+                                <button type="button" class="btn btn-sm btn-dark px-3 rounded-2 fw-semibold d-inline-flex align-items-center gap-1.5" id="hist-btn-add-record">
+                                    <i class="bi bi-plus-lg"></i> Catat Servis Baru
                                 </button>
                             </div>
                         </div>
@@ -1455,8 +1496,9 @@
         const plateEl = document.getElementById('hist-modal-plate');
         if (plateEl) plateEl.innerText = v.plate_number;
 
+        const cleanCat = v.vehicle_category === 'truck_box' ? 'Truk box' : (v.vehicle_category === 'pickup' ? 'Pick Up' : (v.vehicle_category === 'l300' ? 'L 300' : 'Granmax'));
         const subtitleEl = document.getElementById('hist-modal-subtitle');
-        if (subtitleEl) subtitleEl.innerText = `Driver: ${v.assigned_person_name || '-'} • ${v.notes || v.vehicle_category}`;
+        if (subtitleEl) subtitleEl.innerText = `Driver: ${v.assigned_person_name || '-'} • ${v.notes || cleanCat}`;
 
         const ev = evaluateVehicleAlerts(v);
         const history = Array.isArray(v.service_history) ? v.service_history : [];
@@ -1468,12 +1510,12 @@
             let historyHtml = '';
             if (history.length === 0) {
                 historyHtml = `
-                    <div class="text-center py-5 bg-white rounded-4 border p-4 shadow-xs">
-                        <div class="text-secondary mb-2"><i class="bi bi-tools fs-1 text-muted"></i></div>
+                    <div class="text-center py-5 bg-white rounded-3 border p-4">
+                        <div class="text-secondary mb-2"><i class="bi bi-tools fs-2 text-muted"></i></div>
                         <h6 class="fw-bold text-dark mb-1">Belum Ada Riwayat Servis Tercatat</h6>
-                        <p class="text-muted extra-small mb-3">Catat servis pertama untuk memantau penggantian sparepart kendaraan ini.</p>
-                        <button class="btn btn-sm btn-primary fw-bold px-3" onclick="window.fleetModule.openAddServiceRecordModal('${v.id}')">
-                            <i class="bi bi-plus-circle me-1"></i> Catat Servis Pertama
+                        <p class="text-muted extra-small mb-3">Catat servis pertama untuk memantau penggantian part kendaraan ini.</p>
+                        <button class="btn btn-sm btn-dark fw-semibold px-3" onclick="window.fleetModule.openAddServiceRecordModal('${v.id}')">
+                            <i class="bi bi-plus-lg me-1"></i> Catat Servis Pertama
                         </button>
                     </div>
                 `;
@@ -1483,57 +1525,52 @@
                     const isLatest = idx === 0;
 
                     return `
-                        <div class="card border rounded-3 p-3 mb-3 bg-white shadow-xs position-relative ${isLatest ? 'border-primary-subtle' : ''}">
-                            ${isLatest ? `<span class="badge bg-primary text-white position-absolute top-0 end-0 m-2.5 px-2 py-0.5 extra-small fw-bold"><i class="bi bi-star-fill me-1"></i>Servis Terakhir</span>` : ''}
-                            
+                        <div class="border rounded-3 p-3.5 mb-3 bg-white shadow-xs">
                             <!-- Header Baris Riwayat -->
-                            <div class="d-flex flex-wrap align-items-center gap-2 mb-2.5 ${isLatest ? 'pe-5' : ''}">
-                                <div class="d-flex align-items-center gap-1.5 font-monospace fw-bold text-dark fs-6">
-                                    <i class="bi bi-calendar2-check text-primary"></i>
-                                    <span>${formatPrettyDate(rec.date)}</span>
+                            <div class="d-flex flex-wrap align-items-center justify-content-between pb-2 mb-2.5 border-bottom gap-2">
+                                <div class="d-flex flex-wrap align-items-center gap-2">
+                                    <span class="font-monospace fw-bold text-dark fs-6">${formatPrettyDate(rec.date)}</span>
+                                    ${isLatest ? `<span class="badge bg-light text-dark border px-2 py-0.5 extra-small fw-semibold">Terbaru</span>` : ''}
+                                    ${rec.odometer ? `
+                                        <span class="badge bg-light text-secondary border px-2 py-0.5 extra-small fw-normal">
+                                            <i class="bi bi-speedometer2 me-1 text-muted"></i>${rec.odometer}
+                                        </span>
+                                    ` : ''}
+                                    ${rec.workshop ? `
+                                        <span class="badge bg-light text-secondary border px-2 py-0.5 extra-small fw-normal">
+                                            <i class="bi bi-geo-alt me-1 text-muted"></i>${rec.workshop}
+                                        </span>
+                                    ` : ''}
                                 </div>
-                                ${rec.odometer ? `
-                                    <span class="badge bg-light text-dark border px-2 py-1 extra-small fw-semibold">
-                                        <i class="bi bi-speedometer2 me-1 text-secondary"></i>${rec.odometer}
-                                    </span>
-                                ` : ''}
-                                ${rec.workshop ? `
-                                    <span class="badge bg-light text-muted border px-2 py-1 extra-small fw-medium">
-                                        <i class="bi bi-building me-1 text-secondary"></i>${rec.workshop}
-                                    </span>
-                                ` : ''}
-                                ${rec.cost ? `
-                                    <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 extra-small fw-bold">
-                                        ${formatRupiah(rec.cost)}
-                                    </span>
-                                ` : ''}
+                                <div class="font-monospace fw-semibold text-dark" style="font-size: 0.85rem;">
+                                    ${formatRupiah(rec.cost)}
+                                </div>
                             </div>
 
-                            <!-- Headline: Part / Sparepart yang Diganti (Highlight Utama) -->
-                            <div class="p-2.5 rounded-3 mb-2" style="background: #f8fafc; border: 1px solid #e2e8f0;">
-                                <div class="extra-small fw-bold text-uppercase text-secondary mb-1.5 d-flex align-items-center gap-1">
-                                    <i class="bi bi-gear-wide-connected text-primary"></i>
-                                    <span>Sparepart & Part yang Diganti:</span>
-                                </div>
+                            <!-- Sparepart / Part yang Diganti (Clean Minimal Tags, No Color Block) -->
+                            <div class="mb-2.5">
+                                <div class="extra-small text-muted mb-1.5 fw-medium">Sparepart & Part yang Diganti:</div>
                                 <div class="d-flex flex-wrap gap-1.5">
                                     ${recItems.length > 0 ? recItems.map(item => `
-                                        <span class="badge bg-white text-dark border shadow-xs px-2.5 py-1.5 fw-medium d-inline-flex align-items-center gap-1.5" style="font-size: 0.75rem; border-radius: 6px;">
-                                            <i class="bi bi-check-circle-fill text-success" style="font-size: 0.7rem;"></i>
+                                        <span class="badge bg-light text-dark border px-2.5 py-1 extra-small fw-normal d-inline-flex align-items-center gap-1">
+                                            <i class="bi bi-check text-muted" style="font-size: 0.8rem;"></i>
                                             <span>${item}</span>
                                         </span>
                                     `).join('') : '<span class="text-muted extra-small">Servis berkala umum</span>'}
                                 </div>
                             </div>
 
-                            <!-- Catatan Mekanik & Aksi Hapus -->
+                            <!-- Catatan & Aksi Hapus -->
                             <div class="d-flex flex-wrap justify-content-between align-items-center pt-2 border-top gap-2">
                                 <div class="extra-small text-muted">
-                                    ${rec.notes ? `<i class="bi bi-chat-left-text me-1"></i> <span class="text-dark">${rec.notes}</span>` : '<span class="text-muted fst-italic">Tidak ada catatan tambahan</span>'}
+                                    ${rec.notes ? `<span class="text-dark">${rec.notes}</span>` : '<span class="text-muted fst-italic">Tidak ada catatan tambahan</span>'}
                                 </div>
-                                <button class="btn btn-xs btn-link text-danger p-0 text-decoration-none fw-semibold ms-auto" 
+                                <button class="btn btn-xs btn-link text-muted p-0 text-decoration-none ms-auto" 
                                         style="font-size: 0.72rem;"
+                                        onmouseover="this.className='btn btn-xs btn-link text-danger p-0 text-decoration-none ms-auto'"
+                                        onmouseout="this.className='btn btn-xs btn-link text-muted p-0 text-decoration-none ms-auto'"
                                         onclick="window.fleetModule.deleteServiceRecord('${v.id}', '${rec.id}')">
-                                    <i class="bi bi-trash me-1"></i> Hapus Catatan
+                                    <i class="bi bi-trash me-1"></i> Hapus
                                 </button>
                             </div>
                         </div>
@@ -1542,43 +1579,39 @@
             }
 
             bodyEl.innerHTML = `
-                <!-- Ringkasan Jadwal Berikutnya -->
-                <div class="card border rounded-3 p-3 mb-3.5 bg-white shadow-xs" style="border-left: 4px solid var(--status-transit) !important;">
-                    <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2">
-                        <div class="d-flex align-items-center gap-2">
-                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle fw-bold extra-small text-uppercase">
-                                <i class="bi bi-calendar-event me-1"></i> Jadwal Servis Rutin Berikutnya
-                            </span>
-                            <span class="badge" style="${ev.serviceAlert.pillStyle} font-size: 0.68rem; font-weight: 600; padding: 2.5px 7px; border-radius: 5px;">
-                                ${ev.serviceAlert.label}
-                            </span>
+                <!-- Jadwal Servis Rutin Berikutnya (Clean Minimalist, No Color Block) -->
+                <div class="card border rounded-3 p-3.5 mb-3.5 bg-white shadow-xs">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center pb-2.5 mb-2.5 border-bottom gap-2">
+                        <div>
+                            <div class="extra-small text-muted fw-semibold text-uppercase" style="letter-spacing: 0.04em;">Jadwal Servis Rutin Berikutnya</div>
+                            <div class="d-flex align-items-center gap-2 mt-1">
+                                <span class="font-monospace fw-bold text-dark fs-6">${formatPrettyDate(v.service_due_date)}</span>
+                                <span class="badge bg-light text-secondary border px-2 py-0.5 extra-small fw-semibold">
+                                    ${ev.serviceAlert.label}
+                                </span>
+                            </div>
                         </div>
-                        <div class="font-monospace fw-bold text-dark fs-6">
-                            ${formatPrettyDate(v.service_due_date)}
-                        </div>
+                        <button class="btn btn-sm btn-outline-dark fw-semibold px-3 py-1.5 rounded-2 d-inline-flex align-items-center gap-1.5" 
+                                style="font-size: 0.78rem;" 
+                                onclick="window.fleetModule.openAddServiceRecordModal('${v.id}', true)">
+                            <i class="bi bi-check-lg"></i>
+                            <span>Tandai Servis Selesai</span>
+                        </button>
                     </div>
-                    <div class="extra-small text-muted mb-1.5 fw-semibold">Rencana Item Servis Mendatang:</div>
-                    <div class="d-flex flex-wrap gap-1.5 mb-2.5">
+                    <div class="extra-small text-muted mb-1.5 fw-medium">Rencana Item Servis Mendatang:</div>
+                    <div class="d-flex flex-wrap gap-1.5">
                         ${planItems.map(item => `
-                            <span class="badge bg-light text-dark border px-2 py-1 extra-small fw-normal">
-                                <i class="bi bi-wrench me-1 text-primary"></i> ${item}
+                            <span class="badge bg-light text-dark border px-2.5 py-1 extra-small fw-normal d-inline-flex align-items-center gap-1">
+                                <i class="bi bi-wrench text-muted" style="font-size: 0.68rem;"></i> ${item}
                             </span>
                         `).join('')}
-                    </div>
-                    <div class="d-flex justify-content-end">
-                        <button class="btn btn-xs btn-success fw-bold py-1.5 px-3 rounded-2 shadow-xs d-inline-flex align-items-center gap-1.5" 
-                                style="font-size: 0.75rem;" 
-                                onclick="window.fleetModule.openAddServiceRecordModal('${v.id}', true)">
-                            <i class="bi bi-check2-all fs-6"></i>
-                            <span>Tandai Servis Sekarang Selesai & Masukkan ke Riwayat</span>
-                        </button>
                     </div>
                 </div>
 
                 <!-- Bagian Riwayat Sebelumnya -->
                 <div class="d-flex align-items-center justify-content-between mb-2.5 px-1">
-                    <div class="fw-bold text-dark extra-small text-uppercase d-flex align-items-center gap-1.5">
-                        <i class="bi bi-journal-text text-primary"></i>
+                    <div class="fw-semibold text-dark extra-small text-uppercase d-flex align-items-center gap-1.5">
+                        <i class="bi bi-journal-text text-secondary"></i>
                         <span>Riwayat Servis Sebelumnya (${history.length} Catatan)</span>
                     </div>
                     <span class="extra-small text-muted">Diurutkan dari servis terbaru</span>
@@ -1722,8 +1755,8 @@
                                 </div>
 
                                 <div class="d-flex justify-content-end gap-2 mt-3 pt-2 border-top">
-                                    <button type="button" class="btn btn-sm btn-light border fw-semibold" data-bs-dismiss="modal">Batal</button>
-                                    <button type="submit" class="btn btn-sm btn-primary fw-bold px-3">Simpan Riwayat Servis</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary fw-medium px-3 rounded-2" data-bs-dismiss="modal">Batal</button>
+                                    <button type="submit" class="btn btn-sm btn-dark fw-semibold px-3 rounded-2">Simpan Riwayat Servis</button>
                                 </div>
                             </form>
                         </div>
@@ -1874,7 +1907,11 @@
         onPersonilSelectChange,
         appendServiceTag,
         exportFleetToExcel,
-        getStoredFleet
+        getStoredFleet,
+        openEditCentralPhoneModal,
+        sendCentralAlertWhatsApp,
+        getCentralPhone,
+        saveCentralPhone
     };
 
     // Auto-init on load if super admin
