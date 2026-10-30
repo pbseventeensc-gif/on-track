@@ -1,6 +1,6 @@
-// ==========================================
+// ==============================================================================
 // WTRACK LOGISTICS - LEAFLET & MAPS MODULE
-// ==========================================
+// ==============================================================================
 
 window.refreshMapSizes = function() {
     [50, 200, 500, 1000].forEach(delay => {
@@ -21,7 +21,52 @@ let tripMarkersLayer = (typeof L !== 'undefined' && L.layerGroup) ? L.layerGroup
 let monitorMarkersLayer = (typeof L !== 'undefined' && L.layerGroup) ? L.layerGroup() : null;
 let monitorCouriersLayer = (typeof L !== 'undefined' && L.layerGroup) ? L.layerGroup() : null;
 let draftMarkersLayer = (typeof L !== 'undefined' && L.layerGroup) ? L.layerGroup() : null;
-let tripRoutesLayer = (typeof L !== 'undefined' && L.layerGroup) ? L.layerGroup() : null;
+
+// Driver Focus Mode State
+window.focusedDriverId = null;
+
+// Unique & Consistent Color Palette per Personil
+window.getCourierColor = function(id, optName = '') {
+    const checkStr = (String(optName || '') + ' ' + String(id || '')).toLowerCase();
+
+    // Kurir (12 Personil)
+    if (checkStr.includes('ahmad')) return '#2563EB'; // Royal Blue
+    if (checkStr.includes('beto')) return '#0D9488'; // Teal
+    if (checkStr.includes('eri')) return '#16A34A'; // Green
+    if (checkStr.includes('irfan')) return '#D97706'; // Amber
+    if (checkStr.includes('baikaqi') || checkStr.includes('bayhaqi') || checkStr.includes('xonh')) return '#9333EA'; // Purple
+    if (checkStr.includes('haris')) return '#DB2777'; // Pink
+    if (checkStr.includes('umar')) return '#0284C7'; // Sky Blue
+    if (checkStr.includes('noval') || checkStr.includes('ek74')) return '#EA580C'; // Orange
+    if (checkStr.includes('jay')) return '#4F46E5'; // Indigo
+    if (checkStr.includes('ferdi')) return '#059669'; // Emerald
+    if (checkStr.includes('jagat') || checkStr.includes('jagad') || checkStr.includes('3lhr')) return '#C026D3'; // Fuchsia
+    if (checkStr.includes('pbseven') || checkStr.includes('up70')) return '#14B8A6'; // Light Teal
+
+    // Driver (10 Personil)
+    if (checkStr.includes('altur')) return '#E11D48'; // Crimson
+    if (checkStr.includes('rizki')) return '#7C3AED'; // Violet
+    if (checkStr.includes('soleh')) return '#0891B2'; // Cyan
+    if (checkStr.includes('romi')) return '#D946EF'; // Magenta
+    if (checkStr.includes('firdaus')) return '#CA8A04'; // Gold
+    if (checkStr.includes('alan') || checkStr.includes('limd')) return '#475569'; // Slate
+    if (checkStr.includes('yakub')) return '#DC2626'; // Red
+    if (checkStr.includes('iwan')) return '#65A30D'; // Lime
+    if (checkStr.includes('agung')) return '#0369A1'; // Ocean Blue
+    if (checkStr.includes('husen') || checkStr.includes('juhu')) return '#B45309'; // Warm Bronze
+
+    // High contrast deterministic palette fallback
+    const fallbackPalette = [
+        '#2563EB', '#0D9488', '#16A34A', '#D97706', '#9333EA',
+        '#DB2777', '#0284C7', '#EA580C', '#4F46E5', '#059669',
+        '#C026D3', '#E11D48', '#7C3AED', '#0891B2', '#D946EF',
+        '#CA8A04', '#475569', '#DC2626', '#65A30D', '#0369A1', '#B45309'
+    ];
+    let hash = 0;
+    const str = String(id || '');
+    for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    return fallbackPalette[Math.abs(hash) % fallbackPalette.length];
+};
 
 // Immediate window exports
 window.initMaps = initMaps;
@@ -29,6 +74,8 @@ window.initAutocomplete = initAutocomplete;
 window.addManualAddress = addManualAddress;
 window.updateMapMarkers = updateMapMarkers;
 window.toggleHeatmap = toggleHeatmap;
+window.setFocusedDriver = setFocusedDriver;
+window.resetDriverFocus = resetDriverFocus;
 
 function ensureMapLayers() {
     if (typeof L !== 'undefined' && L.layerGroup) {
@@ -36,15 +83,16 @@ function ensureMapLayers() {
         if (!monitorMarkersLayer) monitorMarkersLayer = L.layerGroup();
         if (!monitorCouriersLayer) monitorCouriersLayer = L.layerGroup();
         if (!draftMarkersLayer) draftMarkersLayer = L.layerGroup();
-        if (!tripRoutesLayer) tripRoutesLayer = L.layerGroup();
     }
 }
 
 function getJabodetabekMaxBounds() {
     if (typeof L !== 'undefined' && L.latLngBounds) {
+        // Area Operasional Terkunci: JABODETABEK, BANTEN, SERANG, RANGKAS, BITUNG TANGERANG, KARAWANG, CIKARANG, BOGOR
+        // Diluar batas ini (seperti Semarang, Surabaya, atau luar Jawa) dikunci total
         return L.latLngBounds(
-            L.latLng(-7.1000, 105.5000), // South-West (Banten / Serang / Cilegon)
-            L.latLng(-5.5000, 107.8000)  // North-East (Jakarta Coast / Karawang)
+            L.latLng(-6.9500, 105.7000), // South-West (Banten / Rangkasbitung / Serang / Pandeglang)
+            L.latLng(-5.8000, 107.5000)  // North-East (Pesisir Jakarta / Cikarang / Karawang / Cikampek)
         );
     }
     return null;
@@ -52,13 +100,16 @@ function getJabodetabekMaxBounds() {
 
 let heatmapLayer = null;
 
-// Banten (Serang, Cilegon, Pandeglang) + Jabodetabek + Cikarang + Karawang + Tangerang + Bogor Bounding Box
+// Validasi Batas Wilayah Operasional:
+// Mencakup: JABODETABEK, BANTEN (Serang, Cilegon, Rangkasbitung), BITUNG TANGERANG, BOGOR, CIKARANG, KARAWANG
 function isInsideJabodetabekArea(lat, lng) {
     const latitude = parseFloat(lat);
     const longitude = parseFloat(lng);
     if (isNaN(latitude) || isNaN(longitude)) return false;
-    return latitude >= -7.1000 && latitude <= -5.5000 && longitude >= 105.5000 && longitude <= 107.8000;
+    return latitude >= -6.9500 && latitude <= -5.8000 && longitude >= 105.7000 && longitude <= 107.5000;
 }
+window.isInsideJabodetabekArea = isInsideJabodetabekArea;
+window.isInsideOperationalArea = isInsideJabodetabekArea;
 
 const googleTiles = {
     url: 'https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
@@ -104,12 +155,12 @@ function initMaps() {
             map = L.map('map', {
                 zoomControl: false,
                 maxBounds: jabodetabekMaxBounds,
-                maxBoundsViscosity: 0.8
+                maxBoundsViscosity: 1.0,
+                minZoom: 9
             }).setView([-6.2088, 106.8456], 12);
             L.control.zoom({ position: 'bottomright' }).addTo(map);
             addMapTileLayer(map);
             if (tripMarkersLayer) tripMarkersLayer.addTo(map);
-            if (tripRoutesLayer) tripRoutesLayer.addTo(map);
             window.map = map;
         }
 
@@ -118,13 +169,13 @@ function initMaps() {
             mapMonitor = L.map('map-monitor', {
                 zoomControl: false,
                 maxBounds: jabodetabekMaxBounds,
-                maxBoundsViscosity: 0.8
+                maxBoundsViscosity: 1.0,
+                minZoom: 9
             }).setView([-6.2088, 106.8456], 12);
             L.control.zoom({ position: 'bottomright' }).addTo(mapMonitor);
             addMapTileLayer(mapMonitor);
             if (monitorMarkersLayer) monitorMarkersLayer.addTo(mapMonitor);
             if (monitorCouriersLayer) monitorCouriersLayer.addTo(mapMonitor);
-            if (tripRoutesLayer) tripRoutesLayer.addTo(mapMonitor);
             window.mapMonitor = mapMonitor;
         }
 
@@ -133,7 +184,8 @@ function initMaps() {
             mapDispatch = L.map('map-dispatch', {
                 zoomControl: false,
                 maxBounds: jabodetabekMaxBounds,
-                maxBoundsViscosity: 0.8
+                maxBoundsViscosity: 1.0,
+                minZoom: 9
             }).setView([-6.2088, 106.8456], 12);
             L.control.zoom({ position: 'bottomright' }).addTo(mapDispatch);
             addMapTileLayer(mapDispatch);
@@ -149,51 +201,158 @@ function initMaps() {
     }
 }
 
+// Driver Focus Mode: Focus single driver and hide other markers
+function setFocusedDriver(driverId) {
+    if (!driverId) return;
+    window.focusedDriverId = driverId;
+
+    const dName = (typeof registeredUsers !== 'undefined' && registeredUsers[driverId])
+        ? registeredUsers[driverId]
+        : (typeof getCourierDisplayName === 'function' ? getCourierDisplayName(driverId) : driverId);
+
+    const targetMap = window.mapMonitor || window.map;
+
+    // Determine coordinate of the focused personil
+    let targetPos = null;
+    if (typeof currentOnlineCouriers !== 'undefined' && currentOnlineCouriers[driverId]) {
+        const c = currentOnlineCouriers[driverId];
+        if (c && c.lat && c.lng) targetPos = [parseFloat(c.lat), parseFloat(c.lng)];
+    }
+
+    if (!targetPos && typeof allCurrentTrips !== 'undefined') {
+        const t = allCurrentTrips.find(x => x.courierId === driverId && x.destinations && x.destinations.length > 0);
+        if (t && t.destinations[0]) {
+            const d = t.destinations[0];
+            const lat = parseFloat(d.latitude || d.lat);
+            const lng = parseFloat(d.longitude || d.lng);
+            if (!isNaN(lat) && !isNaN(lng)) targetPos = [lat, lng];
+        }
+    }
+
+    if (targetMap && targetPos) {
+        targetMap.flyTo(targetPos, 16, { duration: 1.2 });
+    }
+
+    renderMapFocusControl(dName);
+    updateMapMarkers();
+
+    if (typeof showToast === 'function') {
+        showToast(`Fokus aktif: ${dName}. Seluruh marker lain disembunyikan.`);
+    }
+}
+
+function resetDriverFocus() {
+    window.focusedDriverId = null;
+    const banner = document.getElementById('map-focus-indicator');
+    if (banner) banner.remove();
+
+    const targetMap = window.mapMonitor || window.map;
+    if (targetMap) {
+        targetMap.setView([-6.2088, 106.8456], 12);
+    }
+
+    updateMapMarkers();
+    if (typeof showToast === 'function') {
+        showToast("Fokus di-reset. Menampilkan semua armada.");
+    }
+}
+
+function renderMapFocusControl(driverName) {
+    let indicator = document.getElementById('map-focus-indicator');
+    if (!indicator) {
+        const mapContainer = document.getElementById('map-monitor') || document.getElementById('map');
+        if (!mapContainer) return;
+
+        // Ensure relative positioning
+        if (getComputedStyle(mapContainer).position === 'static') {
+            mapContainer.style.position = 'relative';
+        }
+
+        indicator = document.createElement('div');
+        indicator.id = 'map-focus-indicator';
+        indicator.style.cssText = 'position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 1000;';
+        mapContainer.appendChild(indicator);
+    }
+
+    indicator.innerHTML = `
+        <div class="d-flex align-items-center gap-2 bg-dark text-white px-3 py-1.5 rounded-pill shadow-lg" style="font-size: 0.8rem; border: 1px solid rgba(255,255,255,0.2);">
+            <span class="d-inline-block rounded-circle bg-success me-1" style="width: 8px; height: 8px;"></span>
+            <span>Fokus Driver: <b>${driverName}</b></span>
+            <button class="btn btn-xs btn-light rounded-pill px-2.5 py-0.5 fw-bold text-dark ms-2" style="font-size: 0.72rem;" onclick="resetDriverFocus()">
+                <i class="bi bi-x-circle me-1"></i>Reset Focus / Tampilkan Semua
+            </button>
+        </div>
+    `;
+}
+
 function updateMapMarkers(filter = "") {
     const search = filter.toLowerCase();
     if (typeof tripMarkersLayer !== 'undefined' && tripMarkersLayer) tripMarkersLayer.clearLayers();
     if (typeof monitorMarkersLayer !== 'undefined' && monitorMarkersLayer) monitorMarkersLayer.clearLayers();
     if (typeof monitorCouriersLayer !== 'undefined' && monitorCouriersLayer) monitorCouriersLayer.clearLayers();
-    if (typeof tripRoutesLayer !== 'undefined' && tripRoutesLayer) tripRoutesLayer.clearLayers();
 
-    // 1. Render Online Couriers inside Jabodetabek & Karawang
+    // 1. Render Online Couriers / Drivers
     if (typeof currentOnlineCouriers !== 'undefined') {
         for (const id in currentOnlineCouriers) {
             if (typeof isCourierInActiveBranch === 'function' && !isCourierInActiveBranch(id)) continue;
 
+            // DRIVER FOCUS MODE: If a driver is focused, hide all other drivers/couriers
+            if (window.focusedDriverId && window.focusedDriverId !== id) {
+                continue;
+            }
+
             const c = currentOnlineCouriers[id];
             if (!c || typeof c.lat === 'undefined' || typeof c.lng === 'undefined') continue;
-
             if (!isInsideJabodetabekArea(c.lat, c.lng)) continue;
 
-            const color = typeof getCourierColor === 'function' ? getCourierColor(id) : '#10B981';
-            const name = (typeof registeredUsers !== 'undefined' && registeredUsers[id]) ? registeredUsers[id] : 'Carrier';
+            const name = (typeof registeredUsers !== 'undefined' && registeredUsers[id])
+                ? registeredUsers[id]
+                : (typeof getCourierDisplayName === 'function' ? getCourierDisplayName(id) : '');
+
+            // HAPUS / HIDE NON-MASTER / ANONYMOUS "Carrier (...)" DARI LIVE MAP
+            if (typeof isRecognizedCourier === 'function' && !isRecognizedCourier(id, name)) {
+                continue;
+            }
+
+            const color = window.getCourierColor(id, name);
             const pos = [c.lat, c.lng];
 
             const courierIcon = L.divIcon({
                 className: 'custom-div-icon',
-                html: `<div style="background:${color}; width:24px; height:24px; border-radius:50%; border:3px solid #fff; box-shadow:0 0 10px ${color}; display:flex; align-items:center; justify-content:center; color:#fff; font-size:10px; font-weight:bold;">🚚</div>`,
-                iconSize: [24, 24],
-                iconAnchor: [12, 12]
+                html: `<div style="background:${color}; width:26px; height:26px; border-radius:50%; border:3px solid #fff; box-shadow:0 0 10px ${color}; display:flex; align-items:center; justify-content:center; color:#fff; font-size:11px; font-weight:bold; cursor:pointer;"><i class="bi bi-geo-alt-fill"></i></div>`,
+                iconSize: [26, 26],
+                iconAnchor: [13, 13]
             });
+
+            const popupHtml = `
+                <div style="min-width:160px; font-family: inherit;">
+                    <div style="font-weight:800; font-size:13px; color:#111827; margin-bottom:2px;">${name}</div>
+                    <div style="color:${color}; font-size:10px; font-weight:800; letter-spacing:0.5px;">LIVE GPS ON-TRACK</div>
+                    <button class="btn btn-xs btn-dark w-100 mt-2 py-1 fw-bold" style="font-size:0.7rem; border-radius:6px;" onclick="setFocusedDriver('${id}')">
+                        <i class="bi bi-crosshair me-1"></i> Fokus Driver Ini
+                    </button>
+                </div>
+            `;
 
             if (typeof tripMarkersLayer !== 'undefined' && tripMarkersLayer) {
                 const mDash = L.marker(pos, { icon: courierIcon }).addTo(tripMarkersLayer);
                 mDash.courierId = id;
                 mDash.courierName = name;
-                mDash.bindPopup(`<div style="min-width:140px;"><b>${name}</b><br><small style="color:${color}; font-weight:800;">LIVE GPS ON-TRACK</small></div>`);
+                mDash.bindPopup(popupHtml);
+                mDash.on('click', () => { setFocusedDriver(id); });
             }
 
             if (typeof monitorCouriersLayer !== 'undefined' && monitorCouriersLayer && (!filter || name.toLowerCase().includes(search) || id.toLowerCase().includes(search))) {
                 const mMon = L.marker(pos, { icon: courierIcon }).addTo(monitorCouriersLayer);
                 mMon.courierId = id;
                 mMon.courierName = name;
-                mMon.bindPopup(`<div style="min-width:140px;"><b>${name}</b><br><small style="color:${color}; font-weight:800;">LIVE GPS ON-TRACK</small></div>`);
+                mMon.bindPopup(popupHtml);
+                mMon.on('click', () => { setFocusedDriver(id); });
             }
         }
     }
 
-    // 2. Render All Trip Destinations & Route Lines
+    // 2. Render Trip Destination Stops (WITHOUT Polyline Route Lines)
     if (typeof allCurrentTrips === 'undefined') return;
 
     const now = new Date();
@@ -202,8 +361,15 @@ function updateMapMarkers(filter = "") {
     allCurrentTrips.forEach(t => {
         if (typeof isTripInActiveBranch === 'function' && !isTripInActiveBranch(t)) return;
 
-        const cName = (typeof registeredUsers !== 'undefined' && registeredUsers[t.courierId]) ? registeredUsers[t.courierId] : t.courierId.substring(0,8);
-        const cColor = typeof getCourierColor === 'function' ? getCourierColor(t.courierId) : '#3B82F6';
+        // DRIVER FOCUS MODE: If a driver is focused, hide all destination stops for other drivers/couriers
+        if (window.focusedDriverId && window.focusedDriverId !== t.courierId) {
+            return;
+        }
+
+        const cName = (typeof registeredUsers !== 'undefined' && registeredUsers[t.courierId])
+            ? registeredUsers[t.courierId]
+            : (typeof getCourierDisplayName === 'function' ? getCourierDisplayName(t.courierId) : t.courierId.substring(0,8));
+        const cColor = window.getCourierColor(t.courierId, cName);
         const tripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : (t.id ? parseInt(t.id.replace('TRIP_', '')) || 0 : 0));
 
         // Clean map on new day (H+1): Only render map markers for TODAY'S active trips
@@ -212,12 +378,6 @@ function updateMapMarkers(filter = "") {
         }
 
         if (t.status !== 'completed' && t.destinations && t.destinations.length > 0) {
-            const routePoints = [];
-
-            const livePos = (typeof currentOnlineCouriers !== 'undefined') ? currentOnlineCouriers[t.courierId] : null;
-            const startPt = (livePos && livePos.lat && livePos.lng && isInsideJabodetabekArea(livePos.lat, livePos.lng)) ? [livePos.lat, livePos.lng] : [-6.2088, 106.8456];
-            routePoints.push(startPt);
-
             t.destinations.forEach((d, idx) => {
                 let dLat = parseFloat(d.latitude !== undefined ? d.latitude : (d.lat !== undefined ? d.lat : 0));
                 let dLng = parseFloat(d.longitude !== undefined ? d.longitude : (d.lng !== undefined ? d.lng : 0));
@@ -233,7 +393,6 @@ function updateMapMarkers(filter = "") {
                 }
 
                 const pt = [dLat, dLng];
-                routePoints.push(pt);
 
                 let pinColor = cColor;
                 let statusText = 'Pending';
@@ -250,7 +409,7 @@ function updateMapMarkers(filter = "") {
                     badgeContent = '<i class="bi bi-check-lg" style="color: #10B981; font-size: 15px; -webkit-text-stroke: 1px #10B981;"></i>';
                 } else if (d.status === 'arrived') {
                     pinColor = '#F59E0B';
-                    statusText = 'Tiba 🚚';
+                    statusText = 'Tiba';
                     badgeContent = numBadge;
                 } else if (t.status === 'accepted') {
                     statusText = 'Diterima (Proses)';
@@ -275,7 +434,7 @@ function updateMapMarkers(filter = "") {
                         <div style="font-weight:800; font-size:13px; color:#111827; margin-bottom:2px;">${d.locationName}</div>
                         <div style="font-size:11px; color:#6B7280; margin-bottom:6px;">${d.address || 'Alamat tidak tersedia'}</div>
                         <div style="font-size:11px; font-weight:700; border-top:1px solid #E5E7EB; padding-top:4px;">
-                            Kurir: <span style="color:${cColor};">${cName}</span> | Status: <b>${t.status.toUpperCase()}</b>
+                            Personil: <span style="color:${cColor};">${cName}</span> | Status: <b>${t.status.toUpperCase()}</b>
                         </div>
                     </div>
                 `;
@@ -288,15 +447,7 @@ function updateMapMarkers(filter = "") {
                     }
                 }
             });
-
-            if (typeof tripRoutesLayer !== 'undefined' && tripRoutesLayer && routePoints.length > 1) {
-                L.polyline(routePoints, {
-                    color: cColor,
-                    weight: 4,
-                    dashArray: '6, 8',
-                    opacity: 0.85
-                }).addTo(tripRoutesLayer);
-            }
+            // NOTE: Requirement 2: Hapus Polyline Garis Tujuan (No L.polyline added)
         }
     });
 }
@@ -424,14 +575,18 @@ async function initAutocomplete() {
         input.style.backgroundColor = '#ffffff';
 
         let autocomplete;
+        const operationalLatLngBounds = (window.google && google.maps && google.maps.LatLngBounds)
+            ? new google.maps.LatLngBounds(
+                { lat: -6.9500, lng: 105.7000 }, // Batas Barat Daya: Banten / Rangkas / Serang / Pandeglang
+                { lat: -5.8000, lng: 107.5000 }  // Batas Timur Laut: Jakarta Utara / Cikarang / Karawang / Cikampek
+              )
+            : null;
+
         if (window.google && google.maps && google.maps.places && google.maps.places.Autocomplete) {
             autocomplete = new google.maps.places.Autocomplete(input, {
                 componentRestrictions: { country: "id" },
-                bounds: new google.maps.LatLngBounds(
-                    { lat: -7.2000, lng: 105.3000 },
-                    { lat: -5.5000, lng: 107.8000 }
-                ),
-                strictBounds: false,
+                bounds: operationalLatLngBounds,
+                strictBounds: true, // KUNCI TOTAL: Hanya sarankan lokasi dalam koridor Jabodetabek, Banten, & Karawang
                 fields: ["geometry", "name", "formatted_address"]
             });
         } else if (window.google && google.maps && google.maps.importLibrary) {
@@ -439,11 +594,8 @@ async function initAutocomplete() {
             if (Autocomplete) {
                 autocomplete = new Autocomplete(input, {
                     componentRestrictions: { country: "id" },
-                    bounds: new google.maps.LatLngBounds(
-                        { lat: -6.8000, lng: 106.3000 },
-                        { lat: -5.8000, lng: 107.5000 }
-                    ),
-                    strictBounds: true,
+                    bounds: operationalLatLngBounds,
+                    strictBounds: true, // KUNCI TOTAL
                     fields: ["geometry", "name", "formatted_address"]
                 });
             }
@@ -459,7 +611,7 @@ async function initAutocomplete() {
                     const address = place.formatted_address || input.value;
 
                     if (!isInsideJabodetabekArea(lat, lng)) {
-                        alert("LOKASI DILUAR WILAYAH JABODETABEK, BANTEN, & KARAWANG!\nPengiriman hanya dibatasi untuk area Jabodetabek, Banten (Serang, Cilegon), Cikarang, Karawang, dan Tangerang.");
+                        alert("LOKASI DILUAR JANGKAUAN OPERASIONAL!\nPeta dan sistem pengiriman dikunci khusus untuk wilayah: JABODETABEK, BANTEN, SERANG, RANGKAS, BITUNG TANGERANG, BOGOR, CIKARANG, dan KARAWANG.\n(Tidak melayani tujuan luar kota seperti Semarang, Surabaya, atau pulau di luar Jawa).");
                         input.value = "";
                         return;
                     }
@@ -492,7 +644,15 @@ async function addManualAddress() {
     try {
         if (window.google && google.maps && google.maps.Geocoder) {
             const geocoder = new google.maps.Geocoder();
-            geocoder.geocode({ address: addressText, componentRestrictions: { country: "ID" } }, (results, status) => {
+            const operationalGeocodeBounds = (google.maps.LatLngBounds)
+                ? new google.maps.LatLngBounds({ lat: -6.9500, lng: 105.7000 }, { lat: -5.8000, lng: 107.5000 })
+                : null;
+
+            geocoder.geocode({ 
+                address: addressText, 
+                componentRestrictions: { country: "ID" },
+                bounds: operationalGeocodeBounds
+            }, (results, status) => {
                 if (status === "OK" && results && results[0]) {
                     const loc = results[0].geometry.location;
                     const lat = loc.lat();
@@ -502,7 +662,7 @@ async function addManualAddress() {
                     const storeName = parts[0].trim();
 
                     if (!isInsideJabodetabekArea(lat, lng)) {
-                        alert("LOKASI DILUAR WILAYAH JABODETABEK, BANTEN, & KARAWANG!\nPengiriman hanya dibatasi untuk area Jabodetabek, Banten (Serang, Cilegon), Cikarang, Karawang, dan Tangerang.");
+                        alert("LOKASI DILUAR JANGKAUAN OPERASIONAL!\nPeta dan sistem pengiriman dikunci khusus untuk wilayah: JABODETABEK, BANTEN, SERANG, RANGKAS, BITUNG TANGERANG, BOGOR, CIKARANG, dan KARAWANG.\n(Tidak melayani tujuan luar kota seperti Semarang, Surabaya, atau pulau di luar Jawa).");
                         input.value = "";
                         return;
                     }
@@ -529,12 +689,10 @@ async function addManualAddress() {
 
 async function geocodeWithNominatim(addressText) {
     try {
-        // Query 1: Full text
         let url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addressText)}&countrycodes=id&limit=1`;
         let res = await fetch(url);
         let data = await res.json();
 
-        // Query 2: Strip store name if comma present
         if ((!data || data.length === 0) && addressText.includes(',')) {
             const cleanQuery = addressText.split(',').slice(1).join(',').trim();
             if (cleanQuery) {
@@ -544,7 +702,6 @@ async function geocodeWithNominatim(addressText) {
             }
         }
 
-        // Query 3: Smart fallback search terms
         if (!data || data.length === 0) {
             const lower = addressText.toLowerCase();
             let fallbackSearch = "";
@@ -569,7 +726,6 @@ async function geocodeWithNominatim(addressText) {
             lng = parseFloat(data[0].lon);
             formatted = data[0].display_name || addressText;
         } else {
-            // Hard fallback coordinates for known regions
             const lower = addressText.toLowerCase();
             if (lower.includes("serang") || lower.includes("syafei") || lower.includes("banten") || lower.includes("lontar")) {
                 lat = -6.1158;

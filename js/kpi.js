@@ -202,6 +202,9 @@ function renderKPIView(filter = "") {
     }
 
     filteredTrips = filteredTrips.filter(t => {
+        if (typeof isTripInDateRange === 'function') {
+            return isTripInDateRange(t, startMs, endMs);
+        }
         const tripMs = parseTimestampToMs(t.date) || parseTimestampToMs(t.acceptedTime) || (t.id ? parseInt(t.id.replace('TRIP_', '')) || 0 : 0);
         if (startMs > 0) {
             return tripMs >= startMs && tripMs <= endMs;

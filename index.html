@@ -36,9 +36,35 @@
     <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCAR9bhj6u72OpTqYLEuBvBGvCaaFSPUGQ&libraries=places&loading=async"></script>
 
     <script>
-        // Helper: Individual Courier Colors
-        function getCourierColor(id) {
-            const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#6366f1'];
+        // Helper: Individual Courier Colors (21 Personil Master Palette)
+        function getCourierColor(id, optName) {
+            if (typeof window.getCourierColor === 'function' && window.getCourierColor !== getCourierColor) {
+                return window.getCourierColor(id, optName);
+            }
+            const checkStr = (String(optName || '') + ' ' + String(id || '')).toLowerCase();
+            if (checkStr.includes('ahmad')) return '#2563EB';
+            if (checkStr.includes('beto')) return '#0D9488';
+            if (checkStr.includes('eri')) return '#16A34A';
+            if (checkStr.includes('irfan')) return '#D97706';
+            if (checkStr.includes('baikaqi') || checkStr.includes('bayhaqi')) return '#9333EA';
+            if (checkStr.includes('haris')) return '#DB2777';
+            if (checkStr.includes('umar')) return '#0284C7';
+            if (checkStr.includes('noval')) return '#EA580C';
+            if (checkStr.includes('jay')) return '#4F46E5';
+            if (checkStr.includes('ferdi')) return '#059669';
+            if (checkStr.includes('jagat') || checkStr.includes('jagad')) return '#C026D3';
+            if (checkStr.includes('altur')) return '#E11D48';
+            if (checkStr.includes('rizki')) return '#7C3AED';
+            if (checkStr.includes('soleh')) return '#0891B2';
+            if (checkStr.includes('romi')) return '#D946EF';
+            if (checkStr.includes('firdaus')) return '#CA8A04';
+            if (checkStr.includes('alan')) return '#475569';
+            if (checkStr.includes('yakub')) return '#DC2626';
+            if (checkStr.includes('iwan')) return '#65A30D';
+            if (checkStr.includes('agung')) return '#0369A1';
+            if (checkStr.includes('husen')) return '#B45309';
+
+            const colors = ['#2563EB', '#0D9488', '#16A34A', '#D97706', '#9333EA', '#DB2777', '#0284C7', '#EA580C', '#4F46E5', '#059669', '#C026D3', '#E11D48', '#7C3AED', '#0891B2', '#D946EF', '#CA8A04', '#475569', '#DC2626', '#65A30D', '#0369A1', '#B45309'];
             let hash = 0; for (let i = 0; i < id.length; i++) hash = id.charCodeAt(i) + ((hash << 5) - hash);
             return colors[Math.abs(hash) % colors.length];
         }
@@ -458,6 +484,9 @@
             <a href="javascript:void(0)" class="nav-link-custom" id="nav-fleet" style="cursor: pointer;" onclick="switchTab('fleet', this)">
                 <i class="bi bi-graph-up-arrow"></i> <span>KPI Kurir</span>
             </a>
+            <a href="javascript:void(0)" class="nav-link-custom" id="nav-fleet-inventory" style="cursor: pointer; display: none;" onclick="switchTab('fleet-inventory', this)">
+                <i class="bi bi-truck-front-fill"></i> <span>Inventaris Armada</span>
+            </a>
             <a href="javascript:void(0)" class="nav-link-custom" id="nav-courier-audit" style="cursor: pointer; display: none;" onclick="switchTab('courier-audit', this)">
                 <i class="bi bi-clock-history"></i> <span>Audit Kurir Harian</span>
             </a>
@@ -542,9 +571,9 @@
                 </div>
                 <div id="branch-selector-wrapper" class="d-flex align-items-center gap-2 me-2">
                     <select id="header-branch-filter" class="form-select form-select-sm fw-bold border-success-subtle" style="border-radius: 10px; width: auto; min-width: 155px; font-size: 0.8rem; background: #f0fdf4; color: #15803d; cursor: pointer;" onchange="switchBranchFilter(this.value)">
-                        <option value="all" selected>🏢 Semua Cabang</option>
-                        <option value="pusat">📍 Pusat</option>
-                        <option value="cikokol">📍 Cikokol</option>
+                        <option value="all" selected>Semua Cabang</option>
+                        <option value="pusat">Pusat</option>
+                        <option value="cikokol">Cikokol</option>
                     </select>
                 </div>
                 <button class="btn btn-light border text-danger d-flex align-items-center gap-1 px-3 py-2 fw-semibold" style="border-radius: 10px; font-size: 0.85rem;" onclick="handleLogout()" title="Logout">
@@ -660,7 +689,7 @@
                                         <option value="all">Semua Kurir</option>
                                     </select>
                                     <select id="recent-status-filter" class="form-select form-select-sm fw-normal py-2" style="border-radius: 10px; width: auto; min-width: 140px; font-size: 0.8rem; background: #f8fafc;" onchange="renderRecentShipments()">
-                                        <option value="all">Semua Status</option>
+                                        <option value="all">Status</option>
                                         <option value="active_all">Semua Aktif</option>
                                         <option value="in_progress">On Delivery</option>
                                         <option value="returned">Returned / Pending</option>
@@ -821,9 +850,9 @@
                             <div class="d-flex align-items-center gap-1">
                                 <span class="extra-small text-muted fw-bold">Armada:</span>
                                 <select id="kpi-vehicle-filter" class="form-select form-select-sm border fw-bold text-primary" style="border-radius: 8px; width: 175px;" onchange="renderKPIView()">
-                                    <option value="all" selected>🏆 Semua Armada</option>
-                                    <option value="motor">🛵 Kurir Motor</option>
-                                    <option value="mobil">🚚 Driver Mobil</option>
+                                    <option value="all" selected>Armada</option>
+                                    <option value="motor">Kurir Motor</option>
+                                    <option value="mobil">Driver Mobil</option>
                                 </select>
                             </div>
                             <div class="d-flex align-items-center gap-1">
@@ -950,6 +979,128 @@
                 </div>
             </div>
 
+            <!-- FLEET VEHICLE INVENTORY VIEW [SUPER ADMIN ONLY] -->
+            <div id="view-fleet-inventory" class="view-section" style="display: none;">
+                <!-- Main Header & Action Bar -->
+                <div class="d-flex flex-wrap align-items-center justify-content-between mb-4 gap-3 bg-white p-3.5 rounded-4 border shadow-sm">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="bg-dark p-2.5 rounded-3 text-white">
+                            <i class="bi bi-truck-front-fill fs-4"></i>
+                        </div>
+                        <div>
+                            <div class="d-flex align-items-center gap-2">
+                                <h5 class="fw-bold m-0 text-dark" style="font-size: 1.1rem;">Inventaris Armada Kendaraan Operasional</h5>
+                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-0.5 fw-bold extra-small">SUPER ADMIN ONLY</span>
+                            </div>
+                            <span class="extra-small text-muted">Pengawasan terpadu armada Daihatsu Granmax & Truck Box: pantau jatuh tempo Pajak STNK, Uji KIR Kemenhub, Jadwal Servis Rutin, dan Kontak Driver WhatsApp.</span>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <button class="btn btn-sm btn-outline-dark fw-bold px-3 py-2 shadow-xs d-flex align-items-center gap-1.5" style="border-radius: 10px;" onclick="window.fleetModule.exportFleetToExcel()">
+                            <i class="bi bi-file-earmark-excel-fill text-success"></i> <span>Export Excel Armada</span>
+                        </button>
+                        <button class="btn btn-sm btn-dark fw-bold px-3 py-2 shadow-xs d-flex align-items-center gap-1.5" style="border-radius: 10px;" onclick="window.fleetModule.openAddFleetModal()">
+                            <i class="bi bi-plus-circle-fill"></i> <span>Tambah Armada</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Alert Stats Cards -->
+                <div class="row g-3 mb-4">
+                    <div class="col-6 col-lg">
+                        <div class="stat-card shadow-sm p-3 bg-white border rounded-4 h-100">
+                            <div class="stat-label text-uppercase text-muted extra-small fw-bold">Total Armada Operasional</div>
+                            <div class="stat-value fs-3 fw-bolder text-dark" id="fleet-stat-total">12</div>
+                            <div class="extra-small text-muted mt-1"><i class="bi bi-truck me-1 text-primary"></i>12 Unit Perusahaan</div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-lg">
+                        <div class="stat-card shadow-sm p-3 bg-white border rounded-4 h-100">
+                            <div class="stat-label text-uppercase extra-small fw-bold" style="color: #4f46e5;">Granmax Blindvan / Bak</div>
+                            <div class="stat-value fs-3 fw-bolder" style="color: #4f46e5;" id="fleet-stat-granmax">6</div>
+                            <div class="extra-small text-muted mt-1"><i class="bi bi-truck-front me-1"></i>Armada Granmax</div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-lg">
+                        <div class="stat-card shadow-sm p-3 bg-white border rounded-4 h-100">
+                            <div class="stat-label text-uppercase extra-small fw-bold" style="color: #d97706;">Truck Box Kargo</div>
+                            <div class="stat-value fs-3 fw-bolder" style="color: #d97706;" id="fleet-stat-truckbox">4</div>
+                            <div class="extra-small text-muted mt-1"><i class="bi bi-box-seam me-1"></i>Armada Truck Box</div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-lg">
+                        <div class="stat-card shadow-sm p-3 bg-white border rounded-4 h-100">
+                            <div class="stat-label text-uppercase extra-small fw-bold" style="color: #059669;">Pick Up & L 300</div>
+                            <div class="stat-value fs-3 fw-bolder" style="color: #059669;" id="fleet-stat-pickupl300">2</div>
+                            <div class="extra-small text-muted mt-1"><i class="bi bi-truck-flatbed me-1"></i>Operasional Gudang</div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-lg">
+                        <div class="stat-card shadow-sm p-3 bg-white border rounded-4 h-100">
+                            <div class="stat-label text-uppercase text-danger extra-small fw-bold">Perlu Perhatian (H-7 / Overdue)</div>
+                            <div class="stat-value fs-3 fw-bolder text-danger" id="fleet-stat-attention">0</div>
+                            <div class="extra-small text-danger mt-1"><i class="bi bi-exclamation-triangle-fill me-1"></i>Pajak / KIR / Servis</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filter & Search Toolbar -->
+                <div class="border rounded-4 p-3 bg-white shadow-sm mb-4">
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                        <div class="d-flex flex-wrap align-items-center gap-2">
+                            <div class="d-flex align-items-center gap-1">
+                                <span class="extra-small text-muted fw-bold">Armada:</span>
+                                <select id="fleet-filter-type" class="form-select form-select-sm border fw-semibold" style="border-radius: 8px; width: 170px;" onchange="window.fleetModule.renderFleetInventoryView()">
+                                    <option value="all">Armada</option>
+                                    <option value="granmax">Granmax (6 Unit)</option>
+                                    <option value="truck_box">Truck Box (4 Unit)</option>
+                                    <option value="pickup">Pick Up (1 Unit)</option>
+                                    <option value="l300">Mitsubishi L 300 (1 Unit)</option>
+                                </select>
+                            </div>
+                            <div class="d-flex align-items-center gap-1">
+                                <span class="extra-small text-muted fw-bold">Status:</span>
+                                <select id="fleet-filter-status" class="form-select form-select-sm border fw-semibold" style="border-radius: 8px; width: 210px;" onchange="window.fleetModule.renderFleetInventoryView()">
+                                    <option value="all">Status</option>
+                                    <option value="attention">Perlu Perhatian (H-7 / Overdue)</option>
+                                    <option value="warning_h7">Peringatan H-7 Saja</option>
+                                    <option value="overdue">Lewat Jatuh Tempo (Overdue)</option>
+                                    <option value="missing_phone">No HP Belum Diisi</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="position-relative flex-grow-1" style="max-width: 320px;">
+                            <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"></i>
+                            <input type="text" id="fleet-search-input" class="form-control form-control-sm ps-5 py-2 fw-normal" style="border-radius: 10px; background: #f8fafc;" placeholder="Cari Nopol, Driver, Catatan..." oninput="window.fleetModule.renderFleetInventoryView()">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Table Container -->
+                <div class="border rounded-4 p-4 bg-white shadow-sm mb-4">
+                    <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
+                        <table class="table table-hover align-middle m-0">
+                            <thead class="sticky-top bg-white" style="position: sticky; top: 0; z-index: 10; box-shadow: inset 0 -2px 0 #e2e8f0;">
+                                <tr class="text-nowrap extra-small text-uppercase fw-bold" style="background: #f8fafc;">
+                                    <th style="min-width: 160px; font-size: 0.72rem; letter-spacing: 0.05em; color: #64748b; padding: 12px 14px;">NOPOL</th>
+                                    <th style="min-width: 160px; font-size: 0.72rem; letter-spacing: 0.05em; color: #64748b; padding: 12px 14px;">DRIVER</th>
+                                    <th style="min-width: 190px; font-size: 0.72rem; letter-spacing: 0.05em; color: #64748b; padding: 12px 14px;">NO HP & ALERT</th>
+                                    <th style="min-width: 135px; font-size: 0.72rem; letter-spacing: 0.05em; color: #64748b; padding: 12px 14px;">PAJAK</th>
+                                    <th style="min-width: 135px; font-size: 0.72rem; letter-spacing: 0.05em; color: #64748b; padding: 12px 14px;">KIR</th>
+                                    <th style="min-width: 230px; font-size: 0.72rem; letter-spacing: 0.05em; color: #64748b; padding: 12px 14px;">TANGGAL SERVIS</th>
+                                    <th style="min-width: 110px; font-size: 0.72rem; letter-spacing: 0.05em; color: #64748b; padding: 12px 14px;" class="text-end">AKSI</th>
+                                </tr>
+                            </thead>
+                            <tbody id="fleet-table-body">
+                                <tr><td colspan="7" class="text-center py-4 text-muted">Memuat data armada operasional...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+                </div>
+            </div>
+
             <!-- COURIER AUDIT & PENDING MAP VIEW -->
             <div id="view-courier-audit" class="view-section" style="display: none;">
                 <!-- Main Header & Subview Navigation Bar -->
@@ -1000,15 +1151,15 @@
                                 <div class="d-flex align-items-center gap-1">
                                     <span class="extra-small text-muted fw-bold">Armada:</span>
                                     <select id="audit-vehicle-filter" class="form-select form-select-sm border fw-bold text-primary" style="border-radius: 8px; min-width: 155px;" onchange="renderCourierAuditView()">
-                                        <option value="all" selected>Semua Armada</option>
-                                        <option value="motor">🛵 Motor</option>
-                                        <option value="mobil">🚚 Mobil</option>
+                                        <option value="all" selected>Armada</option>
+                                        <option value="motor">Motor</option>
+                                        <option value="mobil">Mobil</option>
                                     </select>
                                 </div>
                                 <div class="d-flex align-items-center gap-1">
                                     <span class="extra-small text-muted fw-bold">Kurir:</span>
                                     <select id="audit-courier-select" class="form-select form-select-sm border fw-bold text-dark" style="border-radius: 8px; min-width: 180px;" onchange="onAuditCourierSelectChange()">
-                                        <option value="" selected>👤 Semua Kurir</option>
+                                        <option value="" selected>Semua Kurir</option>
                                     </select>
                                 </div>
                                 <button class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1" style="border-radius: 8px;" onclick="renderCourierAuditView()" title="Refresh Data">
@@ -1778,9 +1929,9 @@
                             <label class="extra-small text-muted fw-semibold mb-1 d-block">KATEGORI FOTO</label>
                             <select id="archive-category-filter" class="form-select form-select-sm border fw-normal py-2" style="border-radius: 10px; font-size: 0.8rem; background: #f8fafc;" onchange="renderPoDArchiveView()">
                                 <option value="all">Semua Kategori</option>
-                                <option value="admin_bulk">📄 Bulk SJ Admin (Kantor)</option>
-                                <option value="sj">📄 Surat Jalan Ttd (Kurir)</option>
-                                <option value="item">📦 Foto Barang</option>
+                                <option value="admin_bulk">Bulk SJ Admin (Kantor)</option>
+                                <option value="sj">Surat Jalan Ttd (Kurir)</option>
+                                <option value="item">Foto Barang</option>
                             </select>
                         </div>
                         <div class="col-md-3">
@@ -1863,8 +2014,8 @@
                 <div class="mb-3">
                     <label class="extra-small fw-bold text-muted text-uppercase mb-2 d-block">1. Kategori Foto Bukti</label>
                     <select id="upload-modal-category" class="form-select py-2 fw-semibold" style="border-radius: 10px;">
-                        <option value="sj">📄 Foto Surat Jalan (SJ)</option>
-                        <option value="item">📦 Foto Barang / Fisik (Item)</option>
+                        <option value="sj">Foto Surat Jalan (SJ)</option>
+                        <option value="item">Foto Barang / Fisik (Item)</option>
                     </select>
                 </div>
 
@@ -1925,11 +2076,118 @@
     </div>
 </div>
 
+<!-- MODAL: ADD / EDIT FLEET VEHICLE -->
+<div class="modal fade" id="modal-fleet-vehicle" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <div class="modal-header border-bottom p-3 px-4">
+                <h6 class="modal-title fw-bold" id="fleet-modal-title">Tambah Kendaraan Armada Baru</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <form id="form-fleet-vehicle" onsubmit="event.preventDefault(); window.fleetModule.saveFleetVehicle();">
+                    <input type="hidden" id="fleet-modal-id">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="extra-small fw-bold text-muted text-uppercase mb-1">Nomor Polisi (Plat) *</label>
+                            <input type="text" id="fleet-input-plate" class="form-control text-uppercase font-monospace fw-bold" placeholder="Contoh: B 1234 XYZ" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="extra-small fw-bold text-muted text-uppercase mb-1">Kategori Armada *</label>
+                            <select id="fleet-input-category" class="form-select fw-semibold" required>
+                                <option value="granmax">Daihatsu Granmax (Blindvan / Bak Pick Up)</option>
+                                <option value="truck_box">Truck Box (Canter / Dutro / Isuzu Elf)</option>
+                                <option value="pickup">Pick Up Bak Terbuka Operasional</option>
+                                <option value="l300">Mitsubishi L 300 (Box / Bak)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="extra-small fw-bold text-muted text-uppercase mb-1">Driver Penanggung Jawab *</label>
+                            <select id="fleet-input-personil" class="form-select fw-semibold" required></select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="extra-small fw-bold text-muted text-uppercase mb-1">Nomor WhatsApp Driver</label>
+                            <input type="tel" id="fleet-input-phone" class="form-control" placeholder="Contoh: 08123456789 atau 628123456789">
+                            <small class="text-muted extra-small">Wajib untuk pengiriman alert jatuh tempo WhatsApp.</small>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="extra-small fw-bold text-muted text-uppercase mb-1">Jatuh Tempo Pajak (STNK) *</label>
+                            <input type="date" id="fleet-input-tax" class="form-control" required>
+                        </div>
+                        <div class="col-md-4" id="fleet-kir-container">
+                            <label class="extra-small fw-bold text-muted text-uppercase mb-1">Jatuh Tempo Uji KIR (Kemenhub) *</label>
+                            <input type="date" id="fleet-input-kir" class="form-control" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="extra-small fw-bold text-muted text-uppercase mb-1">Tanggal Servis *</label>
+                            <input type="date" id="fleet-input-service" class="form-control" required>
+                        </div>
+                        <div class="col-12">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <label class="extra-small fw-bold text-muted text-uppercase m-0">Rincian Item Servis (Detail Servis Kendaraan)</label>
+                                <span class="text-muted extra-small">Klik tag untuk tambah cepat:</span>
+                            </div>
+                            <div class="d-flex flex-wrap gap-1 mb-2">
+                                <button type="button" class="btn btn-xs btn-outline-secondary py-0.5 px-2" style="font-size:0.68rem; border-radius:6px;" onclick="window.fleetModule.appendServiceTag('Ganti Oli Mesin')">+ Ganti Oli Mesin</button>
+                                <button type="button" class="btn btn-xs btn-outline-secondary py-0.5 px-2" style="font-size:0.68rem; border-radius:6px;" onclick="window.fleetModule.appendServiceTag('Filter Oli')">+ Filter Oli</button>
+                                <button type="button" class="btn btn-xs btn-outline-secondary py-0.5 px-2" style="font-size:0.68rem; border-radius:6px;" onclick="window.fleetModule.appendServiceTag('Tune Up Busi')">+ Tune Up Busi</button>
+                                <button type="button" class="btn btn-xs btn-outline-secondary py-0.5 px-2" style="font-size:0.68rem; border-radius:6px;" onclick="window.fleetModule.appendServiceTag('Kampas Rem Depan/Belakang')">+ Kampas Rem</button>
+                                <button type="button" class="btn btn-xs btn-outline-secondary py-0.5 px-2" style="font-size:0.68rem; border-radius:6px;" onclick="window.fleetModule.appendServiceTag('Radiator Coolant')">+ Radiator Coolant</button>
+                                <button type="button" class="btn btn-xs btn-outline-secondary py-0.5 px-2" style="font-size:0.68rem; border-radius:6px;" onclick="window.fleetModule.appendServiceTag('Spooring & Balancing')">+ Spooring & Balancing</button>
+                                <button type="button" class="btn btn-xs btn-outline-secondary py-0.5 px-2" style="font-size:0.68rem; border-radius:6px;" onclick="window.fleetModule.appendServiceTag('Servis CVT & Roller')">+ Servis CVT</button>
+                                <button type="button" class="btn btn-xs btn-outline-secondary py-0.5 px-2" style="font-size:0.68rem; border-radius:6px;" onclick="window.fleetModule.appendServiceTag('Filter Solar')">+ Filter Solar</button>
+                            </div>
+                            <textarea id="fleet-input-service-details" class="form-control form-control-sm py-2" rows="2" placeholder="Contoh: Ganti Oli Mesin (10W-40), Filter Oli, Tune Up, Cek Kampas Rem"></textarea>
+                            <small class="text-muted extra-small">Detail ini akan dicantumkan pada tabel pemantauan armada, pesan reminder WhatsApp, dan laporan Excel.</small>
+                        </div>
+                        <div class="col-12">
+                            <label class="extra-small fw-bold text-muted text-uppercase mb-1">Catatan Operasional</label>
+                            <input type="text" id="fleet-input-notes" class="form-control" placeholder="Merk, tipe mesin, atau catatan lokasi">
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                        <button type="button" class="btn btn-light fw-bold px-3" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-dark fw-bold px-4">Simpan Kendaraan</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: QUICK UPDATE WHATSAPP PHONE NUMBER -->
+<div class="modal fade" id="modal-quick-phone" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <div class="modal-header border-bottom p-3">
+                <h6 class="modal-title fw-bold"><i class="bi bi-whatsapp text-success me-1"></i>Lengkapi Nomor WhatsApp</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-3">
+                <input type="hidden" id="quick-phone-vehicle-id">
+                <div class="mb-3">
+                    <small class="text-muted d-block">Kendaraan: <b id="quick-phone-plate" class="text-dark"></b></small>
+                    <small class="text-muted d-block">Penanggung Jawab: <b id="quick-phone-personil" class="text-dark"></b></small>
+                </div>
+                <div class="mb-3">
+                    <label class="extra-small fw-bold text-muted text-uppercase mb-1">Nomor WhatsApp Aktif</label>
+                    <input type="tel" id="quick-phone-input" class="form-control form-control-sm py-2" placeholder="08123456789 atau 628..." required>
+                </div>
+                <button type="button" class="btn btn-success btn-sm w-100 fw-bold py-2" onclick="window.fleetModule.saveQuickPhone()">
+                    <i class="bi bi-check-circle-fill me-1"></i>Simpan & Aktifkan Notifikasi
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="/js/maps.js?v=156.0"></script>
+<script src="/js/fleet_vehicles.js?v=1.0"></script>
 <script src="/js/app.js?v=161.0"></script>
 <script src="/js/kpi.js?v=156.0"></script>
 <script src="/js/courier_audit.js?v=163.0"></script>
+<script src="/js/custom_dropdown.js?v=1.0"></script>
 </body>
 </html>

@@ -81,8 +81,11 @@ function calculateCourierDailyAudit(customStartDate = null, customEndDate = null
     const startOfDayMs = new Date(startDateVal + "T00:00:00").getTime();
     const endOfDayMs = new Date(endDateVal + "T23:59:59.999").getTime();
 
-    // Filter trips belonging to the selected date range
+    // Filter trips belonging to the selected date range using flexible range check
     const rangeTrips = trips.filter(t => {
+        if (typeof isTripInDateRange === 'function') {
+            return isTripInDateRange(t, startOfDayMs, endOfDayMs);
+        }
         const tripMs = parseAuditTimestamp(t.date) || parseAuditTimestamp(t.assignedTime) || (t.id ? parseInt(t.id.replace('TRIP_', '')) || 0 : 0);
         return tripMs >= startOfDayMs && tripMs <= endOfDayMs;
     });
@@ -158,7 +161,8 @@ function calculateCourierDailyAudit(customStartDate = null, customEndDate = null
                 stats.totalStops++;
 
                 // 1. TERKIRIM (Done / Ada Bukti Foto Pengantaran)
-                const isDelivered = (d.status === 'done' || (d.proofPhotoUrl && d.proofPhotoUrl.length > 0));
+                const photos = (typeof extractDestinationPhotos === 'function') ? extractDestinationPhotos(d) : { allUrls: [] };
+                const isDelivered = (d.status === 'done' || d.status === 'completed' || photos.allUrls.length > 0 || (d.proofPhotoUrl && d.proofPhotoUrl.length > 0));
 
                 // 2. PENDING = KURIR YANG MENGAJUKAN PENDINGAN DI SISTEM (Klien Tutup / Pending Approval / Ada Bukti Foto Pending)
                 const hasPendingSubmission = !!(
@@ -407,10 +411,9 @@ function populateCourierSelectOptions() {
 
     const sorted = [...lastCourierAuditData].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
 
-    const options = [`<option value="">👤 Semua Kurir (${lastCourierAuditData.length})</option>`];
+    const options = [`<option value="">Semua Kurir (${lastCourierAuditData.length})</option>`];
     sorted.forEach(c => {
-        const icon = c.vehicleType === 'mobil' ? '🚚' : '🛵';
-        options.push(`<option value="${c.courierId}">${icon} ${c.name}</option>`);
+        options.push(`<option value="${c.courierId}">${c.name}</option>`);
     });
 
     sel.innerHTML = options.join('');

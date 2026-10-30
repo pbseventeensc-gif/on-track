@@ -129,15 +129,51 @@ let activeFilter = "";
 let isDarkMode = false;
 let allClients = [];
 let notificationItems = [];
-let currentUserRole = "super_admin";
+var currentUserRole = window.currentUserRole || "super_admin";
+window.currentUserRole = currentUserRole;
 let currentUserBranchId = "pusat";
 
+window.setCurrentUserRole = function(role) {
+    currentUserRole = role;
+    window.currentUserRole = role;
+    if (typeof applyRoleAccessControl === 'function') applyRoleAccessControl();
+};
+
 // ==========================================
-// MASTER COURIER FLEET & IDENTITY MAPPING
+// MASTER COURIER FLEET & IDENTITY MAPPING (21 Personil Master)
 // ==========================================
+const MASTER_COURIERS = [
+    // Kurir (12 Personil)
+    { canonicalId: 'ahmad', displayName: 'Ahmad', role: 'kurir', vehicleType: 'motor', defaultUid: '9dhFtf5QTQW8zmb8cZW5YFgZfmH3', matchTokens: ['ahmad', 'ahmadmotor03'] },
+    { canonicalId: 'beto', displayName: 'Beto', role: 'kurir', vehicleType: 'motor', defaultUid: 'l6fLsN7ijQdq5m2tcUs2xpmMFv63', matchTokens: ['beto', 'betomotor99'] },
+    { canonicalId: 'eri', displayName: 'Eri', role: 'kurir', vehicleType: 'motor', defaultUid: 'CkRWbGxehCfVOi4iMWvnm66W9NM2', matchTokens: ['eri', 'erimotor04', 'ckrwb'] },
+    { canonicalId: 'irfan', displayName: 'Irfan', role: 'kurir', vehicleType: 'motor', defaultUid: 'gQyw0Ot9pWY9DuWugNK7IpwaM352', matchTokens: ['irfan', 'irfanmotor05', 'gqyw0'] },
+    { canonicalId: 'baikaqi', displayName: 'Baikaqi', role: 'kurir', vehicleType: 'motor', defaultUid: 'xONhqVSNSYcEcGCZyW2cLGJWQt92', matchTokens: ['baikaqi', 'bayhaqi', 'muhamadbayhaqi0', 'xonh'] },
+    { canonicalId: 'haris', displayName: 'Haris', role: 'kurir', vehicleType: 'motor', defaultUid: 'uWA0dLFxj0MsGe3YXHuvHjg1GZs1', matchTokens: ['haris', 'harismotor02', 'uwa0d'] },
+    { canonicalId: 'umar', displayName: 'Umar', role: 'kurir', vehicleType: 'motor', defaultUid: 'eRg9WzDaEgPPl6jcEzo0ERYNyI82', matchTokens: ['umar', 'umarmotor01', 'erg9w'] },
+    { canonicalId: 'noval', displayName: 'Noval', role: 'kurir', vehicleType: 'motor', defaultUid: 'D9hmxHZ2SJa2BgZN8DO2cT6lgGh1', matchTokens: ['noval', 'novalempah2', 'novalganteng1', 'd9hmx', 'ek74'] },
+    { canonicalId: 'jay', displayName: 'Jay', role: 'kurir', vehicleType: 'motor', defaultUid: 'XFAoplNpgjc0QzqE6gcTIa5OA0r2', matchTokens: ['jay', 'andiwijaya', 'andiwijaya27', 'xfaop', '38smk'] },
+    { canonicalId: 'ferdi', displayName: 'Ferdi', role: 'kurir', vehicleType: 'motor', defaultUid: 'BOMM2Wmk9LXs90qO3RWskGyIOk72', matchTokens: ['ferdi', 'fredisambo1', 'fredisambo', 'bomm2'] },
+    { canonicalId: 'jagat', displayName: 'Jagat', role: 'kurir', vehicleType: 'motor', defaultUid: 'kwpGbShXoog9kFiRmevZpwTgVxv2', matchTokens: ['jagat', 'jagad', 'jagadbaru1', '3lhr', 'kwpgb'] },
+    { canonicalId: 'pbseventeensc', displayName: 'pbseventeensc', role: 'kurir', vehicleType: 'motor', defaultUid: 'uP70R51x7CbR5ggHEyeXfsjSTfO2', matchTokens: ['pbseventeensc', 'pbseventensc', 'up70'] },
+
+    // Driver (10 Personil)
+    { canonicalId: 'altur', displayName: 'Altur', role: 'driver', vehicleType: 'mobil', defaultUid: 'U7A5dYrb4iZaB7VaWMqorLeqqgg2', matchTokens: ['altur', 'alturdriver05', 'u7a5d'] },
+    { canonicalId: 'rizki', displayName: 'Rizki', role: 'driver', vehicleType: 'mobil', defaultUid: 'gz9F6MqupoXEFTpOTJJ1aFjtSD52', matchTokens: ['rizki', 'rizky', 'rizkidriver07', 'gz9f6'] },
+    { canonicalId: 'soleh', displayName: 'Soleh', role: 'driver', vehicleType: 'mobil', defaultUid: 'G1g9fwjcLSclVmg77ZfrVfT9dzY2', matchTokens: ['soleh', 'muhammadsoleh1', 'muhammadsoleh', 'g1g9f'] },
+    { canonicalId: 'romi', displayName: 'Romi', role: 'driver', vehicleType: 'mobil', defaultUid: 'oC2EvdhruFMaKC10jmMUyYbmdtp1', matchTokens: ['romi', 'rommy', 'rommydriver19', 'oc2ev'] },
+    { canonicalId: 'firdaus', displayName: 'Firdaus', role: 'driver', vehicleType: 'mobil', defaultUid: 'KgKbQdpUHmcQzu2o8N6czx0N7EP2', matchTokens: ['firdaus', 'kgkbq'] },
+    { canonicalId: 'alan', displayName: 'Alan', role: 'driver', vehicleType: 'mobil', defaultUid: 'unNGSiqnOifJSXyQDRiiqlWd83q2', matchTokens: ['alan', 'alanpasming', 'alanpasming1', 'unngs', 'limd'] },
+    { canonicalId: 'yakub', displayName: 'Yakub', role: 'driver', vehicleType: 'mobil', defaultUid: '17zXKPw8SFXDhW6Z6lc547R4TEE2', matchTokens: ['yakub', 'yakubdriver08', '17zxk'] },
+    { canonicalId: 'iwan', displayName: 'Iwan', role: 'driver', vehicleType: 'mobil', defaultUid: 'J3wejohLG5dXbX0im5ozeGzpjzt2', matchTokens: ['iwan', 'iwandriver04', 'j3wej'] },
+    { canonicalId: 'agung', displayName: 'Agung', role: 'driver', vehicleType: 'mobil', defaultUid: 'RLLeIifIbmVj1HHKALY40n1lKRr1', matchTokens: ['agung', 'agungdriver10', 'rllei'] },
+    { canonicalId: 'husen', displayName: 'Husen', role: 'driver', vehicleType: 'mobil', defaultUid: 'juHUuOWS4FOVpHxE59t4xf0ld1z1', matchTokens: ['husen', 'husensuka3', 'husensuka', 'juhu'] }
+];
+window.MASTER_COURIERS = MASTER_COURIERS;
+
 const COURIER_FLEET_MAPPING = {
-    mobil: ['made', 'rizki', 'romi', 'agung', 'iwan', 'husen', 'alanpasming', 'altur', 'yakub'],
-    motor: ['umar', 'haris', 'ahmad', 'beto', 'eri', 'irfan', 'ferdi', 'jay', 'bayhaqi', 'novalempah2', 'jagadbaru1', 'jagat']
+    mobil: MASTER_COURIERS.filter(m => m.vehicleType === 'mobil').map(m => m.canonicalId),
+    motor: MASTER_COURIERS.filter(m => m.vehicleType === 'motor').map(m => m.canonicalId)
 };
 window.COURIER_FLEET_MAPPING = COURIER_FLEET_MAPPING;
 
@@ -145,38 +181,135 @@ function normalizeCourierIdentity(cId, cName) {
     const id = (cId || '').trim();
     let name = (cName || '').trim();
 
-    if (!name && typeof registeredUsers !== 'undefined' && registeredUsers[id]) {
-        name = registeredUsers[id];
-    }
-
-    const checkStr = (id + ' ' + name).toLowerCase();
-
-    // 1. Jagat & Jagadbaru1 are 1 person (active login uses jagadbaru1)
-    if (checkStr.includes('jagadbaru1') || checkStr.includes('jagat')) {
+    // 1. Direct match on defaultUid
+    const matchByUid = MASTER_COURIERS.find(m => m.defaultUid === id);
+    if (matchByUid) {
         return {
-            canonicalId: 'jagadbaru1',
-            displayName: 'Jagad (Jagadbaru1)',
-            vehicleType: 'motor'
+            canonicalId: matchByUid.canonicalId,
+            displayName: matchByUid.displayName,
+            vehicleType: matchByUid.vehicleType,
+            role: matchByUid.role,
+            uid: matchByUid.defaultUid,
+            isMaster: true
         };
     }
 
-    // 2. Identify fleet vehicle type
-    let vType = 'motor';
-    if (COURIER_FLEET_MAPPING.mobil.some(m => checkStr.includes(m))) {
-        vType = 'mobil';
-    } else if (COURIER_FLEET_MAPPING.motor.some(m => checkStr.includes(m))) {
-        vType = 'motor';
-    } else if (typeof registeredUsersObjects !== 'undefined' && registeredUsersObjects[id] && registeredUsersObjects[id].vehicleType) {
-        vType = registeredUsersObjects[id].vehicleType;
+    // 2. Direct match on canonicalId or exact displayName
+    const matchByCanon = MASTER_COURIERS.find(m =>
+        m.canonicalId.toLowerCase() === id.toLowerCase() ||
+        m.displayName.toLowerCase() === id.toLowerCase() ||
+        (name && m.displayName.toLowerCase() === name.toLowerCase())
+    );
+    if (matchByCanon) {
+        return {
+            canonicalId: matchByCanon.canonicalId,
+            displayName: matchByCanon.displayName,
+            vehicleType: matchByCanon.vehicleType,
+            role: matchByCanon.role,
+            uid: matchByCanon.defaultUid,
+            isMaster: true
+        };
     }
 
+    // 3. Resolve user object from registeredUsersObjects (if available)
+    let userObj = null;
+    if (typeof registeredUsersObjects !== 'undefined' && registeredUsersObjects) {
+        userObj = registeredUsersObjects[id] || registeredUsersObjects[id.toLowerCase()];
+        if (!userObj) {
+            const keys = Object.keys(registeredUsersObjects);
+            for (let i = 0; i < keys.length; i++) {
+                const u = registeredUsersObjects[keys[i]];
+                if (!u) continue;
+                if (u.userId === id ||
+                    (u.email && (u.email === id || u.email.toLowerCase() === id.toLowerCase())) ||
+                    (u.name && u.name.toLowerCase() === id.toLowerCase())) {
+                    userObj = u;
+                    break;
+                }
+            }
+        }
+    }
+
+    if (userObj) {
+        if (!name) name = userObj.name || userObj.email || id;
+        if (userObj.userId) {
+            const matchUserObjUid = MASTER_COURIERS.find(m => m.defaultUid === userObj.userId);
+            if (matchUserObjUid) {
+                return {
+                    canonicalId: matchUserObjUid.canonicalId,
+                    displayName: matchUserObjUid.displayName,
+                    vehicleType: matchUserObjUid.vehicleType,
+                    role: matchUserObjUid.role,
+                    uid: matchUserObjUid.defaultUid,
+                    isMaster: true
+                };
+            }
+        }
+    } else if (!name && typeof registeredUsers !== 'undefined' && registeredUsers[id]) {
+        name = registeredUsers[id];
+    }
+
+    // 4. Token & string matching
+    const emailStr = (userObj?.email || '').toLowerCase();
+    const nameStr = (name || '').toLowerCase();
+    const idStr = id.toLowerCase();
+    const fullSearchStr = `${idStr} ${nameStr} ${emailStr}`;
+
+    for (const m of MASTER_COURIERS) {
+        for (const token of m.matchTokens) {
+            if (token.length <= 4) {
+                const regex = new RegExp('(?:^|[^a-z0-9])' + token + '(?:$|[^a-z0-9]|motor|driver|@)', 'i');
+                if (regex.test(fullSearchStr)) {
+                    return {
+                        canonicalId: m.canonicalId,
+                        displayName: m.displayName,
+                        vehicleType: m.vehicleType,
+                        role: m.role,
+                        uid: m.defaultUid,
+                        isMaster: true
+                    };
+                }
+            } else {
+                if (fullSearchStr.includes(token)) {
+                    return {
+                        canonicalId: m.canonicalId,
+                        displayName: m.displayName,
+                        vehicleType: m.vehicleType,
+                        role: m.role,
+                        uid: m.defaultUid,
+                        isMaster: true
+                    };
+                }
+            }
+        }
+    }
+
+    // Fallback if not one of 22 master
+    let vType = 'motor';
+    if (COURIER_FLEET_MAPPING.mobil.some(m => fullSearchStr.includes(m))) {
+        vType = 'mobil';
+    }
     return {
-        canonicalId: id,
-        displayName: name || id,
-        vehicleType: vType
+        canonicalId: id || 'unknown',
+        displayName: name || id || 'Unknown',
+        vehicleType: vType,
+        role: vType === 'mobil' ? 'driver' : 'kurir',
+        uid: id,
+        isMaster: false
     };
 }
 window.normalizeCourierIdentity = normalizeCourierIdentity;
+
+function isRecognizedCourier(cId, cName) {
+    if (!cId && !cName) return false;
+    const nameStr = String(cName || '').trim();
+    if (nameStr.startsWith('Carrier') || nameStr.startsWith('Carrier (') || nameStr.toLowerCase().includes('carrier')) return false;
+
+    const norm = normalizeCourierIdentity(cId, cName);
+    if (!norm) return false;
+    return !!norm.isMaster;
+}
+window.isRecognizedCourier = isRecognizedCourier;
 
 function getCourierVehicleType(cId, cName) {
     const info = normalizeCourierIdentity(cId, cName);
@@ -204,15 +337,15 @@ function onDispatchCourierChange() {
         if (radMobil) radMobil.checked = true;
         if (radMotor) radMotor.checked = false;
         if (badge) {
-            badge.className = 'badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-1.5 fw-bold';
-            badge.innerHTML = '<i class="bi bi-truck me-1"></i> Terdeteksi Otomatis: Driver Mobil';
+            badge.className = 'badge bg-primary-subtle text-primary border border-primary-subtle px-2.5 py-1 fw-semibold';
+            badge.innerText = 'Driver Mobil';
         }
     } else {
         if (radMotor) radMotor.checked = true;
         if (radMobil) radMobil.checked = false;
         if (badge) {
-            badge.className = 'badge bg-secondary-subtle text-dark border px-3 py-1.5 fw-bold';
-            badge.innerHTML = '<i class="bi bi-bicycle me-1"></i> Terdeteksi Otomatis: Kurir Motor';
+            badge.className = 'badge bg-secondary-subtle text-dark border px-2.5 py-1 fw-semibold';
+            badge.innerText = 'Kurir Motor';
         }
     }
     if (infoDiv) infoDiv.style.display = 'block';
@@ -363,45 +496,68 @@ function switchBranchFilter(branchVal) {
 }
 window.switchBranchFilter = switchBranchFilter;
 
-function getCourierColor(id) {
-    const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#6366f1'];
+function getCourierColor(id, optName = '') {
+    if (typeof window.getCourierColor === 'function' && window.getCourierColor !== getCourierColor) {
+        return window.getCourierColor(id, optName);
+    }
+    const checkStr = (String(optName || '') + ' ' + String(id || '')).toLowerCase();
+    if (checkStr.includes('ahmad')) return '#2563EB';
+    if (checkStr.includes('beto')) return '#0D9488';
+    if (checkStr.includes('eri')) return '#16A34A';
+    if (checkStr.includes('irfan')) return '#D97706';
+    if (checkStr.includes('baikaqi') || checkStr.includes('bayhaqi')) return '#9333EA';
+    if (checkStr.includes('haris')) return '#DB2777';
+    if (checkStr.includes('umar')) return '#0284C7';
+    if (checkStr.includes('noval')) return '#EA580C';
+    if (checkStr.includes('jay')) return '#4F46E5';
+    if (checkStr.includes('ferdi')) return '#059669';
+    if (checkStr.includes('jagat') || checkStr.includes('jagad')) return '#C026D3';
+    if (checkStr.includes('altur')) return '#E11D48';
+    if (checkStr.includes('rizki')) return '#7C3AED';
+    if (checkStr.includes('soleh')) return '#0891B2';
+    if (checkStr.includes('romi')) return '#D946EF';
+    if (checkStr.includes('firdaus')) return '#CA8A04';
+    if (checkStr.includes('alan')) return '#475569';
+    if (checkStr.includes('yakub')) return '#DC2626';
+    if (checkStr.includes('iwan')) return '#65A30D';
+    if (checkStr.includes('agung')) return '#0369A1';
+    if (checkStr.includes('husen')) return '#B45309';
+
+    const colors = ['#2563EB', '#0D9488', '#16A34A', '#D97706', '#9333EA', '#DB2777', '#0284C7', '#EA580C', '#4F46E5', '#059669', '#C026D3', '#E11D48', '#7C3AED', '#0891B2', '#D946EF', '#CA8A04', '#475569', '#DC2626', '#65A30D', '#0369A1', '#B45309'];
     let hash = 0;
     for (let i = 0; i < id.length; i++) hash = id.charCodeAt(i) + ((hash << 5) - hash);
     return colors[Math.abs(hash) % colors.length];
 }
 
 function getCourierDisplayName(courierId) {
-    if (!courierId) return "Carrier";
+    if (!courierId) return "";
 
-    if (typeof registeredUsers !== 'undefined' && registeredUsers && registeredUsers[courierId]) {
-        return registeredUsers[courierId];
+    const norm = normalizeCourierIdentity(courierId, "");
+    if (norm && norm.isMaster) {
+        return norm.displayName;
     }
 
-    if (typeof registeredUsersObjects !== 'undefined' && registeredUsersObjects && registeredUsersObjects[courierId]) {
-        const u = registeredUsersObjects[courierId];
-        if (u.name) return u.name;
-        if (u.email) return u.email.split('@')[0];
+    if (typeof registeredUsers !== 'undefined' && registeredUsers) {
+        const uName = registeredUsers[courierId] || registeredUsers[courierId.toLowerCase()];
+        if (uName && !uName.toLowerCase().startsWith('carrier')) return uName;
     }
 
-    const knownUidMap = {
-        "xONhqVSNSYcEcGCZyW2cLGJWQt92": "muhamadbayhaqi0",
-        "38smknqYbnREY0fQ4Klrnxidv5P2": "andiwijaya",
-        "3LHRzmg3PyV2wxeRQcCGdBCDrDH2": "Jagat",
-        "LIMDggf5T9PgxEyLvUA0PtBi7eh2": "alanpasming1",
-        "EK74u0gAyQYPm0cbR0mAKskjYcG3": "novalganteng1",
-        "uP70R51x7CbR5ggHEyeXfsjSTfO2": "pbseventeensc",
-        "oaNwPVpTnafiVC6Aq4q2XMGtEKU2": "Staff Trafik"
-    };
-
-    if (knownUidMap[courierId]) {
-        return knownUidMap[courierId];
+    if (typeof registeredUsersObjects !== 'undefined' && registeredUsersObjects) {
+        const u = registeredUsersObjects[courierId] || registeredUsersObjects[courierId.toLowerCase()];
+        if (u) {
+            if (u.name && !u.name.toLowerCase().startsWith('carrier')) return u.name;
+            if (u.email && !u.email.toLowerCase().startsWith('carrier')) return u.email.split('@')[0];
+        }
+        for (let k in registeredUsersObjects) {
+            const user = registeredUsersObjects[k];
+            if (user && (user.userId === courierId || user.courierId === courierId)) {
+                const targetName = user.name || user.email || '';
+                if (targetName && !targetName.toLowerCase().startsWith('carrier')) return targetName;
+            }
+        }
     }
 
-    if (courierId.length < 20) {
-        return courierId;
-    }
-
-    return "Carrier (" + courierId.substring(0, 6) + ")";
+    return "";
 }
 
 function isCourierUser(uid) {
@@ -452,18 +608,16 @@ function showToast(msg) {
     setTimeout(() => toast.remove(), 3000);
 }
 
-function extractDestinationPhotos(d) {
-    if (!d) return { sjUrl: '', itemUrl: '', itemUrls: [] };
+function extractDestinationPhotos(d, t = null) {
+    if (!d) d = {};
 
     let explicitSj = '';
     let explicitItems = [];
 
-    // 1. Explicit proofPhotoSj
     if (d.proofPhotoSj && typeof d.proofPhotoSj === 'string' && d.proofPhotoSj.trim().length > 0) {
         explicitSj = d.proofPhotoSj.split(',')[0].trim();
     }
 
-    // 2. Explicit proofPhotoItems
     if (d.proofPhotoItems) {
         if (Array.isArray(d.proofPhotoItems)) {
             explicitItems = d.proofPhotoItems.map(u => String(u).trim()).filter(Boolean);
@@ -472,7 +626,6 @@ function extractDestinationPhotos(d) {
         }
     }
 
-    // 3. Collect ALL available photo URLs from all fields
     const allUrls = [];
     const addUrl = (val) => {
         if (!val) return;
@@ -489,14 +642,25 @@ function extractDestinationPhotos(d) {
     if (explicitSj) addUrl(explicitSj);
     if (explicitItems.length > 0) addUrl(explicitItems);
     if (d.proofPhotoUrl) addUrl(d.proofPhotoUrl);
+    if (d.pendingProofPhotoUrl) addUrl(d.pendingProofPhotoUrl);
     if (d.proofUrl) addUrl(d.proofUrl);
+    if (d.photoUrl) addUrl(d.photoUrl);
+    if (d.photo) addUrl(d.photo);
+    if (d.proofPhoto) addUrl(d.proofPhoto);
+    if (d.proof) addUrl(d.proof);
+    if (d.imgUrl) addUrl(d.imgUrl);
+    if (d.image) addUrl(d.image);
 
-    if (allUrls.length === 0) {
-        return { sjUrl: '', itemUrl: '', itemUrls: [] };
+    if (t) {
+        if (t.adminBulkSjUrl) addUrl(t.adminBulkSjUrl);
+        if (t.adminBulkSjUrls) addUrl(t.adminBulkSjUrls);
+        if (t.proofPhotoUrl) addUrl(t.proofPhotoUrl);
     }
 
-    // 4. Assign SJ URL and Item URLs
-    // Rule: Every completed shipment with photos MUST have a Surat Jalan URL (sjUrl)
+    if (allUrls.length === 0) {
+        return { sjUrl: '', itemUrl: '', itemUrls: [], pendingUrl: '', allUrls: [] };
+    }
+
     let sjUrl = explicitSj || allUrls[0];
     let itemUrls = explicitItems.length > 0 ? explicitItems : allUrls.filter(u => u !== sjUrl);
 
@@ -509,9 +673,70 @@ function extractDestinationPhotos(d) {
     return {
         sjUrl: sjUrl,
         itemUrl: itemUrls.join(','),
-        itemUrls: itemUrls
+        itemUrls: itemUrls,
+        pendingUrl: d.pendingProofPhotoUrl || '',
+        allUrls: allUrls
     };
 }
+
+function isTripInDateRange(t, startMs, endMs) {
+    if (!t) return false;
+    if ((!startMs || startMs <= 0) && (!endMs || endMs === Infinity)) return true;
+
+    const parseMs = function(obj) {
+        if (!obj) return 0;
+        if (typeof obj === 'number') return obj;
+        if (obj.seconds !== undefined) return obj.seconds * 1000;
+        if (obj._seconds !== undefined) return obj._seconds * 1000;
+        if (typeof obj === 'string') {
+            const d = new Date(obj);
+            return isNaN(d.getTime()) ? 0 : d.getTime();
+        }
+        if (obj instanceof Date) return obj.getTime();
+        return 0;
+    };
+
+    let tripMs = parseMs(t.date) || parseMs(t.assignedTime) || parseMs(t.acceptedTime);
+    if (!tripMs && t.id && t.id.startsWith('TRIP_')) {
+        tripMs = parseInt(t.id.replace('TRIP_', '')) || 0;
+    }
+
+    const minMs = startMs || 0;
+    const maxMs = endMs || Infinity;
+
+    // 1. Created/assigned date is in range
+    if (tripMs > 0 && tripMs >= minMs && tripMs <= maxMs) {
+        return true;
+    }
+
+    // 2. Destination activity (completed, arrival, or photo uploaded) is in range
+    if (t.destinations && Array.isArray(t.destinations)) {
+        for (let i = 0; i < t.destinations.length; i++) {
+            const d = t.destinations[i];
+            if (!d) continue;
+
+            const completedMs = parseMs(d.completedTime);
+            const arrivalMs = parseMs(d.arrivalTime);
+
+            if (completedMs > 0 && completedMs >= minMs && completedMs <= maxMs) return true;
+            if (arrivalMs > 0 && arrivalMs >= minMs && arrivalMs <= maxMs) return true;
+
+            const hasPhoto = !!(d.proofPhotoUrl || d.proofPhotoSj || (d.proofPhotoItems && d.proofPhotoItems.length > 0) || d.pendingProofPhotoUrl);
+            if (hasPhoto && (d.status === 'done' || d.status === 'completed' || d.status === 'pending_approval')) {
+                if (completedMs > 0) {
+                    if (completedMs >= minMs && completedMs <= maxMs) return true;
+                } else if (arrivalMs > 0) {
+                    if (arrivalMs >= minMs && arrivalMs <= maxMs) return true;
+                } else {
+                    if (tripMs >= minMs - (3 * 86400000) && tripMs <= maxMs) return true;
+                }
+            }
+        }
+    }
+
+    return false;
+}
+window.isTripInDateRange = isTripInDateRange;
 
 function openPoDModal(url) {
     if (!url) return;
@@ -959,6 +1184,11 @@ function isTabAllowedForRole(role, viewId) {
         return isCentralAdmin;
     }
 
+    // INVENTARIS ARMADA KENDARAAN (fleet_vehicles): SUPER ADMIN ONLY
+    if (viewId === 'fleet-inventory') {
+        return r === 'super_admin' || r === 'superadmin' || r === 'admin';
+    }
+
     if (isCentralAdmin) {
         return true;
     }
@@ -1002,16 +1232,30 @@ function applyRoleAccessControl() {
     const navReports = document.getElementById('nav-reports');
     const navSettings = document.getElementById('nav-settings');
     const navCourierAudit = document.getElementById('nav-courier-audit');
+    const navFleetInventory = document.getElementById('nav-fleet-inventory');
+
+    const isSuperAdminOnly = (r === 'super_admin' || r === 'superadmin' || r === 'admin');
 
     // 1. AUDIT KURIR HARIAN: HANYA ADA DI MENU SUPERADMIN / ADMIN PUSAT (TIDAK BOLEH DI LOGIN LAIN)
     if (navCourierAudit) {
         navCourierAudit.style.display = isCentralAdmin ? 'flex' : 'none';
     }
 
-    // Jika user non-superadmin sedang berada di view courier-audit, alihkan ke dashboard
+    // 2. INVENTARIS ARMADA (fleet_vehicles): SUPER ADMIN ONLY
+    if (navFleetInventory) {
+        navFleetInventory.style.display = isSuperAdminOnly ? 'flex' : 'none';
+    }
+
+    // Jika user non-superadmin sedang berada di view courier-audit atau fleet-inventory, alihkan ke dashboard
     if (!isCentralAdmin) {
         const auditView = document.getElementById('view-courier-audit');
         if (auditView && (auditView.classList.contains('active') || auditView.style.display !== 'none')) {
+            if (typeof switchTab === 'function') switchTab('dashboard');
+        }
+    }
+    if (!isSuperAdminOnly) {
+        const fleetInvView = document.getElementById('view-fleet-inventory');
+        if (fleetInvView && (fleetInvView.classList.contains('active') || fleetInvView.style.display !== 'none')) {
             if (typeof switchTab === 'function') switchTab('dashboard');
         }
     }
@@ -1038,6 +1282,9 @@ function applyRoleAccessControl() {
 function switchTab(viewId, el) {
     if (!isTabAllowedForRole(currentUserRole, viewId)) {
         showToast("⚠️ Akses dibatasi untuk " + getRoleDisplayName(currentUserRole) + ".");
+        if (viewId !== 'dashboard') {
+            switchTab('dashboard');
+        }
         return;
     }
 
@@ -1096,6 +1343,10 @@ function switchTab(viewId, el) {
         if (typeof loadPoolTrips === 'function') loadPoolTrips();
     } else if (viewId === 'courier-audit') {
         if (typeof renderCourierAuditView === 'function') renderCourierAuditView();
+    } else if (viewId === 'fleet-inventory') {
+        if (window.fleetModule && typeof window.fleetModule.renderFleetInventoryView === 'function') {
+            window.fleetModule.renderFleetInventoryView();
+        }
     }
 }
 window.switchTab = switchTab;
@@ -1124,12 +1375,7 @@ async function loadPoolTrips() {
 
         const bulkSelect = document.getElementById('bulk-courier-select');
         if (bulkSelect) {
-            let courierOptions = '<option value="">Pilih Kurir Tujuan...</option>';
-            for (const uid in registeredUsers) {
-                const name = registeredUsers[uid] || uid.substring(0, 6);
-                courierOptions += `<option value="${uid}">${name}</option>`;
-            }
-            bulkSelect.innerHTML = courierOptions;
+            bulkSelect.innerHTML = buildCourierOptgroupHtml('Pilih Kurir Tujuan...', 'defaultUid');
         }
 
         renderPoolTable();
@@ -1174,11 +1420,7 @@ function renderPoolTable() {
         return;
     }
 
-    let courierOptions = '<option value="">Pilih Kurir...</option>';
-    for (const uid in registeredUsers) {
-        const name = registeredUsers[uid] || uid.substring(0, 6);
-        courierOptions += `<option value="${uid}">${name}</option>`;
-    }
+    const courierOptions = buildCourierOptgroupHtml('Pilih Kurir...', 'defaultUid');
 
     tbody.innerHTML = '';
     filtered.forEach(t => {
@@ -1605,11 +1847,34 @@ function initUsersSnapshot() {
         registeredUsers = {};
         registeredUsersObjects = {};
         snap.forEach(doc => {
-            const u = doc.data();
-            const displayName = u.name || u.email || doc.id.substring(0,8);
-            // Map strictly by User UID to avoid duplicate option rendering
-            registeredUsers[doc.id] = displayName;
-            registeredUsersObjects[doc.id] = u;
+            const u = doc.data() || {};
+            const uid = doc.id;
+            const displayName = u.name || u.email || uid.substring(0,8);
+
+            registeredUsers[uid] = displayName;
+            registeredUsersObjects[uid] = u;
+
+            if (u.userId) {
+                registeredUsers[u.userId] = displayName;
+                registeredUsersObjects[u.userId] = u;
+            }
+            if (u.courierId && u.courierId !== 'pbseventeensc') {
+                registeredUsers[u.courierId] = displayName;
+                registeredUsersObjects[u.courierId] = u;
+            }
+            if (u.email) {
+                registeredUsers[u.email] = displayName;
+                registeredUsersObjects[u.email] = u;
+                if (u.email.includes('@')) {
+                    const prefix = u.email.split('@')[0];
+                    registeredUsers[prefix] = displayName;
+                    registeredUsersObjects[prefix] = u;
+                }
+            }
+            if (u.name) {
+                registeredUsers[u.name.toLowerCase()] = displayName;
+                registeredUsersObjects[u.name.toLowerCase()] = u;
+            }
         });
 
         // Save to cache
@@ -1631,28 +1896,21 @@ function renderManageCouriersList() {
     if (!container) return;
     container.innerHTML = '';
 
-    const sortedCouriers = [];
-    for (const uid in registeredUsers) {
-        if (!isCourierUser(uid)) continue;
-        if (typeof isCourierInActiveBranch === 'function' && !isCourierInActiveBranch(uid)) continue;
-        sortedCouriers.push({ uid: uid, name: registeredUsers[uid] });
-    }
-    sortedCouriers.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
-
-    if (sortedCouriers.length === 0) {
-        container.innerHTML = '<p class="text-center py-3 text-muted extra-small">Belum ada kurir terdaftar di cabang ini.</p>';
-        return;
-    }
+    const sortedCouriers = [...MASTER_COURIERS].sort((a, b) => a.displayName.localeCompare(b.displayName, undefined, { sensitivity: 'base' }));
 
     sortedCouriers.forEach(c => {
-        const id = c.uid;
-        const name = c.name;
+        const id = c.defaultUid;
+        const name = c.displayName;
+        const roleBadge = c.role === 'driver'
+            ? '<span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-0.5" style="font-size:0.65rem;">Driver Mobil</span>'
+            : '<span class="badge bg-warning-subtle text-warning border border-warning-subtle px-2 py-0.5" style="font-size:0.65rem;">Kurir Motor</span>';
+
         container.innerHTML += `
             <div class="d-flex align-items-center justify-content-between p-3 border rounded-3 mb-2 bg-light">
                 <div class="d-flex align-items-center gap-2">
                     <img src="https://ui-avatars.com/api/?name=${encodeURIComponent(name)}" style="width:32px; border-radius:50%">
                     <div>
-                        <div class="fw-bold extra-small text-dark">${name}</div>
+                        <div class="fw-bold extra-small text-dark">${name} ${roleBadge}</div>
                         <div class="extra-small text-muted" style="font-size:0.65rem;">ID: ${id.substring(0,8)}...</div>
                     </div>
                 </div>
@@ -1678,38 +1936,48 @@ async function promptEditCourierName(id, currentName) {
     }
 }
 
+function buildCourierOptgroupHtml(placeholderText = '-- Pilih Kurir Pengantaran --', valueKey = 'defaultUid') {
+    const kurirs = MASTER_COURIERS.filter(c => c.role === 'kurir').sort((a, b) => a.displayName.localeCompare(b.displayName, undefined, { sensitivity: 'base' }));
+    const drivers = MASTER_COURIERS.filter(c => c.role === 'driver').sort((a, b) => a.displayName.localeCompare(b.displayName, undefined, { sensitivity: 'base' }));
+
+    const options = [];
+    if (placeholderText) {
+        options.push(`<option value="">${placeholderText}</option>`);
+    }
+
+    options.push(`<optgroup label="Kurir Motor (${kurirs.length} Personil)">`);
+    kurirs.forEach(c => {
+        const val = valueKey === 'canonicalId' ? c.canonicalId : (valueKey === 'displayName' ? c.displayName : c.defaultUid);
+        options.push(`<option value="${val}">${c.displayName}</option>`);
+    });
+    options.push(`</optgroup>`);
+
+    options.push(`<optgroup label="Driver Mobil (${drivers.length} Personil)">`);
+    drivers.forEach(c => {
+        const val = valueKey === 'canonicalId' ? c.canonicalId : (valueKey === 'displayName' ? c.displayName : c.defaultUid);
+        options.push(`<option value="${val}">${c.displayName}</option>`);
+    });
+    options.push(`</optgroup>`);
+
+    return options.join('');
+}
+window.buildCourierOptgroupHtml = buildCourierOptgroupHtml;
+
 function renderCourierOptions() {
     const sel = document.getElementById('sel-courier'); if(!sel) return;
     const currentVal = sel.value;
 
-    const seenCanonical = new Set();
-    const sortedCouriers = [];
-    for (const uid in registeredUsers) {
-        if (!isCourierUser(uid)) continue;
-        if (typeof isCourierInActiveBranch === 'function' && !isCourierInActiveBranch(uid)) continue;
+    sel.innerHTML = buildCourierOptgroupHtml('-- Pilih Kurir Pengantaran --', 'defaultUid');
 
-        const rawName = registeredUsers[uid];
-        const normalized = normalizeCourierIdentity(uid, rawName);
-
-        // If jagat and jagadbaru1 both exist, show only the canonical jagadbaru1
-        if (seenCanonical.has(normalized.canonicalId)) continue;
-        seenCanonical.add(normalized.canonicalId);
-
-        sortedCouriers.push({
-            uid: uid,
-            name: normalized.displayName,
-            vehicleType: normalized.vehicleType
-        });
+    if (currentVal) {
+        const norm = normalizeCourierIdentity(currentVal, '');
+        const matched = MASTER_COURIERS.find(s => s.defaultUid === currentVal || s.canonicalId === norm.canonicalId || s.defaultUid === norm.uid);
+        if (matched) {
+            sel.value = matched.defaultUid;
+        } else {
+            sel.value = currentVal;
+        }
     }
-    sortedCouriers.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
-
-    const options = ['<option value="">-- Pilih Kurir Pengantaran --</option>'];
-    sortedCouriers.forEach(c => {
-        const vIcon = c.vehicleType === 'mobil' ? '🚚 Mobil' : '🛵 Motor';
-        options.push(`<option value="${c.uid}">${c.name} (${vIcon})</option>`);
-    });
-    sel.innerHTML = options.join('');
-    if (currentVal) sel.value = currentVal;
     if (typeof onDispatchCourierChange === 'function') onDispatchCourierChange();
 }
 
@@ -2475,22 +2743,47 @@ function updateMonitorSuggestions() {
     dl.innerHTML = Array.from(items).map(i => `<option value="${i}">`).join('');
 }
 
+window.monitorCategoryTab = window.monitorCategoryTab || 'all';
+
+window.setMonitorCategoryTab = function(tab) {
+    window.monitorCategoryTab = tab;
+    renderMonitorUI();
+};
+
+function getPersonilCategory(cId, cName) {
+    const checkStr = (String(cName || '') + ' ' + String(cId || '')).toLowerCase();
+    const kurirTokens = ['ahmad', 'beto', 'eri', 'irfan', 'baikaqi', 'bayhaqi', 'haris', 'umar', 'noval', 'jay', 'ferdi', 'jagat', 'jagad'];
+    const driverTokens = ['altur', 'rizki', 'soleh', 'romi', 'firdaus', 'alan', 'yakub', 'iwan', 'agung', 'husen', 'juhu'];
+
+    if (driverTokens.some(d => checkStr.includes(d))) return 'driver';
+    if (kurirTokens.some(k => checkStr.includes(k))) return 'kurir';
+
+    const normalized = normalizeCourierIdentity(cId, cName);
+    return normalized.vehicleType === 'mobil' ? 'driver' : 'kurir';
+}
+
 function renderMonitorUI(filter = "") {
     const mList = document.getElementById('monitor-list');
     if(!mList) return;
     mList.innerHTML = '';
 
-    const search = filter.toLowerCase();
+    const search = (typeof filter === 'string' ? filter : (document.getElementById('monitor-search')?.value || "")).toLowerCase().trim();
     const now = new Date();
     const todayDayMs = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
 
     const courierGroups = {};
+
+    // 1. Gather couriers with today's trips
     allCurrentTrips.forEach(t => {
         const tripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : 0);
         if (tripMs < todayDayMs) return; // Clean H+1: Only show today's trips
         const cId = t.courierId;
         if (!cId) return;
-        const cName = registeredUsers[cId] || cId.substring(0,8);
+        const cName = registeredUsers[cId] || (typeof getCourierDisplayName === 'function' ? getCourierDisplayName(cId) : '');
+        
+        // HAPUS / HIDE NON-MASTER / ANONYMOUS "Carrier (...)"
+        if (typeof isRecognizedCourier === 'function' && !isRecognizedCourier(cId, cName)) return;
+
         const clients = t.destinations ? t.destinations.map(d => d.locationName.toLowerCase()).join(" ") : "";
 
         if (cName.toLowerCase().includes(search) || t.id.toLowerCase().includes(search) || clients.includes(search)) {
@@ -2508,21 +2801,60 @@ function renderMonitorUI(filter = "") {
         }
     });
 
+    // 2. Also include online couriers even if no trips assigned yet (ONLY RECOGNIZED COURIERS)
+    if (typeof currentOnlineCouriers !== 'undefined') {
+        for (const cId in currentOnlineCouriers) {
+            const cName = (typeof registeredUsers !== 'undefined' && registeredUsers[cId]) ? registeredUsers[cId] : (typeof getCourierDisplayName === 'function' ? getCourierDisplayName(cId) : '');
+            
+            // HAPUS / HIDE NON-MASTER / ANONYMOUS "Carrier (...)"
+            if (typeof isRecognizedCourier === 'function' && !isRecognizedCourier(cId, cName)) continue;
+
+            const norm = normalizeCourierIdentity(cId, cName);
+            const displayName = norm.displayName || cName;
+
+            if (!courierGroups[cId]) {
+                if (!search || displayName.toLowerCase().includes(search) || cId.toLowerCase().includes(search)) {
+                    courierGroups[cId] = { id: cId, name: displayName, trips: [], totalStops: 0, doneStops: 0 };
+                }
+            }
+        }
+    }
+
     const courierIds = Object.keys(courierGroups);
     if(courierIds.length === 0) {
-        mList.innerHTML = '<div class="col-12 text-center p-4 text-muted extra-small">No active couriers matching filter.</div>';
+        mList.innerHTML = '<div class="col-12 text-center p-4 text-muted extra-small">Tidak ada personil armada yang cocok dengan filter.</div>';
         return;
     }
 
-    const cardsHtml = [];
+    // Split strictly into 2 categories without mixing roles
+    const kurirList = [];
+    const driverList = [];
+
     courierIds.forEach(cId => {
         const c = courierGroups[cId];
-        const cColor = getCourierColor(c.id);
-        const progress = Math.round((c.doneStops / c.totalStops) * 100) || 0;
+        const category = getPersonilCategory(c.id, c.name);
+        if (category === 'driver') {
+            driverList.push(c);
+        } else {
+            kurirList.push(c);
+        }
+    });
+
+    // Calculate online / idle counters
+    const kurirOnlineCount = kurirList.filter(c => isCourierOnline(c.id)).length;
+    const kurirIdleCount = kurirList.length - kurirOnlineCount;
+
+    const driverOnlineCount = driverList.filter(c => isCourierOnline(c.id)).length;
+    const driverIdleCount = driverList.length - driverOnlineCount;
+
+    // Helper to build individual card HTML
+    const buildCard = (c, catName) => {
+        const cColor = getCourierColor(c.id, c.name);
+        const progress = c.totalStops > 0 ? Math.round((c.doneStops / c.totalStops) * 100) : 0;
         const isOnline = isCourierOnline(c.id);
 
         const pendingStops = c.trips.reduce((acc, t) => acc + (t.destinations ? t.destinations.filter(d => d.status === 'pending_approval' || (d.status === 'pending' && d.pendingReason)).length : 0), 0);
-        const pendingBadgeHtml = pendingStops > 0 ? `<span class="badge rounded-pill bg-danger text-white extra-small py-1 px-2 fw-bold ms-1" style="font-size:0.65rem"><i class="bi bi-exclamation-triangle-fill me-1"></i>${pendingStops} Pending / Tutup</span>` : '';
+        const pendingBadgeHtml = pendingStops > 0 ? `<span class="badge rounded-pill bg-danger text-white extra-small py-1 px-2 fw-bold ms-1" style="font-size:0.65rem"><i class="bi bi-exclamation-triangle-fill me-1"></i>${pendingStops} Pending</span>` : '';
 
         const bulkSjTrip = c.trips.find(t => getBulkSjUrls(t).length > 0);
         const activeTrip = c.trips[0];
@@ -2557,44 +2889,113 @@ function renderMonitorUI(filter = "") {
                 </div>`;
         }
 
-        cardsHtml.push(`
-            <div class="col-sm-6 col-md-4 col-lg-3 col-xl-3 mb-2">
-                <div class="border rounded-3 p-2.5 px-3 bg-white shadow-sm h-100" style="border-top: 3px solid ${cColor} !important">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <div class="d-flex align-items-center gap-2">
-                            <img src="https://ui-avatars.com/api/?name=${encodeURIComponent(c.name)}&background=${cColor.replace('#','')}&color=fff" style="width:32px;height:32px;border-radius:8px;">
-                            <div>
-                                <div class="fw-bold mb-0 text-dark text-truncate" style="font-size:0.875rem; max-width: 110px;" title="${c.name}">${c.name}</div>
-                                <small class="${isOnline ? 'text-success' : 'text-muted'} fw-semibold" style="font-size:0.65rem">
-                                    <i class="bi bi-circle-fill me-1" style="font-size: 5px"></i> ${isOnline ? 'ONLINE' : 'OFFLINE'}
-                                </small>
+        return `
+            <div class="col-sm-6 col-md-4 col-lg-3 col-xl-3 mb-3">
+                <div class="border rounded-3 p-2.5 px-3 bg-white shadow-sm h-100 d-flex flex-column justify-content-between" style="border-top: 4px solid ${cColor} !important">
+                    <div>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div class="d-flex align-items-center gap-2">
+                                <div style="width:32px; height:32px; border-radius:8px; background:${cColor}; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:0.85rem;">
+                                    ${(c.name || 'P').charAt(0).toUpperCase()}
+                                </div>
+                                <div>
+                                    <div class="fw-bold mb-0 text-dark text-truncate" style="font-size:0.875rem; max-width: 110px;" title="${c.name}">${c.name}</div>
+                                    <small class="${isOnline ? 'text-success' : 'text-muted'} fw-semibold" style="font-size:0.65rem">
+                                        <i class="bi bi-circle-fill me-1" style="font-size: 5px"></i> ${isOnline ? 'ONLINE' : 'IDLE / OFFLINE'}
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center gap-1">
+                                <span class="badge rounded-pill bg-light text-dark border extra-small py-1 px-2" style="font-size:0.65rem">${c.trips.length} Tugas</span>
+                                ${pendingBadgeHtml}
+                                ${c.trips.length > 0 ? `<button class="btn btn-sm btn-link text-danger p-0 ms-1 text-decoration-none" onclick="deleteCourierActiveTrips('${c.id}', '${c.name.replace(/'/g, "\\'")}')" title="Batalkan Semua Tugas"><i class="bi bi-trash" style="font-size:0.8rem"></i></button>` : ''}
                             </div>
                         </div>
-                        <div class="d-flex align-items-center gap-1">
-                            <span class="badge rounded-pill bg-light text-dark border extra-small py-1 px-2" style="font-size:0.65rem">${c.trips.length} Active Trips</span>
-                            ${pendingBadgeHtml}
-                            <button class="btn btn-sm btn-link text-danger p-0 ms-1 text-decoration-none" onclick="deleteCourierActiveTrips('${c.id}', '${c.name.replace(/'/g, "\\'")}')" title="Batalkan/Hapus Semua Tugas Aktif Kurir Ini"><i class="bi bi-trash" style="font-size:0.8rem"></i></button>
+
+                        <div class="mb-2">
+                            <div class="d-flex justify-content-between extra-small mb-1">
+                                <span class="text-muted fw-medium">Progress Selesai</span>
+                                <span class="fw-bold text-dark">${c.doneStops}/${c.totalStops} Stops</span>
+                            </div>
+                            <div class="progress" style="height: 6px; border-radius: 6px; background: #F1F5F9">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: ${progress}%; background: ${cColor}; border-radius: 6px;"></div>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="mb-2">
-                        <div class="d-flex justify-content-between extra-small mb-1">
-                            <span class="text-muted fw-medium">Overall Progress</span>
-                            <span class="fw-bold text-dark">${c.doneStops}/${c.totalStops} Stops</span>
-                        </div>
-                        <div class="progress" style="height: 6px; border-radius: 6px; background: #F1F5F9">
-                            <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: ${progress}%; background: ${cColor}; border-radius: 6px;"></div>
-                        </div>
+                    <div>
+                        <button class="btn btn-sm btn-dark w-100 py-1.5 fw-bold" style="border-radius: 8px; font-size:0.75rem" data-id="${c.id}" onclick="if(window.setFocusedDriver) window.setFocusedDriver(this.dataset.id); else focusOnCourier(this.dataset.id, true);">
+                            <i class="bi bi-crosshair me-1"></i> FOCUS TRACKING
+                        </button>
+                        ${bulkSjSectionHtml}
                     </div>
-
-                    <button class="btn btn-sm btn-dark w-100 py-1.5 fw-bold" style="border-radius: 8px; font-size:0.75rem" data-id="${c.id}" onclick="focusOnCourier(this.dataset.id, true)">
-                        <i class="bi bi-geo-alt-fill me-1"></i> FOCUS TRACKING
-                    </button>
-                    ${bulkSjSectionHtml}
                 </div>
-            </div>`);
-    });
-    mList.innerHTML = cardsHtml.join('');
+            </div>`;
+    };
+
+    const currentTab = window.monitorCategoryTab || 'all';
+
+    // Top Segmented Control & Counters
+    let html = `
+        <div class="col-12 mb-3">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 bg-white p-2.5 rounded-3 border shadow-sm">
+                <div class="btn-group p-1 bg-light rounded-3 border" role="group">
+                    <button type="button" class="btn btn-sm ${currentTab === 'all' ? 'btn-white fw-bold shadow-xs active text-dark' : 'text-secondary fw-semibold'}" onclick="setMonitorCategoryTab('all')">
+                        Semua Armada (${courierIds.length})
+                    </button>
+                    <button type="button" class="btn btn-sm ${currentTab === 'kurir' ? 'btn-white fw-bold shadow-xs active text-primary' : 'text-secondary fw-semibold'}" onclick="setMonitorCategoryTab('kurir')">
+                        🛵 Kategori Kurir <span class="badge bg-success-subtle text-success ms-1">${kurirOnlineCount} Online</span> <span class="badge bg-secondary-subtle text-muted ms-1">${kurirIdleCount} Idle</span>
+                    </button>
+                    <button type="button" class="btn btn-sm ${currentTab === 'driver' ? 'btn-white fw-bold shadow-xs active text-primary' : 'text-secondary fw-semibold'}" onclick="setMonitorCategoryTab('driver')">
+                        🚚 Kategori Driver <span class="badge bg-success-subtle text-success ms-1">${driverOnlineCount} Online</span> <span class="badge bg-secondary-subtle text-muted ms-1">${driverIdleCount} Idle</span>
+                    </button>
+                </div>
+                <div class="extra-small text-muted fw-semibold">
+                    Live Tracking: <b>${kurirOnlineCount + driverOnlineCount} Online</b> dari <b>${courierIds.length} Personil</b>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Render Kategori Kurir Section
+    if ((currentTab === 'all' || currentTab === 'kurir') && kurirList.length > 0) {
+        html += `
+            <div class="col-12 mt-2 mb-2">
+                <div class="d-flex align-items-center justify-content-between p-2.5 px-3 bg-light border rounded-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-primary text-white fw-bold px-2.5 py-1">KATEGORI KURIR</span>
+                        <span class="fw-bold text-dark fs-6">Personil Kurir Motor (${kurirList.length})</span>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 extra-small">
+                        <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1"><i class="bi bi-circle-fill me-1" style="font-size:5px;"></i>${kurirOnlineCount} Online</span>
+                        <span class="badge bg-secondary-subtle text-muted border px-2 py-1">${kurirIdleCount} Idle</span>
+                    </div>
+                </div>
+            </div>
+        `;
+        kurirList.forEach(c => { html += buildCard(c, 'Kurir'); });
+    }
+
+    // Render Kategori Driver Section
+    if ((currentTab === 'all' || currentTab === 'driver') && driverList.length > 0) {
+        html += `
+            <div class="col-12 mt-3 mb-2">
+                <div class="d-flex align-items-center justify-content-between p-2.5 px-3 bg-light border rounded-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge bg-dark text-white fw-bold px-2.5 py-1">KATEGORI DRIVER</span>
+                        <span class="fw-bold text-dark fs-6">Personil Driver Mobil (${driverList.length})</span>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 extra-small">
+                        <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1"><i class="bi bi-circle-fill me-1" style="font-size:5px;"></i>${driverOnlineCount} Online</span>
+                        <span class="badge bg-secondary-subtle text-muted border px-2 py-1">${driverIdleCount} Idle</span>
+                    </div>
+                </div>
+            </div>
+        `;
+        driverList.forEach(c => { html += buildCard(c, 'Driver'); });
+    }
+
+    mList.innerHTML = html;
 }
 
 async function uploadBulkSjFromCard(tripId) {
@@ -3055,39 +3456,53 @@ function renderRecentShipments(filter = "") {
         }
     }
 
-    allCurrentTrips.forEach(t => {
+    (allCurrentTrips || []).forEach(t => {
+        if (!t) return;
         if (typeof isTripInActiveBranch === 'function' && !isTripInActiveBranch(t)) {
             return;
         }
 
-        const cName = getCourierDisplayName(t.courierId);
-        const tripIdShort = '#' + t.id.substring(Math.max(0, t.id.length - 6));
-        const tripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : (t.id ? parseInt(t.id.replace('TRIP_', '')) || 0 : 0));
+        const courierIdStr = t.courierId || '';
+        const cName = typeof getCourierDisplayName === 'function' ? getCourierDisplayName(courierIdStr) : (courierIdStr ? courierIdStr.substring(0, 8) : 'Unknown');
+        const tripIdStr = String(t.id || t.tripId || '');
+        const tripIdShort = '#' + (tripIdStr.length > 6 ? tripIdStr.substring(tripIdStr.length - 6) : tripIdStr);
+        const tripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : (tripIdStr ? parseInt(tripIdStr.replace('TRIP_', '')) || 0 : 0));
         const tripDateStr = tripMs ? new Date(tripMs).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '-';
 
         // Check Carrier Filter
-        if (selectedCarrier !== "all" && t.courierId !== selectedCarrier && cName.toLowerCase() !== selectedCarrier.toLowerCase()) {
-            return;
+        if (selectedCarrier !== "all") {
+            const courierInfo = normalizeCourierIdentity(courierIdStr, cName);
+            const filterInfo = normalizeCourierIdentity(selectedCarrier, "");
+            if (courierIdStr !== selectedCarrier &&
+                cName.toLowerCase() !== selectedCarrier.toLowerCase() &&
+                courierInfo.canonicalId !== filterInfo.canonicalId) {
+                return;
+            }
         }
 
-        // Check Date Filter
-        if (filterStartMs > 0 && (tripMs < filterStartMs || tripMs > filterEndMs)) {
+        // Check Date Filter using robust date range check
+        if (filterStartMs > 0 && !isTripInDateRange(t, filterStartMs, filterEndMs)) {
             return;
         }
 
         if (t.destinations && t.destinations.length > 0) {
             t.destinations.forEach((d, idx) => {
+                if (!d) return;
                 const locName = d.locationName || 'Destination';
                 const fullAddress = d.address || '';
                 const stopIdx = d.stopIndex || (idx + 1);
 
                 const uniqueShipmentId = `${tripIdShort}-${stopIdx}`;
 
+                const photos = extractDestinationPhotos(d, t);
+                const hasAnyPhoto = photos.allUrls.length > 0;
+
                 const rawStatus = d.status || 'pending';
                 const isKlienTutupApproved = (rawStatus === 'pending' && d.pendingReason && d.pendingReason.length > 0);
                 const isPendingApproval = (rawStatus === 'pending_approval');
 
-                const status = (d.status === 'done' || d.proofPhotoUrl) ? 'completed' : (d.status === 'arrived' ? 'in_progress' : (isPendingApproval ? 'pending_approval' : (isKlienTutupApproved ? 'klien_tutup' : t.status)));
+                const isDoneOrHasPhoto = (d.status === 'done' || d.status === 'completed' || hasAnyPhoto);
+                const status = isDoneOrHasPhoto ? 'completed' : (d.status === 'arrived' ? 'in_progress' : (isPendingApproval ? 'pending_approval' : (isKlienTutupApproved ? 'klien_tutup' : (t.status || 'pending'))));
                 const statusClass = status === 'completed' ? 'delivered' : (status === 'assigned' ? 'pending' : (isKlienTutupApproved ? 'danger' : 'transit'));
 
                 let timeStr = 'Finished';
@@ -3128,7 +3543,7 @@ function renderRecentShipments(filter = "") {
                 }
 
                 if (matchSearch && matchStatus) {
-                    const photos = extractDestinationPhotos(d);
+                    const photos = extractDestinationPhotos(d, t);
 
                     shipmentRows.push({
                         tripId: t.id,
@@ -3162,15 +3577,7 @@ function renderRecentShipments(filter = "") {
 
     const carrierSelect = document.getElementById('recent-carrier-filter');
     if (carrierSelect && carrierSelect.options.length <= 1) {
-        const sortedCouriers = [];
-        for (const uid in registeredUsers) {
-            if (!isCourierUser(uid)) continue;
-            sortedCouriers.push({ uid: uid, name: registeredUsers[uid] });
-        }
-        sortedCouriers.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
-        sortedCouriers.forEach(c => {
-            carrierSelect.innerHTML += `<option value="${c.uid}">${c.name}</option>`;
-        });
+        carrierSelect.innerHTML = '<option value="all">Semua Personil</option>' + buildCourierOptgroupHtml('', 'canonicalId');
     }
 
     if (shipmentRows.length === 0) {
@@ -4270,18 +4677,12 @@ function renderPoDArchiveView(filter = "") {
     }
 
     const archiveCourierSelect = document.getElementById('archive-courier-filter');
-    if (archiveCourierSelect) {
-        archiveCourierSelect.innerHTML = '<option value="all">Semua Kurir</option>';
-        const sortedCouriers = [];
-        for (const uid in registeredUsers) {
-            if (!isCourierUser(uid)) continue;
-            if (typeof isCourierInActiveBranch === 'function' && !isCourierInActiveBranch(uid)) continue;
-            sortedCouriers.push({ uid: uid, name: registeredUsers[uid] });
-        }
-        sortedCouriers.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
-        sortedCouriers.forEach(c => {
-            archiveCourierSelect.innerHTML += `<option value="${c.name}">${c.name}</option>`;
-        });
+    if (archiveCourierSelect && archiveCourierSelect.options.length <= 1) {
+        const curVal = archiveCourierSelect.value;
+        let optHtml = '<option value="all">Semua Kurir & Driver</option>';
+        optHtml += buildCourierOptgroupHtml('', 'displayName');
+        archiveCourierSelect.innerHTML = optHtml;
+        if (curVal) archiveCourierSelect.value = curVal;
     }
 
     const selectedCategory = document.getElementById('archive-category-filter')?.value || "all";
