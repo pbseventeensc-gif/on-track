@@ -668,9 +668,11 @@ body.dark-theme {
     border-radius: 20px;
     box-shadow: 0 20px 45px -8px rgba(15, 23, 42, 0.18), 0 4px 14px rgba(0, 0, 0, 0.04), 0 0 0 1px rgba(226, 232, 240, 0.9);
     padding: 8px;
-    min-width: 220px;
-    max-height: 380px;
-    overflow-y: auto;
+    min-width: 240px;
+    max-height: 420px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
     overscroll-behavior: contain;
     animation: wtrackDropdownFadeIn 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -686,19 +688,111 @@ body.dark-theme {
     }
 }
 
-/* Custom Scrollbar for Dropdown Menu */
+/* Dropdown Search Box */
+.wtrack-dropdown-search-wrapper {
+    padding: 4px 4px 8px 4px;
+    border-bottom: 1px solid #f1f5f9;
+    margin-bottom: 4px;
+    flex-shrink: 0;
+}
+
+.wtrack-dropdown-search-box {
+    position: relative;
+    display: flex;
+    align-items: center;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 0 8px 0 32px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.wtrack-dropdown-search-box:focus-within {
+    background: #ffffff;
+    border-color: #ea580c;
+    box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.12);
+}
+
+.wtrack-dropdown-search-icon {
+    position: absolute;
+    left: 10px;
+    color: #94a3b8;
+    pointer-events: none;
+}
+
+.wtrack-dropdown-search-input {
+    width: 100%;
+    height: 36px;
+    border: none;
+    background: transparent;
+    outline: none;
+    font-size: 0.85rem;
+    font-family: inherit;
+    font-weight: 500;
+    color: #0f172a;
+    padding: 0;
+}
+
+.wtrack-dropdown-search-input::placeholder {
+    color: #94a3b8;
+    font-size: 0.82rem;
+}
+
+.wtrack-dropdown-search-clear {
+    border: none;
+    background: #e2e8f0;
+    color: #64748b;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+    margin-left: 6px;
+    flex-shrink: 0;
+    transition: background 0.12s, color 0.12s;
+}
+
+.wtrack-dropdown-search-clear:hover {
+    background: #cbd5e1;
+    color: #0f172a;
+}
+
+/* Items list scrollable area */
+.wtrack-dropdown-items-list {
+    flex: 1;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-right: 2px;
+}
+
+.wtrack-dropdown-items-list::-webkit-scrollbar,
 .wtrack-custom-dropdown-menu::-webkit-scrollbar {
     width: 6px;
 }
+.wtrack-dropdown-items-list::-webkit-scrollbar-track,
 .wtrack-custom-dropdown-menu::-webkit-scrollbar-track {
     background: transparent;
 }
+.wtrack-dropdown-items-list::-webkit-scrollbar-thumb,
 .wtrack-custom-dropdown-menu::-webkit-scrollbar-thumb {
     background: #cbd5e1;
     border-radius: 10px;
 }
+.wtrack-dropdown-items-list::-webkit-scrollbar-thumb:hover,
 .wtrack-custom-dropdown-menu::-webkit-scrollbar-thumb:hover {
     background: #94a3b8;
+}
+
+/* Empty state */
+.wtrack-dropdown-empty {
+    padding: 24px 12px;
+    text-align: center;
+    color: #94a3b8;
+    font-size: 0.85rem;
+    font-weight: 500;
 }
 
 /* Optgroup Header */
@@ -792,4 +886,39 @@ select.wtrack-select-hidden {
 }
 .dark-theme .wtrack-dropdown-item .wtrack-item-check {
     color: #fb923c;
+}
+.dark-theme .wtrack-dropdown-search-wrapper {
+    border-bottom-color: #334155;
+}
+.dark-theme .wtrack-dropdown-search-box {
+    background: #1e293b;
+    border-color: #334155;
+}
+.dark-theme .wtrack-dropdown-search-box:focus-within {
+    background: #0f172a;
+    border-color: #ea580c;
+    box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.2);
+}
+.dark-theme .wtrack-dropdown-search-icon {
+    color: #64748b;
+}
+.dark-theme .wtrack-dropdown-search-input {
+    color: #f8fafc;
+}
+.dark-theme .wtrack-dropdown-search-input::placeholder {
+    color: #64748b;
+}
+.dark-theme .wtrack-dropdown-search-clear {
+    background: #334155;
+    color: #94a3b8;
+}
+.dark-theme .wtrack-dropdown-search-clear:hover {
+    background: #475569;
+    color: #f8fafc;
+}
+.dark-theme .wtrack-dropdown-empty {
+    color: #64748b;
+}
+.dark-theme .wtrack-dropdown-items-list::-webkit-scrollbar-thumb {
+    background: #475569;
 }

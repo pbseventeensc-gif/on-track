@@ -29,7 +29,7 @@
 
     function positionMenu(triggerEl, menuEl) {
         const rect = triggerEl.getBoundingClientRect();
-        const menuWidth = Math.max(rect.width, 220);
+        const menuWidth = Math.max(rect.width, 240);
         menuEl.style.width = menuWidth + 'px';
 
         const viewportHeight = window.innerHeight;
@@ -39,15 +39,15 @@
         menuEl.style.left = Math.max(10, Math.min(rect.left, window.innerWidth - menuWidth - 10)) + 'px';
 
         // Check if menu fits below or should flip above
-        const estimatedHeight = Math.min(menuEl.scrollHeight || 300, 360);
+        const estimatedHeight = Math.min(menuEl.scrollHeight || 340, 420);
         if (spaceBelow < estimatedHeight + 10 && spaceAbove > spaceBelow) {
             // Position above
-            menuEl.style.top = (rect.top - estimatedHeight - 6) + 'px';
-            menuEl.style.maxHeight = Math.min(spaceAbove - 16, 360) + 'px';
+            menuEl.style.top = Math.max(10, rect.top - estimatedHeight - 6) + 'px';
+            menuEl.style.maxHeight = Math.min(spaceAbove - 16, 420) + 'px';
         } else {
             // Position below
             menuEl.style.top = (rect.bottom + 6) + 'px';
-            menuEl.style.maxHeight = Math.min(spaceBelow - 16, 360) + 'px';
+            menuEl.style.maxHeight = Math.min(spaceBelow - 16, 420) + 'px';
         }
     }
 
@@ -61,21 +61,82 @@
         const menu = document.createElement('div');
         menu.className = 'wtrack-custom-dropdown-menu';
 
+        // Check if dropdown should have search feature
+        const totalOptions = selectEl.options ? selectEl.options.length : 0;
+        const hasOptgroups = selectEl.querySelector('optgroup') !== null;
+        const selectId = (selectEl.id || '').toLowerCase();
+        const isSearchable = totalOptions >= 5 || hasOptgroups || selectId.includes('carrier') || selectId.includes('personil') || selectId.includes('courier');
+
+        let searchInput = null;
+        let searchClearBtn = null;
+        let searchWrap = null;
+
+        if (isSearchable) {
+            searchWrap = document.createElement('div');
+            searchWrap.className = 'wtrack-dropdown-search-wrapper';
+            searchWrap.addEventListener('click', (e) => e.stopPropagation());
+
+            const searchBox = document.createElement('div');
+            searchBox.className = 'wtrack-dropdown-search-box';
+
+            searchBox.innerHTML = `
+                <svg class="wtrack-dropdown-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+            `;
+
+            searchInput = document.createElement('input');
+            searchInput.type = 'text';
+            searchInput.className = 'wtrack-dropdown-search-input';
+            const placeholder = (selectId.includes('carrier') || selectId.includes('personil') || selectId.includes('courier'))
+                ? 'Cari personil...'
+                : 'Cari...';
+            searchInput.placeholder = placeholder;
+            searchInput.setAttribute('autocomplete', 'off');
+            searchInput.setAttribute('spellcheck', 'false');
+
+            searchClearBtn = document.createElement('button');
+            searchClearBtn.type = 'button';
+            searchClearBtn.className = 'wtrack-dropdown-search-clear';
+            searchClearBtn.style.display = 'none';
+            searchClearBtn.setAttribute('aria-label', 'Clear search');
+            searchClearBtn.innerHTML = `
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            `;
+
+            searchBox.appendChild(searchInput);
+            searchBox.appendChild(searchClearBtn);
+            searchWrap.appendChild(searchBox);
+            menu.appendChild(searchWrap);
+        }
+
+        // Scrollable items container
+        const itemsList = document.createElement('div');
+        itemsList.className = 'wtrack-dropdown-items-list';
+        menu.appendChild(itemsList);
+
         // Build items from select options & optgroups
         const children = Array.from(selectEl.children);
         const currentVal = selectEl.value;
 
-        function appendOptionItem(opt) {
+        function appendOptionItem(opt, container) {
             if (!opt || opt.tagName !== 'OPTION') return;
             const item = document.createElement('div');
             item.className = 'wtrack-dropdown-item';
+            const itemText = opt.text || opt.label || '';
+            item.setAttribute('data-text', itemText);
+
             const isSelected = (opt.value === currentVal || opt.selected);
             if (isSelected) {
                 item.classList.add('active');
             }
 
             const labelSpan = document.createElement('span');
-            labelSpan.textContent = opt.text || opt.label || '';
+            labelSpan.textContent = itemText;
             item.appendChild(labelSpan);
 
             if (isSelected) {
@@ -107,23 +168,106 @@
                 closeActiveDropdown();
             });
 
-            menu.appendChild(item);
+            container.appendChild(item);
         }
 
         children.forEach(child => {
             if (child.tagName === 'OPTGROUP') {
+                const groupSec = document.createElement('div');
+                groupSec.className = 'wtrack-dropdown-group-section';
+
                 const header = document.createElement('div');
                 header.className = 'wtrack-dropdown-header';
                 header.textContent = child.label || '';
-                menu.appendChild(header);
+                groupSec.appendChild(header);
 
                 Array.from(child.children).forEach(opt => {
-                    appendOptionItem(opt);
+                    appendOptionItem(opt, groupSec);
                 });
+                itemsList.appendChild(groupSec);
             } else if (child.tagName === 'OPTION') {
-                appendOptionItem(child);
+                appendOptionItem(child, itemsList);
             }
         });
+
+        // Empty state message
+        const emptyState = document.createElement('div');
+        emptyState.className = 'wtrack-dropdown-empty';
+        emptyState.style.display = 'none';
+        emptyState.textContent = 'Tidak ada hasil ditemukan';
+        itemsList.appendChild(emptyState);
+
+        // Filter functionality
+        if (searchInput) {
+            const runFilter = () => {
+                const query = searchInput.value.toLowerCase().trim();
+                if (searchClearBtn) {
+                    searchClearBtn.style.display = query ? 'flex' : 'none';
+                }
+
+                let visibleCount = 0;
+
+                // Filter items inside optgroups
+                const groups = itemsList.querySelectorAll('.wtrack-dropdown-group-section');
+                groups.forEach(grp => {
+                    let groupVisibleCount = 0;
+                    const items = grp.querySelectorAll('.wtrack-dropdown-item');
+                    items.forEach(it => {
+                        const txt = (it.getAttribute('data-text') || it.textContent || '').toLowerCase();
+                        if (!query || txt.includes(query)) {
+                            it.style.display = 'flex';
+                            groupVisibleCount++;
+                            visibleCount++;
+                        } else {
+                            it.style.display = 'none';
+                        }
+                    });
+                    const hdr = grp.querySelector('.wtrack-dropdown-header');
+                    if (hdr) {
+                        hdr.style.display = groupVisibleCount > 0 ? 'block' : 'none';
+                    }
+                });
+
+                // Filter direct items (like "Semua Personil")
+                const directItems = itemsList.querySelectorAll(':scope > .wtrack-dropdown-item');
+                directItems.forEach(it => {
+                    const txt = (it.getAttribute('data-text') || it.textContent || '').toLowerCase();
+                    if (!query || txt.includes(query)) {
+                        it.style.display = 'flex';
+                        visibleCount++;
+                    } else {
+                        it.style.display = 'none';
+                    }
+                });
+
+                emptyState.style.display = visibleCount === 0 ? 'block' : 'none';
+                positionMenu(triggerEl, menu);
+            };
+
+            searchInput.addEventListener('input', runFilter);
+
+            searchClearBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                searchInput.value = '';
+                searchInput.focus();
+                runFilter();
+            });
+
+            searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    // Select first visible item
+                    const firstVisible = Array.from(itemsList.querySelectorAll('.wtrack-dropdown-item'))
+                        .find(it => it.style.display !== 'none');
+                    if (firstVisible) {
+                        firstVisible.click();
+                    }
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    closeActiveDropdown();
+                }
+            });
+        }
 
         document.body.appendChild(menu);
         triggerEl.classList.add('active');
@@ -131,6 +275,13 @@
         activeTrigger = triggerEl;
 
         positionMenu(triggerEl, menu);
+
+        // Auto-focus search input
+        if (searchInput) {
+            setTimeout(() => {
+                searchInput.focus();
+            }, 30);
+        }
     }
 
     function enhanceSelect(selectEl) {
