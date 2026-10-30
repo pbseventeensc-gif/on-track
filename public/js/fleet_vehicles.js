@@ -247,16 +247,244 @@
         return true;
     }
 
+    function formatRupiah(amount) {
+        if (!amount || isNaN(amount) || Number(amount) <= 0) return 'Rp -';
+        return 'Rp ' + Number(amount).toLocaleString('id-ID');
+    }
+
+    function generateInitialServiceHistory(v) {
+        const id = v.id || '';
+        const plate = (v.plate_number || '').toUpperCase();
+
+        if (id === 'FLT-GMX-001' || plate.includes('9227')) {
+            return [
+                {
+                    id: 'SRV-GMX-001-1',
+                    date: '2026-08-10',
+                    odometer: '42.500 km',
+                    workshop: 'Daihatsu Kebon Jeruk',
+                    cost: 680000,
+                    replaced_items: 'Oli Mesin Fastron 10W-40 (3.5L), Filter Oli Denso, Tune Up Busi NGK (4 pcs), Kampas Rem Belakang',
+                    notes: 'Servis rutin berkala 40.000 KM, rem dibersihkan dan disetel ulang'
+                },
+                {
+                    id: 'SRV-GMX-001-2',
+                    date: '2026-05-15',
+                    odometer: '37.800 km',
+                    workshop: 'Bengkel Sentosa Mobil',
+                    cost: 510000,
+                    replaced_items: 'Oli Mesin Fastron 10W-40, Filter Udara, Minyak Rem Dot 3',
+                    notes: 'Ganti oli rutin dan pengecekan suspensi depan'
+                }
+            ];
+        }
+        if (id === 'FLT-GMX-002' || plate.includes('9939')) {
+            return [
+                {
+                    id: 'SRV-GMX-002-1',
+                    date: '2026-08-20',
+                    odometer: '39.200 km',
+                    workshop: 'Daihatsu Pos Pengumben',
+                    cost: 620000,
+                    replaced_items: 'Oli Mesin Shell Helix HX7 10W-40, Filter Oli, Filter Udara Aspira, Spooring & Balancing',
+                    notes: 'Setir sempat lari ke kiri sedikit, sudah balancing kembali normal'
+                },
+                {
+                    id: 'SRV-GMX-002-2',
+                    date: '2026-05-02',
+                    odometer: '33.500 km',
+                    workshop: 'Bengkel Sahabat Motor',
+                    cost: 470000,
+                    replaced_items: 'Oli Mesin, Filter Oli, Minyak Kopling Dot 3',
+                    notes: 'Pengecekan rutin dan ganti oli berkala'
+                }
+            ];
+        }
+        if (id === 'FLT-GMX-003' || plate.includes('9158')) {
+            return [
+                {
+                    id: 'SRV-GMX-003-1',
+                    date: '2026-07-25',
+                    odometer: '51.400 km',
+                    workshop: 'Bengkel Jaya Mandiri',
+                    cost: 1150000,
+                    replaced_items: 'Aki GS Astra Maintenance Free 45A, Ganti Oli Mesin Shell 10W-40, Bohlam Headlamp H4 Philips',
+                    notes: 'Aki lama sudah soak / drop voltase, diganti aki baru bergaransi'
+                },
+                {
+                    id: 'SRV-GMX-003-2',
+                    date: '2026-04-10',
+                    odometer: '46.000 km',
+                    workshop: 'Daihatsu Daan Mogot',
+                    cost: 580000,
+                    replaced_items: 'Oli Mesin, Filter Oli, Kuras Radiator Coolant Prestone',
+                    notes: 'Sistem pendingin mesin dibersihkan'
+                }
+            ];
+        }
+        if (id === 'FLT-GMX-004' || plate.includes('9278')) {
+            return [
+                {
+                    id: 'SRV-GMX-004-1',
+                    date: '2026-08-25',
+                    odometer: '44.100 km',
+                    workshop: 'Bengkel Berkah Abadi',
+                    cost: 590000,
+                    replaced_items: 'Oli Mesin Fastron 10W-40, Filter Oli, Fan Belt Alternator Bando, Rotasi Ban',
+                    notes: 'Fan belt lama ada retak halus, diganti baru agar aman jalan luar kota'
+                }
+            ];
+        }
+        if (id === 'FLT-GMX-005' || plate.includes('9107')) {
+            return [
+                {
+                    id: 'SRV-GMX-005-1',
+                    date: '2026-08-30',
+                    odometer: '36.700 km',
+                    workshop: 'Daihatsu Daan Mogot',
+                    cost: 740000,
+                    replaced_items: 'Oli Mesin 10W-40, Oli Transmisi Manual GL-4, Filter Bensin, Cek Gas Freon Pendingin Box',
+                    notes: 'Servis transmisi dan filter bensin'
+                }
+            ];
+        }
+        if (id === 'FLT-GMX-006' || plate.includes('1004')) {
+            return [
+                {
+                    id: 'SRV-GMX-006-1',
+                    date: '2026-09-02',
+                    odometer: '58.200 km',
+                    workshop: 'Bengkel Kaki Mobil Surya',
+                    cost: 850000,
+                    replaced_items: 'Oli Mesin Diesel Meditran 15W-40, Filter Oli, Karet Bushing Per Daun Bak Belakang, Baut Klem U-Bolt',
+                    notes: 'Bushing per belakang aus karena muatan material cetak berat, diganti 1 set'
+                }
+            ];
+        }
+        if (id === 'FLT-TRK-001' || plate.includes('9032')) {
+            return [
+                {
+                    id: 'SRV-TRK-001-1',
+                    date: '2026-08-05',
+                    odometer: '84.500 km',
+                    workshop: 'Astra Isuzu Daan Mogot',
+                    cost: 1850000,
+                    replaced_items: 'Oli Mesin Diesel Isuzu 15W-40 (12 Liter), Filter Solar Utama, Filter Solar Ganda (Water Separator), Filter Oli, Gemuk Grease As Roda',
+                    notes: 'Perawatan rutin truk box berat 80.000 km, rem angin dalam kondisi aman'
+                },
+                {
+                    id: 'SRV-TRK-001-2',
+                    date: '2026-04-20',
+                    odometer: '77.200 km',
+                    workshop: 'Bengkel Diesel Sumber Rejeki',
+                    cost: 1420000,
+                    replaced_items: 'Kampas Rem Tromol Roda Belakang Bendix Heavy Duty, Kuras Minyak Rem Tabung Angin, Oli Gardan Rored SAE 90',
+                    notes: 'Pengereman kembali responsif dan pakem'
+                }
+            ];
+        }
+        if (id === 'FLT-TRK-002' || plate.includes('9177')) {
+            return [
+                {
+                    id: 'SRV-TRK-002-1',
+                    date: '2026-08-14',
+                    odometer: '79.100 km',
+                    workshop: 'Fuso Kebon Jeruk',
+                    cost: 1720000,
+                    replaced_items: 'Oli Mesin Diesel Pertamina Meditran SX 15W-40, Filter Oli Canter ME014833, Filter Solar ME016823, Grease Gardan',
+                    notes: 'Servis berkala Fuso Canter, tekanan kompresi silinder bagus'
+                }
+            ];
+        }
+        if (id === 'FLT-TRK-003' || plate.includes('9842')) {
+            return [
+                {
+                    id: 'SRV-TRK-003-1',
+                    date: '2026-07-30',
+                    odometer: '92.400 km',
+                    workshop: 'Astra Isuzu Harapan Indah',
+                    cost: 2150000,
+                    replaced_items: 'Oli Mesin Diesel Heavy Duty (14L), Filter Udara Double Element, Kampas Rem Angin Roda Depan, Filter Solar Atas & Bawah',
+                    notes: 'Pembersihan air tank tabung kompresor rem'
+                }
+            ];
+        }
+        if (id === 'FLT-TRK-004' || plate.includes('9084')) {
+            return [
+                {
+                    id: 'SRV-TRK-004-1',
+                    date: '2026-08-18',
+                    odometer: '71.300 km',
+                    workshop: 'Bengkel Hino Cikokol',
+                    cost: 1680000,
+                    replaced_items: 'Oli Mesin Hino 15W-40, Filter Oli, Filter Solar Utama, Kuras Tabung Power Steering & Minyak ATF',
+                    notes: 'Power steering diperiksa, kemudi lancar dan ringan'
+                }
+            ];
+        }
+        if (id === 'FLT-PKP-001' || plate.includes('9463')) {
+            return [
+                {
+                    id: 'SRV-PKP-001-1',
+                    date: '2026-09-08',
+                    odometer: '29.800 km',
+                    workshop: 'Bengkel Motor Jaya',
+                    cost: 450000,
+                    replaced_items: 'Oli Mesin 10W-40, Filter Oli, Filter Udara, Busi Standar (4 pcs)',
+                    notes: 'Servis berkala pick up gudang'
+                }
+            ];
+        }
+        if (id === 'FLT-L30-001' || plate.includes('9243')) {
+            return [
+                {
+                    id: 'SRV-L30-001-1',
+                    date: '2026-08-28',
+                    odometer: '64.000 km',
+                    workshop: 'Bengkel Diesel Mitra Kawan',
+                    cost: 780000,
+                    replaced_items: 'Oli Mesin Diesel Meditran SX, Filter Solar L300, Kuras Radiator Coolant Hijau, Cek Timing Belt',
+                    notes: 'Kondisi timing belt masih bagus, radiator bersih'
+                }
+            ];
+        }
+
+        return [
+            {
+                id: 'SRV-' + Date.now(),
+                date: '2026-08-15',
+                odometer: '40.000 km',
+                workshop: 'Bengkel Rekanan Resmi',
+                cost: 650000,
+                replaced_items: 'Oli Mesin, Filter Oli, Cek Kampas Rem, Tune Up Ringan',
+                notes: 'Servis berkala sebelumnya'
+            }
+        ];
+    }
+
     // Local Storage & Supabase Sync Layer
     function getStoredFleet() {
         assertSuperAdmin();
         try {
             const raw = localStorage.getItem(STORAGE_KEY);
-            if (!raw) {
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_FLEET));
-                return DEFAULT_FLEET;
+            let fleet = raw ? JSON.parse(raw) : null;
+            if (!fleet || !Array.isArray(fleet) || fleet.length === 0) {
+                fleet = DEFAULT_FLEET;
             }
-            return JSON.parse(raw);
+
+            // Ensure each vehicle has service_history array initialized
+            let updated = false;
+            fleet.forEach(v => {
+                if (!Array.isArray(v.service_history) || v.service_history.length === 0) {
+                    v.service_history = generateInitialServiceHistory(v);
+                    updated = true;
+                }
+            });
+
+            if (updated || !raw) {
+                saveStoredFleet(fleet);
+            }
+            return fleet;
         } catch (e) {
             console.warn('[FLEET_STORAGE] Fallback to default fleet:', e);
             return DEFAULT_FLEET;
@@ -576,28 +804,45 @@
                 </div>
             `;
 
+            const historyList = Array.isArray(v.service_history) ? v.service_history : [];
+            const historyCount = historyList.length;
+            const lastService = historyCount > 0 ? historyList[0] : null;
+
             const serviceBadge = `
                 <div class="d-flex flex-column align-items-start gap-1">
-                    <div class="fw-semibold text-dark" style="font-size: 0.82rem;">
-                        ${formatPrettyDate(v.service_due_date)}
+                    <div class="d-flex align-items-center gap-1.5 flex-wrap">
+                        <span class="fw-semibold text-dark" style="font-size: 0.82rem;">
+                            ${formatPrettyDate(v.service_due_date)}
+                        </span>
+                        <span class="badge" style="${ev.serviceAlert.pillStyle} font-size: 0.65rem; font-weight: 600; border-radius: 4px; padding: 2px 6px;">
+                            ${ev.serviceAlert.label}
+                        </span>
                     </div>
-                    <span class="badge" style="${ev.serviceAlert.pillStyle} font-size: 0.65rem; font-weight: 600; border-radius: 4px; padding: 2px 6px;">
-                        ${ev.serviceAlert.label}
-                    </span>
+
                     ${v.service_details ? `
-                        <div class="mt-1 d-flex align-items-center gap-1 flex-wrap">
-                            <span class="badge text-start text-truncate fw-normal" 
-                                  style="max-width: 165px; background: #f8fafc; color: #475569; border: 1px solid #e2e8f0; font-size: 0.68rem; padding: 2.5px 6px; border-radius: 4px;" 
-                                  title="${v.service_details}">
+                        <div class="mt-0.5">
+                            <span class="badge text-start text-truncate fw-normal d-inline-block" 
+                                  style="max-width: 175px; background: #f8fafc; color: #475569; border: 1px solid #e2e8f0; font-size: 0.68rem; padding: 2.5px 6px; border-radius: 4px;" 
+                                  title="Rencana servis berikutnya: ${v.service_details}">
                                 🔧 ${v.service_details}
                             </span>
-                            <button class="btn btn-sm btn-link p-0 text-primary fw-semibold text-decoration-none" 
-                                    style="font-size: 0.68rem;" 
-                                    onclick="window.fleetModule.openServiceDetailModal('${v.id}')">
-                                Detail
-                            </button>
                         </div>
                     ` : ''}
+
+                    <div class="mt-1 d-flex flex-column align-items-start gap-0.5">
+                        <button class="btn btn-xs btn-outline-primary d-inline-flex align-items-center gap-1.5 py-0.5 px-2 rounded-2 fw-semibold" 
+                                style="font-size: 0.7rem; border-color: #cbd5e1; background: #ffffff;" 
+                                onclick="window.fleetModule.openServiceHistoryModal('${v.id}')">
+                            <i class="bi bi-clock-history text-primary"></i>
+                            <span>Riwayat Servis</span>
+                            <span class="badge bg-primary text-white rounded-pill px-1.5 py-0.2" style="font-size: 0.62rem;">${historyCount}</span>
+                        </button>
+                        ${lastService ? `
+                            <div class="extra-small text-muted mt-0.5" style="font-size: 0.66rem;" title="Servis Terakhir (${formatPrettyDate(lastService.date)}): ${lastService.replaced_items}">
+                                <i class="bi bi-check2-circle text-success me-0.5"></i> Terakhir: <b>${formatPrettyDate(lastService.date)}</b>
+                            </div>
+                        ` : ''}
+                    </div>
                 </div>
             `;
 
@@ -1159,32 +1404,47 @@
         showFleetToast('Laporan Excel armada berhasil di-generate!');
     }
 
-    function openServiceDetailModal(id) {
+    function openServiceHistoryModal(id) {
         const fleet = getStoredFleet();
         const v = fleet.find(item => item.id === id);
         if (!v) return;
 
-        let modalEl = document.getElementById('modal-service-detail');
+        let modalEl = document.getElementById('modal-service-history');
         if (!modalEl) {
             modalEl = document.createElement('div');
-            modalEl.id = 'modal-service-detail';
+            modalEl.id = 'modal-service-history';
             modalEl.className = 'modal fade';
             modalEl.tabIndex = -1;
             modalEl.innerHTML = `
-                <div class="modal-dialog modal-dialog-centered">
-                    <div class="modal-content rounded-4 border-0 shadow">
-                        <div class="modal-header border-bottom pb-3">
-                            <h6 class="modal-title fw-bold text-dark d-flex align-items-center gap-2">
-                                <i class="bi bi-tools text-primary"></i>
-                                <span id="service-modal-title">Rincian Servis Berkala</span>
-                            </h6>
+                <div class="modal-dialog modal-dialog-centered modal-lg">
+                    <div class="modal-content rounded-4 border-0 shadow-lg" style="overflow: hidden;">
+                        <div class="modal-header border-bottom py-3 px-4 bg-white">
+                            <div class="d-flex align-items-center gap-2.5">
+                                <div class="rounded-3 p-2 d-flex align-items-center justify-content-center text-white shadow-xs" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); width: 40px; height: 40px;">
+                                    <i class="bi bi-clock-history fs-5"></i>
+                                </div>
+                                <div>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <h6 class="modal-title fw-bold text-dark mb-0">Riwayat & Log Servis Armada</h6>
+                                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle font-monospace" id="hist-modal-plate">-</span>
+                                    </div>
+                                    <div class="extra-small text-muted" id="hist-modal-subtitle">-</div>
+                                </div>
+                            </div>
                             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                         </div>
-                        <div class="modal-body p-4" id="service-modal-body">
+                        <div class="modal-body p-4 bg-light" id="hist-modal-body" style="max-height: 72vh; overflow-y: auto;">
                         </div>
-                        <div class="modal-footer border-top pt-2">
-                            <button type="button" class="btn btn-sm btn-light fw-bold" data-bs-dismiss="modal">Tutup</button>
-                            <button type="button" class="btn btn-sm btn-primary fw-bold" id="service-modal-edit-btn">Edit Rincian</button>
+                        <div class="modal-footer border-top py-2.5 px-4 bg-white d-flex justify-content-between">
+                            <button type="button" class="btn btn-sm btn-light border fw-semibold px-3" data-bs-dismiss="modal">Tutup</button>
+                            <div class="d-flex align-items-center gap-2">
+                                <button type="button" class="btn btn-sm btn-outline-primary fw-semibold px-3" id="hist-btn-edit-armada">
+                                    <i class="bi bi-pencil me-1"></i> Edit Armada
+                                </button>
+                                <button type="button" class="btn btn-sm btn-primary fw-bold px-3 shadow-xs d-inline-flex align-items-center gap-1.5" id="hist-btn-add-record">
+                                    <i class="bi bi-plus-circle"></i> + Catat Servis Baru
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1192,54 +1452,406 @@
             document.body.appendChild(modalEl);
         }
 
-        const titleEl = document.getElementById('service-modal-title');
-        if (titleEl) titleEl.innerText = `Rincian Servis: ${v.plate_number}`;
-        
-        const bodyEl = document.getElementById('service-modal-body');
-        const rawItems = v.service_details || 'Servis Berkala / Rutin';
-        const items = rawItems.split(/[,;•\n]+/).map(s => s.trim()).filter(Boolean);
+        const plateEl = document.getElementById('hist-modal-plate');
+        if (plateEl) plateEl.innerText = v.plate_number;
 
+        const subtitleEl = document.getElementById('hist-modal-subtitle');
+        if (subtitleEl) subtitleEl.innerText = `Driver: ${v.assigned_person_name || '-'} • ${v.notes || v.vehicle_category}`;
+
+        const ev = evaluateVehicleAlerts(v);
+        const history = Array.isArray(v.service_history) ? v.service_history : [];
+        const rawPlan = v.service_details || 'Servis Berkala Rutin';
+        const planItems = rawPlan.split(/[,;\n•]+/).map(s => s.trim()).filter(Boolean);
+
+        const bodyEl = document.getElementById('hist-modal-body');
         if (bodyEl) {
+            let historyHtml = '';
+            if (history.length === 0) {
+                historyHtml = `
+                    <div class="text-center py-5 bg-white rounded-4 border p-4 shadow-xs">
+                        <div class="text-secondary mb-2"><i class="bi bi-tools fs-1 text-muted"></i></div>
+                        <h6 class="fw-bold text-dark mb-1">Belum Ada Riwayat Servis Tercatat</h6>
+                        <p class="text-muted extra-small mb-3">Catat servis pertama untuk memantau penggantian sparepart kendaraan ini.</p>
+                        <button class="btn btn-sm btn-primary fw-bold px-3" onclick="window.fleetModule.openAddServiceRecordModal('${v.id}')">
+                            <i class="bi bi-plus-circle me-1"></i> Catat Servis Pertama
+                        </button>
+                    </div>
+                `;
+            } else {
+                historyHtml = history.map((rec, idx) => {
+                    const recItems = (rec.replaced_items || '').split(/[,;\n•]+/).map(s => s.trim()).filter(Boolean);
+                    const isLatest = idx === 0;
+
+                    return `
+                        <div class="card border rounded-3 p-3 mb-3 bg-white shadow-xs position-relative ${isLatest ? 'border-primary-subtle' : ''}">
+                            ${isLatest ? `<span class="badge bg-primary text-white position-absolute top-0 end-0 m-2.5 px-2 py-0.5 extra-small fw-bold"><i class="bi bi-star-fill me-1"></i>Servis Terakhir</span>` : ''}
+                            
+                            <!-- Header Baris Riwayat -->
+                            <div class="d-flex flex-wrap align-items-center gap-2 mb-2.5 ${isLatest ? 'pe-5' : ''}">
+                                <div class="d-flex align-items-center gap-1.5 font-monospace fw-bold text-dark fs-6">
+                                    <i class="bi bi-calendar2-check text-primary"></i>
+                                    <span>${formatPrettyDate(rec.date)}</span>
+                                </div>
+                                ${rec.odometer ? `
+                                    <span class="badge bg-light text-dark border px-2 py-1 extra-small fw-semibold">
+                                        <i class="bi bi-speedometer2 me-1 text-secondary"></i>${rec.odometer}
+                                    </span>
+                                ` : ''}
+                                ${rec.workshop ? `
+                                    <span class="badge bg-light text-muted border px-2 py-1 extra-small fw-medium">
+                                        <i class="bi bi-building me-1 text-secondary"></i>${rec.workshop}
+                                    </span>
+                                ` : ''}
+                                ${rec.cost ? `
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 extra-small fw-bold">
+                                        ${formatRupiah(rec.cost)}
+                                    </span>
+                                ` : ''}
+                            </div>
+
+                            <!-- Headline: Part / Sparepart yang Diganti (Highlight Utama) -->
+                            <div class="p-2.5 rounded-3 mb-2" style="background: #f8fafc; border: 1px solid #e2e8f0;">
+                                <div class="extra-small fw-bold text-uppercase text-secondary mb-1.5 d-flex align-items-center gap-1">
+                                    <i class="bi bi-gear-wide-connected text-primary"></i>
+                                    <span>Sparepart & Part yang Diganti:</span>
+                                </div>
+                                <div class="d-flex flex-wrap gap-1.5">
+                                    ${recItems.length > 0 ? recItems.map(item => `
+                                        <span class="badge bg-white text-dark border shadow-xs px-2.5 py-1.5 fw-medium d-inline-flex align-items-center gap-1.5" style="font-size: 0.75rem; border-radius: 6px;">
+                                            <i class="bi bi-check-circle-fill text-success" style="font-size: 0.7rem;"></i>
+                                            <span>${item}</span>
+                                        </span>
+                                    `).join('') : '<span class="text-muted extra-small">Servis berkala umum</span>'}
+                                </div>
+                            </div>
+
+                            <!-- Catatan Mekanik & Aksi Hapus -->
+                            <div class="d-flex flex-wrap justify-content-between align-items-center pt-2 border-top gap-2">
+                                <div class="extra-small text-muted">
+                                    ${rec.notes ? `<i class="bi bi-chat-left-text me-1"></i> <span class="text-dark">${rec.notes}</span>` : '<span class="text-muted fst-italic">Tidak ada catatan tambahan</span>'}
+                                </div>
+                                <button class="btn btn-xs btn-link text-danger p-0 text-decoration-none fw-semibold ms-auto" 
+                                        style="font-size: 0.72rem;"
+                                        onclick="window.fleetModule.deleteServiceRecord('${v.id}', '${rec.id}')">
+                                    <i class="bi bi-trash me-1"></i> Hapus Catatan
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
             bodyEl.innerHTML = `
-                <div class="d-flex align-items-center justify-content-between p-3 rounded-3 mb-3" style="background: #f8fafc; border: 1px solid #e2e8f0;">
-                    <div>
-                        <div class="extra-small text-muted text-uppercase fw-bold">Nomor Polisi</div>
-                        <div class="font-monospace fw-bold text-dark fs-6">${v.plate_number}</div>
+                <!-- Ringkasan Jadwal Berikutnya -->
+                <div class="card border rounded-3 p-3 mb-3.5 bg-white shadow-xs" style="border-left: 4px solid var(--status-transit) !important;">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center mb-2 gap-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle fw-bold extra-small text-uppercase">
+                                <i class="bi bi-calendar-event me-1"></i> Jadwal Servis Rutin Berikutnya
+                            </span>
+                            <span class="badge" style="${ev.serviceAlert.pillStyle} font-size: 0.68rem; font-weight: 600; padding: 2.5px 7px; border-radius: 5px;">
+                                ${ev.serviceAlert.label}
+                            </span>
+                        </div>
+                        <div class="font-monospace fw-bold text-dark fs-6">
+                            ${formatPrettyDate(v.service_due_date)}
+                        </div>
                     </div>
-                    <div>
-                        <div class="extra-small text-muted text-uppercase fw-bold">Driver</div>
-                        <div class="fw-semibold text-dark">${v.assigned_person_name || '-'}</div>
+                    <div class="extra-small text-muted mb-1.5 fw-semibold">Rencana Item Servis Mendatang:</div>
+                    <div class="d-flex flex-wrap gap-1.5 mb-2.5">
+                        ${planItems.map(item => `
+                            <span class="badge bg-light text-dark border px-2 py-1 extra-small fw-normal">
+                                <i class="bi bi-wrench me-1 text-primary"></i> ${item}
+                            </span>
+                        `).join('')}
                     </div>
-                    <div>
-                        <div class="extra-small text-muted text-uppercase fw-bold">Tanggal Servis</div>
-                        <div class="fw-bold text-primary font-monospace">${formatPrettyDate(v.service_due_date)}</div>
+                    <div class="d-flex justify-content-end">
+                        <button class="btn btn-xs btn-success fw-bold py-1.5 px-3 rounded-2 shadow-xs d-inline-flex align-items-center gap-1.5" 
+                                style="font-size: 0.75rem;" 
+                                onclick="window.fleetModule.openAddServiceRecordModal('${v.id}', true)">
+                            <i class="bi bi-check2-all fs-6"></i>
+                            <span>Tandai Servis Sekarang Selesai & Masukkan ke Riwayat</span>
+                        </button>
                     </div>
                 </div>
-                <div class="mb-2">
-                    <div class="extra-small text-muted text-uppercase fw-bold mb-2">Item Pekerjaan / Penggantian Part:</div>
-                    <ul class="list-group list-group-flush rounded-3 border">
-                        ${items.map(item => `
-                            <li class="list-group-item d-flex align-items-center gap-2.5 py-2.5 px-3 small text-dark">
-                                <i class="bi bi-check2-circle text-primary fs-6"></i>
-                                <span class="fw-medium">${item}</span>
-                            </li>
-                        `).join('')}
-                    </ul>
+
+                <!-- Bagian Riwayat Sebelumnya -->
+                <div class="d-flex align-items-center justify-content-between mb-2.5 px-1">
+                    <div class="fw-bold text-dark extra-small text-uppercase d-flex align-items-center gap-1.5">
+                        <i class="bi bi-journal-text text-primary"></i>
+                        <span>Riwayat Servis Sebelumnya (${history.length} Catatan)</span>
+                    </div>
+                    <span class="extra-small text-muted">Diurutkan dari servis terbaru</span>
+                </div>
+
+                <div class="service-history-list">
+                    ${historyHtml}
                 </div>
             `;
         }
 
-        const editBtn = document.getElementById('service-modal-edit-btn');
-        if (editBtn) {
-            editBtn.onclick = () => {
+        const editArmadaBtn = document.getElementById('hist-btn-edit-armada');
+        if (editArmadaBtn) {
+            editArmadaBtn.onclick = () => {
                 const bsModal = bootstrap.Modal.getInstance(modalEl);
                 if (bsModal) bsModal.hide();
                 openEditFleetModal(v.id);
             };
         }
 
+        const addRecordBtn = document.getElementById('hist-btn-add-record');
+        if (addRecordBtn) {
+            addRecordBtn.onclick = () => {
+                openAddServiceRecordModal(v.id, false);
+            };
+        }
+
         const bsModal = new bootstrap.Modal(modalEl);
         bsModal.show();
+    }
+
+    function openAddServiceRecordModal(vehicleId, isFromUpcoming = false) {
+        const fleet = getStoredFleet();
+        const v = fleet.find(item => item.id === vehicleId);
+        if (!v) return;
+
+        let modalEl = document.getElementById('modal-add-service-record');
+        if (!modalEl) {
+            modalEl = document.createElement('div');
+            modalEl.id = 'modal-add-service-record';
+            modalEl.className = 'modal fade';
+            modalEl.tabIndex = -1;
+            modalEl.innerHTML = `
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content rounded-4 border-0 shadow-lg" style="overflow: hidden;">
+                        <div class="modal-header border-bottom py-3 px-4 bg-white">
+                            <h6 class="modal-title fw-bold text-dark d-flex align-items-center gap-2">
+                                <i class="bi bi-wrench-adjustable-circle text-primary fs-5"></i>
+                                <span id="add-srv-modal-title">Catat Riwayat Servis Baru</span>
+                            </h6>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body p-4 bg-white">
+                            <form id="form-add-service-record" onsubmit="event.preventDefault(); window.fleetModule.saveServiceRecord();">
+                                <input type="hidden" id="add-srv-vehicle-id">
+
+                                <!-- Vehicle info pill -->
+                                <div class="d-flex align-items-center justify-content-between p-2.5 rounded-3 mb-3 bg-light border">
+                                    <div>
+                                        <div class="extra-small text-muted fw-bold text-uppercase">Kendaraan</div>
+                                        <div class="fw-bold text-dark font-monospace" id="add-srv-plate">-</div>
+                                    </div>
+                                    <div>
+                                        <div class="extra-small text-muted fw-bold text-uppercase">Driver</div>
+                                        <div class="fw-semibold text-dark small" id="add-srv-driver">-</div>
+                                    </div>
+                                </div>
+
+                                <div class="row g-2.5 mb-3">
+                                    <div class="col-6">
+                                        <label class="form-label extra-small fw-bold text-uppercase text-muted mb-1">Tanggal Pengerjaan Servis *</label>
+                                        <input type="date" id="add-srv-date" class="form-control form-control-sm" required>
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label extra-small fw-bold text-uppercase text-muted mb-1">Kilometer Odometer</label>
+                                        <input type="text" id="add-srv-km" class="form-control form-control-sm" placeholder="Contoh: 45.000 km">
+                                    </div>
+                                </div>
+
+                                <div class="row g-2.5 mb-3">
+                                    <div class="col-7">
+                                        <label class="form-label extra-small fw-bold text-uppercase text-muted mb-1">Bengkel / Tempat Servis</label>
+                                        <input type="text" id="add-srv-workshop" class="form-control form-control-sm" placeholder="Nama bengkel / rekanan">
+                                    </div>
+                                    <div class="col-5">
+                                        <label class="form-label extra-small fw-bold text-uppercase text-muted mb-1">Total Biaya (Rp)</label>
+                                        <input type="number" id="add-srv-cost" class="form-control form-control-sm" placeholder="Contoh: 650000">
+                                    </div>
+                                </div>
+
+                                <!-- Sparepart / Part yang Diganti -->
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <label class="form-label extra-small fw-bold text-uppercase text-muted mb-0">Part / Sparepart yang Diganti *</label>
+                                        <span class="extra-small text-primary fw-semibold">Klik chip untuk tambah cepat</span>
+                                    </div>
+                                    <textarea id="add-srv-items" class="form-control form-control-sm mb-2" rows="3" placeholder="Tuliskan part apa saja yang diganti, pisahkan dengan koma..." required></textarea>
+                                    
+                                    <!-- Quick Tags -->
+                                    <div class="d-flex flex-wrap gap-1" id="add-srv-quick-chips">
+                                        <button type="button" class="btn btn-xs btn-light border py-0.5 px-2 rounded-2 extra-small" onclick="window.fleetModule.appendServiceHistoryTag('Oli Mesin')">+ Oli Mesin</button>
+                                        <button type="button" class="btn btn-xs btn-light border py-0.5 px-2 rounded-2 extra-small" onclick="window.fleetModule.appendServiceHistoryTag('Filter Oli')">+ Filter Oli</button>
+                                        <button type="button" class="btn btn-xs btn-light border py-0.5 px-2 rounded-2 extra-small" onclick="window.fleetModule.appendServiceHistoryTag('Filter Udara')">+ Filter Udara</button>
+                                        <button type="button" class="btn btn-xs btn-light border py-0.5 px-2 rounded-2 extra-small" onclick="window.fleetModule.appendServiceHistoryTag('Filter Solar')">+ Filter Solar</button>
+                                        <button type="button" class="btn btn-xs btn-light border py-0.5 px-2 rounded-2 extra-small" onclick="window.fleetModule.appendServiceHistoryTag('Kampas Rem Depan')">+ Kampas Rem Depan</button>
+                                        <button type="button" class="btn btn-xs btn-light border py-0.5 px-2 rounded-2 extra-small" onclick="window.fleetModule.appendServiceHistoryTag('Kampas Rem Belakang')">+ Kampas Rem Belakang</button>
+                                        <button type="button" class="btn btn-xs btn-light border py-0.5 px-2 rounded-2 extra-small" onclick="window.fleetModule.appendServiceHistoryTag('Tune Up Busi')">+ Tune Up Busi</button>
+                                        <button type="button" class="btn btn-xs btn-light border py-0.5 px-2 rounded-2 extra-small" onclick="window.fleetModule.appendServiceHistoryTag('Aki / Accu')">+ Aki</button>
+                                        <button type="button" class="btn btn-xs btn-light border py-0.5 px-2 rounded-2 extra-small" onclick="window.fleetModule.appendServiceHistoryTag('Radiator Coolant')">+ Radiator Coolant</button>
+                                        <button type="button" class="btn btn-xs btn-light border py-0.5 px-2 rounded-2 extra-small" onclick="window.fleetModule.appendServiceHistoryTag('Minyak Rem')">+ Minyak Rem</button>
+                                        <button type="button" class="btn btn-xs btn-light border py-0.5 px-2 rounded-2 extra-small" onclick="window.fleetModule.appendServiceHistoryTag('Rotasi Ban')">+ Rotasi Ban</button>
+                                        <button type="button" class="btn btn-xs btn-light border py-0.5 px-2 rounded-2 extra-small" onclick="window.fleetModule.appendServiceHistoryTag('Grease As Roda')">+ Gemuk As Roda</button>
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label extra-small fw-bold text-uppercase text-muted mb-1">Catatan Tambahan / Kondisi</label>
+                                    <input type="text" id="add-srv-notes" class="form-control form-control-sm" placeholder="Contoh: Kondisi mesin prima, tekanan ban disesuaikan">
+                                </div>
+
+                                <!-- Auto-Update Next Service Due Date -->
+                                <div class="p-3 rounded-3 bg-light border mb-2">
+                                    <div class="form-check form-switch mb-2">
+                                        <input class="form-check-input" type="checkbox" id="add-srv-update-next" checked onchange="document.getElementById('add-srv-next-panel').style.display = this.checked ? 'block' : 'none';">
+                                        <label class="form-check-label extra-small fw-bold text-dark" for="add-srv-update-next">
+                                            Perbarui Jadwal Servis Rutin Berikutnya Otomatis
+                                        </label>
+                                    </div>
+                                    <div id="add-srv-next-panel">
+                                        <div class="row g-2">
+                                            <div class="col-6">
+                                                <label class="extra-small text-muted fw-bold mb-1 d-block">Tanggal Servis Baru (+3 Bulan):</label>
+                                                <input type="date" id="add-srv-next-date" class="form-control form-control-sm">
+                                            </div>
+                                            <div class="col-6">
+                                                <label class="extra-small text-muted fw-bold mb-1 d-block">Rencana Servis Baru:</label>
+                                                <input type="text" id="add-srv-next-plan" class="form-control form-control-sm" value="Ganti Oli Mesin, Filter Oli, Servis Berkala">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="d-flex justify-content-end gap-2 mt-3 pt-2 border-top">
+                                    <button type="button" class="btn btn-sm btn-light border fw-semibold" data-bs-dismiss="modal">Batal</button>
+                                    <button type="submit" class="btn btn-sm btn-primary fw-bold px-3">Simpan Riwayat Servis</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modalEl);
+        }
+
+        document.getElementById('add-srv-vehicle-id').value = v.id;
+        document.getElementById('add-srv-plate').innerText = v.plate_number;
+        document.getElementById('add-srv-driver').innerText = v.assigned_person_name || '-';
+
+        const now = new Date();
+        const todayStr = now.toISOString().split('T')[0];
+        document.getElementById('add-srv-date').value = todayStr;
+        document.getElementById('add-srv-km').value = '';
+        document.getElementById('add-srv-workshop').value = '';
+        document.getElementById('add-srv-cost').value = '';
+        document.getElementById('add-srv-notes').value = '';
+
+        if (isFromUpcoming && v.service_details) {
+            document.getElementById('add-srv-items').value = v.service_details;
+        } else {
+            document.getElementById('add-srv-items').value = '';
+        }
+
+        // Set default next service date 3 months ahead
+        const nextMonth = new Date(now.getFullYear(), now.getMonth() + 3, now.getDate());
+        const nextStr = nextMonth.toISOString().split('T')[0];
+        document.getElementById('add-srv-next-date').value = nextStr;
+
+        const bsModal = new bootstrap.Modal(modalEl);
+        bsModal.show();
+    }
+
+    function appendServiceHistoryTag(tagName) {
+        const textarea = document.getElementById('add-srv-items');
+        if (!textarea) return;
+        const current = textarea.value.trim();
+        if (!current) {
+            textarea.value = tagName;
+        } else {
+            const items = current.split(/[,;]+/).map(s => s.trim());
+            if (!items.includes(tagName)) {
+                textarea.value = current + ', ' + tagName;
+            }
+        }
+        textarea.focus();
+    }
+
+    function saveServiceRecord() {
+        assertSuperAdmin();
+        const vId = document.getElementById('add-srv-vehicle-id').value;
+        const date = document.getElementById('add-srv-date').value;
+        const km = document.getElementById('add-srv-km').value.trim();
+        const workshop = document.getElementById('add-srv-workshop').value.trim();
+        const cost = parseInt(document.getElementById('add-srv-cost').value, 10) || 0;
+        const items = document.getElementById('add-srv-items').value.trim();
+        const notes = document.getElementById('add-srv-notes').value.trim();
+        const updateNext = document.getElementById('add-srv-update-next').checked;
+        const nextDate = document.getElementById('add-srv-next-date').value;
+        const nextPlan = document.getElementById('add-srv-next-plan').value.trim();
+
+        if (!date || !items) {
+            return alert('Harap isi Tanggal Pengerjaan Servis dan Item Part yang Diganti!');
+        }
+
+        const fleet = getStoredFleet();
+        const v = fleet.find(item => item.id === vId);
+        if (!v) return;
+
+        if (!Array.isArray(v.service_history)) {
+            v.service_history = [];
+        }
+
+        const newRecord = {
+            id: 'SRV-' + Date.now(),
+            date: date,
+            odometer: km || '',
+            workshop: workshop || '',
+            cost: cost,
+            replaced_items: items,
+            notes: notes || '',
+            created_at: Date.now()
+        };
+
+        // Add to top of history (latest first)
+        v.service_history.unshift(newRecord);
+
+        // Auto update next schedule if selected
+        if (updateNext && nextDate) {
+            v.service_due_date = nextDate;
+            if (nextPlan) v.service_details = nextPlan;
+        }
+
+        saveStoredFleet(fleet);
+
+        // Hide add modal
+        const addModalEl = document.getElementById('modal-add-service-record');
+        const bsAddModal = bootstrap.Modal.getInstance(addModalEl);
+        if (bsAddModal) bsAddModal.hide();
+
+        showFleetToast(`Riwayat servis ${v.plate_number} berhasil disimpan!`);
+        renderFleetInventoryView();
+
+        // Re-render and show history modal
+        openServiceHistoryModal(v.id);
+    }
+
+    function deleteServiceRecord(vehicleId, recordId) {
+        assertSuperAdmin();
+        if (!confirm('Apakah Anda yakin ingin menghapus catatan riwayat servis ini?')) return;
+
+        const fleet = getStoredFleet();
+        const v = fleet.find(item => item.id === vehicleId);
+        if (!v || !Array.isArray(v.service_history)) return;
+
+        v.service_history = v.service_history.filter(r => r.id !== recordId);
+        saveStoredFleet(fleet);
+
+        showFleetToast('Catatan riwayat servis telah dihapus.');
+        renderFleetInventoryView();
+        openServiceHistoryModal(v.id);
+    }
+
+    function openServiceDetailModal(id) {
+        openServiceHistoryModal(id);
     }
 
     // Public module exports
@@ -1253,6 +1865,11 @@
         saveQuickPhone,
         openFuelBarcodeModal,
         openServiceDetailModal,
+        openServiceHistoryModal,
+        openAddServiceRecordModal,
+        saveServiceRecord,
+        deleteServiceRecord,
+        appendServiceHistoryTag,
         toggleKirField,
         onPersonilSelectChange,
         appendServiceTag,
