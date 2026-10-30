@@ -249,11 +249,6 @@
         return true;
     }
 
-    function formatRupiah(amount) {
-        if (!amount || isNaN(amount) || Number(amount) <= 0) return 'Rp -';
-        return 'Rp ' + Number(amount).toLocaleString('id-ID');
-    }
-
     function generateInitialServiceHistory(v) {
         const id = v.id || '';
         const plate = (v.plate_number || '').toUpperCase();
@@ -265,7 +260,6 @@
                     date: '2026-08-10',
                     odometer: '42.500 km',
                     workshop: 'Bengkel Rekanan',
-                    cost: 680000,
                     replaced_items: 'Oli Mesin 10W-40 (3.5L), Filter Oli, Tune Up Busi (4 pcs), Kampas Rem Belakang',
                     notes: 'Servis rutin berkala 40.000 KM, rem dibersihkan dan disetel ulang'
                 },
@@ -274,7 +268,6 @@
                     date: '2026-05-15',
                     odometer: '37.800 km',
                     workshop: 'Bengkel Sentosa',
-                    cost: 510000,
                     replaced_items: 'Oli Mesin 10W-40, Filter Udara, Minyak Rem Dot 3',
                     notes: 'Ganti oli rutin dan pengecekan suspensi depan'
                 }
@@ -287,7 +280,6 @@
                     date: '2026-08-20',
                     odometer: '39.200 km',
                     workshop: 'Bengkel Rekanan',
-                    cost: 620000,
                     replaced_items: 'Oli Mesin 10W-40, Filter Oli, Filter Udara, Spooring & Balancing',
                     notes: 'Setir sempat lari ke kiri sedikit, sudah balancing kembali normal'
                 },
@@ -296,7 +288,6 @@
                     date: '2026-05-02',
                     odometer: '33.500 km',
                     workshop: 'Bengkel Sahabat',
-                    cost: 470000,
                     replaced_items: 'Oli Mesin, Filter Oli, Minyak Kopling Dot 3',
                     notes: 'Pengecekan rutin dan ganti oli berkala'
                 }
@@ -309,7 +300,6 @@
                     date: '2026-07-25',
                     odometer: '51.400 km',
                     workshop: 'Bengkel Jaya Mandiri',
-                    cost: 1150000,
                     replaced_items: 'Aki Kering 45A, Ganti Oli Mesin 10W-40, Bohlam Headlamp H4',
                     notes: 'Aki lama sudah soak / drop voltase, diganti aki baru bergaransi'
                 },
@@ -318,7 +308,6 @@
                     date: '2026-04-10',
                     odometer: '46.000 km',
                     workshop: 'Bengkel Rekanan',
-                    cost: 580000,
                     replaced_items: 'Oli Mesin, Filter Oli, Kuras Radiator Coolant',
                     notes: 'Sistem pendingin mesin dibersihkan'
                 }
@@ -331,7 +320,6 @@
                     date: '2026-08-25',
                     odometer: '44.100 km',
                     workshop: 'Bengkel Berkah Abadi',
-                    cost: 590000,
                     replaced_items: 'Oli Mesin 10W-40, Filter Oli, Fan Belt Alternator, Rotasi Ban',
                     notes: 'Fan belt lama ada retak halus, diganti baru agar aman jalan luar kota'
                 }
@@ -344,7 +332,6 @@
                     date: '2026-08-30',
                     odometer: '36.700 km',
                     workshop: 'Bengkel Rekanan',
-                    cost: 740000,
                     replaced_items: 'Oli Mesin 10W-40, Oli Transmisi Manual GL-4, Filter Bensin, Cek Gas Pendingin Box',
                     notes: 'Servis transmisi dan filter bensin'
                 }
@@ -357,7 +344,6 @@
                     date: '2026-09-02',
                     odometer: '58.200 km',
                     workshop: 'Bengkel Surya',
-                    cost: 850000,
                     replaced_items: 'Oli Mesin Diesel 15W-40, Filter Oli, Karet Bushing Per Daun Bak Belakang, Baut Klem U-Bolt',
                     notes: 'Bushing per belakang aus karena muatan material cetak berat, diganti 1 set'
                 }
@@ -370,7 +356,6 @@
                     date: '2026-08-05',
                     odometer: '84.500 km',
                     workshop: 'Bengkel Rekanan Resmi',
-                    cost: 1850000,
                     replaced_items: 'Oli Mesin Diesel 15W-40 (12 Liter), Filter Solar Utama, Filter Solar Ganda, Filter Oli, Gemuk As Roda',
                     notes: 'Perawatan rutin truk box berat 80.000 km, rem angin dalam kondisi aman'
                 },
@@ -379,7 +364,6 @@
                     date: '2026-04-20',
                     odometer: '77.200 km',
                     workshop: 'Bengkel Diesel Sumber Rejeki',
-                    cost: 1420000,
                     replaced_items: 'Kampas Rem Tromol Roda Belakang, Kuras Minyak Rem Tabung Angin, Oli Gardan SAE 90',
                     notes: 'Pengereman kembali responsif dan pakem'
                 }
@@ -392,7 +376,6 @@
                     date: '2026-08-14',
                     odometer: '79.100 km',
                     workshop: 'Bengkel Rekanan',
-                    cost: 1720000,
                     replaced_items: 'Oli Mesin Diesel 15W-40, Filter Oli, Filter Solar, Gemuk Gardan',
                     notes: 'Servis berkala truk box, tekanan kompresi silinder bagus'
                 }
@@ -405,7 +388,6 @@
                     date: '2026-07-30',
                     odometer: '92.400 km',
                     workshop: 'Bengkel Rekanan Resmi',
-                    cost: 2150000,
                     replaced_items: 'Oli Mesin Diesel Heavy Duty (14L), Filter Udara Double Element, Kampas Rem Angin Roda Depan, Filter Solar Atas & Bawah',
                     notes: 'Pembersihan tabung kompresor rem'
                 }
@@ -418,7 +400,6 @@
                     date: '2026-08-18',
                     odometer: '71.300 km',
                     workshop: 'Bengkel Cikokol',
-                    cost: 1680000,
                     replaced_items: 'Oli Mesin 15W-40, Filter Oli, Filter Solar Utama, Kuras Tabung Power Steering & Minyak ATF',
                     notes: 'Power steering diperiksa, kemudi lancar dan ringan'
                 }
@@ -431,7 +412,6 @@
                     date: '2026-09-08',
                     odometer: '29.800 km',
                     workshop: 'Bengkel Motor Jaya',
-                    cost: 450000,
                     replaced_items: 'Oli Mesin 10W-40, Filter Oli, Filter Udara, Busi Standar (4 pcs)',
                     notes: 'Servis berkala pick up operasional'
                 }
@@ -444,7 +424,6 @@
                     date: '2026-08-28',
                     odometer: '64.000 km',
                     workshop: 'Bengkel Diesel Mitra Kawan',
-                    cost: 780000,
                     replaced_items: 'Oli Mesin Diesel, Filter Solar, Kuras Radiator Coolant, Cek Timing Belt',
                     notes: 'Kondisi timing belt masih bagus, radiator bersih'
                 }
@@ -457,7 +436,6 @@
                 date: '2026-08-15',
                 odometer: '40.000 km',
                 workshop: 'Bengkel Rekanan',
-                cost: 650000,
                 replaced_items: 'Oli Mesin, Filter Oli, Cek Kampas Rem, Tune Up Ringan',
                 notes: 'Servis berkala sebelumnya'
             }
@@ -477,7 +455,7 @@
             // Ensure each vehicle has service_history array initialized
             let updated = false;
             fleet.forEach(v => {
-                if (!Array.isArray(v.service_history) || v.service_history.length === 0) {
+                if (!Array.isArray(v.service_history)) {
                     v.service_history = generateInitialServiceHistory(v);
                     updated = true;
                 }
@@ -1604,16 +1582,10 @@
                                                     </div>
                                                 </div>
 
-                                                <!-- Row 2: Tempat Bengkel & Biaya -->
-                                                <div class="row g-3 mb-3">
-                                                    <div class="col-md-6">
-                                                        <label class="form-label extra-small fw-bold text-muted text-uppercase mb-1">Tempat Servis / Bengkel</label>
-                                                        <input type="text" id="add-srv-workshop" class="form-control form-control-sm rounded-3 py-2" style="background: #fafbfc; border-color: #cbd5e1;" placeholder="Contoh: Bengkel Rekanan">
-                                                    </div>
-                                                    <div class="col-md-6">
-                                                        <label class="form-label extra-small fw-bold text-muted text-uppercase mb-1">Total Biaya Pengerjaan (Rp)</label>
-                                                        <input type="number" id="add-srv-cost" class="form-control form-control-sm rounded-3 py-2" style="background: #fafbfc; border-color: #cbd5e1;" placeholder="Contoh: 650000">
-                                                    </div>
+                                                <!-- Row 2: Tempat Bengkel -->
+                                                <div class="mb-3">
+                                                    <label class="form-label extra-small fw-bold text-muted text-uppercase mb-1">Tempat Servis / Bengkel</label>
+                                                    <input type="text" id="add-srv-workshop" class="form-control form-control-sm rounded-3 py-2" style="background: #fafbfc; border-color: #cbd5e1;" placeholder="Contoh: Bengkel Rekanan">
                                                 </div>
 
                                                 <!-- Row 3: Sparepart / Part yang Diganti -->
@@ -1776,9 +1748,6 @@
                                         </span>
                                     ` : ''}
                                 </div>
-                                <div class="font-monospace fw-semibold px-2.5 py-0.5 rounded-2" style="font-size: 0.85rem; background: rgba(34, 197, 94, 0.1); color: #15803d; border: 1px solid rgba(34, 197, 94, 0.25);">
-                                    ${formatRupiah(rec.cost)}
-                                </div>
                             </div>
 
                             <div class="mb-2.5">
@@ -1870,9 +1839,6 @@
         
         const wsInput = document.getElementById('add-srv-workshop');
         if (wsInput) wsInput.value = '';
-        
-        const costInput = document.getElementById('add-srv-cost');
-        if (costInput) costInput.value = '';
         
         const notesInput = document.getElementById('add-srv-notes');
         if (notesInput) notesInput.value = '';
@@ -2021,7 +1987,6 @@
         const date = document.getElementById('add-srv-date').value;
         const km = document.getElementById('add-srv-km').value.trim();
         const workshop = document.getElementById('add-srv-workshop').value.trim();
-        const cost = parseInt(document.getElementById('add-srv-cost').value, 10) || 0;
         const items = document.getElementById('add-srv-items').value.trim();
         const notes = document.getElementById('add-srv-notes').value.trim();
         const updateNext = document.getElementById('add-srv-update-next').checked;
@@ -2045,7 +2010,6 @@
             date: date,
             odometer: km || '',
             workshop: workshop || '',
-            cost: cost,
             replaced_items: items,
             notes: notes || '',
             created_at: Date.now()
@@ -2075,28 +2039,12 @@
         const v = fleet.find(item => item.id === vehicleId);
         if (!v || !Array.isArray(v.service_history)) return;
 
-        v.service_history = v.service_history.filter(r => r.id !== recordId);
+        v.service_history = v.service_history.filter(r => String(r.id).trim() !== String(recordId).trim());
         saveStoredFleet(fleet);
 
         showFleetToast('Catatan riwayat servis telah dihapus.');
         renderFleetInventoryView();
         openServiceHistoryModal(v.id, 1);
-    }
-
-    function deleteServiceRecord(vehicleId, recordId) {
-        assertSuperAdmin();
-        if (!confirm('Apakah Anda yakin ingin menghapus catatan riwayat servis ini?')) return;
-
-        const fleet = getStoredFleet();
-        const v = fleet.find(item => item.id === vehicleId);
-        if (!v || !Array.isArray(v.service_history)) return;
-
-        v.service_history = v.service_history.filter(r => r.id !== recordId);
-        saveStoredFleet(fleet);
-
-        showFleetToast('Catatan riwayat servis telah dihapus.');
-        renderFleetInventoryView();
-        openServiceHistoryModal(v.id);
     }
 
     function openServiceDetailModal(id) {
