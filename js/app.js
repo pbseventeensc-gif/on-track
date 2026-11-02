@@ -181,6 +181,23 @@ const COURIER_FLEET_MAPPING = {
 };
 window.COURIER_FLEET_MAPPING = COURIER_FLEET_MAPPING;
 
+// 12 Dedicated Company Operational Fleet Vehicles
+const COMPANY_FLEET_VEHICLES = [
+    { plate: "B 9227 SCH", name: "Granmax B 9227 SCH (Agung)", category: "Granmax", driverCanonical: "agung" },
+    { plate: "B 9939 SCH", name: "Granmax B 9939 SCH (Soleh)", category: "Granmax", driverCanonical: "soleh" },
+    { plate: "B 9158 SCE", name: "Granmax B 9158 SCE (Romi)", category: "Granmax", driverCanonical: "romi" },
+    { plate: "B 9278 SCD", name: "Granmax B 9278 SCD (Alan)", category: "Granmax", driverCanonical: "alan" },
+    { plate: "B 9107 SCE", name: "Granmax B 9107 SCE (Yakub)", category: "Granmax", driverCanonical: "yakub" },
+    { plate: "B 1004 BKP", name: "Granmax B 1004 BKP (Cadangan Gudang)", category: "Granmax", driverCanonical: "" },
+    { plate: "B 9032 SCG", name: "Truk Box B 9032 SCG (Iwan)", category: "Truk Box", driverCanonical: "iwan" },
+    { plate: "B 9177 SCH", name: "Truk Box B 9177 SCH (Husen)", category: "Truk Box", driverCanonical: "husen" },
+    { plate: "B 9842 NCC", name: "Truk Box B 9842 NCC (Altur)", category: "Truk Box", driverCanonical: "altur" },
+    { plate: "B 9084 SCH", name: "Truk Box B 9084 SCH (Rizki)", category: "Truk Box", driverCanonical: "rizki" },
+    { plate: "B 9463 SAJ", name: "Pick Up B 9463 SAJ (Pick Up Gudang)", category: "Pick Up", driverCanonical: "" },
+    { plate: "B 9243 PCJ", name: "L300 B 9243 PCJ (L300 Gudang)", category: "L300", driverCanonical: "" }
+];
+window.COMPANY_FLEET_VEHICLES = COMPANY_FLEET_VEHICLES;
+
 const COURIER_PHOTO_MAP = {
     'agung': '/assets/couriers/Agung.jpeg',
     'ahmad': '/assets/couriers/Ahmad.jpeg',
@@ -371,9 +388,12 @@ function onDispatchCourierChange() {
     const badge = document.getElementById('dispatch-courier-vehicle-badge');
     const radMotor = document.getElementById('veh-motor');
     const radMobil = document.getElementById('veh-mobil');
+    const fleetContainer = document.getElementById('dispatch-fleet-vehicle-container');
+    const fleetSelect = document.getElementById('dispatch-fleet-vehicle-select');
 
     if (!sel || !sel.value) {
         if (infoDiv) infoDiv.style.display = 'none';
+        if (fleetContainer) fleetContainer.style.display = 'none';
         return;
     }
 
@@ -388,12 +408,27 @@ function onDispatchCourierChange() {
             badge.className = 'badge bg-primary-subtle text-primary border border-primary-subtle px-2.5 py-1 fw-semibold';
             badge.innerText = 'Driver Mobil';
         }
+        if (fleetContainer) {
+            fleetContainer.style.display = 'block';
+            if (fleetSelect) {
+                const autoMatch = COMPANY_FLEET_VEHICLES.find(v => v.driverCanonical === courierInfo.canonicalId);
+                if (autoMatch) {
+                    fleetSelect.value = autoMatch.plate;
+                } else {
+                    fleetSelect.value = '';
+                }
+            }
+        }
     } else {
         if (radMotor) radMotor.checked = true;
         if (radMobil) radMobil.checked = false;
         if (badge) {
             badge.className = 'badge bg-secondary-subtle text-dark border px-2.5 py-1 fw-semibold';
             badge.innerText = 'Kurir Motor';
+        }
+        if (fleetContainer) {
+            fleetContainer.style.display = 'none';
+            if (fleetSelect) fleetSelect.value = '';
         }
     }
     if (infoDiv) infoDiv.style.display = 'block';
@@ -2618,10 +2653,20 @@ async function submitTrip() {
         const statusToUse = cid ? "in_progress" : "pool";
         const vehicleType = cid ? getCourierVehicleType(cid, (registeredUsers[cid] || '')) : ((document.querySelector('input[name="dispatch-vehicle-type"]:checked')?.value) || "motor");
 
+        let assignedVehiclePlate = '';
+        let assignedVehicleName = '';
+        if (vehicleType === 'mobil') {
+            assignedVehiclePlate = document.getElementById('dispatch-fleet-vehicle-select')?.value || '';
+            const vObj = COMPANY_FLEET_VEHICLES.find(v => v.plate === assignedVehiclePlate);
+            assignedVehicleName = vObj ? vObj.name : (assignedVehiclePlate ? `Mobil ${assignedVehiclePlate}` : '');
+        }
+
         await activeDb.collection('trips').doc(id).set({
             tripId: id,
             courierId: cid,
             vehicleType: vehicleType,
+            vehiclePlate: assignedVehiclePlate,
+            vehicleName: assignedVehicleName,
             status: statusToUse,
             region: tripRegion,
             date: firebase.firestore.Timestamp.now(),
@@ -2636,7 +2681,9 @@ async function submitTrip() {
                 latitude: parseFloat(d.lat !== undefined ? d.lat : (d.latitude || -6.2088)),
                 longitude: parseFloat(d.lng !== undefined ? d.lng : (d.longitude || 106.8456)),
                 status: "pending",
-                proofPhotoUrl: ""
+                proofPhotoUrl: "",
+                vehiclePlate: assignedVehiclePlate,
+                vehicleName: assignedVehicleName
             }))
         });
 
@@ -2652,6 +2699,10 @@ async function submitTrip() {
         renderQueue();
         if (cidEl) cidEl.value = "";
         if (sjFileEl) sjFileEl.value = "";
+        const fSel = document.getElementById('dispatch-fleet-vehicle-select');
+        if (fSel) fSel.value = "";
+        const fCont = document.getElementById('dispatch-fleet-vehicle-container');
+        if (fCont) fCont.style.display = "none";
     } catch (e) {
         console.error("Submit Trip Error:", e);
         alert("Gagal menugaskan pengiriman: " + e.message);
@@ -3709,6 +3760,15 @@ function renderRecentShipments(filter = "") {
                 </div>`;
         }
 
+        const vType = (typeof getCourierVehicleType === 'function') ? getCourierVehicleType(s.courierId, s.carrier) : 'motor';
+        const isDriver = (vType === 'mobil');
+        let vehicleBadgeHtml = '';
+        if (s.vehiclePlate) {
+            vehicleBadgeHtml = `<span class="badge bg-primary-subtle text-primary border border-primary-subtle extra-small d-block mt-0.5 font-monospace cursor-pointer px-1.5 py-0.5" onclick="adminChangeTripVehicle('${s.tripId}', '${s.vehiclePlate}')" title="Klik untuk ganti armada mobil (Admin)"><i class="bi bi-truck me-1"></i>${s.vehiclePlate}</span>`;
+        } else if (isDriver) {
+            vehicleBadgeHtml = `<span class="badge bg-light text-secondary border extra-small d-block mt-0.5 cursor-pointer px-1.5 py-0.5" onclick="adminChangeTripVehicle('${s.tripId}', '')" title="Klik untuk tentukan armada mobil (Admin)"><i class="bi bi-truck me-1"></i>+ Mobil</span>`;
+        }
+
         rowsHtml.push(`<tr ${trStyle}>
             <td class="fw-normal text-muted extra-small text-nowrap" style="white-space: nowrap;">${s.dateStr}</td>
             <td class="fw-bold text-dark text-nowrap" style="white-space: nowrap;">${s.displayId} ${podIconsHtml} ${uploadBtn}</td>
@@ -3717,7 +3777,7 @@ function renderRecentShipments(filter = "") {
                 ${s.pendingReason ? `<small class="text-danger extra-small d-block fw-bold text-truncate" style="max-width:240px"><i class="bi bi-exclamation-circle me-1"></i>${s.pendingReason}</small>` : (s.fullAddress ? `<small class="text-muted extra-small d-block text-truncate fw-normal" style="max-width:240px">${s.fullAddress}</small>` : '')}
             </td>
             <td class="text-nowrap" style="white-space: nowrap;">${statusBadgeHtml}</td>
-            <td class="fw-normal text-dark text-nowrap" style="white-space: nowrap;">${s.carrier}${s.vehiclePlate ? `<span class="badge bg-light text-secondary border extra-small d-block mt-0.5 font-monospace"><i class="bi bi-truck me-1"></i>${s.vehiclePlate}</span>` : ''}</td>
+            <td class="fw-normal text-dark text-nowrap" style="white-space: nowrap;">${s.carrier}${vehicleBadgeHtml}</td>
             <td class="text-nowrap" style="white-space: nowrap;"><small class="fw-normal text-secondary">${s.eta}</small></td>
             <td class="text-nowrap">
                 <div class="d-inline-flex gap-1 align-items-center">
@@ -3759,6 +3819,97 @@ function resetRecentFilters() {
     renderRecentShipments();
     showToast("Filter tabel dikembalikan ke Hari Ini.");
 }
+
+function adminChangeTripVehicle(tripId, currentPlate = '') {
+    const trip = (allCurrentTrips || []).find(t => t.id === tripId || t.tripId === tripId);
+    if (!trip) return alert("Data pengiriman tidak ditemukan!");
+
+    const cId = trip.courierId || '';
+    const cName = (typeof registeredUsers !== 'undefined' && registeredUsers[cId]) 
+        ? registeredUsers[cId] 
+        : (typeof getCourierDisplayName === 'function' ? getCourierDisplayName(cId) : cId);
+
+    const tripIdEl = document.getElementById('change-vehicle-trip-id');
+    const tripLabelEl = document.getElementById('change-vehicle-trip-label');
+    const courierEl = document.getElementById('change-vehicle-courier-name');
+    const selEl = document.getElementById('change-vehicle-select');
+
+    if (tripIdEl) tripIdEl.value = tripId;
+    if (tripLabelEl) tripLabelEl.innerText = tripId;
+    if (courierEl) courierEl.innerText = cName;
+    if (selEl) {
+        selEl.value = currentPlate || trip.vehiclePlate || '';
+        if (!selEl.value && (trip.vehicleType === 'mobil' || (typeof getCourierVehicleType === 'function' && getCourierVehicleType(cId, cName) === 'mobil'))) {
+            const courierInfo = normalizeCourierIdentity(cId, cName);
+            const found = COMPANY_FLEET_VEHICLES.find(v => v.driverCanonical === courierInfo.canonicalId);
+            if (found) selEl.value = found.plate;
+        }
+    }
+
+    const modalEl = document.getElementById('modal-change-trip-vehicle');
+    if (modalEl && typeof bootstrap !== 'undefined') {
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        modal.show();
+    }
+}
+window.adminChangeTripVehicle = adminChangeTripVehicle;
+
+async function saveAdminChangedVehicle() {
+    const tripId = document.getElementById('change-vehicle-trip-id')?.value;
+    const plate = document.getElementById('change-vehicle-select')?.value || '';
+    if (!tripId) return;
+
+    const vObj = COMPANY_FLEET_VEHICLES.find(v => v.plate === plate);
+    const vName = vObj ? vObj.name : (plate ? `Mobil ${plate}` : '');
+
+    try {
+        const activeDb = getDb();
+        if (!activeDb) return alert("Database offline");
+
+        const tripRef = activeDb.collection('trips').doc(tripId);
+        const docSnap = await tripRef.get();
+        if (!docSnap.exists) return alert("Trip tidak ditemukan!");
+
+        const tripData = docSnap.data();
+        const updatedDestinations = (tripData.destinations || []).map(d => ({
+            ...d,
+            vehiclePlate: plate,
+            vehicleName: vName
+        }));
+
+        await tripRef.update({
+            vehiclePlate: plate,
+            vehicleName: vName,
+            destinations: updatedDestinations
+        });
+
+        // Update local memory
+        const localTrip = (allCurrentTrips || []).find(t => t.id === tripId || t.tripId === tripId);
+        if (localTrip) {
+            localTrip.vehiclePlate = plate;
+            localTrip.vehicleName = vName;
+            if (localTrip.destinations) {
+                localTrip.destinations.forEach(d => {
+                    d.vehiclePlate = plate;
+                    d.vehicleName = vName;
+                });
+            }
+        }
+
+        const modalEl = document.getElementById('modal-change-trip-vehicle');
+        if (modalEl && typeof bootstrap !== 'undefined') {
+            const modal = bootstrap.Modal.getInstance(modalEl);
+            if (modal) modal.hide();
+        }
+
+        renderRecentShipments();
+        showToast(`Armada mobil untuk trip ${tripId.substring(0, 10)} berhasil ditentukan: ${plate || 'Tanpa Mobil'}`);
+    } catch (e) {
+        console.error("Gagal simpan armada mobil:", e);
+        alert("Gagal menyimpan armada mobil: " + e.message);
+    }
+}
+window.saveAdminChangedVehicle = saveAdminChangedVehicle;
 
 function openManualUploadModal(tripId, stopIndex, locationName) {
     const tripIdEl = document.getElementById('upload-modal-trip-id');
@@ -3897,10 +4048,7 @@ async function submitManualUploadPhoto() {
     }
 }
 
-function exportRecentShipmentsToExcel() {
-    if (typeof XLSX === 'undefined') return alert("Library SheetJS (XLSX) belum teruat. Silakan refresh halaman!");
-    const exportData = [];
-
+async function exportRecentShipmentsToExcel() {
     const rawSearch = (document.getElementById('recent-shipment-search')?.value || "").toLowerCase().trim();
     const selectedStatus = document.getElementById('recent-status-filter')?.value || "all";
     const selectedCarrier = document.getElementById('recent-carrier-filter')?.value || "all";
@@ -3942,6 +4090,8 @@ function exportRecentShipmentsToExcel() {
         }
     }
 
+    const exportData = [];
+
     (allCurrentTrips || []).forEach(t => {
         if (!t) return;
         if (typeof isTripInActiveBranch === 'function' && !isTripInActiveBranch(t)) {
@@ -3955,13 +4105,19 @@ function exportRecentShipmentsToExcel() {
         const tripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : (tripIdStr ? parseInt(tripIdStr.replace('TRIP_', '')) || 0 : 0));
         const tripDateStr = tripMs ? new Date(tripMs).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '-';
 
-        // Check Carrier Filter
-        if (selectedCarrier !== "all" && courierIdStr !== selectedCarrier && cName.toLowerCase() !== selectedCarrier.toLowerCase()) {
-            return;
+        // Check Carrier Filter using identity normalization
+        if (selectedCarrier !== "all") {
+            const courierInfo = normalizeCourierIdentity(courierIdStr, cName);
+            const filterInfo = normalizeCourierIdentity(selectedCarrier, "");
+            if (courierIdStr !== selectedCarrier &&
+                cName.toLowerCase() !== selectedCarrier.toLowerCase() &&
+                courierInfo.canonicalId !== filterInfo.canonicalId) {
+                return;
+            }
         }
 
-        // Check Date Filter
-        if (filterStartMs > 0 && (tripMs < filterStartMs || tripMs > filterEndMs)) {
+        // Check Date Filter using flexible range check
+        if (filterStartMs > 0 && !isTripInDateRange(t, filterStartMs, filterEndMs)) {
             return;
         }
 
@@ -3998,6 +4154,8 @@ function exportRecentShipmentsToExcel() {
                         return time > max ? time : max;
                     }, (t.date?.seconds || 0) * 1000) : 0;
                     matchStatus = (status !== 'completed') && (Date.now() - lastUpdate > 30 * 60 * 1000);
+                } else if (selectedStatus === 'returned') {
+                    matchStatus = (status === 'returned' || status === 'failed' || status === 'klien_tutup' || isKlienTutupApproved || d.status === 'returned' || d.status === 'failed');
                 } else {
                     matchStatus = (status === selectedStatus);
                 }
@@ -4005,12 +4163,16 @@ function exportRecentShipmentsToExcel() {
                 if (matchSearch && matchStatus) {
                     const arrivalStr = d.arrivalTime?.seconds ? new Date(d.arrivalTime.seconds * 1000).toLocaleString('id-ID') : '-';
                     const completedStr = d.completedTime?.seconds ? new Date(d.completedTime.seconds * 1000).toLocaleString('id-ID') : '-';
+                    const vType = d.vehicleType || t.vehicleType || getCourierVehicleType(courierIdStr, cName);
+                    const vPlate = d.vehiclePlate || t.vehiclePlate || '-';
 
                     exportData.push({
                         "Tanggal": tripDateStr,
                         "Shipment ID": uniqueShipmentId,
                         "Trip Full ID": tripIdStr,
                         "Courier": cName,
+                        "Tipe Armada": vType === 'mobil' ? 'Mobil' : 'Motor',
+                        "Plat Mobil": vPlate,
                         "Stop #": stopIdx,
                         "Destination Name": locName,
                         "Full Address": fullAddress,
@@ -4027,14 +4189,238 @@ function exportRecentShipmentsToExcel() {
 
     if (exportData.length === 0) return alert("Tidak ada data pengantaran yang sesuai filter untuk diekspor!");
 
-    const ws = XLSX.utils.json_to_sheet(exportData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Recent Shipments");
-    XLSX.writeFile(wb, `Wtrack_Recent_Shipments_${new Date().toISOString().slice(0,10)}.xlsx`);
+    const periodStr = (startDateVal && endDateVal) ? `${startDateVal} s/d ${endDateVal}` : (startDateVal ? `Mulai ${startDateVal}` : 'Semua Tanggal');
+    const carrierLabel = selectedCarrier === 'all' ? 'Semua Personil' : (typeof getCourierDisplayName === 'function' ? getCourierDisplayName(selectedCarrier) : selectedCarrier);
+
+    // Gunakan ExcelJS untuk styling profesional KOP dan tabel warna
+    if (typeof ExcelJS !== 'undefined') {
+        const workbook = new ExcelJS.Workbook();
+        workbook.creator = "Wtrack Logistics";
+        workbook.created = new Date();
+
+        const sheet = workbook.addWorksheet("Recent_Shipments", {
+            views: [{ showGridLines: true }]
+        });
+
+        // 1. Title Row (Row 1)
+        sheet.mergeCells('A1:O1');
+        const titleCell = sheet.getCell('A1');
+        titleCell.value = "LAPORAN HISTORIS PENGANTARAN LOGISTIK - WTRACK LOGISTICS";
+        titleCell.font = { name: 'Calibri', size: 13, bold: true, color: { argb: 'FFFFFFFF' } };
+        titleCell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FF1F4E79' } // Dark Navy
+        };
+        titleCell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+        sheet.getRow(1).height = 26;
+
+        // 2. Subtitle Row (Row 2)
+        sheet.mergeCells('A2:O2');
+        const subCell = sheet.getCell('A2');
+        subCell.value = `Periode: ${periodStr}  |  Kurir/Driver: ${carrierLabel}  |  Total Data: ${exportData.length} Titik Pengiriman`;
+        subCell.font = { name: 'Calibri', size: 9.5, italic: true, bold: true, color: { argb: 'FF1F4E79' } };
+        subCell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFEBF3FA' } // Soft Ice Blue
+        };
+        subCell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+        subCell.border = {
+            top: { style: 'thin', color: { argb: 'FF94A3B8' } },
+            bottom: { style: 'thin', color: { argb: 'FF94A3B8' } }
+        };
+        sheet.getRow(2).height = 20;
+
+        // Row 3: Blank separator
+        sheet.getRow(3).height = 8;
+
+        // 3. Header Row (Row 4)
+        const headerRow = sheet.getRow(4);
+        headerRow.height = 26;
+        const headers = [
+            "No", "Tanggal", "Shipment ID", "Trip Full ID", "Kurir / Driver", "Tipe Armada", 
+            "Plat Mobil", "Stop #", "Tujuan / Toko", "Alamat Lengkap", "Status", 
+            "Jam Sampai", "Jam Selesai", "Alasan Pending / Catatan", "Bukti Foto PoD"
+        ];
+        headers.forEach((h, idx) => {
+            const cell = headerRow.getCell(idx + 1);
+            cell.value = h;
+            cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+            cell.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'FF1F4E79' }
+            };
+            cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+            cell.border = {
+                top: { style: 'thin', color: { argb: 'FF1F4E79' } },
+                left: { style: 'thin', color: { argb: 'FF94A3B8' } },
+                bottom: { style: 'medium', color: { argb: 'FF0F2C59' } },
+                right: { style: 'thin', color: { argb: 'FF94A3B8' } }
+            };
+        });
+
+        const thinBorder = {
+            top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+        };
+
+        exportData.forEach((rowItem, idx) => {
+            const row = sheet.getRow(idx + 5);
+            row.height = 22;
+            const isEven = (idx % 2 === 0);
+            const bgArgb = isEven ? 'FFFFFFFF' : 'FFF8FAFC';
+
+            const rowVals = [
+                idx + 1,
+                rowItem.Tanggal,
+                rowItem["Shipment ID"],
+                rowItem["Trip Full ID"],
+                rowItem.Courier,
+                rowItem["Tipe Armada"],
+                rowItem["Plat Mobil"],
+                rowItem["Stop #"],
+                rowItem["Destination Name"],
+                rowItem["Full Address"],
+                rowItem.Status,
+                rowItem["Arrival Time"],
+                rowItem["Completed Time"],
+                rowItem["Pending Reason"],
+                rowItem["Proof Photo URL"]
+            ];
+
+            rowVals.forEach((val, cIdx) => {
+                const cell = row.getCell(cIdx + 1);
+                cell.border = thinBorder;
+                cell.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: bgArgb }
+                };
+
+                if (cIdx === 0) {
+                    cell.value = val;
+                    cell.font = { name: 'Calibri', size: 9.5, color: { argb: 'FF475569' } };
+                    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                } else if (cIdx === 1 || cIdx === 2 || cIdx === 3 || cIdx === 5 || cIdx === 6 || cIdx === 7 || cIdx === 11 || cIdx === 12) {
+                    cell.value = val;
+                    cell.font = { name: 'Calibri', size: 9, color: { argb: 'FF334155' } };
+                    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                } else if (cIdx === 4) {
+                    cell.value = val;
+                    cell.font = { name: 'Calibri', size: 9.5, bold: true, color: { argb: 'FF1E293B' } };
+                    cell.alignment = { vertical: 'middle', horizontal: 'left' };
+                } else if (cIdx === 8) {
+                    cell.value = val;
+                    cell.font = { name: 'Calibri', size: 9.5, bold: true, color: { argb: 'FF0F172A' } };
+                    cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+                } else if (cIdx === 9) {
+                    cell.value = val;
+                    cell.font = { name: 'Calibri', size: 8.5, color: { argb: 'FF475569' } };
+                    cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+                } else if (cIdx === 10) {
+                    cell.value = val;
+                    cell.font = { name: 'Calibri', size: 9, bold: true };
+                    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                    if (val === 'completed' || val === 'done') {
+                        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCFCE7' } };
+                        cell.font.color = { argb: 'FF166534' };
+                    } else if (val === 'in_progress' || val === 'arrived') {
+                        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDBEAFE' } };
+                        cell.font.color = { argb: 'FF1E40AF' };
+                    } else if (val === 'pending_approval' || val === 'klien_tutup') {
+                        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
+                        cell.font.color = { argb: 'FF92400E' };
+                    }
+                } else if (cIdx === 13) {
+                    cell.value = val;
+                    cell.font = { name: 'Calibri', size: 8.5, color: { argb: 'FF475569' } };
+                    cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+                } else if (cIdx === 14) {
+                    if (val && typeof val === 'string' && val.startsWith('http')) {
+                        cell.value = {
+                            text: '📸 Lihat Foto PoD',
+                            hyperlink: val.split(',')[0].trim()
+                        };
+                        cell.font = { name: 'Calibri', size: 9.5, bold: true, color: { argb: 'FF1D4ED8' }, underline: true };
+                    } else {
+                        cell.value = '-';
+                        cell.font = { name: 'Calibri', size: 8.5, italic: true, color: { argb: 'FF94A3B8' } };
+                    }
+                    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                }
+            });
+        });
+
+        sheet.columns = [
+            { width: 6 },   // No
+            { width: 14 },  // Tanggal
+            { width: 16 },  // Shipment ID
+            { width: 22 },  // Trip Full ID
+            { width: 22 },  // Kurir
+            { width: 14 },  // Tipe Armada
+            { width: 16 },  // Plat Mobil
+            { width: 8 },   // Stop #
+            { width: 28 },  // Tujuan
+            { width: 36 },  // Alamat
+            { width: 18 },  // Status
+            { width: 16 },  // Jam Sampai
+            { width: 16 },  // Jam Selesai
+            { width: 28 },  // Alasan Pending
+            { width: 20 }   // Bukti Foto PoD
+        ];
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        const cleanName = `Wtrack_Recent_Shipments_${periodStr.replace(/[\/\s:]/g, '_')}.xlsx`;
+        a.download = cleanName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        return;
+    }
+
+    // Fallback: SheetJS
+    if (typeof XLSX !== 'undefined') {
+        const ws = XLSX.utils.json_to_sheet(exportData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Recent Shipments");
+        XLSX.writeFile(wb, `Wtrack_Recent_Shipments_${periodStr.replace(/[\/\s:]/g, '_')}.xlsx`);
+    }
 }
+window.exportRecentShipmentsToExcel = exportRecentShipmentsToExcel;
 
 function loadFullHistory() {
-    const tbody = document.getElementById('report-history-body');
+    let tbody = document.getElementById('report-history-body');
+    const historyList = document.getElementById('history-list');
+
+    if (!tbody && historyList) {
+        historyList.innerHTML = `
+            <div class="table-responsive">
+                <table class="table table-hover align-middle m-0">
+                    <thead class="bg-light">
+                        <tr class="extra-small text-muted text-uppercase">
+                            <th>Trip ID</th>
+                            <th>Kurir / Driver</th>
+                            <th>Progres Titik</th>
+                            <th>Tanggal</th>
+                            <th>Status</th>
+                            <th>Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="report-history-body"></tbody>
+                </table>
+            </div>`;
+        tbody = document.getElementById('report-history-body');
+    }
+
     if (!tbody) return;
     tbody.innerHTML = '';
 
@@ -4043,20 +4429,23 @@ function loadFullHistory() {
     const courierVal = document.getElementById('rep-courier-filter')?.value || 'all';
     const statusVal = document.getElementById('rep-status-filter')?.value || 'all';
 
-    let filtered = allCurrentTrips;
+    let filtered = allCurrentTrips || [];
 
     if (startVal || endVal) {
         const startMs = startVal ? new Date(startVal).setHours(0,0,0,0) : 0;
         const endMs = endVal ? new Date(endVal).setHours(23,59,59,999) : Infinity;
 
         filtered = filtered.filter(t => {
-            const tripMs = t.date?.seconds ? t.date.seconds * 1000 : 0;
-            return tripMs >= startMs && tripMs <= endMs;
+            return isTripInDateRange(t, startMs, endMs);
         });
     }
 
     if (courierVal !== 'all') {
-        filtered = filtered.filter(t => t.courierId === courierVal);
+        filtered = filtered.filter(t => {
+            const courierInfo = normalizeCourierIdentity(t.courierId || '', '');
+            const filterInfo = normalizeCourierIdentity(courierVal, '');
+            return t.courierId === courierVal || courierInfo.canonicalId === filterInfo.canonicalId;
+        });
     }
 
     if (statusVal !== 'all') {
@@ -4071,17 +4460,17 @@ function loadFullHistory() {
     }
 
     filtered.forEach(t => {
-        const cName = registeredUsers[t.courierId] || t.courierId.substring(0,8);
+        const cName = registeredUsers[t.courierId] || (typeof getCourierDisplayName === 'function' ? getCourierDisplayName(t.courierId) : t.courierId.substring(0,8));
         const dateStr = t.date ? new Date(t.date.seconds * 1000).toLocaleString('id-ID') : '-';
         const totalStops = t.destinations ? t.destinations.length : 1;
         const doneStops = t.destinations ? t.destinations.filter(d => d.status === 'done' || d.proofPhotoUrl).length : (t.status === 'completed' ? 1 : 0);
 
         tbody.innerHTML += `<tr>
-            <td class="fw-bold">${t.id.substring(0,10)}</td>
+            <td class="fw-bold">${(t.id || '').substring(0,12)}</td>
             <td>${cName}</td>
             <td><span class="fw-bold">${doneStops}</span> / ${totalStops} Titik</td>
             <td>${dateStr}</td>
-            <td><span class="badge bg-dark">${t.status.toUpperCase()}</span></td>
+            <td><span class="badge bg-dark">${(t.status || 'pending').toUpperCase()}</span></td>
             <td>
                 <button class="btn btn-sm btn-outline-danger" onclick="deleteTrip('${t.id}')">
                     <i class="bi bi-trash"></i>
@@ -4090,17 +4479,34 @@ function loadFullHistory() {
         </tr>`;
     });
 }
+window.loadFullHistory = loadFullHistory;
 
-function exportFullReportsToExcel() {
-    if (typeof XLSX === 'undefined') return alert("Library SheetJS (XLSX) belum teruat. Silakan refresh halaman!");
-    if (!lastLoadedHistory || lastLoadedHistory.length === 0) return alert("Tidak ada data laporan untuk diekspor!");
+async function exportFullReportsToExcel() {
+    let listToExport = lastLoadedHistory;
+    if (!listToExport || listToExport.length === 0) {
+        const startVal = document.getElementById('rep-start-date')?.value;
+        const endVal = document.getElementById('rep-end-date')?.value;
+        if (startVal || endVal) {
+            const startMs = startVal ? new Date(startVal).setHours(0,0,0,0) : 0;
+            const endMs = endVal ? new Date(endVal).setHours(23,59,59,999) : Infinity;
+            listToExport = (allCurrentTrips || []).filter(t => isTripInDateRange(t, startMs, endMs));
+        } else {
+            listToExport = allCurrentTrips || [];
+        }
+    }
+
+    if (!listToExport || listToExport.length === 0) {
+        return alert("Tidak ada data laporan untuk diekspor!");
+    }
 
     const exportData = [];
-    lastLoadedHistory.forEach(t => {
+    listToExport.forEach(t => {
         if (!t) return;
         const courierIdStr = t.courierId || '';
-        const cName = registeredUsers[courierIdStr] || (courierIdStr ? courierIdStr.substring(0,8) : 'Unknown');
+        const cName = registeredUsers[courierIdStr] || (typeof getCourierDisplayName === 'function' ? getCourierDisplayName(courierIdStr) : (courierIdStr ? courierIdStr.substring(0,8) : 'Unknown'));
         const dateStr = t.date?.seconds ? new Date(t.date.seconds * 1000).toLocaleString('id-ID') : '-';
+        const vType = t.vehicleType || getCourierVehicleType(courierIdStr, cName);
+        const vPlate = t.vehiclePlate || '-';
 
         if (t.destinations && t.destinations.length > 0) {
             t.destinations.forEach((d, idx) => {
@@ -4108,23 +4514,208 @@ function exportFullReportsToExcel() {
                 exportData.push({
                     "Trip ID": t.id || t.tripId || '-',
                     "Courier": cName,
+                    "Tipe Armada": vType === 'mobil' ? 'Mobil' : 'Motor',
+                    "Plat Mobil": d.vehiclePlate || vPlate,
                     "Date": dateStr,
                     "Stop Index": d.stopIndex || (idx + 1),
                     "Location Name": d.locationName || 'TBD',
                     "Address": d.address || '-',
                     "Stop Status": d.status || 'pending',
                     "Trip Status": t.status || '-',
-                    "Proof URL": d.proofPhotoUrl || '-'
+                    "Proof URL": d.proofPhotoUrl || d.proofPhotoSj || '-'
                 });
             });
         }
     });
 
-    const ws = XLSX.utils.json_to_sheet(exportData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Full Reports");
-    XLSX.writeFile(wb, `Wtrack_Full_Report_${new Date().toISOString().slice(0,10)}.xlsx`);
+    if (exportData.length === 0) {
+        return alert("Tidak ada rincian destinasi pengiriman untuk diekspor!");
+    }
+
+    // Gunakan ExcelJS untuk format executive styled
+    if (typeof ExcelJS !== 'undefined') {
+        const workbook = new ExcelJS.Workbook();
+        workbook.creator = "Wtrack Logistics";
+        workbook.created = new Date();
+
+        const sheet = workbook.addWorksheet("Full_Reports", {
+            views: [{ showGridLines: true }]
+        });
+
+        // 1. Title Row
+        sheet.mergeCells('A1:K1');
+        const titleCell = sheet.getCell('A1');
+        titleCell.value = "LAPORAN LENGKAP PENGIRIMAN LOGISTIK - WTRACK";
+        titleCell.font = { name: 'Calibri', size: 13, bold: true, color: { argb: 'FFFFFFFF' } };
+        titleCell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FF1F4E79' }
+        };
+        titleCell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+        sheet.getRow(1).height = 26;
+
+        // 2. Subtitle Row
+        sheet.mergeCells('A2:K2');
+        const subCell = sheet.getCell('A2');
+        subCell.value = `Total Pengiriman: ${exportData.length} Titik  |  Dihasilkan Otomatis dari Database Terintegrasi Wtrack`;
+        subCell.font = { name: 'Calibri', size: 9.5, italic: true, bold: true, color: { argb: 'FF1F4E79' } };
+        subCell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFEBF3FA' }
+        };
+        subCell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+        subCell.border = {
+            top: { style: 'thin', color: { argb: 'FF94A3B8' } },
+            bottom: { style: 'thin', color: { argb: 'FF94A3B8' } }
+        };
+        sheet.getRow(2).height = 20;
+
+        // Row 3: Blank separator
+        sheet.getRow(3).height = 8;
+
+        // Header Row (Row 4)
+        const headerRow = sheet.getRow(4);
+        headerRow.height = 26;
+        const headers = ["No", "Trip ID", "Kurir / Driver", "Armada", "Plat Mobil", "Tanggal", "Stop #", "Tujuan / Toko", "Alamat Lengkap", "Status Stop", "Bukti Foto PoD"];
+        headers.forEach((h, idx) => {
+            const cell = headerRow.getCell(idx + 1);
+            cell.value = h;
+            cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+            cell.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'FF1F4E79' }
+            };
+            cell.alignment = { vertical: 'middle', horizontal: 'center' };
+            cell.border = {
+                top: { style: 'thin', color: { argb: 'FF1F4E79' } },
+                left: { style: 'thin', color: { argb: 'FF94A3B8' } },
+                bottom: { style: 'medium', color: { argb: 'FF0F2C59' } },
+                right: { style: 'thin', color: { argb: 'FF94A3B8' } }
+            };
+        });
+
+        const thinBorder = {
+            top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+        };
+
+        exportData.forEach((rowItem, idx) => {
+            const row = sheet.getRow(idx + 5);
+            row.height = 22;
+            const isEven = (idx % 2 === 0);
+            const bgArgb = isEven ? 'FFFFFFFF' : 'FFF8FAFC';
+
+            const rowVals = [
+                idx + 1,
+                rowItem["Trip ID"],
+                rowItem.Courier,
+                rowItem["Tipe Armada"],
+                rowItem["Plat Mobil"],
+                rowItem.Date,
+                rowItem["Stop Index"],
+                rowItem["Location Name"],
+                rowItem.Address,
+                rowItem["Stop Status"],
+                rowItem["Proof URL"]
+            ];
+
+            rowVals.forEach((val, cIdx) => {
+                const cell = row.getCell(cIdx + 1);
+                cell.border = thinBorder;
+                cell.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: bgArgb }
+                };
+
+                if (cIdx === 0) {
+                    cell.value = val;
+                    cell.font = { name: 'Calibri', size: 9.5, color: { argb: 'FF475569' } };
+                    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                } else if (cIdx === 1 || cIdx === 3 || cIdx === 4 || cIdx === 5 || cIdx === 6) {
+                    cell.value = val;
+                    cell.font = { name: 'Calibri', size: 9, color: { argb: 'FF334155' } };
+                    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                } else if (cIdx === 2) {
+                    cell.value = val;
+                    cell.font = { name: 'Calibri', size: 9.5, bold: true, color: { argb: 'FF1E293B' } };
+                    cell.alignment = { vertical: 'middle', horizontal: 'left' };
+                } else if (cIdx === 7) {
+                    cell.value = val;
+                    cell.font = { name: 'Calibri', size: 9.5, bold: true, color: { argb: 'FF0F172A' } };
+                    cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+                } else if (cIdx === 8) {
+                    cell.value = val;
+                    cell.font = { name: 'Calibri', size: 8.5, color: { argb: 'FF475569' } };
+                    cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+                } else if (cIdx === 9) {
+                    cell.value = val;
+                    cell.font = { name: 'Calibri', size: 9, bold: true };
+                    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                    if (val === 'completed' || val === 'done') {
+                        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCFCE7' } };
+                        cell.font.color = { argb: 'FF166534' };
+                    } else {
+                        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
+                        cell.font.color = { argb: 'FF92400E' };
+                    }
+                } else if (cIdx === 10) {
+                    if (val && typeof val === 'string' && val.startsWith('http')) {
+                        cell.value = {
+                            text: '📸 Lihat Foto PoD',
+                            hyperlink: val.split(',')[0].trim()
+                        };
+                        cell.font = { name: 'Calibri', size: 9.5, bold: true, color: { argb: 'FF1D4ED8' }, underline: true };
+                    } else {
+                        cell.value = '-';
+                        cell.font = { name: 'Calibri', size: 8.5, italic: true, color: { argb: 'FF94A3B8' } };
+                    }
+                    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                }
+            });
+        });
+
+        sheet.columns = [
+            { width: 6 },   // No
+            { width: 22 },  // Trip ID
+            { width: 22 },  // Kurir
+            { width: 14 },  // Armada
+            { width: 16 },  // Plat Mobil
+            { width: 20 },  // Tanggal
+            { width: 8 },   // Stop #
+            { width: 28 },  // Tujuan
+            { width: 36 },  // Alamat
+            { width: 16 },  // Status
+            { width: 20 }   // Foto
+        ];
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `Wtrack_Full_Report_${new Date().toISOString().slice(0,10)}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        return;
+    }
+
+    if (typeof XLSX !== 'undefined') {
+        const ws = XLSX.utils.json_to_sheet(exportData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Full Reports");
+        XLSX.writeFile(wb, `Wtrack_Full_Report_${new Date().toISOString().slice(0,10)}.xlsx`);
+    }
 }
+window.exportFullReportsToExcel = exportFullReportsToExcel;
+window.exportToExcel = exportFullReportsToExcel;
 
 async function clearAllHistory() {
     if (!confirm("Hapus SELURUH riwayat pengantaran? Tindakan ini tidak bisa dibatalkan.")) return;

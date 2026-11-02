@@ -94,11 +94,11 @@ function sortKPITable(field) {
     renderKPIView();
 }
 
-function exportKPIToExcel() {
+async function exportKPIToExcel() {
     if (!lastKPIData || lastKPIData.length === 0) return alert("Tidak ada data KPI untuk diekspor!");
 
     const exportData = [];
-    lastKPIData.forEach(c => {
+    lastKPIData.forEach((c, idx) => {
         const completionRate = c.totalStops > 0 ? Math.round((c.completedStops / c.totalStops) * 100) : 0;
         const stars = c.totalStops > 0 ? parseFloat(((completionRate / 100) * 5.0).toFixed(1)) : 0.0;
         const hours = Math.floor((c.totalTime || 0) / 60);
@@ -106,22 +106,185 @@ function exportKPIToExcel() {
         const durationStr = hours > 0 ? `${hours}j ${mins}m` : `${mins}m`;
 
         exportData.push({
-            "Courier Name": c.name,
-            "Completed Stops": c.completedStops,
-            "Total Stops": c.totalStops,
-            "Completion Rate (%)": completionRate + "%",
-            "Rating Stars": stars,
-            "Total Distance (km)": c.totalKM.toFixed(1),
-            "Total Duration": durationStr,
-            "KPI Score": completionRate
+            no: idx + 1,
+            name: c.name,
+            completedStops: c.completedStops,
+            totalStops: c.totalStops,
+            rateStr: completionRate + "%",
+            stars: stars,
+            km: c.totalKM.toFixed(1),
+            duration: durationStr,
+            score: completionRate
         });
     });
 
-    const ws = XLSX.utils.json_to_sheet(exportData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "KPI Performance");
-    XLSX.writeFile(wb, `Wtrack_KPI_Performance_${new Date().toISOString().slice(0,10)}.xlsx`);
+    const periodSelect = document.getElementById('stat-period-filter')?.value || 'today';
+    const periodMap = { 'today': 'Hari Ini', 'this_week': 'Minggu Ini', 'this_month': 'Bulan Ini', 'all': 'Semua Periode' };
+    const periodText = periodMap[periodSelect] || periodSelect;
+
+    if (typeof ExcelJS !== 'undefined') {
+        const workbook = new ExcelJS.Workbook();
+        workbook.creator = "Wtrack Logistics";
+        workbook.created = new Date();
+
+        const sheet = workbook.addWorksheet("KPI_Performance", {
+            views: [{ showGridLines: true }]
+        });
+
+        // 1. Title Row
+        sheet.mergeCells('A1:I1');
+        const titleCell = sheet.getCell('A1');
+        titleCell.value = "LAPORAN KPI & PERFORMA OPERASIONAL ARMADA - WTRACK";
+        titleCell.font = { name: 'Calibri', size: 13, bold: true, color: { argb: 'FFFFFFFF' } };
+        titleCell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FF1F4E79' }
+        };
+        titleCell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+        sheet.getRow(1).height = 26;
+
+        // 2. Subtitle Row
+        sheet.mergeCells('A2:I2');
+        const subCell = sheet.getCell('A2');
+        subCell.value = `Periode Evaluasi: ${periodText}  |  Total Personil Dievaluasi: ${exportData.length} Orang`;
+        subCell.font = { name: 'Calibri', size: 9.5, italic: true, bold: true, color: { argb: 'FF1F4E79' } };
+        subCell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFEBF3FA' }
+        };
+        subCell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+        subCell.border = {
+            top: { style: 'thin', color: { argb: 'FF94A3B8' } },
+            bottom: { style: 'thin', color: { argb: 'FF94A3B8' } }
+        };
+        sheet.getRow(2).height = 20;
+
+        // Row 3: Blank
+        sheet.getRow(3).height = 8;
+
+        // Header Row (Row 4)
+        const headerRow = sheet.getRow(4);
+        headerRow.height = 26;
+        const headers = ["No", "Nama Personil Kurir / Driver", "Terkirim", "Total Titik", "Tingkat Penyelesaian (%)", "Rating Bintang", "Total Jarak (km)", "Total Durasi Kerja", "Skor KPI"];
+        headers.forEach((h, idx) => {
+            const cell = headerRow.getCell(idx + 1);
+            cell.value = h;
+            cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+            cell.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'FF1F4E79' }
+            };
+            cell.alignment = { vertical: 'middle', horizontal: 'center' };
+            cell.border = {
+                top: { style: 'thin', color: { argb: 'FF1F4E79' } },
+                left: { style: 'thin', color: { argb: 'FF94A3B8' } },
+                bottom: { style: 'medium', color: { argb: 'FF0F2C59' } },
+                right: { style: 'thin', color: { argb: 'FF94A3B8' } }
+            };
+        });
+
+        const thinBorder = {
+            top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+        };
+
+        exportData.forEach((d, idx) => {
+            const row = sheet.getRow(idx + 5);
+            row.height = 22;
+            const isEven = (idx % 2 === 0);
+            const bgArgb = isEven ? 'FFFFFFFF' : 'FFF8FAFC';
+
+            const rowVals = [
+                d.no,
+                d.name,
+                d.completedStops,
+                d.totalStops,
+                d.rateStr,
+                d.stars,
+                d.km,
+                d.duration,
+                d.score
+            ];
+
+            rowVals.forEach((val, cIdx) => {
+                const cell = row.getCell(cIdx + 1);
+                cell.border = thinBorder;
+                cell.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: bgArgb }
+                };
+
+                if (cIdx === 0) {
+                    cell.value = val;
+                    cell.font = { name: 'Calibri', size: 9.5, color: { argb: 'FF475569' } };
+                    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                } else if (cIdx === 1) {
+                    cell.value = val;
+                    cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF0F172A' } };
+                    cell.alignment = { vertical: 'middle', horizontal: 'left' };
+                } else if (cIdx === 4 || cIdx === 8) {
+                    cell.value = val;
+                    cell.font = { name: 'Calibri', size: 9.5, bold: true, color: { argb: 'FF166534' } };
+                    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCFCE7' } };
+                } else {
+                    cell.value = val;
+                    cell.font = { name: 'Calibri', size: 9, color: { argb: 'FF334155' } };
+                    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                }
+            });
+        });
+
+        sheet.columns = [
+            { width: 6 },   // No
+            { width: 28 },  // Nama
+            { width: 14 },  // Terkirim
+            { width: 14 },  // Total Titik
+            { width: 22 },  // Rate
+            { width: 16 },  // Stars
+            { width: 20 },  // KM
+            { width: 20 },  // Durasi
+            { width: 14 }   // Score
+        ];
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `Wtrack_KPI_Performance_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        return;
+    }
+
+    if (typeof XLSX !== 'undefined') {
+        const rawRows = exportData.map(d => ({
+            "No": d.no,
+            "Courier Name": d.name,
+            "Completed Stops": d.completedStops,
+            "Total Stops": d.totalStops,
+            "Completion Rate (%)": d.rateStr,
+            "Rating Stars": d.stars,
+            "Total Distance (km)": d.km,
+            "Total Duration": d.duration,
+            "KPI Score": d.score
+        }));
+        const ws = XLSX.utils.json_to_sheet(rawRows);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "KPI Performance");
+        XLSX.writeFile(wb, `Wtrack_KPI_Performance_${new Date().toISOString().slice(0,10)}.xlsx`);
+    }
 }
+window.exportKPIToExcel = exportKPIToExcel;
 
 function updateKPIChartsFromFilter() {
     const period = document.getElementById('stat-period-filter')?.value || 'today';

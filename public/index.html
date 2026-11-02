@@ -739,6 +739,35 @@
                                 </div>
                             </div>
 
+                            <!-- Pilihan Armada Mobil Khusus Driver yang Ditentukan Admin -->
+                            <div id="dispatch-fleet-vehicle-container" class="mb-4 p-3 bg-light border rounded-3" style="display: none;">
+                                <label class="extra-small fw-bold text-dark text-uppercase mb-2 d-flex align-items-center gap-1.5">
+                                    <i class="bi bi-truck text-primary fs-6"></i> <span>Tentukan Armada Mobil Operasional (Admin):</span>
+                                </label>
+                                <select id="dispatch-fleet-vehicle-select" class="form-select border-1 py-2 fw-semibold" style="border-radius: 10px;">
+                                    <option value="">-- Pilih Armada Mobil Operasional --</option>
+                                    <optgroup label="Granmax (6 Unit)">
+                                        <option value="B 9227 SCH">Granmax B 9227 SCH (Agung)</option>
+                                        <option value="B 9939 SCH">Granmax B 9939 SCH (Soleh)</option>
+                                        <option value="B 9158 SCE">Granmax B 9158 SCE (Romi)</option>
+                                        <option value="B 9278 SCD">Granmax B 9278 SCD (Alan)</option>
+                                        <option value="B 9107 SCE">Granmax B 9107 SCE (Yakub)</option>
+                                        <option value="B 1004 BKP">Granmax B 1004 BKP (Cadangan Gudang)</option>
+                                    </optgroup>
+                                    <optgroup label="Truk Box (4 Unit)">
+                                        <option value="B 9032 SCG">Truk Box B 9032 SCG (Iwan)</option>
+                                        <option value="B 9177 SCH">Truk Box B 9177 SCH (Husen)</option>
+                                        <option value="B 9842 NCC">Truk Box B 9842 NCC (Altur)</option>
+                                        <option value="B 9084 SCH">Truk Box B 9084 SCH (Rizki)</option>
+                                    </optgroup>
+                                    <optgroup label="Lainnya (2 Unit)">
+                                        <option value="B 9463 SAJ">Pick Up B 9463 SAJ (Pick Up Gudang)</option>
+                                        <option value="B 9243 PCJ">L300 B 9243 PCJ (L300 Gudang)</option>
+                                    </optgroup>
+                                </select>
+                                <small class="text-muted extra-small mt-1 d-block"><i class="bi bi-info-circle me-1"></i>Admin menentukan plat mobil yang digunakan driver untuk rute ini.</small>
+                            </div>
+
                             <!-- Jenis Armada Pengantaran Otomatis (Radio Button Manual Disembunyikan) -->
                             <div class="mb-4" style="display: none;">
                                 <input type="radio" class="btn-check" name="dispatch-vehicle-type" id="veh-motor" value="motor" checked>
@@ -1733,7 +1762,7 @@
                                 <span class="extra-small text-muted fw-bold">Sampai:</span>
                                 <input type="date" id="rep-end-date" class="form-control form-control-sm border" style="border-radius: 8px; width: 145px;" onchange="loadFullHistory()">
                             </div>
-                            <button class="btn btn-outline-dark fw-bold px-3 btn-sm" style="border-radius: 8px;" onclick="exportToExcel()"><i class="bi bi-download me-1"></i> Excel</button>
+                            <button class="btn btn-outline-dark fw-bold px-3 btn-sm" style="border-radius: 8px;" onclick="exportFullReportsToExcel()"><i class="bi bi-file-earmark-excel me-1"></i> Excel Report</button>
                             <button class="btn btn-danger fw-bold px-3 btn-sm" style="border-radius: 8px;" onclick="clearAllHistory()"><i class="bi bi-trash me-1"></i> Hapus Semua</button>
                         </div>
                     </div>
@@ -2278,13 +2307,64 @@
     </div>
 </div>
 
+<!-- MODAL: GANTI / TENTUKAN ARMADA MOBIL OPERASIONAL (ADMIN) -->
+<div class="modal fade" id="modal-change-trip-vehicle" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 460px;">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <div class="modal-header border-bottom p-3 bg-light rounded-top-4">
+                <h6 class="modal-title fw-bold text-dark d-flex align-items-center gap-2 m-0">
+                    <i class="bi bi-truck text-primary fs-5"></i> <span>Tentukan Armada Mobil Driver</span>
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-3">
+                <input type="hidden" id="change-vehicle-trip-id">
+                <div class="mb-3">
+                    <small class="text-muted d-block">ID Trip: <b id="change-vehicle-trip-label" class="text-dark"></b></small>
+                    <small class="text-muted d-block">Driver / Kurir: <b id="change-vehicle-courier-name" class="text-dark"></b></small>
+                </div>
+                <div class="mb-3">
+                    <label class="extra-small fw-bold text-muted text-uppercase mb-1">Pilih Armada Mobil Operasional (Admin)</label>
+                    <select id="change-vehicle-select" class="form-select form-select-sm py-2 border fw-semibold" style="border-radius: 8px;">
+                        <option value="">-- Tanpa Mobil / Belum Ditentukan --</option>
+                        <optgroup label="Granmax (6 Unit)">
+                            <option value="B 9227 SCH">Granmax B 9227 SCH (Agung)</option>
+                            <option value="B 9939 SCH">Granmax B 9939 SCH (Soleh)</option>
+                            <option value="B 9158 SCE">Granmax B 9158 SCE (Romi)</option>
+                            <option value="B 9278 SCD">Granmax B 9278 SCD (Alan)</option>
+                            <option value="B 9107 SCE">Granmax B 9107 SCE (Yakub)</option>
+                            <option value="B 1004 BKP">Granmax B 1004 BKP (Cadangan Gudang)</option>
+                        </optgroup>
+                        <optgroup label="Truk Box (4 Unit)">
+                            <option value="B 9032 SCG">Truk Box B 9032 SCG (Iwan)</option>
+                            <option value="B 9177 SCH">Truk Box B 9177 SCH (Husen)</option>
+                            <option value="B 9842 NCC">Truk Box B 9842 NCC (Altur)</option>
+                            <option value="B 9084 SCH">Truk Box B 9084 SCH (Rizki)</option>
+                        </optgroup>
+                        <optgroup label="Lainnya (2 Unit)">
+                            <option value="B 9463 SAJ">Pick Up B 9463 SAJ (Pick Up Gudang)</option>
+                            <option value="B 9243 PCJ">L300 B 9243 PCJ (L300 Gudang)</option>
+                        </optgroup>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer border-top p-2 px-3 bg-light rounded-bottom-4">
+                <button type="button" class="btn btn-sm btn-light border px-3" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-sm btn-primary fw-bold px-3" onclick="saveAdminChangedVehicle()">
+                    <i class="bi bi-check-lg me-1"></i>Simpan Armada
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<script src="/js/maps.js?v=159.0"></script>
-<script src="/js/fleet_vehicles.js?v=1.2"></script>
-<script src="/js/app.js?v=165.0"></script>
-<script src="/js/kpi.js?v=156.0"></script>
-<script src="/js/courier_audit.js?v=163.0"></script>
+<script src="/js/maps.js?v=166.0"></script>
+<script src="/js/fleet_vehicles.js?v=1.3"></script>
+<script src="/js/app.js?v=166.0"></script>
+<script src="/js/kpi.js?v=166.0"></script>
+<script src="/js/courier_audit.js?v=166.0"></script>
 <script src="/js/custom_dropdown.js?v=1.0"></script>
 </body>
 </html>
