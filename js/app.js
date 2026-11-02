@@ -486,14 +486,15 @@ function canManageShipments(role) {
     if (r === 'sales_admin' || r === 'sales' || r === 'courier' || r === 'kurir') {
         return false;
     }
-    return true; // super_admin, admin_logistik, admin_dm2, dm2, branch_admin, branch
+    return true; // super_admin, admin_logistik, admin_dm2, dm2, admintrafficdm2, branch_admin, branch
 }
 window.canManageShipments = canManageShipments;
 
 function getActiveBranchId() {
     const r = (currentUserRole || '').toLowerCase();
-    if (r === 'branch_admin' || r === 'branch' || r === 'admin_dm2' || r === 'dm2') {
-        return currentUserBranchId || (r.includes('dm2') ? 'dm2' : 'cikokol');
+    // Hanya branch_admin (Cikokol) yang dikhususkan per cabangnya
+    if (r === 'branch_admin' || r === 'branch') {
+        return currentUserBranchId || 'cikokol';
     }
     const selectEl = document.getElementById('header-branch-filter');
     if (selectEl) {
@@ -505,6 +506,11 @@ window.getActiveBranchId = getActiveBranchId;
 
 function getTripBranch(t) {
     if (!t) return 'pusat';
+
+    // Prioritaskan branchId eksplisit pada trip jika ada dan bukan 'all'
+    if (t.branchId && t.branchId.toLowerCase() !== 'all') {
+        return t.branchId.toLowerCase();
+    }
 
     if (t.courierId) {
         let courierUid = t.courierId;
@@ -526,9 +532,19 @@ function getTripBranch(t) {
 window.getTripBranch = getTripBranch;
 
 function isTripInActiveBranch(t) {
+    const r = (currentUserRole || '').toLowerCase();
+    // Admin Traffic DM2, Admin Logistik, dan Super Admin melihat seluruh operasional seperti sediakala
+    if (r === 'super_admin' || r === 'superadmin' || r === 'admin' || r === 'admin_logistik' || r === 'adminlogistik' || r === 'admin_dm2' || r === 'dm2' || r === 'admintrafficdm2' || r === 'traffic_dm2' || r.includes('dm2') || r.includes('traffic')) {
+        const selectEl = document.getElementById('header-branch-filter');
+        const selectedVal = selectEl ? selectEl.value : 'all';
+        if (!selectedVal || selectedVal === 'all') return true;
+        const tripBranch = getTripBranch(t);
+        return tripBranch === selectedVal || t.branchId === 'all' || !t.branchId;
+    }
+
     const activeBranch = getActiveBranchId();
     if (!activeBranch || activeBranch === 'all') return true;
-    if (!t || !t.branchId) return true;
+    if (!t || !t.branchId || t.branchId === 'all') return true;
     const tripBranch = getTripBranch(t);
     return tripBranch === activeBranch;
 }
@@ -1206,7 +1222,7 @@ function getRoleDisplayName(role) {
     const r = (role || '').toLowerCase();
     if (r === 'sales_admin' || r === 'sales') return 'Sales Admin';
     if (r === 'admin_logistik' || r === 'adminlogistik') return 'Admin Logistik';
-    if (r === 'admin_dm2' || r === 'dm2') return 'Admin DM2';
+    if (r === 'admin_dm2' || r === 'dm2' || r === 'admintrafficdm2' || r === 'traffic_dm2' || r.includes('dm2') || r.includes('traffic')) return 'Admin Traffic DM2';
     if (r === 'branch_admin' || r === 'branch') return 'Admin Cabang';
     if (r === 'trafik' || r === 'traffic') return 'Trafik';
     return 'Super Admin';
@@ -1226,6 +1242,9 @@ function isTabAllowedForRole(role, viewId) {
         r !== 'sales' &&
         r !== 'admin_dm2' &&
         r !== 'dm2' &&
+        r !== 'admintrafficdm2' &&
+        r !== 'traffic_dm2' &&
+        !r.includes('dm2') &&
         r !== 'branch_admin' &&
         r !== 'branch' &&
         r !== 'courier' &&
@@ -1250,7 +1269,7 @@ function isTabAllowedForRole(role, viewId) {
     if (r === 'sales_admin' || r === 'sales') {
         return viewId === 'dashboard' || viewId === 'monitor' || viewId === 'pod-archive';
     }
-    if (r === 'admin_dm2' || r === 'dm2' || r === 'branch_admin' || r === 'branch') {
+    if (r === 'admin_dm2' || r === 'dm2' || r === 'admintrafficdm2' || r === 'traffic_dm2' || r.includes('dm2') || r === 'branch_admin' || r === 'branch') {
         return viewId === 'dashboard' || viewId === 'monitor' || viewId === 'dispatch' || viewId === 'pool' || viewId === 'pod-archive';
     }
     return false;
@@ -1269,6 +1288,9 @@ function applyRoleAccessControl() {
         r !== 'sales' &&
         r !== 'admin_dm2' &&
         r !== 'dm2' &&
+        r !== 'admintrafficdm2' &&
+        r !== 'traffic_dm2' &&
+        !r.includes('dm2') &&
         r !== 'branch_admin' &&
         r !== 'branch' &&
         r !== 'courier' &&
@@ -1326,7 +1348,7 @@ function applyRoleAccessControl() {
         if (navChat) navChat.style.display = 'none';
         if (navReports) navReports.style.display = 'none';
         if (navSettings) navSettings.style.display = 'none';
-    } else if (r === 'admin_dm2' || r === 'dm2' || r === 'branch_admin' || r === 'branch') {
+    } else if (r === 'admin_dm2' || r === 'dm2' || r === 'admintrafficdm2' || r === 'traffic_dm2' || r.includes('dm2') || r === 'branch_admin' || r === 'branch') {
         if (navFleet) navFleet.style.display = 'none';
         if (navChat) navChat.style.display = 'none';
         if (navReports) navReports.style.display = 'none';
@@ -4638,10 +4660,14 @@ function initAuthListener() {
                         const branchWrapper = document.getElementById('branch-selector-wrapper');
                         const branchSelect = document.getElementById('header-branch-filter');
 
-                        if (currentUserRole === 'admin_dm2' || currentUserRole === 'dm2' || currentUserRole === 'branch_admin' || currentUserRole === 'branch') {
-                            const branchTitle = (uData.branchName || currentUserBranchId || 'DM2').toUpperCase();
+                        if (currentUserRole === 'branch_admin' || currentUserRole === 'branch') {
+                            const branchTitle = (uData.branchName || currentUserBranchId || 'Cikokol').toUpperCase();
                             if (branchWrapper) {
                                 branchWrapper.innerHTML = `<span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 fw-bold" style="font-size: 0.8rem;"><i class="bi bi-building me-1"></i> Cabang ${branchTitle}</span>`;
+                            }
+                        } else if (currentUserRole === 'admin_dm2' || currentUserRole === 'dm2' || currentUserRole === 'admintrafficdm2' || currentUserRole === 'traffic_dm2' || (currentUserRole || '').includes('dm2') || (currentUserRole || '').includes('traffic')) {
+                            if (branchWrapper) {
+                                branchWrapper.innerHTML = `<span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 fw-bold" style="font-size: 0.8rem;"><i class="bi bi-shield-check me-1"></i> Traffic DM2</span>`;
                             }
                         } else {
                             if (branchSelect) branchSelect.value = 'all';
