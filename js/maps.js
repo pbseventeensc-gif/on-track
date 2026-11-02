@@ -393,9 +393,6 @@ function updateMapMarkers(filter = "") {
     const now = new Date();
     const todayDayMs = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
 
-    // Track 1 single photo pin per courier (stops 2..N remain regular numbered pins)
-    const couriersWithPhotoPinPlaced = {};
-
     allCurrentTrips.forEach(t => {
         if (typeof isTripInActiveBranch === 'function' && !isTripInActiveBranch(t)) return;
 
@@ -422,11 +419,9 @@ function updateMapMarkers(filter = "") {
             return;
         }
 
-        const cNorm = (typeof normalizeCourierIdentity === 'function') ? normalizeCourierIdentity(t.courierId, cName) : null;
-        const cKey = cNorm?.canonicalId || (t.courierId || cName || '').toLowerCase();
         const photoUrl = (typeof window.getCourierPhoto === 'function') ? window.getCourierPhoto(t.courierId, cName) : null;
 
-        if (t.status !== 'completed' && t.destinations && t.destinations.length > 0) {
+        if (t.destinations && t.destinations.length > 0) {
             t.destinations.forEach((d, idx) => {
                 let dLat = parseFloat(d.latitude !== undefined ? d.latitude : (d.lat !== undefined ? d.lat : 0));
                 let dLng = parseFloat(d.longitude !== undefined ? d.longitude : (d.lng !== undefined ? d.lng : 0));
@@ -445,14 +440,15 @@ function updateMapMarkers(filter = "") {
 
                 let pinColor = cColor;
                 let statusText = 'Pending';
-                let numBadge = d.stopIndex || (idx + 1);
+                const stopIdx = d.stopIndex !== undefined ? d.stopIndex : (idx + 1);
+                const numBadge = stopIdx;
                 let badgeContent = numBadge;
 
                 if (d.proofPhotoUrl && d.proofPhotoUrl.length > 0) {
                     pinColor = '#10B981';
                     statusText = 'Selesai (SJ Uploaded) ✓';
                     badgeContent = '<i class="bi bi-check-lg" style="color: #10B981; font-size: 15px; -webkit-text-stroke: 1px #10B981;"></i>';
-                } else if (d.status === 'done') {
+                } else if (d.status === 'done' || t.status === 'completed') {
                     pinColor = '#10B981';
                     statusText = 'Selesai ✓';
                     badgeContent = '<i class="bi bi-check-lg" style="color: #10B981; font-size: 15px; -webkit-text-stroke: 1px #10B981;"></i>';
@@ -468,40 +464,14 @@ function updateMapMarkers(filter = "") {
                     badgeContent = numBadge;
                 }
 
-                // Exactly 1 pin per courier features their photo avatar (Stop #1)
-                const shouldShowPhotoPin = photoUrl && (!couriersWithPhotoPinPlaced[cKey]) && (idx === 0);
-                if (shouldShowPhotoPin) {
-                    couriersWithPhotoPinPlaced[cKey] = true;
-                }
-
-                let iconHtml = '';
-                let iconSize = [30, 42];
-                let iconAnchor = [15, 42];
-
-                if (shouldShowPhotoPin) {
-                    iconHtml = `
-                        <div style="position:relative; width:40px; height:52px; cursor:pointer;" title="Area Pengantaran: ${cName}">
-                            <div style="width:36px; height:36px; border-radius:50%; border:3px solid ${pinColor}; box-shadow:0 3px 10px rgba(0,0,0,0.35); overflow:hidden; background:#fff; position:absolute; top:0; left:2px;">
-                                <img src="${photoUrl}" style="width:100%; height:100%; object-fit:cover;" alt="${cName}">
-                            </div>
-                            <div style="position:absolute; bottom:1px; left:50%; transform:translateX(-50%); width:0; height:0; border-left:6px solid transparent; border-right:6px solid transparent; border-top:12px solid ${pinColor};"></div>
-                            <div style="position:absolute; top:-3px; right:0px; background:${pinColor}; color:#fff; font-size:9.5px; font-weight:800; border-radius:50%; width:16px; height:16px; display:flex; align-items:center; justify-content:center; border:2px solid #fff; box-shadow:0 1px 3px rgba(0,0,0,0.2);">${numBadge}</div>
-                        </div>
-                    `;
-                    iconSize = [40, 52];
-                    iconAnchor = [20, 52];
-                } else {
-                    iconHtml = `<div class='marker-pin' style='background:${pinColor}'></div><div class='marker-num'>${badgeContent}</div>`;
-                    iconSize = [30, 42];
-                    iconAnchor = [15, 42];
-                }
-
                 const icon = L.divIcon({
                     className: 'custom-div-icon',
-                    html: iconHtml,
-                    iconSize: iconSize,
-                    iconAnchor: iconAnchor
+                    html: `<div class='marker-pin' style='background:${pinColor}'></div><div class='marker-num'>${badgeContent}</div>`,
+                    iconSize: [30, 42],
+                    iconAnchor: [15, 42]
                 });
+
+                const tripDisplayId = t.id ? (t.id.startsWith('#') ? t.id : '#' + t.id.slice(-6)) + '-' + stopIdx : '#' + stopIdx;
 
                 const popupHtml = `
                     <div style="min-width:180px;">
@@ -514,7 +484,7 @@ function updateMapMarkers(filter = "") {
                             ${photoUrl ? `<img src="${photoUrl}" style="width:20px; height:20px; border-radius:50%; object-fit:cover;">` : ''}
                             <span>Personil: <b style="color:${cColor};">${cName}</b></span>
                         </div>
-                        <button class="btn btn-xs btn-outline-primary w-100 mt-2 py-1 fw-bold" style="font-size:0.68rem; border-radius:6px;" onclick="openSwitchCourierModal('${t.id}', ${stopIdx}, '${cName.replace(/'/g, "\\'")}', '${(d.locationName || '').replace(/'/g, "\\'")}', '#${t.id.slice(-6)}-${stopIdx}', '${t.courierId || ''}')">
+                        <button class="btn btn-xs btn-outline-primary w-100 mt-2 py-1 fw-bold" style="font-size:0.68rem; border-radius:6px;" onclick="openSwitchCourierModal('${t.id}', ${stopIdx}, '${cName.replace(/'/g, "\\'")}', '${(d.locationName || '').replace(/'/g, "\\'")}', '${tripDisplayId}', '${t.courierId || ''}')">
                             <i class="bi bi-arrow-left-right me-1"></i> Switch Kurir / Driver
                         </button>
                     </div>
