@@ -302,13 +302,14 @@ function renderMapFocusControl(driverName) {
     `;
 }
 
+window.liveCourierMarkerInstances = window.liveCourierMarkerInstances || {};
+window.liveDestinationMarkerInstances = window.liveDestinationMarkerInstances || {};
+
 function updateMapMarkers(filter = "") {
     const search = filter.toLowerCase();
-    if (typeof tripMarkersLayer !== 'undefined' && tripMarkersLayer) tripMarkersLayer.clearLayers();
-    if (typeof monitorMarkersLayer !== 'undefined' && monitorMarkersLayer) monitorMarkersLayer.clearLayers();
-    if (typeof monitorCouriersLayer !== 'undefined' && monitorCouriersLayer) monitorCouriersLayer.clearLayers();
 
-    // 1. Render Online Couriers / Drivers
+    // 1. Render Online Couriers / Drivers (Flicker-Free smooth in-place update)
+    const activeCourierKeys = new Set();
     if (typeof currentOnlineCouriers !== 'undefined') {
         for (const id in currentOnlineCouriers) {
             if (typeof isCourierInActiveBranch === 'function' && !isCourierInActiveBranch(id)) continue;
@@ -331,8 +332,10 @@ function updateMapMarkers(filter = "") {
                 continue;
             }
 
+            activeCourierKeys.add(id);
+
             const color = window.getCourierColor(id, name);
-            const pos = [c.lat, c.lng];
+            const pos = [parseFloat(c.lat), parseFloat(c.lng)];
             const livePhotoUrl = (typeof window.getCourierPhoto === 'function') ? window.getCourierPhoto(id, name) : null;
 
             let liveIconHtml = '';
@@ -369,138 +372,233 @@ function updateMapMarkers(filter = "") {
                 </div>
             `;
 
-            if (typeof tripMarkersLayer !== 'undefined' && tripMarkersLayer) {
-                const mDash = L.marker(pos, { icon: courierIcon }).addTo(tripMarkersLayer);
-                mDash.courierId = id;
-                mDash.courierName = name;
-                mDash.bindPopup(popupHtml);
-                mDash.on('click', () => { setFocusedDriver(id); });
-            }
+            const matchesMonitor = (!filter || name.toLowerCase().includes(search) || id.toLowerCase().includes(search));
 
-            if (typeof monitorCouriersLayer !== 'undefined' && monitorCouriersLayer && (!filter || name.toLowerCase().includes(search) || id.toLowerCase().includes(search))) {
-                const mMon = L.marker(pos, { icon: courierIcon }).addTo(monitorCouriersLayer);
-                mMon.courierId = id;
-                mMon.courierName = name;
-                mMon.bindPopup(popupHtml);
-                mMon.on('click', () => { setFocusedDriver(id); });
+            let entry = window.liveCourierMarkerInstances[id];
+            if (entry) {
+                // Smooth position update WITHOUT destroying the DOM or re-loading images
+                if (entry.mDash) entry.mDash.setLatLng(pos);
+                if (entry.mMon) {
+                    entry.mMon.setLatLng(pos);
+                    if (matchesMonitor && typeof monitorCouriersLayer !== 'undefined' && monitorCouriersLayer && !monitorCouriersLayer.hasLayer(entry.mMon)) {
+                        monitorCouriersLayer.addLayer(entry.mMon);
+                    } else if (!matchesMonitor && typeof monitorCouriersLayer !== 'undefined' && monitorCouriersLayer && monitorCouriersLayer.hasLayer(entry.mMon)) {
+                        monitorCouriersLayer.removeLayer(entry.mMon);
+                    }
+                }
+                if (entry.photoUrl !== livePhotoUrl || entry.color !== color) {
+                    if (entry.mDash) { entry.mDash.setIcon(courierIcon); entry.mDash.setPopupContent(popupHtml); }
+                    if (entry.mMon) { entry.mMon.setIcon(courierIcon); entry.mMon.setPopupContent(popupHtml); }
+                    entry.photoUrl = livePhotoUrl;
+                    entry.color = color;
+                }
+            } else {
+                let mDash = null;
+                if (typeof tripMarkersLayer !== 'undefined' && tripMarkersLayer) {
+                    mDash = L.marker(pos, { icon: courierIcon }).addTo(tripMarkersLayer);
+                    mDash.courierId = id;
+                    mDash.courierName = name;
+                    mDash.bindPopup(popupHtml);
+                    mDash.on('click', () => { setFocusedDriver(id); });
+                }
+
+                let mMon = null;
+                if (typeof monitorCouriersLayer !== 'undefined' && monitorCouriersLayer) {
+                    mMon = L.marker(pos, { icon: courierIcon });
+                    if (matchesMonitor) mMon.addTo(monitorCouriersLayer);
+                    mMon.courierId = id;
+                    mMon.courierName = name;
+                    mMon.bindPopup(popupHtml);
+                    mMon.on('click', () => { setFocusedDriver(id); });
+                }
+
+                window.liveCourierMarkerInstances[id] = {
+                    mDash,
+                    mMon,
+                    photoUrl: livePhotoUrl,
+                    color: color
+                };
             }
         }
     }
 
+    // Clean up markers for offline/removed couriers
+    for (const id in window.liveCourierMarkerInstances) {
+        if (!activeCourierKeys.has(id)) {
+            const entry = window.liveCourierMarkerInstances[id];
+            if (entry.mDash && typeof tripMarkersLayer !== 'undefined' && tripMarkersLayer) tripMarkersLayer.removeLayer(entry.mDash);
+            if (entry.mMon && typeof monitorCouriersLayer !== 'undefined' && monitorCouriersLayer) monitorCouriersLayer.removeLayer(entry.mMon);
+            delete window.liveCourierMarkerInstances[id];
+        }
+    }
+
     // 2. Render Trip Destination Stops (WITHOUT Polyline Route Lines)
-    if (typeof allCurrentTrips === 'undefined') return;
+    const activeDestKeys = new Set();
+    if (typeof allCurrentTrips !== 'undefined') {
+        const now = new Date();
+        const todayDayMs = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
 
-    const now = new Date();
-    const todayDayMs = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        allCurrentTrips.forEach(t => {
+            if (typeof isTripInActiveBranch === 'function' && !isTripInActiveBranch(t)) return;
 
-    allCurrentTrips.forEach(t => {
-        if (typeof isTripInActiveBranch === 'function' && !isTripInActiveBranch(t)) return;
+            // DRIVER FOCUS MODE: If a driver is focused, hide all destination stops for other drivers/couriers
+            if (window.focusedDriverId) {
+                const normFocused = (typeof normalizeCourierIdentity === 'function') ? normalizeCourierIdentity(window.focusedDriverId, '') : null;
+                const focusedCanon = normFocused?.canonicalId || window.focusedDriverId.toLowerCase();
+                const thisNorm = (typeof normalizeCourierIdentity === 'function') ? normalizeCourierIdentity(t.courierId, '') : null;
+                const thisCanon = thisNorm?.canonicalId || t.courierId.toLowerCase();
 
-        // DRIVER FOCUS MODE: If a driver is focused, hide all destination stops for other drivers/couriers
-        if (window.focusedDriverId) {
-            const normFocused = (typeof normalizeCourierIdentity === 'function') ? normalizeCourierIdentity(window.focusedDriverId, '') : null;
-            const focusedCanon = normFocused?.canonicalId || window.focusedDriverId.toLowerCase();
-            const thisNorm = (typeof normalizeCourierIdentity === 'function') ? normalizeCourierIdentity(t.courierId, '') : null;
-            const thisCanon = thisNorm?.canonicalId || t.courierId.toLowerCase();
+                if (thisCanon !== focusedCanon && t.courierId !== window.focusedDriverId) {
+                    return;
+                }
+            }
 
-            if (thisCanon !== focusedCanon && t.courierId !== window.focusedDriverId) {
+            const cName = (typeof registeredUsers !== 'undefined' && registeredUsers[t.courierId])
+                ? registeredUsers[t.courierId]
+                : (typeof getCourierDisplayName === 'function' ? getCourierDisplayName(t.courierId) : t.courierId.substring(0,8));
+            const cColor = window.getCourierColor(t.courierId, cName);
+            const tripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : (t.id ? parseInt(t.id.replace('TRIP_', '')) || 0 : 0));
+
+            // Clean map on new day (H+1): Only render map markers for TODAY'S active trips
+            if (tripMs < todayDayMs) {
                 return;
             }
-        }
 
-        const cName = (typeof registeredUsers !== 'undefined' && registeredUsers[t.courierId])
-            ? registeredUsers[t.courierId]
-            : (typeof getCourierDisplayName === 'function' ? getCourierDisplayName(t.courierId) : t.courierId.substring(0,8));
-        const cColor = window.getCourierColor(t.courierId, cName);
-        const tripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : (t.id ? parseInt(t.id.replace('TRIP_', '')) || 0 : 0));
+            const photoUrl = (typeof window.getCourierPhoto === 'function') ? window.getCourierPhoto(t.courierId, cName) : null;
 
-        // Clean map on new day (H+1): Only render map markers for TODAY'S active trips
-        if (tripMs < todayDayMs) {
-            return;
-        }
+            if (t.destinations && t.destinations.length > 0) {
+                t.destinations.forEach((d, idx) => {
+                    let dLat = parseFloat(d.latitude !== undefined ? d.latitude : (d.lat !== undefined ? d.lat : 0));
+                    let dLng = parseFloat(d.longitude !== undefined ? d.longitude : (d.lng !== undefined ? d.lng : 0));
 
-        const photoUrl = (typeof window.getCourierPhoto === 'function') ? window.getCourierPhoto(t.courierId, cName) : null;
-
-        if (t.destinations && t.destinations.length > 0) {
-            t.destinations.forEach((d, idx) => {
-                let dLat = parseFloat(d.latitude !== undefined ? d.latitude : (d.lat !== undefined ? d.lat : 0));
-                let dLng = parseFloat(d.longitude !== undefined ? d.longitude : (d.lng !== undefined ? d.lng : 0));
-
-                if (!dLat || !dLng || isNaN(dLat) || isNaN(dLng) || !isInsideJabodetabekArea(dLat, dLng)) {
-                    let hash = 0;
-                    const str = (d.locationName || '') + (d.address || '') + idx;
-                    for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
-                    const latOffset = ((Math.abs(hash) % 80) - 40) / 1000;
-                    const lngOffset = ((Math.abs(hash * 3) % 80) - 40) / 1000;
-                    dLat = -6.2088 + latOffset;
-                    dLng = 106.8456 + lngOffset;
-                }
-
-                const pt = [dLat, dLng];
-
-                let pinColor = cColor;
-                let statusText = 'Pending';
-                const stopIdx = d.stopIndex !== undefined ? d.stopIndex : (idx + 1);
-                const numBadge = stopIdx;
-                let badgeContent = numBadge;
-
-                if (d.proofPhotoUrl && d.proofPhotoUrl.length > 0) {
-                    pinColor = '#10B981';
-                    statusText = 'Selesai (SJ Uploaded) ✓';
-                    badgeContent = '<i class="bi bi-check-lg" style="color: #10B981; font-size: 15px; -webkit-text-stroke: 1px #10B981;"></i>';
-                } else if (d.status === 'done' || t.status === 'completed') {
-                    pinColor = '#10B981';
-                    statusText = 'Selesai ✓';
-                    badgeContent = '<i class="bi bi-check-lg" style="color: #10B981; font-size: 15px; -webkit-text-stroke: 1px #10B981;"></i>';
-                } else if (d.status === 'arrived') {
-                    pinColor = '#F59E0B';
-                    statusText = 'Tiba';
-                    badgeContent = numBadge;
-                } else if (t.status === 'accepted') {
-                    statusText = 'Diterima (Proses)';
-                    badgeContent = numBadge;
-                } else if (t.status === 'assigned') {
-                    statusText = 'Ditugaskan';
-                    badgeContent = numBadge;
-                }
-
-                const icon = L.divIcon({
-                    className: 'custom-div-icon',
-                    html: `<div class='marker-pin' style='background:${pinColor}'></div><div class='marker-num'>${badgeContent}</div>`,
-                    iconSize: [30, 42],
-                    iconAnchor: [15, 42]
-                });
-
-                const tripDisplayId = t.id ? (t.id.startsWith('#') ? t.id : '#' + t.id.slice(-6)) + '-' + stopIdx : '#' + stopIdx;
-
-                const popupHtml = `
-                    <div style="min-width:180px;">
-                        <div style="background:${pinColor}; color:#fff; padding:2px 8px; border-radius:10px; font-size:10px; font-weight:700; display:inline-block; margin-bottom:4px;">
-                            Stop ${numBadge}: ${statusText}
-                        </div>
-                        <div style="font-weight:800; font-size:13px; color:#111827; margin-bottom:2px;">${d.locationName}</div>
-                        <div style="font-size:11px; color:#6B7280; margin-bottom:6px;">${d.address || 'Alamat tidak tersedia'}</div>
-                        <div style="font-size:11px; font-weight:700; border-top:1px solid #E5E7EB; padding-top:4px;" class="d-flex align-items-center gap-1.5">
-                            ${photoUrl ? `<img src="${photoUrl}" style="width:20px; height:20px; border-radius:50%; object-fit:cover;">` : ''}
-                            <span>Personil: <b style="color:${cColor};">${cName}</b></span>
-                        </div>
-                        <button class="btn btn-xs btn-outline-primary w-100 mt-2 py-1 fw-bold" style="font-size:0.68rem; border-radius:6px;" onclick="openSwitchCourierModal('${t.id}', ${stopIdx}, '${cName.replace(/'/g, "\\'")}', '${(d.locationName || '').replace(/'/g, "\\'")}', '${tripDisplayId}', '${t.courierId || ''}')">
-                            <i class="bi bi-arrow-left-right me-1"></i> Switch Kurir / Driver
-                        </button>
-                    </div>
-                `;
-
-                if (typeof tripMarkersLayer !== 'undefined' && tripMarkersLayer) L.marker(pt, { icon }).bindPopup(popupHtml).addTo(tripMarkersLayer);
-                if (typeof monitorMarkersLayer !== 'undefined' && monitorMarkersLayer) {
-                    const matches = d.locationName.toLowerCase().includes(search) || cName.toLowerCase().includes(search) || t.id.toLowerCase().includes(search);
-                    if (!filter || matches) {
-                        L.marker(pt, { icon }).bindPopup(popupHtml).addTo(monitorMarkersLayer);
+                    if (!dLat || !dLng || isNaN(dLat) || isNaN(dLng) || !isInsideJabodetabekArea(dLat, dLng)) {
+                        let hash = 0;
+                        const str = (d.locationName || '') + (d.address || '') + idx;
+                        for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
+                        const latOffset = ((Math.abs(hash) % 80) - 40) / 1000;
+                        const lngOffset = ((Math.abs(hash * 3) % 80) - 40) / 1000;
+                        dLat = -6.2088 + latOffset;
+                        dLng = 106.8456 + lngOffset;
                     }
-                }
-            });
-            // NOTE: Requirement 2: Hapus Polyline Garis Tujuan (No L.polyline added)
+
+                    const pt = [dLat, dLng];
+
+                    let pinColor = cColor;
+                    let statusText = 'Pending';
+                    const stopIdx = d.stopIndex !== undefined ? d.stopIndex : (idx + 1);
+                    const numBadge = stopIdx;
+                    let badgeContent = numBadge;
+
+                    if (d.proofPhotoUrl && d.proofPhotoUrl.length > 0) {
+                        pinColor = '#10B981';
+                        statusText = 'Selesai (SJ Uploaded) ✓';
+                        badgeContent = '<i class="bi bi-check-lg" style="color: #10B981; font-size: 15px; -webkit-text-stroke: 1px #10B981;"></i>';
+                    } else if (d.status === 'done' || t.status === 'completed') {
+                        pinColor = '#10B981';
+                        statusText = 'Selesai ✓';
+                        badgeContent = '<i class="bi bi-check-lg" style="color: #10B981; font-size: 15px; -webkit-text-stroke: 1px #10B981;"></i>';
+                    } else if (d.status === 'arrived') {
+                        pinColor = '#F59E0B';
+                        statusText = 'Tiba';
+                        badgeContent = numBadge;
+                    } else if (t.status === 'accepted') {
+                        statusText = 'Diterima (Proses)';
+                        badgeContent = numBadge;
+                    } else if (t.status === 'assigned') {
+                        statusText = 'Ditugaskan';
+                        badgeContent = numBadge;
+                    }
+
+                    const tripDisplayId = t.id ? (t.id.startsWith('#') ? t.id : '#' + t.id.slice(-6)) + '-' + stopIdx : '#' + stopIdx;
+
+                    const popupHtml = `
+                        <div style="min-width:180px;">
+                            <div style="background:${pinColor}; color:#fff; padding:2px 8px; border-radius:10px; font-size:10px; font-weight:700; display:inline-block; margin-bottom:4px;">
+                                Stop ${numBadge}: ${statusText}
+                            </div>
+                            <div style="font-weight:800; font-size:13px; color:#111827; margin-bottom:2px;">${d.locationName}</div>
+                            <div style="font-size:11px; color:#6B7280; margin-bottom:6px;">${d.address || 'Alamat tidak tersedia'}</div>
+                            <div style="font-size:11px; font-weight:700; border-top:1px solid #E5E7EB; padding-top:4px;" class="d-flex align-items-center gap-1.5">
+                                ${photoUrl ? `<img src="${photoUrl}" style="width:20px; height:20px; border-radius:50%; object-fit:cover;">` : ''}
+                                <span>Personil: <b style="color:${cColor};">${cName}</b></span>
+                            </div>
+                            <button class="btn btn-xs btn-outline-primary w-100 mt-2 py-1 fw-bold" style="font-size:0.68rem; border-radius:6px;" onclick="openSwitchCourierModal('${t.id}', ${stopIdx}, '${cName.replace(/'/g, "\\'")}', '${(d.locationName || '').replace(/'/g, "\\'")}', '${tripDisplayId}', '${t.courierId || ''}')">
+                                <i class="bi bi-arrow-left-right me-1"></i> Switch Kurir / Driver
+                            </button>
+                        </div>
+                    `;
+
+                    const icon = L.divIcon({
+                        className: 'custom-div-icon',
+                        html: `<div class='marker-pin' style='background:${pinColor}'></div><div class='marker-num'>${badgeContent}</div>`,
+                        iconSize: [30, 42],
+                        iconAnchor: [15, 42]
+                    });
+
+                    const matchesMonitor = (!filter || d.locationName.toLowerCase().includes(search) || cName.toLowerCase().includes(search) || t.id.toLowerCase().includes(search));
+                    const destKey = `${t.id}_${stopIdx}`;
+                    activeDestKeys.add(destKey);
+
+                    let entry = window.liveDestinationMarkerInstances[destKey];
+                    if (entry) {
+                        if (entry.lat !== dLat || entry.lng !== dLng) {
+                            if (entry.mDash) entry.mDash.setLatLng(pt);
+                            if (entry.mMon) entry.mMon.setLatLng(pt);
+                            entry.lat = dLat;
+                            entry.lng = dLng;
+                        }
+                        if (entry.badgeContent !== badgeContent || entry.pinColor !== pinColor) {
+                            if (entry.mDash) {
+                                entry.mDash.setIcon(icon);
+                                entry.mDash.setPopupContent(popupHtml);
+                            }
+                            if (entry.mMon) {
+                                entry.mMon.setIcon(icon);
+                                entry.mMon.setPopupContent(popupHtml);
+                            }
+                            entry.badgeContent = badgeContent;
+                            entry.pinColor = pinColor;
+                        }
+                        if (entry.mMon) {
+                            if (matchesMonitor && typeof monitorMarkersLayer !== 'undefined' && monitorMarkersLayer && !monitorMarkersLayer.hasLayer(entry.mMon)) {
+                                monitorMarkersLayer.addLayer(entry.mMon);
+                            } else if (!matchesMonitor && typeof monitorMarkersLayer !== 'undefined' && monitorMarkersLayer && monitorMarkersLayer.hasLayer(entry.mMon)) {
+                                monitorMarkersLayer.removeLayer(entry.mMon);
+                            }
+                        }
+                    } else {
+                        let mDash = null;
+                        if (typeof tripMarkersLayer !== 'undefined' && tripMarkersLayer) {
+                            mDash = L.marker(pt, { icon }).bindPopup(popupHtml).addTo(tripMarkersLayer);
+                        }
+                        let mMon = null;
+                        if (typeof monitorMarkersLayer !== 'undefined' && monitorMarkersLayer) {
+                            mMon = L.marker(pt, { icon }).bindPopup(popupHtml);
+                            if (matchesMonitor) mMon.addTo(monitorMarkersLayer);
+                        }
+                        window.liveDestinationMarkerInstances[destKey] = {
+                            mDash,
+                            mMon,
+                            badgeContent,
+                            pinColor,
+                            lat: dLat,
+                            lng: dLng
+                        };
+                    }
+                });
+            }
+        });
+    }
+
+    // Clean up old destination pins
+    for (const destKey in window.liveDestinationMarkerInstances) {
+        if (!activeDestKeys.has(destKey)) {
+            const entry = window.liveDestinationMarkerInstances[destKey];
+            if (entry.mDash && typeof tripMarkersLayer !== 'undefined' && tripMarkersLayer) tripMarkersLayer.removeLayer(entry.mDash);
+            if (entry.mMon && typeof monitorMarkersLayer !== 'undefined' && monitorMarkersLayer) monitorMarkersLayer.removeLayer(entry.mMon);
+            delete window.liveDestinationMarkerInstances[destKey];
         }
-    });
+    }
 }
 
 let activeHeatmapLayers = [];
