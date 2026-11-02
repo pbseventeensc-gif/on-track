@@ -514,6 +514,9 @@ function updateMapMarkers(filter = "") {
                             ${photoUrl ? `<img src="${photoUrl}" style="width:20px; height:20px; border-radius:50%; object-fit:cover;">` : ''}
                             <span>Personil: <b style="color:${cColor};">${cName}</b></span>
                         </div>
+                        <button class="btn btn-xs btn-outline-primary w-100 mt-2 py-1 fw-bold" style="font-size:0.68rem; border-radius:6px;" onclick="openSwitchCourierModal('${t.id}', ${stopIdx}, '${cName.replace(/'/g, "\\'")}', '${(d.locationName || '').replace(/'/g, "\\'")}', '#${t.id.slice(-6)}-${stopIdx}', '${t.courierId || ''}')">
+                            <i class="bi bi-arrow-left-right me-1"></i> Switch Kurir / Driver
+                        </button>
                     </div>
                 `;
 

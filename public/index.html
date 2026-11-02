@@ -2045,6 +2045,93 @@
     </div>
 </div>
 
+<!-- Modal Switch Penugasan Kurir & Driver -->
+<div class="modal fade" id="switchCourierModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 520px;">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 20px; overflow: hidden;">
+            <div class="modal-header border-bottom py-3 px-4 bg-light">
+                <div class="d-flex align-items-center gap-2">
+                    <div style="width: 38px; height: 38px; border-radius: 10px; background: rgba(13, 110, 253, 0.12); display: flex; align-items: center; justify-content: center;">
+                        <i class="bi bi-arrow-left-right text-primary fs-5"></i>
+                    </div>
+                    <div>
+                        <h6 class="modal-title fw-bold text-dark m-0" style="font-size: 1.05rem;">Switch Penugasan Kurir & Driver</h6>
+                        <small class="text-muted extra-small">Alihkan tugas pengiriman ke armada/personil lain tanpa hapus data</small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <input type="hidden" id="switch-modal-trip-id">
+                <input type="hidden" id="switch-modal-stop-index">
+                <input type="hidden" id="switch-modal-mode" value="single_or_trip">
+
+                <!-- Ringkasan Info Penugasan Saat Ini -->
+                <div class="p-3 bg-light rounded-3 border mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span class="text-muted extra-small fw-bold text-uppercase">ID Pengiriman:</span>
+                        <span class="fw-bold text-dark font-monospace" id="switch-modal-shipment-id">#000000-1</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span class="text-muted extra-small fw-bold text-uppercase">Destinasi / Klien:</span>
+                        <span class="fw-bold text-dark text-truncate ms-2 text-end" style="max-width: 260px;" id="switch-modal-destination-name">-</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="text-muted extra-small fw-bold text-uppercase">Personil Saat Ini:</span>
+                        <span class="badge bg-secondary text-white fw-bold px-2 py-1" id="switch-modal-current-carrier">-</span>
+                    </div>
+                </div>
+
+                <!-- Cakupan Pengalihan (Jika trip memiliki > 1 destinasi) -->
+                <div id="switch-scope-container" class="mb-3">
+                    <label class="extra-small fw-bold text-muted text-uppercase mb-2 d-block">1. Cakupan Pengalihan</label>
+                    <div class="d-flex flex-column gap-2">
+                        <div class="form-check p-2.5 px-3 border rounded-3 bg-white" style="cursor: pointer;">
+                            <input class="form-check-input" type="radio" name="switch-scope" id="switch-scope-trip" value="entire_trip" checked>
+                            <label class="form-check-label w-100 cursor-pointer" for="switch-scope-trip">
+                                <span class="fw-bold text-dark d-block" style="font-size: 0.85rem;" id="switch-scope-trip-label">Seluruh Surat Jalan / Trip (Semua Titik)</span>
+                                <small class="text-muted extra-small">Alihkan seluruh daftar toko/klien di trip ini ke kurir/driver baru</small>
+                            </label>
+                        </div>
+                        <div class="form-check p-2.5 px-3 border rounded-3 bg-white" style="cursor: pointer;">
+                            <input class="form-check-input" type="radio" name="switch-scope" id="switch-scope-single" value="single_stop">
+                            <label class="form-check-label w-100 cursor-pointer" for="switch-scope-single">
+                                <span class="fw-bold text-dark d-block" style="font-size: 0.85rem;">Hanya Titik Pengantaran Ini Saja</span>
+                                <small class="text-muted extra-small">Pisahkan titik ini menjadi penugasan terpisah untuk personil baru</small>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pilihan Personil Pengganti -->
+                <div class="mb-3">
+                    <label class="extra-small fw-bold text-muted text-uppercase mb-2 d-block">
+                        <span id="switch-courier-step-num">2</span>. Pilih Kurir / Driver Pengganti
+                    </label>
+                    <select id="switch-modal-target-courier" class="form-select py-2 fw-semibold" style="border-radius: 10px;" onchange="onSwitchTargetCourierChange(this.value)">
+                        <option value="">-- Pilih Kurir / Driver Baru --</option>
+                    </select>
+                    <div id="switch-target-preview" class="mt-2 p-2 px-3 rounded-2 bg-primary-subtle text-primary extra-small fw-bold d-none">
+                        <i class="bi bi-check-circle-fill me-1"></i> <span id="switch-target-preview-text"></span>
+                    </div>
+                </div>
+
+                <!-- Catatan Pengalihan -->
+                <div class="mb-4">
+                    <label class="extra-small fw-bold text-muted text-uppercase mb-1 d-block">Catatan Alasan (Opsional)</label>
+                    <input type="text" id="switch-modal-reason" class="form-control form-control-sm py-2" placeholder="Contoh: Salah pilih armada / muatan besar dialihkan ke driver..." style="border-radius: 8px;">
+                </div>
+
+                <!-- Action Button -->
+                <button type="button" id="switch-modal-submit-btn" class="btn btn-primary w-100 py-2.5 fw-bold shadow-sm d-flex align-items-center justify-content-center gap-2" style="border-radius: 12px;" onclick="confirmSwitchCourier()">
+                    <i class="bi bi-arrow-left-right"></i>
+                    <span>KONFIRMASI SWITCH PENUGASAN</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Side-by-Side Audit Modal (H+1 SJ Matching) -->
 <div class="modal fade" id="auditSjModal" tabindex="-1">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">

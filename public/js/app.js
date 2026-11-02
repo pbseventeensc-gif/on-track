@@ -88,6 +88,10 @@ window.handleLogin = handleLogin;
 window.handleLogout = handleLogout;
 window.logout = logout;
 window.deleteDestinationStop = deleteDestinationStop;
+window.openSwitchCourierModal = openSwitchCourierModal;
+window.openSwitchAllTripsCourierModal = openSwitchAllTripsCourierModal;
+window.onSwitchTargetCourierChange = onSwitchTargetCourierChange;
+window.confirmSwitchCourier = confirmSwitchCourier;
 window.openPoDModal = openPoDModal;
 window.toggleNotifDropdown = toggleNotifDropdown;
 window.handleNotificationClick = handleNotificationClick;
@@ -185,6 +189,7 @@ const COURIER_PHOTO_MAP = {
     'baykaqi': '/assets/couriers/Baykaqi.jpeg',
     'beto': '/assets/couriers/Beto.jpeg',
     'eri': '/assets/couriers/Eri.jpeg',
+    'firdaus': '/assets/couriers/Firdaus.jpeg',
     'haris': '/assets/couriers/Haris.jpeg',
     'husen': '/assets/couriers/Husen.jpeg',
     'irfan': '/assets/couriers/Irfan.jpeg',
@@ -196,6 +201,8 @@ const COURIER_PHOTO_MAP = {
     'noval': '/assets/couriers/Noval.jpeg',
     'novalempah2': '/assets/couriers/Noval.jpeg',
     'rizki': '/assets/couriers/Rizki.jpeg',
+    'romi': '/assets/couriers/Romi.jpeg',
+    'rommy': '/assets/couriers/Romi.jpeg',
     'umar': '/assets/couriers/Umar.jpeg'
 };
 window.COURIER_PHOTO_MAP = COURIER_PHOTO_MAP;
@@ -474,9 +481,19 @@ function setRecentDateAllTime() {
 }
 window.setRecentDateAllTime = setRecentDateAllTime;
 
+function canManageShipments(role) {
+    const r = (role || currentUserRole || '').toLowerCase();
+    if (r === 'sales_admin' || r === 'sales' || r === 'courier' || r === 'kurir') {
+        return false;
+    }
+    return true; // super_admin, admin_logistik, admin_dm2, dm2, branch_admin, branch
+}
+window.canManageShipments = canManageShipments;
+
 function getActiveBranchId() {
-    if (currentUserRole === 'branch_admin' || currentUserRole === 'branch') {
-        return currentUserBranchId || 'cikokol';
+    const r = (currentUserRole || '').toLowerCase();
+    if (r === 'branch_admin' || r === 'branch' || r === 'admin_dm2' || r === 'dm2') {
+        return currentUserBranchId || (r.includes('dm2') ? 'dm2' : 'cikokol');
     }
     const selectEl = document.getElementById('header-branch-filter');
     if (selectEl) {
@@ -691,11 +708,9 @@ function extractDestinationPhotos(d, t = null) {
     if (d.imgUrl) addUrl(d.imgUrl);
     if (d.image) addUrl(d.image);
 
-    if (t) {
-        if (t.adminBulkSjUrl) addUrl(t.adminBulkSjUrl);
-        if (t.adminBulkSjUrls) addUrl(t.adminBulkSjUrls);
-        if (t.proofPhotoUrl) addUrl(t.proofPhotoUrl);
-    }
+    // Pastikan foto yang diekstrak HANYA milik destinasi (d),
+    // JANGAN mengambil foto adminBulkSjUrl / adminBulkSjUrls dari trip (t)
+    // agar surat jalan bulk kantor tidak tercampur sebagai bukti pengiriman (PoD) per-toko.
 
     if (allUrls.length === 0) {
         return { sjUrl: '', itemUrl: '', itemUrls: [], pendingUrl: '', allUrls: [] };
@@ -1236,7 +1251,7 @@ function isTabAllowedForRole(role, viewId) {
         return viewId === 'dashboard' || viewId === 'monitor' || viewId === 'pod-archive';
     }
     if (r === 'admin_dm2' || r === 'dm2' || r === 'branch_admin' || r === 'branch') {
-        return viewId === 'dashboard' || viewId === 'monitor' || viewId === 'dispatch' || viewId === 'pod-archive';
+        return viewId === 'dashboard' || viewId === 'monitor' || viewId === 'dispatch' || viewId === 'pool' || viewId === 'pod-archive';
     }
     return false;
 }
@@ -2972,7 +2987,13 @@ function renderMonitorUI(filter = "") {
                             <div class="d-flex align-items-center gap-1">
                                 <span class="badge rounded-pill bg-light text-dark border extra-small py-1 px-2" style="font-size:0.65rem">${c.trips.length} Tugas</span>
                                 ${pendingBadgeHtml}
-                                ${c.trips.length > 0 ? `<button class="btn btn-sm btn-link text-danger p-0 ms-1 text-decoration-none" onclick="deleteCourierActiveTrips('${c.rawId || c.id}', '${c.name.replace(/'/g, "\\'")}')" title="Batalkan Semua Tugas"><i class="bi bi-trash" style="font-size:0.8rem"></i></button>` : ''}
+                                ${c.trips.length > 0 ? `
+                                    <button class="btn btn-sm btn-link text-primary p-0 ms-1 text-decoration-none" onclick="openSwitchAllTripsCourierModal('${c.rawId || c.id}', '${c.name.replace(/'/g, "\\'")}', ${c.trips.length})" title="Switch / Transfer Semua Tugas ke Kurir/Driver Lain">
+                                        <i class="bi bi-arrow-left-right" style="font-size:0.8rem"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-link text-danger p-0 ms-1 text-decoration-none" onclick="deleteCourierActiveTrips('${c.rawId || c.id}', '${c.name.replace(/'/g, "\\'")}')" title="Batalkan Semua Tugas">
+                                        <i class="bi bi-trash" style="font-size:0.8rem"></i>
+                                    </button>` : ''}
                             </div>
                         </div>
 
@@ -3623,6 +3644,7 @@ function renderRecentShipments(filter = "") {
                         isPendingApproval: isPendingApproval,
                         pendingReason: d.pendingReason || '',
                         pendingProofPhotoUrl: d.pendingProofPhotoUrl || '',
+                        courierId: courierIdStr,
                         carrier: cName,
                         eta: timeStr,
                         proofSjUrl: photos.sjUrl,
@@ -3743,9 +3765,14 @@ function renderRecentShipments(filter = "") {
             <td class="fw-normal text-dark text-nowrap" style="white-space: nowrap;">${s.carrier}</td>
             <td class="text-nowrap" style="white-space: nowrap;"><small class="fw-normal text-secondary">${s.eta}</small></td>
             <td class="text-nowrap">
-                <button class="btn btn-sm btn-light border text-danger" onclick="deleteDestinationStop('${s.tripId}', ${s.stopIndex}, '${s.destinationName.replace(/'/g, "\\'")}')" title="Hapus Titik Pengantaran Ini">
-                    <i class="bi bi-trash"></i>
-                </button>
+                <div class="d-inline-flex gap-1 align-items-center">
+                    <button class="btn btn-sm btn-light border text-primary" onclick="openSwitchCourierModal('${s.tripId}', ${s.stopIndex}, '${s.carrier.replace(/'/g, "\\'")}', '${s.destinationName.replace(/'/g, "\\'")}', '${s.displayId}', '${s.courierId || ''}')" title="Switch / Ganti Kurir & Driver">
+                        <i class="bi bi-arrow-left-right"></i>
+                    </button>
+                    <button class="btn btn-sm btn-light border text-danger" onclick="deleteDestinationStop('${s.tripId}', ${s.stopIndex}, '${s.destinationName.replace(/'/g, "\\'")}')" title="Hapus Titik Pengantaran Ini">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
             </td>
         </tr>`);
     });
@@ -4684,6 +4711,290 @@ function handleLogout() {
 function logout() {
     handleLogout();
 }
+
+function openSwitchCourierModal(tripId, stopIndex, currentCarrierName, destinationName, displayId, currentCourierId) {
+    const modalEl = document.getElementById('switchCourierModal');
+    if (!modalEl) return;
+
+    document.getElementById('switch-modal-trip-id').value = tripId || '';
+    document.getElementById('switch-modal-stop-index').value = stopIndex || '1';
+    document.getElementById('switch-modal-mode').value = 'single_or_trip';
+    document.getElementById('switch-modal-reason').value = '';
+
+    const shipmentIdEl = document.getElementById('switch-modal-shipment-id');
+    const destNameEl = document.getElementById('switch-modal-destination-name');
+    const carrierEl = document.getElementById('switch-modal-current-carrier');
+    const scopeContainer = document.getElementById('switch-scope-container');
+    const tripRadioLabel = document.getElementById('switch-scope-trip-label');
+    const stepNumEl = document.getElementById('switch-courier-step-num');
+    const previewEl = document.getElementById('switch-target-preview');
+
+    if (previewEl) previewEl.classList.add('d-none');
+    if (shipmentIdEl) shipmentIdEl.innerText = displayId || `#${(tripId || '').slice(-6)}-${stopIndex}`;
+    if (destNameEl) destNameEl.innerText = destinationName || '-';
+
+    const curNorm = normalizeCourierIdentity(currentCourierId || '', currentCarrierName || '');
+    const curRoleBadge = curNorm.role === 'driver' ? 'Driver Mobil' : 'Kurir Motor';
+    if (carrierEl) {
+        carrierEl.innerText = `${curNorm.displayName || currentCarrierName} (${curRoleBadge})`;
+        carrierEl.className = curNorm.role === 'driver' ? 'badge bg-warning text-dark fw-bold px-2 py-1' : 'badge bg-primary text-white fw-bold px-2 py-1';
+    }
+
+    const tripObj = (allCurrentTrips || []).find(t => t.id === tripId || t.tripId === tripId);
+    const destCount = tripObj && tripObj.destinations ? tripObj.destinations.length : 1;
+
+    if (destCount > 1) {
+        if (scopeContainer) scopeContainer.style.display = 'block';
+        if (tripRadioLabel) tripRadioLabel.innerText = `Seluruh Surat Jalan / Trip (Semua ${destCount} Titik)`;
+        const tripRadio = document.getElementById('switch-scope-trip');
+        if (tripRadio) tripRadio.checked = true;
+        if (stepNumEl) stepNumEl.innerText = '2';
+    } else {
+        if (scopeContainer) scopeContainer.style.display = 'none';
+        const tripRadio = document.getElementById('switch-scope-trip');
+        if (tripRadio) tripRadio.checked = true;
+        if (stepNumEl) stepNumEl.innerText = '1';
+    }
+
+    const selectEl = document.getElementById('switch-modal-target-courier');
+    if (selectEl) {
+        selectEl.innerHTML = buildCourierOptgroupHtml('-- Pilih Kurir / Driver Pengganti --', 'defaultUid');
+        Array.from(selectEl.options).forEach(opt => {
+            if (opt.value) {
+                const optNorm = normalizeCourierIdentity(opt.value, opt.text);
+                if (optNorm.canonicalId === curNorm.canonicalId || opt.text.toLowerCase() === (curNorm.displayName || '').toLowerCase()) {
+                    opt.disabled = true;
+                    opt.text += ' (Kurir Saat Ini)';
+                }
+            }
+        });
+        selectEl.value = '';
+    }
+
+    if (typeof bootstrap !== 'undefined') {
+        const bsModal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+        bsModal.show();
+    }
+}
+window.openSwitchCourierModal = openSwitchCourierModal;
+
+function openSwitchAllTripsCourierModal(courierId, courierName, activeTripCount) {
+    const modalEl = document.getElementById('switchCourierModal');
+    if (!modalEl) return;
+
+    document.getElementById('switch-modal-trip-id').value = courierId || '';
+    document.getElementById('switch-modal-stop-index').value = '0';
+    document.getElementById('switch-modal-mode').value = 'all_courier_trips';
+    document.getElementById('switch-modal-reason').value = '';
+
+    const shipmentIdEl = document.getElementById('switch-modal-shipment-id');
+    const destNameEl = document.getElementById('switch-modal-destination-name');
+    const carrierEl = document.getElementById('switch-modal-current-carrier');
+    const scopeContainer = document.getElementById('switch-scope-container');
+    const stepNumEl = document.getElementById('switch-courier-step-num');
+    const previewEl = document.getElementById('switch-target-preview');
+
+    if (previewEl) previewEl.classList.add('d-none');
+    if (shipmentIdEl) shipmentIdEl.innerText = `Semua Tugas Aktif (${activeTripCount || 0} Tugas)`;
+    if (destNameEl) destNameEl.innerText = `Seluruh Rute & Jadwal Pengiriman Hari Ini`;
+
+    const curNorm = normalizeCourierIdentity(courierId, courierName || '');
+    const curRoleBadge = curNorm.role === 'driver' ? 'Driver Mobil' : 'Kurir Motor';
+    if (carrierEl) {
+        carrierEl.innerText = `${curNorm.displayName || courierName} (${curRoleBadge})`;
+        carrierEl.className = curNorm.role === 'driver' ? 'badge bg-warning text-dark fw-bold px-2 py-1' : 'badge bg-primary text-white fw-bold px-2 py-1';
+    }
+
+    if (scopeContainer) scopeContainer.style.display = 'none';
+    if (stepNumEl) stepNumEl.innerText = '1';
+
+    const selectEl = document.getElementById('switch-modal-target-courier');
+    if (selectEl) {
+        selectEl.innerHTML = buildCourierOptgroupHtml('-- Pilih Kurir / Driver Pengganti --', 'defaultUid');
+        Array.from(selectEl.options).forEach(opt => {
+            if (opt.value) {
+                const optNorm = normalizeCourierIdentity(opt.value, opt.text);
+                if (optNorm.canonicalId === curNorm.canonicalId || opt.text.toLowerCase() === (curNorm.displayName || '').toLowerCase()) {
+                    opt.disabled = true;
+                    opt.text += ' (Kurir Saat Ini)';
+                }
+            }
+        });
+        selectEl.value = '';
+    }
+
+    if (typeof bootstrap !== 'undefined') {
+        const bsModal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+        bsModal.show();
+    }
+}
+window.openSwitchAllTripsCourierModal = openSwitchAllTripsCourierModal;
+
+function onSwitchTargetCourierChange(val) {
+    const previewEl = document.getElementById('switch-target-preview');
+    const previewText = document.getElementById('switch-target-preview-text');
+    if (!previewEl || !previewText) return;
+
+    if (!val) {
+        previewEl.classList.add('d-none');
+        return;
+    }
+
+    const info = normalizeCourierIdentity(val, '');
+    const roleText = info.role === 'driver' ? 'Driver Mobil (Armada Mobil)' : 'Kurir Motor (Armada Motor)';
+    previewText.innerText = `Dialihkan ke: ${info.displayName} — ${roleText}`;
+    previewEl.classList.remove('d-none');
+}
+window.onSwitchTargetCourierChange = onSwitchTargetCourierChange;
+
+async function confirmSwitchCourier() {
+    const btn = document.getElementById('switch-modal-submit-btn');
+    const tripId = document.getElementById('switch-modal-trip-id')?.value;
+    const stopIndex = parseInt(document.getElementById('switch-modal-stop-index')?.value || '0');
+    const mode = document.getElementById('switch-modal-mode')?.value || 'single_or_trip';
+    const targetUid = document.getElementById('switch-modal-target-courier')?.value;
+    const reason = document.getElementById('switch-modal-reason')?.value?.trim() || '';
+    const scope = document.querySelector('input[name="switch-scope"]:checked')?.value || 'entire_trip';
+
+    if (!targetUid) {
+        alert("Silakan pilih kurir atau driver pengganti terlebih dahulu!");
+        return;
+    }
+
+    const activeDb = getDb();
+    if (!activeDb) {
+        alert("Database Firestore belum terhubung.");
+        return;
+    }
+
+    const targetInfo = normalizeCourierIdentity(targetUid, '');
+    const newVehicleType = targetInfo.vehicleType || (targetInfo.role === 'driver' ? 'mobil' : 'motor');
+    const newCourierName = targetInfo.displayName || 'Kurir/Driver';
+    const finalTargetUid = targetInfo.uid || targetUid;
+
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status"></span> MEMPROSES SWITCH...`;
+    }
+
+    try {
+        if (mode === 'all_courier_trips') {
+            const sourceCourierId = tripId;
+            const sourceNorm = normalizeCourierIdentity(sourceCourierId, '');
+            const tripsToSwitch = (allCurrentTrips || []).filter(t => {
+                const tNorm = normalizeCourierIdentity(t.courierId, '');
+                const isMatch = (t.courierId === sourceCourierId || tNorm.canonicalId === sourceNorm.canonicalId || tNorm.uid === sourceNorm.uid);
+                return isMatch && t.status !== 'completed';
+            });
+
+            if (tripsToSwitch.length === 0) {
+                alert("Tidak ada tugas aktif yang ditemukan untuk dialihkan.");
+                return;
+            }
+
+            const batch = activeDb.batch();
+            tripsToSwitch.forEach(t => {
+                const ref = activeDb.collection('trips').doc(t.id);
+                batch.update(ref, {
+                    courierId: finalTargetUid,
+                    vehicleType: newVehicleType,
+                    status: 'in_progress',
+                    previousCourierId: t.courierId || '',
+                    switchedAt: firebase.firestore.Timestamp.now(),
+                    switchedReason: reason || 'Switch admin live tracking',
+                    acceptedTime: firebase.firestore.Timestamp.now()
+                });
+            });
+            await batch.commit();
+
+            showToast(`Sukses! ${tripsToSwitch.length} tugas berhasil dialihkan ke ${newCourierName} (${targetInfo.role === 'driver' ? 'Driver Mobil' : 'Kurir Motor'}).`);
+        } else {
+            const tripRef = activeDb.collection('trips').doc(tripId);
+            const snap = await tripRef.get();
+            if (!snap.exists) {
+                alert("Data pengiriman tidak ditemukan di Firestore.");
+                return;
+            }
+
+            const tData = snap.data();
+            const currentDests = tData.destinations || [];
+
+            if (scope === 'entire_trip' || currentDests.length <= 1) {
+                await tripRef.update({
+                    courierId: finalTargetUid,
+                    vehicleType: newVehicleType,
+                    status: (tData.status === 'pool' || !tData.status) ? 'in_progress' : tData.status,
+                    previousCourierId: tData.courierId || '',
+                    switchedAt: firebase.firestore.Timestamp.now(),
+                    switchedReason: reason || 'Switch admin',
+                    acceptedTime: firebase.firestore.Timestamp.now()
+                });
+
+                showToast(`Sukses! Seluruh tugas pengiriman #${tripId.slice(-6)} dialihkan ke ${newCourierName}.`);
+            } else {
+                const targetDest = currentDests.find(d => d.stopIndex === stopIndex);
+                if (!targetDest) {
+                    alert("Titik pengantaran tidak ditemukan pada surat jalan ini.");
+                    return;
+                }
+
+                // Hapus titik ini dari trip lama dan susun ulang nomor urut sisanya
+                const updatedOldDests = currentDests.filter(d => d.stopIndex !== stopIndex);
+                updatedOldDests.forEach((d, i) => d.stopIndex = i + 1);
+
+                await tripRef.update({
+                    destinations: updatedOldDests
+                });
+
+                // Buat trip baru untuk kurir/driver tujuan
+                const newTripId = "TRIP_" + Date.now();
+                await activeDb.collection('trips').doc(newTripId).set({
+                    tripId: newTripId,
+                    courierId: finalTargetUid,
+                    vehicleType: newVehicleType,
+                    status: "in_progress",
+                    region: tData.region || "Jakarta Pusat",
+                    date: firebase.firestore.Timestamp.now(),
+                    acceptedTime: firebase.firestore.Timestamp.now(),
+                    branchId: tData.branchId || getActiveBranchId(),
+                    adminBulkSjUrl: tData.adminBulkSjUrl || '',
+                    adminBulkSjUrls: tData.adminBulkSjUrls || [],
+                    switchedFromTripId: tripId,
+                    switchedReason: reason || 'Switch single stop',
+                    destinations: [{
+                        stopIndex: 1,
+                        locationName: targetDest.locationName,
+                        address: targetDest.address || "",
+                        latitude: parseFloat(targetDest.latitude !== undefined ? targetDest.latitude : -6.2088),
+                        longitude: parseFloat(targetDest.longitude !== undefined ? targetDest.longitude : 106.8456),
+                        status: targetDest.status || "pending",
+                        proofPhotoUrl: targetDest.proofPhotoUrl || ""
+                    }]
+                });
+
+                showToast(`Sukses! Titik "${targetDest.locationName}" berhasil dipisahkan dan dialihkan ke ${newCourierName}.`);
+            }
+        }
+
+        const modalEl = document.getElementById('switchCourierModal');
+        if (modalEl && typeof bootstrap !== 'undefined') {
+            const inst = bootstrap.Modal.getInstance(modalEl);
+            if (inst) inst.hide();
+        }
+
+        if (typeof renderRecentShipments === 'function') renderRecentShipments();
+        if (typeof renderMonitorUI === 'function') renderMonitorUI();
+    } catch(err) {
+        console.error("Error switching courier:", err);
+        alert("Gagal melakukan switch kurir: " + err.message);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = `<i class="bi bi-arrow-left-right"></i> <span>KONFIRMASI SWITCH PENUGASAN</span>`;
+        }
+    }
+}
+window.confirmSwitchCourier = confirmSwitchCourier;
 
 async function deleteDestinationStop(tripId, stopIndex, locationName) {
     if (!confirm(`Hapus titik pengantaran "${locationName}" (#Stop ${stopIndex}) dari pengiriman ini?`)) return;
