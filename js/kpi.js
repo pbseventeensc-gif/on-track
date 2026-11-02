@@ -156,8 +156,8 @@ async function exportKPIToExcel() {
         periodText = 'Minggu Ini';
         fileDateSuffix = 'Minggu_Ini';
     } else {
-        periodText = 'Hari Ini (' + new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) + ')';
-        fileDateSuffix = 'Hari_Ini_' + new Date().toISOString().slice(0, 10);
+        periodText = 'Semua Periode (All-Time)';
+        fileDateSuffix = 'All_Time';
     }
 
     if (typeof ExcelJS !== 'undefined') {
@@ -430,22 +430,28 @@ function renderKPIView(filter = "") {
     let startMs = 0;
     let endMs = Infinity;
 
-    if (startDateVal) {
-        startMs = new Date(startDateVal + "T00:00:00").getTime();
-    } else {
+    const startInput = document.getElementById('kpi-start-date');
+    const endInput = document.getElementById('kpi-end-date');
+
+    // Inisialisasi default ke hari ini saat pertama kali dibuka jika kedua input masih kosong
+    if (startInput && !startInput.value && endInput && !endInput.value) {
+        const todayStr = now.toLocaleDateString('sv-SE');
+        startInput.value = todayStr;
+        endInput.value = todayStr;
         startMs = todayStartMs;
-    }
-
-    if (endDateVal) {
-        endMs = new Date(endDateVal + "T23:59:59.999").getTime();
-    } else {
         endMs = todayEndMs;
-    }
+    } else {
+        if (startDateVal) {
+            startMs = new Date(startDateVal + "T00:00:00").getTime();
+        } else {
+            startMs = 0;
+        }
 
-    const periodMode = document.getElementById('stat-period-filter')?.value || 'today';
-    if (periodMode === 'all' && !startDateVal && !endDateVal) {
-        startMs = 0;
-        endMs = Infinity;
+        if (endDateVal) {
+            endMs = new Date(endDateVal + "T23:59:59.999").getTime();
+        } else {
+            endMs = Infinity;
+        }
     }
 
     filteredTrips = filteredTrips.filter(t => {
