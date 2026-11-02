@@ -441,6 +441,26 @@ function renderKPIView(filter = "") {
     let totalCompleted = 0;
     let grandTotalKM = 0;
 
+    // Selalu inisialisasi seluruh personil MASTER_COURIERS (10 Driver Mobil & 12 Kurir Motor)
+    // agar data personil tetap muncul lengkap di laporan KPI & Excel meskipun belum ada trip di rentang tanggal yang dipilih.
+    const masterList = (typeof MASTER_COURIERS !== 'undefined' && Array.isArray(MASTER_COURIERS)) ? MASTER_COURIERS : (window.MASTER_COURIERS || []);
+    masterList.forEach(m => {
+        if (activeVehicleFilter !== 'all' && m.vehicleType !== activeVehicleFilter) return;
+        const targetId = m.canonicalId;
+        courierStats[targetId] = {
+            name: m.displayName,
+            completedStops: 0,
+            totalStops: 0,
+            totalKM: 0,
+            totalTime: 0,
+            motorTrips: 0,
+            mobilTrips: 0,
+            regionsVisited: new Set(),
+            hasHeavyCargo: false,
+            vehicleType: m.vehicleType
+        };
+    });
+
 function parseTimestampToMs(timeObj) {
     if (!timeObj) return 0;
     if (typeof timeObj === 'number') return timeObj;
@@ -457,9 +477,7 @@ function parseTimestampToMs(timeObj) {
     filteredTrips.forEach(t => {
         const cId = t.courierId || '';
         if (typeof isCourierInActiveBranch === 'function' && !isCourierInActiveBranch(cId)) return;
-        if (cId.includes('EK74u0gA') || cId.toLowerCase().includes('novalgan')) return;
         const rawName = (typeof registeredUsers !== 'undefined' && registeredUsers[cId]) || (cId.length > 20 ? (typeof getCourierDisplayName === 'function' ? getCourierDisplayName(cId) : cId) : cId) || '';
-        if (rawName.includes('EK74u0gA') || rawName.toLowerCase().includes('novalgan')) return;
 
         const courierInfo = (typeof normalizeCourierIdentity === 'function')
             ? normalizeCourierIdentity(cId, rawName)
@@ -544,6 +562,12 @@ function parseTimestampToMs(timeObj) {
     });
 
     lastKPIData = Object.values(courierStats);
+    if (activeVehicleFilter !== 'all') {
+        lastKPIData = lastKPIData.filter(c => {
+            const v = c.vehicleType || (c.mobilTrips > c.motorTrips ? 'mobil' : 'motor');
+            return v === activeVehicleFilter;
+        });
+    }
     window.lastKPIData = lastKPIData;
 
     const searchVal = (filter || document.getElementById('kpi-search-input')?.value || "").toLowerCase();

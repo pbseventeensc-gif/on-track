@@ -158,7 +158,7 @@ const MASTER_COURIERS = [
     { canonicalId: 'noval', displayName: 'Noval', role: 'kurir', vehicleType: 'motor', defaultUid: 'D9hmxHZ2SJa2BgZN8DO2cT6lgGh1', matchTokens: ['noval', 'novalempah2', 'novalganteng1', 'd9hmx', 'ek74'] },
     { canonicalId: 'jay', displayName: 'Jay', role: 'kurir', vehicleType: 'motor', defaultUid: 'XFAoplNpgjc0QzqE6gcTIa5OA0r2', matchTokens: ['jay', 'andiwijaya', 'andiwijaya27', 'xfaop', '38smk'] },
     { canonicalId: 'ferdi', displayName: 'Ferdi', role: 'kurir', vehicleType: 'motor', defaultUid: 'BOMM2Wmk9LXs90qO3RWskGyIOk72', matchTokens: ['ferdi', 'fredisambo1', 'fredisambo', 'bomm2'] },
-    { canonicalId: 'jagat', displayName: 'Jagat', role: 'kurir', vehicleType: 'motor', defaultUid: 'kwpGbShXoog9kFiRmevZpwTgVxv2', matchTokens: ['jagat', 'jagad', 'jagadbaru1', '3lhr', 'kwpgb'] },
+    { canonicalId: 'jagat', displayName: 'Jagatbaru', role: 'kurir', vehicleType: 'motor', defaultUid: 'kwpGbShXoog9kFiRmevZpwTgVxv2', matchTokens: ['jagat', 'jagad', 'jagatbaru', 'jagatbaru1', 'jagadbaru', 'jagadbaru1', '3lhr', 'kwpgb'] },
     { canonicalId: 'pbseventeensc', displayName: 'pbseventeensc', role: 'kurir', vehicleType: 'motor', defaultUid: 'uP70R51x7CbR5ggHEyeXfsjSTfO2', matchTokens: ['pbseventeensc', 'pbseventensc', 'up70', 'pbseventeensc@gmail.com'] },
 
     // Driver (10 Personil)
