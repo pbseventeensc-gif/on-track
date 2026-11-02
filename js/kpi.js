@@ -120,9 +120,45 @@ async function exportKPIToExcel() {
         });
     });
 
-    const periodSelect = document.getElementById('stat-period-filter')?.value || 'today';
-    const periodMap = { 'today': 'Hari Ini', 'this_week': 'Minggu Ini', 'this_month': 'Bulan Ini', 'all': 'Semua Periode' };
-    const periodText = periodMap[periodSelect] || periodSelect;
+    const startDateVal = document.getElementById('kpi-start-date')?.value;
+    const endDateVal = document.getElementById('kpi-end-date')?.value;
+    const periodSelect = document.getElementById('stat-period-filter')?.value;
+    const activeVehFilter = document.getElementById('kpi-vehicle-filter')?.value || 'all';
+    const fleetTitle = activeVehFilter === 'mobil' ? 'Driver Mobil' : (activeVehFilter === 'motor' ? 'Kurir Motor' : 'Seluruh Personil');
+
+    let periodText = 'Hari Ini';
+    let fileDateSuffix = new Date().toISOString().slice(0, 10);
+
+    if (startDateVal && endDateVal) {
+        if (startDateVal === endDateVal) {
+            const d = new Date(startDateVal + "T00:00:00");
+            periodText = d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+            fileDateSuffix = startDateVal;
+        } else {
+            const d1 = new Date(startDateVal + "T00:00:00");
+            const d2 = new Date(endDateVal + "T00:00:00");
+            periodText = `${d1.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })} s/d ${d2.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+            fileDateSuffix = `${startDateVal}_sd_${endDateVal}`;
+        }
+    } else if (startDateVal && !endDateVal) {
+        periodText = `Mulai ${startDateVal}`;
+        fileDateSuffix = `Mulai_${startDateVal}`;
+    } else if (!startDateVal && endDateVal) {
+        periodText = `Sampai ${endDateVal}`;
+        fileDateSuffix = `Sampai_${endDateVal}`;
+    } else if (periodSelect === 'all') {
+        periodText = 'Semua Periode (All-Time)';
+        fileDateSuffix = 'All_Time';
+    } else if (periodSelect === 'this_month') {
+        periodText = 'Bulan Ini';
+        fileDateSuffix = 'Bulan_Ini';
+    } else if (periodSelect === 'this_week') {
+        periodText = 'Minggu Ini';
+        fileDateSuffix = 'Minggu_Ini';
+    } else {
+        periodText = 'Hari Ini (' + new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) + ')';
+        fileDateSuffix = 'Hari_Ini_' + new Date().toISOString().slice(0, 10);
+    }
 
     if (typeof ExcelJS !== 'undefined') {
         const workbook = new ExcelJS.Workbook();
@@ -149,7 +185,7 @@ async function exportKPIToExcel() {
         // 2. Subtitle Row
         sheet.mergeCells('A2:J2');
         const subCell = sheet.getCell('A2');
-        subCell.value = `Periode Evaluasi: ${periodText}  |  Total Personil Dievaluasi: ${exportData.length} Orang`;
+        subCell.value = `Periode Evaluasi: ${periodText}  |  Kategori: ${fleetTitle}  |  Total Personil Dievaluasi: ${exportData.length} Orang`;
         subCell.font = { name: 'Calibri', size: 9.5, italic: true, bold: true, color: { argb: 'FF1F4E79' } };
         subCell.fill = {
             type: 'pattern',
@@ -268,7 +304,7 @@ async function exportKPIToExcel() {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `Wtrack_KPI_Performance_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        a.download = `Wtrack_KPI_${fleetTitle.replace(/\s+/g, '_')}_${fileDateSuffix}.xlsx`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -292,7 +328,7 @@ async function exportKPIToExcel() {
         const ws = XLSX.utils.json_to_sheet(rawRows);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "KPI Performance");
-        XLSX.writeFile(wb, `Wtrack_KPI_Performance_${new Date().toISOString().slice(0,10)}.xlsx`);
+        XLSX.writeFile(wb, `Wtrack_KPI_${fleetTitle.replace(/\s+/g, '_')}_${fileDateSuffix}.xlsx`);
     }
 }
 window.exportKPIToExcel = exportKPIToExcel;
