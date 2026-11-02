@@ -517,6 +517,59 @@ function setRecentDateAllTime() {
 }
 window.setRecentDateAllTime = setRecentDateAllTime;
 
+function setRecentDateThisMonth() {
+    const now = new Date();
+    const startStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const endStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+    const sStart = document.getElementById('recent-start-date');
+    const sEnd = document.getElementById('recent-end-date');
+    const sDate = document.getElementById('recent-date-filter');
+    if (sStart) sStart.value = startStr;
+    if (sEnd) sEnd.value = endStr;
+    if (sDate) sDate.value = "custom";
+    renderRecentShipments();
+    showToast(`Menampilkan data pengiriman Bulan Ini (${startStr} s/d ${endStr}).`);
+}
+window.setRecentDateThisMonth = setRecentDateThisMonth;
+
+function setArchiveDateToday() {
+    const todayStr = getLocalTodayDateString();
+    const aStart = document.getElementById('archive-start-date');
+    const aEnd = document.getElementById('archive-end-date');
+    if (aStart) aStart.value = todayStr;
+    if (aEnd) aEnd.value = todayStr;
+    renderPoDArchiveView();
+    showToast("Menampilkan arsip foto PoD Hari Ini.");
+}
+window.setArchiveDateToday = setArchiveDateToday;
+
+function setArchiveDateThisMonth() {
+    const now = new Date();
+    const startStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const endStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+    const aStart = document.getElementById('archive-start-date');
+    const aEnd = document.getElementById('archive-end-date');
+    if (aStart) aStart.value = startStr;
+    if (aEnd) aEnd.value = endStr;
+    renderPoDArchiveView();
+    showToast(`Menampilkan arsip foto PoD Bulan Ini (${startStr} s/d ${endStr}).`);
+}
+window.setArchiveDateThisMonth = setArchiveDateThisMonth;
+
+function setArchiveDateAllTime() {
+    const aStart = document.getElementById('archive-start-date');
+    const aEnd = document.getElementById('archive-end-date');
+    if (aStart) aStart.value = "";
+    if (aEnd) aEnd.value = "";
+    renderPoDArchiveView();
+    showToast("Menampilkan seluruh arsip foto PoD (Semua Tanggal).");
+}
+window.setArchiveDateAllTime = setArchiveDateAllTime;
+
 function canManageShipments(role) {
     const r = (role || currentUserRole || '').toLowerCase();
     if (r === 'sales_admin' || r === 'sales' || r === 'courier' || r === 'kurir') {
@@ -3662,9 +3715,16 @@ function renderRecentShipments(filter = "") {
         }
     });
 
+    const isFiltered = !!(startDateVal || endDateVal || selectedStatus !== 'all' || selectedCarrier !== 'all' || rawSearch.length > 0 || (document.getElementById('recent-date-filter')?.value && document.getElementById('recent-date-filter')?.value !== 'today'));
+    const rowsToRender = isFiltered ? shipmentRows : shipmentRows.slice(0, 500);
+
     const totalBadge = document.getElementById('recent-shipments-total-badge');
     if (totalBadge) {
-        totalBadge.innerText = `${shipmentRows.length} Total Filtered`;
+        if (rowsToRender.length === shipmentRows.length) {
+            totalBadge.innerText = `${shipmentRows.length} Total Pengiriman (Full)`;
+        } else {
+            totalBadge.innerText = `Menampilkan ${rowsToRender.length} dari ${shipmentRows.length} Pengiriman`;
+        }
     }
 
     const carrierSelect = document.getElementById('recent-carrier-filter');
@@ -3722,10 +3782,8 @@ function renderRecentShipments(filter = "") {
         }
     });
 
-    const maxRows = (startDateVal || endDateVal || selectedStatus !== 'all' || selectedCarrier !== 'all' || rawSearch.length > 0) ? 1000 : 200;
-
     const rowsHtml = [];
-    shipmentRows.slice(0, maxRows).forEach(s => {
+    rowsToRender.forEach(s => {
         let podIconsHtml = '';
         if (s.proofSjUrl) {
             podIconsHtml += `<i class="bi bi-file-earmark-check-fill text-success ms-1 cursor-pointer fs-6" data-url="${s.proofSjUrl.replace(/"/g, '&quot;')}" onclick="openPoDModal(this.dataset.url)" title="Lihat Foto Surat Jalan (SJ)"></i>`;
@@ -4129,10 +4187,13 @@ async function exportRecentShipmentsToExcel() {
                 const stopIdx = d.stopIndex || (idx + 1);
                 const uniqueShipmentId = `${tripIdShort}-${stopIdx}`;
 
+                const photos = extractDestinationPhotos(d, t);
+                const hasAnyPhoto = photos.allUrls.length > 0;
                 const rawStatus = d.status || 'pending';
                 const isKlienTutupApproved = (rawStatus === 'pending' && d.pendingReason && d.pendingReason.length > 0);
                 const isPendingApproval = (rawStatus === 'pending_approval');
-                const status = (d.status === 'done' || d.proofPhotoUrl) ? 'completed' : (d.status === 'arrived' ? 'in_progress' : (isPendingApproval ? 'pending_approval' : (isKlienTutupApproved ? 'klien_tutup' : (t.status || 'pending'))));
+                const isDoneOrHasPhoto = (d.status === 'done' || d.status === 'completed' || hasAnyPhoto);
+                const status = isDoneOrHasPhoto ? 'completed' : (d.status === 'arrived' ? 'in_progress' : (isPendingApproval ? 'pending_approval' : (isKlienTutupApproved ? 'klien_tutup' : (t.status || 'pending'))));
 
                 const searchableText = `${uniqueShipmentId} ${tripIdShort} ${tripIdStr} ${cName} ${locName} ${fullAddress} ${status} ${d.pendingReason || ''} ${tripDateStr}`.toLowerCase();
                 const terms = rawSearch.split(/\s+/).filter(x => x.length > 0);
@@ -4180,7 +4241,7 @@ async function exportRecentShipmentsToExcel() {
                         "Arrival Time": arrivalStr,
                         "Completed Time": completedStr,
                         "Pending Reason": d.pendingReason || '-',
-                        "Proof Photo URL": d.proofPhotoUrl || d.proofPhotoSj || '-'
+                        "Proof Photo URL": photos.allUrls.length > 0 ? photos.allUrls.join(', ') : '-'
                     });
                 }
             });
@@ -4341,9 +4402,10 @@ async function exportRecentShipmentsToExcel() {
                     cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
                 } else if (cIdx === 14) {
                     if (val && typeof val === 'string' && val.startsWith('http')) {
+                        const photoArr = val.split(',').map(s => s.trim()).filter(Boolean);
                         cell.value = {
-                            text: '📸 Lihat Foto PoD',
-                            hyperlink: val.split(',')[0].trim()
+                            text: photoArr.length > 1 ? `📸 Lihat PoD (${photoArr.length} Foto)` : '📸 Lihat Foto PoD',
+                            hyperlink: photoArr[0]
                         };
                         cell.font = { name: 'Calibri', size: 9.5, bold: true, color: { argb: 'FF1D4ED8' }, underline: true };
                     } else {
@@ -5580,14 +5642,12 @@ async function deleteDestinationStop(tripId, stopIndex, locationName) {
 }
 
 
-function renderPoDArchiveView(filter = "") {
-    const grid = document.getElementById('archive-photo-grid');
-    if (!grid) return;
-
-    const rawSearch = (typeof filter === 'string' ? filter : (document.getElementById('archive-search-input')?.value || "")).toLowerCase().trim();
+function collectPoDArchivePhotos() {
+    const rawSearch = (document.getElementById('archive-search-input')?.value || "").toLowerCase().trim();
     const selectedCourier = document.getElementById('archive-courier-filter')?.value || "all";
     const startDateVal = document.getElementById('archive-start-date')?.value;
     const endDateVal = document.getElementById('archive-end-date')?.value;
+    const selectedCategory = document.getElementById('archive-category-filter')?.value || "all";
 
     let filterStartMs = 0;
     let filterEndMs = Infinity;
@@ -5601,122 +5661,183 @@ function renderPoDArchiveView(filter = "") {
         if (parsed !== null) filterEndMs = parsed;
     }
 
-    const archiveCourierSelect = document.getElementById('archive-courier-filter');
-    if (archiveCourierSelect && archiveCourierSelect.options.length <= 1) {
-        const curVal = archiveCourierSelect.value;
-        let optHtml = '<option value="all">Semua Kurir & Driver</option>';
-        optHtml += buildCourierOptgroupHtml('', 'displayName');
-        archiveCourierSelect.innerHTML = optHtml;
-        if (curVal) archiveCourierSelect.value = curVal;
-    }
-
-    const selectedCategory = document.getElementById('archive-category-filter')?.value || "all";
-
     const photos = [];
-    allCurrentTrips.forEach(t => {
+    (allCurrentTrips || []).forEach(t => {
+        if (!t) return;
         if (typeof isTripInActiveBranch === 'function' && !isTripInActiveBranch(t)) return;
         if (t.courierId && typeof isCourierInActiveBranch === 'function' && !isCourierInActiveBranch(t.courierId)) return;
 
-        const cName = getCourierDisplayName(t.courierId);
-        const tripIdShort = '#' + t.id.substring(Math.max(0, t.id.length - 6));
-        const tripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : 0);
+        const courierIdStr = t.courierId || '';
+        const cName = typeof getCourierDisplayName === 'function' ? getCourierDisplayName(courierIdStr) : (courierIdStr ? courierIdStr.substring(0, 8) : 'Unknown');
+        const tripIdStr = String(t.id || t.tripId || '');
+        const tripIdShort = '#' + (tripIdStr.length > 6 ? tripIdStr.substring(tripIdStr.length - 6) : tripIdStr);
+        const tripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : (tripIdStr.startsWith('TRIP_') ? parseInt(tripIdStr.replace('TRIP_', '')) || 0 : 0));
         const tripDateStr = tripMs ? new Date(tripMs).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '-';
 
-        if (selectedCourier !== 'all' && cName !== selectedCourier && t.courierId !== selectedCourier) {
+        // Check Courier Filter with canonical identity normalization
+        if (selectedCourier !== 'all') {
+            const courierInfo = normalizeCourierIdentity(courierIdStr, cName);
+            const filterInfo = normalizeCourierIdentity(selectedCourier, "");
+            if (courierIdStr !== selectedCourier &&
+                cName.toLowerCase() !== selectedCourier.toLowerCase() &&
+                courierInfo.canonicalId !== filterInfo.canonicalId) {
+                return;
+            }
+        }
+
+        // Check Date Filter using isTripInDateRange
+        if (filterStartMs > 0 && !isTripInDateRange(t, filterStartMs, filterEndMs)) {
             return;
         }
 
-        if (filterStartMs > 0 && (tripMs < filterStartMs || tripMs > filterEndMs)) {
-            return;
+        // 0. Include Admin Bulk SJ if present
+        if (selectedCategory === 'all' || selectedCategory === 'admin_bulk') {
+            const bulkUrls = typeof getTripAdminBulkSjUrls === 'function'
+                ? getTripAdminBulkSjUrls(t)
+                : (Array.isArray(t.adminBulkSjUrls) ? t.adminBulkSjUrls : (t.adminBulkSjUrl ? t.adminBulkSjUrl.split(',').map(s => s.trim()).filter(Boolean) : []));
+
+            bulkUrls.forEach((bUrl, bIdx) => {
+                if (!bUrl) return;
+                const bulkSearchable = `${tripIdShort} ${tripIdStr} ${cName} bulk sj kantor surat jalan gabungan ${tripDateStr}`.toLowerCase();
+                const terms = rawSearch.split(/\s+/).filter(x => x.length > 0);
+                const matchSearch = !rawSearch || terms.every(term => {
+                    const cleanTerm = term.replace('#', '');
+                    return bulkSearchable.includes(term) || bulkSearchable.includes(cleanTerm);
+                });
+                if (matchSearch) {
+                    photos.push({
+                        url: bUrl,
+                        category: 'admin_bulk',
+                        categoryTag: bulkUrls.length > 1 ? `🏢 Bulk SJ #${bIdx + 1}` : '🏢 Bulk SJ Kantor',
+                        badgeClass: 'bg-secondary',
+                        shipmentId: `${tripIdShort}-BULK`,
+                        clientName: `Admin Dispatch (${t.destinations ? t.destinations.length : 0} Toko)`,
+                        fullAddress: 'Dokumen Gabungan Kantor',
+                        courierName: cName,
+                        dateStr: tripDateStr,
+                        tripMs: tripMs,
+                        stopIndex: 0
+                    });
+                }
+            });
         }
 
-        if (t.destinations) {
+        // Destination Photos
+        if (t.destinations && Array.isArray(t.destinations)) {
             t.destinations.forEach((d, idx) => {
+                if (!d) return;
                 const locName = d.locationName || 'Destination';
                 const fullAddress = d.address || '';
                 const stopIdx = d.stopIndex || (idx + 1);
                 const uniqueShipmentId = `${tripIdShort}-${stopIdx}`;
 
-                const searchableText = `${uniqueShipmentId} ${tripIdShort} ${t.id} ${cName} ${locName} ${fullAddress} ${tripDateStr}`.toLowerCase();
-                const terms = rawSearch.split(/\s+/).filter(x => x.length > 0);
-                const matchSearch = !rawSearch || terms.every(term => searchableText.includes(term));
+                const dCompletedMs = d.completedTime?.seconds ? d.completedTime.seconds * 1000 : (d.completedTime ? new Date(d.completedTime).getTime() : 0);
+                const dArrivalMs = d.arrivalTime?.seconds ? d.arrivalTime.seconds * 1000 : (d.arrivalTime ? new Date(d.arrivalTime).getTime() : 0);
+                const destTimeMs = dCompletedMs || dArrivalMs || tripMs;
+                const destDateStr = destTimeMs ? new Date(destTimeMs).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : tripDateStr;
 
+                // Destination date filtering
+                if (filterStartMs > 0) {
+                    const isDestInRange = (destTimeMs >= filterStartMs && destTimeMs <= filterEndMs);
+                    const isTripInRange = (tripMs >= filterStartMs && tripMs <= filterEndMs);
+                    if (!isDestInRange && !isTripInRange) return;
+                }
+
+                const searchableText = `${uniqueShipmentId} ${tripIdShort} ${tripIdStr} ${cName} ${locName} ${fullAddress} ${destDateStr} ${d.pendingReason || ''}`.toLowerCase();
+                const terms = rawSearch.split(/\s+/).filter(x => x.length > 0);
+                const matchSearch = !rawSearch || terms.every(term => {
+                    const cleanTerm = term.replace('#', '');
+                    return searchableText.includes(term) || searchableText.includes(cleanTerm);
+                });
                 if (!matchSearch) return;
 
-                // 1. Process Surat Jalan (SJ) photo
-                if (d.proofPhotoSj) {
-                    const sjUrls = String(d.proofPhotoSj).split(',').map(s => s.trim()).filter(Boolean);
-                    if (selectedCategory === 'all' || selectedCategory === 'sj') {
-                        sjUrls.forEach((sjUrl, sIdx) => {
+                const extracted = extractDestinationPhotos(d, t);
+                const seenUrls = new Set();
+
+                // 1. Surat Jalan (SJ)
+                if (extracted.sjUrl && (selectedCategory === 'all' || selectedCategory === 'sj')) {
+                    const sjList = extracted.sjUrl.split(',').map(s => s.trim()).filter(Boolean);
+                    sjList.forEach((sjUrl, sIdx) => {
+                        if (sjUrl && !seenUrls.has(sjUrl)) {
+                            seenUrls.add(sjUrl);
                             photos.push({
                                 url: sjUrl,
                                 category: 'sj',
-                                categoryTag: sjUrls.length > 1 ? `📄 Surat Jalan #${sIdx + 1}` : '📄 Surat Jalan',
+                                categoryTag: sjList.length > 1 ? `📄 Surat Jalan #${sIdx + 1}` : '📄 Surat Jalan',
                                 badgeClass: 'bg-primary',
                                 shipmentId: uniqueShipmentId,
                                 clientName: locName,
                                 fullAddress: fullAddress,
                                 courierName: cName,
-                                dateStr: tripDateStr,
-                                tripMs: tripMs,
+                                dateStr: destDateStr,
+                                tripMs: destTimeMs,
                                 stopIndex: stopIdx
                             });
-                        });
-                    }
-                }
-
-                // 2. Process Item / Barang photos
-                let itemArr = [];
-                if (Array.isArray(d.proofPhotoItems)) {
-                    d.proofPhotoItems.forEach(item => {
-                        if (typeof item === 'string') {
-                            item.split(',').map(s => s.trim()).filter(Boolean).forEach(u => itemArr.push(u));
                         }
                     });
-                } else if (typeof d.proofPhotoItems === 'string' && d.proofPhotoItems.trim().length > 0) {
-                    itemArr = d.proofPhotoItems.split(',').map(s => s.trim()).filter(Boolean);
                 }
 
-                if (itemArr.length > 0) {
-                    if (selectedCategory === 'all' || selectedCategory === 'item') {
-                        itemArr.forEach((itemUrl, itemIdx) => {
-                            if (itemUrl) {
-                                photos.push({
-                                    url: itemUrl,
-                                    category: 'item',
-                                    categoryTag: `📦 Barang #${itemIdx + 1}`,
-                                    badgeClass: 'bg-success',
-                                    shipmentId: uniqueShipmentId,
-                                    clientName: locName,
-                                    fullAddress: fullAddress,
-                                    courierName: cName,
-                                    dateStr: tripDateStr,
-                                    tripMs: tripMs,
-                                    stopIndex: stopIdx
-                                });
-                            }
-                        });
-                    }
-                }
-
-                // 3. Fallback for legacy proofPhotoUrl
-                if (!d.proofPhotoSj && (!d.proofPhotoItems || d.proofPhotoItems.length === 0) && d.proofPhotoUrl) {
-                    const urls = d.proofPhotoUrl.split(',').map(s => s.trim()).filter(Boolean);
-                    urls.forEach((u, uIdx) => {
-                        const isSj = (uIdx === 0);
-                        const catKey = isSj ? 'sj' : 'item';
-                        if (selectedCategory === 'all' || selectedCategory === catKey) {
+                // 2. Physical Item photos
+                if (extracted.itemUrls && extracted.itemUrls.length > 0 && (selectedCategory === 'all' || selectedCategory === 'item')) {
+                    extracted.itemUrls.forEach((itemUrl, itemIdx) => {
+                        if (itemUrl && !seenUrls.has(itemUrl)) {
+                            seenUrls.add(itemUrl);
                             photos.push({
-                                url: u,
-                                category: catKey,
-                                categoryTag: isSj ? '📄 Surat Jalan' : `📦 Barang #${uIdx}`,
-                                badgeClass: isSj ? 'bg-primary' : 'bg-success',
+                                url: itemUrl,
+                                category: 'item',
+                                categoryTag: extracted.itemUrls.length > 1 ? `📦 Barang #${itemIdx + 1}` : '📦 Barang',
+                                badgeClass: 'bg-success',
                                 shipmentId: uniqueShipmentId,
                                 clientName: locName,
                                 fullAddress: fullAddress,
                                 courierName: cName,
-                                dateStr: tripDateStr,
-                                tripMs: tripMs,
+                                dateStr: destDateStr,
+                                tripMs: destTimeMs,
+                                stopIndex: stopIdx
+                            });
+                        }
+                    });
+                }
+
+                // 3. Pending / Toko Tutup photo
+                if (d.pendingProofPhotoUrl && (selectedCategory === 'all' || selectedCategory === 'item' || selectedCategory === 'pending')) {
+                    const pendList = d.pendingProofPhotoUrl.split(',').map(s => s.trim()).filter(Boolean);
+                    pendList.forEach((pendUrl) => {
+                        if (pendUrl && !seenUrls.has(pendUrl)) {
+                            seenUrls.add(pendUrl);
+                            photos.push({
+                                url: pendUrl,
+                                category: 'pending',
+                                categoryTag: `⚠️ Toko Tutup`,
+                                badgeClass: 'bg-danger',
+                                shipmentId: uniqueShipmentId,
+                                clientName: locName,
+                                fullAddress: fullAddress,
+                                courierName: cName,
+                                dateStr: destDateStr,
+                                tripMs: destTimeMs,
+                                stopIndex: stopIdx
+                            });
+                        }
+                    });
+                }
+
+                // 4. Any other photo from allUrls
+                if (extracted.allUrls && (selectedCategory === 'all' || selectedCategory === 'item')) {
+                    extracted.allUrls.forEach((extraUrl, eIdx) => {
+                        if (extraUrl && !seenUrls.has(extraUrl)) {
+                            seenUrls.add(extraUrl);
+                            photos.push({
+                                url: extraUrl,
+                                category: 'item',
+                                categoryTag: `📸 Foto PoD #${eIdx + 1}`,
+                                badgeClass: 'bg-info text-dark',
+                                shipmentId: uniqueShipmentId,
+                                clientName: locName,
+                                fullAddress: fullAddress,
+                                courierName: cName,
+                                dateStr: destDateStr,
+                                tripMs: destTimeMs,
                                 stopIndex: stopIdx
                             });
                         }
@@ -5725,6 +5846,25 @@ function renderPoDArchiveView(filter = "") {
             });
         }
     });
+
+    photos.sort((a, b) => (b.tripMs || 0) - (a.tripMs || 0));
+    return photos;
+}
+
+function renderPoDArchiveView(filter = "") {
+    const grid = document.getElementById('archive-photo-grid');
+    if (!grid) return;
+
+    const archiveCourierSelect = document.getElementById('archive-courier-filter');
+    if (archiveCourierSelect && archiveCourierSelect.options.length <= 1) {
+        const curVal = archiveCourierSelect.value;
+        let optHtml = '<option value="all">Semua Kurir & Driver</option>';
+        optHtml += buildCourierOptgroupHtml('', 'canonicalId');
+        archiveCourierSelect.innerHTML = optHtml;
+        if (curVal) archiveCourierSelect.value = curVal;
+    }
+
+    const photos = collectPoDArchivePhotos();
 
     const badge = document.getElementById('archive-count-badge');
     if (badge) badge.innerText = `${photos.length} Foto Ditemukan`;
@@ -5736,8 +5876,6 @@ function renderPoDArchiveView(filter = "") {
         </div>`;
         return;
     }
-
-    photos.sort((a, b) => (b.tripMs || 0) - (a.tripMs || 0));
 
     const gridHtml = [];
     photos.forEach(p => {
@@ -5762,16 +5900,175 @@ function renderPoDArchiveView(filter = "") {
 }
 window.renderPoDArchiveView = renderPoDArchiveView;
 
+async function exportPoDArchiveToExcel() {
+    const photos = collectPoDArchivePhotos();
+    if (photos.length === 0) {
+        return alert("Tidak ada data foto PoD yang sesuai filter untuk diekspor!");
+    }
+
+    const startDateVal = document.getElementById('archive-start-date')?.value;
+    const endDateVal = document.getElementById('archive-end-date')?.value;
+    const selectedCourier = document.getElementById('archive-courier-filter')?.value || "all";
+    const periodStr = (startDateVal && endDateVal) ? `${startDateVal} s/d ${endDateVal}` : (startDateVal ? `Mulai ${startDateVal}` : 'Semua Tanggal');
+    const carrierLabel = selectedCourier === 'all' ? 'Semua Personil' : (typeof getCourierDisplayName === 'function' ? getCourierDisplayName(selectedCourier) : selectedCourier);
+
+    if (typeof ExcelJS !== 'undefined') {
+        const workbook = new ExcelJS.Workbook();
+        workbook.creator = "Wtrack Logistics";
+        workbook.created = new Date();
+
+        const sheet = workbook.addWorksheet("Arsip_PoD", {
+            views: [{ showGridLines: true }]
+        });
+
+        // 1. Title Row
+        sheet.mergeCells('A1:G1');
+        const titleCell = sheet.getCell('A1');
+        titleCell.value = "LAPORAN ARSIP FOTO BUKTI PENGIRIMAN (POD) - WTRACK LOGISTICS";
+        titleCell.font = { name: 'Calibri', size: 13, bold: true, color: { argb: 'FFFFFFFF' } };
+        titleCell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FF1E293B' } // Dark Slate
+        };
+        titleCell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+        sheet.getRow(1).height = 26;
+
+        // 2. Subtitle Row
+        sheet.mergeCells('A2:G2');
+        const subCell = sheet.getCell('A2');
+        subCell.value = `Periode: ${periodStr}  |  Kurir/Driver: ${carrierLabel}  |  Total Foto: ${photos.length} Berkas Bukti`;
+        subCell.font = { name: 'Calibri', size: 9.5, italic: true, bold: true, color: { argb: 'FF1E293B' } };
+        subCell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFF1F5F9' }
+        };
+        subCell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+        sheet.getRow(2).height = 20;
+
+        // 3. Header Row (Row 4)
+        sheet.getRow(3).height = 8;
+        const headers = ["No", "Tanggal", "Shipment ID", "Toko / Klien", "Alamat Destinasi", "Kurir / Driver", "Kategori & Bukti Foto PoD"];
+        const headerRow = sheet.getRow(4);
+        headerRow.values = headers;
+        headerRow.height = 24;
+
+        headers.forEach((h, i) => {
+            const cell = headerRow.getCell(i + 1);
+            cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+            cell.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'FF334155' } // Slate
+            };
+            cell.alignment = { vertical: 'middle', horizontal: (i === 0 || i === 1 || i === 2) ? 'center' : 'left' };
+            cell.border = {
+                top: { style: 'medium', color: { argb: 'FF1E293B' } },
+                bottom: { style: 'medium', color: { argb: 'FF1E293B' } },
+                left: { style: 'thin', color: { argb: 'FF94A3B8' } },
+                right: { style: 'thin', color: { argb: 'FF94A3B8' } }
+            };
+        });
+
+        const thinBorder = {
+            top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+        };
+
+        photos.forEach((p, idx) => {
+            const row = sheet.getRow(idx + 5);
+            row.height = 22;
+            const isEven = (idx % 2 === 0);
+            const bgArgb = isEven ? 'FFFFFFFF' : 'FFF8FAFC';
+
+            const rowVals = [
+                idx + 1,
+                p.dateStr,
+                p.shipmentId,
+                p.clientName,
+                p.fullAddress || '-',
+                p.courierName,
+                p.url
+            ];
+
+            rowVals.forEach((val, cIdx) => {
+                const cell = row.getCell(cIdx + 1);
+                cell.border = thinBorder;
+                cell.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: bgArgb }
+                };
+
+                if (cIdx === 0) {
+                    cell.value = val;
+                    cell.font = { name: 'Calibri', size: 9.5, color: { argb: 'FF475569' } };
+                    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                } else if (cIdx === 1 || cIdx === 2) {
+                    cell.value = val;
+                    cell.font = { name: 'Calibri', size: 9, color: { argb: 'FF334155' } };
+                    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                } else if (cIdx === 3 || cIdx === 4 || cIdx === 5) {
+                    cell.value = val;
+                    cell.font = { name: 'Calibri', size: 9, color: { argb: 'FF0F172A' }, bold: (cIdx === 3) };
+                    cell.alignment = { vertical: 'middle', horizontal: 'left' };
+                } else if (cIdx === 6) {
+                    if (val && typeof val === 'string' && val.startsWith('http')) {
+                        cell.value = {
+                            text: `${p.categoryTag || '📸 Buka Foto'} (Klik Disini)`,
+                            hyperlink: val
+                        };
+                        cell.font = { name: 'Calibri', size: 9.5, bold: true, color: { argb: 'FF1D4ED8' }, underline: true };
+                    } else {
+                        cell.value = '-';
+                        cell.font = { name: 'Calibri', size: 8.5, italic: true, color: { argb: 'FF94A3B8' } };
+                    }
+                    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                }
+            });
+        });
+
+        sheet.columns = [
+            { width: 6 },   // No
+            { width: 14 },  // Tanggal
+            { width: 16 },  // Shipment ID
+            { width: 28 },  // Toko / Klien
+            { width: 35 },  // Alamat Destinasi
+            { width: 18 },  // Kurir / Driver
+            { width: 28 }   // Kategori & Foto
+        ];
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        const fileDateStr = (startDateVal || 'all') + (endDateVal ? `_sd_${endDateVal}` : '');
+        link.download = `Laporan_Arsip_PoD_${fileDateStr}.xlsx`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showToast("Laporan Excel Arsip PoD berhasil diunduh.");
+    } else {
+        alert("Pustaka ExcelJS belum siap. Silakan muat ulang halaman.");
+    }
+}
+window.exportPoDArchiveToExcel = exportPoDArchiveToExcel;
+
 function resetPoDArchiveFilter() {
     const sSearch = document.getElementById('archive-search-input');
     const sCourier = document.getElementById('archive-courier-filter');
     const sStart = document.getElementById('archive-start-date');
     const sEnd = document.getElementById('archive-end-date');
+    const sCat = document.getElementById('archive-category-filter');
 
     if (sSearch) sSearch.value = "";
     if (sCourier) sCourier.value = "all";
     if (sStart) sStart.value = "";
     if (sEnd) sEnd.value = "";
+    if (sCat) sCat.value = "all";
 
     renderPoDArchiveView();
     showToast("Filter arsip dikembalikan.");

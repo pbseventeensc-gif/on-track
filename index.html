@@ -684,6 +684,7 @@
                                         <span class="extra-small text-muted fw-bold ms-1">Sampai:</span>
                                         <input type="date" id="recent-end-date" class="form-control form-control-sm border-0 bg-transparent fw-normal py-1" style="width: 125px; font-size: 0.8rem;" onchange="renderRecentShipments()" oninput="renderRecentShipments()">
                                     </div>
+                                    <button class="btn btn-sm btn-light border py-1 px-2 text-muted fw-semibold" style="border-radius: 10px; font-size: 0.75rem;" onclick="setRecentDateThisMonth()" title="Tampilkan Riwayat Bulan Ini">Bulan Ini</button>
                                     <button class="btn btn-sm btn-light border py-1 px-2 text-muted fw-semibold" style="border-radius: 10px; font-size: 0.75rem;" onclick="setRecentDateAllTime()" title="Tampilkan Semua Riwayat Tanggal">Semua Tanggal</button>
                                     <select id="recent-carrier-filter" class="form-select form-select-sm fw-normal py-2" style="border-radius: 10px; width: auto; min-width: 135px; font-size: 0.8rem; background: #f8fafc;" onchange="renderRecentShipments()">
                                         <option value="all">Semua Kurir</option>
@@ -1951,8 +1952,12 @@
                             <small class="text-muted extra-small">Cari dan tinjau seluruh arsip foto bukti pengiriman kurir</small>
                         </div>
                         <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <button class="btn btn-sm btn-light border extra-small fw-normal" style="border-radius: 8px;" onclick="setArchiveDateToday()" title="Tampilkan Arsip Hari Ini">Hari Ini</button>
+                            <button class="btn btn-sm btn-light border extra-small fw-normal" style="border-radius: 8px;" onclick="setArchiveDateThisMonth()" title="Tampilkan Arsip Bulan Ini">Bulan Ini</button>
+                            <button class="btn btn-sm btn-light border extra-small fw-normal" style="border-radius: 8px;" onclick="setArchiveDateAllTime()" title="Tampilkan Seluruh Arsip Foto">Semua Tanggal</button>
+                            <button class="btn btn-sm btn-outline-dark fw-bold px-3 py-1 extra-small" style="border-radius: 8px;" onclick="exportPoDArchiveToExcel()" title="Download Laporan Arsip PoD ke Excel"><i class="bi bi-file-earmark-excel me-1 text-success"></i> Download Excel PoD</button>
                             <button class="btn btn-sm btn-light border extra-small fw-normal" style="border-radius: 8px;" title="Reset Filter Arsip" onclick="resetPoDArchiveFilter()">
-                                <i class="bi bi-arrow-counterclockwise me-1"></i> Reset Filter
+                                <i class="bi bi-arrow-counterclockwise me-1"></i> Reset
                             </button>
                         </div>
                     </div>
@@ -2360,9 +2365,9 @@
 
 <!-- Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<script src="/js/maps.js?v=166.0"></script>
+<script src="/js/maps.js?v=167.0"></script>
 <script src="/js/fleet_vehicles.js?v=1.3"></script>
-<script src="/js/app.js?v=166.0"></script>
+<script src="/js/app.js?v=167.0"></script>
 <script src="/js/kpi.js?v=166.0"></script>
 <script src="/js/courier_audit.js?v=166.0"></script>
 <script src="/js/custom_dropdown.js?v=1.0"></script>
