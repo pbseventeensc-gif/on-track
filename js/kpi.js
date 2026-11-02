@@ -830,7 +830,8 @@ function parseTimestampToMs(timeObj) {
         if (c.regionsVisited && c.regionsVisited.size >= 2) badges.push('<span class="badge text-white extra-small" style="background-color:#8b5cf6; font-size:0.62rem;" title="Lintas Wilayah: Lintas Wilayah">Lintas Wilayah</span>');
         if (c.mobilTrips > 0 && c.hasHeavyCargo) badges.push('<span class="badge bg-danger-subtle text-danger-emphasis extra-small" style="font-size:0.62rem;" title="Pengantaran Tuntas: Muatan Mobil Tuntas">Pengantaran Tuntas</span>');
 
-        const vehicleBadge = c.mobilTrips > c.motorTrips 
+        const isMobil = (c.vehicleType === 'mobil' || (c.mobilTrips || 0) > (c.motorTrips || 0));
+        const vehicleBadge = isMobil 
             ? '<span class="badge bg-primary-subtle text-primary border border-primary-subtle extra-small px-1.5 py-0.5 me-1" style="font-size:0.65rem;"><i class="bi bi-truck me-0.5"></i>Mobil</span>'
             : '<span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle extra-small px-1.5 py-0.5 me-1" style="font-size:0.65rem;"><i class="bi bi-bicycle me-0.5"></i>Motor</span>';
 
