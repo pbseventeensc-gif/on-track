@@ -432,7 +432,7 @@ function renderKPIView(filter = "") {
             const courierInfo = (typeof normalizeCourierIdentity === 'function')
                 ? normalizeCourierIdentity(cId, rawName)
                 : { canonicalId: cId, displayName: rawName, vehicleType: t.vehicleType || 'motor' };
-            const effectiveVehicleType = t.vehicleType || courierInfo.vehicleType || (typeof getCourierVehicleType === 'function' ? getCourierVehicleType(cId, rawName) : 'motor');
+            const effectiveVehicleType = courierInfo.vehicleType || t.vehicleType || (typeof getCourierVehicleType === 'function' ? getCourierVehicleType(cId, rawName) : 'motor');
             return effectiveVehicleType === activeVehicleFilter;
         });
     }
