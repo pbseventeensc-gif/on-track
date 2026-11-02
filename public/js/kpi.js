@@ -520,16 +520,36 @@ function parseTimestampToMs(timeObj) {
             for (let i = 0; i < t.destinations.length; i++) {
                 const d = t.destinations[i];
                 const isDone = (d.status === 'done' || (d.proofPhotoUrl && d.proofPhotoUrl.length > 0));
-
                 if (isDone) {
                     courierStats[targetId].completedStops++;
+                }
+            }
 
-                    const start = (i === 0)
-                        ? ((t.acceptLatitude && t.acceptLongitude) ? { lat: parseFloat(t.acceptLatitude), lng: parseFloat(t.acceptLongitude) } : { lat: parseFloat(t.destinations[0].latitude || 0), lng: parseFloat(t.destinations[0].longitude || 0) })
-                        : { lat: parseFloat(t.destinations[i-1].latitude || 0), lng: parseFloat(t.destinations[i-1].longitude || 0) };
-                    const end = { lat: parseFloat(d.latitude || 0), lng: parseFloat(d.longitude || 0) };
-                    const dist = calculateDistance(start.lat, start.lng, end.lat, end.lng);
-                    actualTripKM += dist;
+            // Hitung jarak akurat operasional rute (berangkat dari Base/GPS accepted -> rute tujuan -> pulang ke Base)
+            if (typeof calculateAccurateTripKM === 'function') {
+                actualTripKM = calculateAccurateTripKM(t);
+            } else {
+                const BASE_LAT = -6.1932;
+                const BASE_LNG = 106.6383;
+                const originLat = parseFloat(t.acceptLatitude) || BASE_LAT;
+                const originLng = parseFloat(t.acceptLongitude) || BASE_LNG;
+                const roadFactor = (vType === 'mobil') ? 1.35 : 1.30;
+                let prevPoint = { lat: originLat, lng: originLng };
+                let hasValidDests = false;
+
+                for (let i = 0; i < t.destinations.length; i++) {
+                    const d = t.destinations[i];
+                    const dLat = parseFloat(d.latitude || 0);
+                    const dLng = parseFloat(d.longitude || 0);
+                    if (dLat !== 0 && dLng !== 0) {
+                        const legDist = calculateDistance(prevPoint.lat, prevPoint.lng, dLat, dLng) * roadFactor;
+                        actualTripKM += Math.max(0.1, legDist);
+                        prevPoint = { lat: dLat, lng: dLng };
+                        hasValidDests = true;
+                    }
+                }
+                if (hasValidDests) {
+                    actualTripKM += calculateDistance(prevPoint.lat, prevPoint.lng, BASE_LAT, BASE_LNG) * roadFactor;
                 }
             }
 

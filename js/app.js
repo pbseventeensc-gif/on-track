@@ -69,6 +69,46 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
     return R * c;
 }
 
+function calculateAccurateTripKM(trip) {
+    if (!trip || !trip.destinations || trip.destinations.length === 0) return 0;
+
+    const BASE_LAT = -6.1932;
+    const BASE_LNG = 106.6383;
+
+    // Titik awal: GPS aktual saat kurir terima tugas, atau Pangkalan Logistik Wellen Print
+    const originLat = parseFloat(trip.acceptLatitude) || BASE_LAT;
+    const originLng = parseFloat(trip.acceptLongitude) || BASE_LNG;
+
+    const vType = trip.vehicleType || (typeof getCourierVehicleType === 'function' ? getCourierVehicleType(trip.courierId, (typeof registeredUsers !== 'undefined' ? (registeredUsers[trip.courierId] || '') : '')) : 'motor');
+    // Koefisien rute jalan raya Jabodetabek (motor: 1.30, mobil/truk: 1.35)
+    const roadFactor = (vType === 'mobil') ? 1.35 : 1.30;
+
+    let totalKM = 0;
+    let prevPoint = { lat: originLat, lng: originLng };
+    let hasValidDests = false;
+
+    for (let i = 0; i < trip.destinations.length; i++) {
+        const d = trip.destinations[i];
+        const dLat = parseFloat(d.latitude || 0);
+        const dLng = parseFloat(d.longitude || 0);
+        if (dLat !== 0 && dLng !== 0) {
+            const legDist = calculateDistance(prevPoint.lat, prevPoint.lng, dLat, dLng) * roadFactor;
+            totalKM += Math.max(0.1, legDist);
+            prevPoint = { lat: dLat, lng: dLng };
+            hasValidDests = true;
+        }
+    }
+
+    // Perjalanan kembali ke pangkalan (round trip armada operasional)
+    if (hasValidDests) {
+        const returnLeg = calculateDistance(prevPoint.lat, prevPoint.lng, BASE_LAT, BASE_LNG) * roadFactor;
+        totalKM += returnLeg;
+    }
+
+    return parseFloat(totalKM.toFixed(1));
+}
+window.calculateAccurateTripKM = calculateAccurateTripKM;
+
 // Immediate window exports (hoisted functions)
 window.switchTab = switchTab;
 window.toggleSidebar = toggleSidebar;
@@ -2350,14 +2390,8 @@ function updateGlobalStats() {
                         inTransitStops++;
                         activeShipmentsCount++;
                     }
-
-                    if(d.status === 'done' || d.proofPhotoUrl || d.status === 'completed') {
-                        const start = (i === 0)
-                            ? ((t.acceptLatitude && t.acceptLongitude) ? { lat: t.acceptLatitude, lng: t.acceptLongitude } : { lat: t.destinations[0].latitude, lng: t.destinations[0].longitude })
-                            : { lat: t.destinations[i-1].latitude, lng: t.destinations[i-1].longitude };
-                        grandTotalKM += calculateDistance(start.lat, start.lng, d.latitude, d.longitude);
-                    }
                 });
+                grandTotalKM += calculateAccurateTripKM(t);
             } else if (t.status !== 'completed') {
                 activeShipmentsCount++;
             }
@@ -2383,15 +2417,11 @@ function updateGlobalStats() {
                         const isAccPending = (d.status === 'pending' && d.pendingReason && d.pendingReason.length > 0) || d.status === 'returned' || d.status === 'failed';
                         if (d.status === 'done' || d.proofPhotoUrl || d.status === 'completed') {
                             deliveredStopsToday++;
-                            const start = (i === 0)
-                                ? ((t.acceptLatitude && t.acceptLongitude) ? { lat: parseFloat(t.acceptLatitude), lng: parseFloat(t.acceptLongitude) } : { lat: parseFloat(t.destinations[0].latitude || 0), lng: parseFloat(t.destinations[0].longitude || 0) })
-                                : { lat: parseFloat(t.destinations[i-1].latitude || 0), lng: parseFloat(t.destinations[i-1].longitude || 0) };
-                            const end = { lat: parseFloat(d.latitude || 0), lng: parseFloat(d.longitude || 0) };
-                            grandTotalKMToday += calculateDistance(start.lat, start.lng, end.lat, end.lng);
                         } else if (isAccPending) {
                             returnedStopsToday++;
                         }
                     });
+                    grandTotalKMToday += calculateAccurateTripKM(t);
                 } else {
                     totalStopsToday += 1;
                     if (t.status === 'completed') {
