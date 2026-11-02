@@ -96,6 +96,9 @@ class TripViewModel : ViewModel() {
                 @Suppress("UNCHECKED_CAST")
                 val adminBulkSjUrls = (doc.get("adminBulkSjUrls") as? List<*>)?.mapNotNull { it as? String }
                     ?: if (adminBulkSjUrl.isNotEmpty()) adminBulkSjUrl.split(",").map { it.trim() }.filter { it.isNotEmpty() } else emptyList()
+                val vehiclePlate = doc.getString("vehiclePlate") ?: ""
+                val vehicleName = doc.getString("vehicleName") ?: ""
+                val vehicleType = doc.getString("vehicleType") ?: ""
                 val totalDistanceKm = doc.getDouble("totalDistanceKm") ?: 0.0
                 val acceptLat = doc.getDouble("acceptLatitude")
                 val acceptLng = doc.getDouble("acceptLongitude")
@@ -124,7 +127,9 @@ class TripViewModel : ViewModel() {
                             else -> emptyList()
                         },
                         pendingReason = map["pendingReason"] as? String ?: "",
-                        pendingProofPhotoUrl = map["pendingProofPhotoUrl"] as? String ?: ""
+                        pendingProofPhotoUrl = map["pendingProofPhotoUrl"] as? String ?: "",
+                        vehiclePlate = map["vehiclePlate"] as? String ?: vehiclePlate,
+                        vehicleName = map["vehicleName"] as? String ?: vehicleName
                     )
                 }
 
@@ -139,6 +144,9 @@ class TripViewModel : ViewModel() {
                     branchId = branchId,
                     adminBulkSjUrl = adminBulkSjUrl,
                     adminBulkSjUrls = adminBulkSjUrls,
+                    vehiclePlate = vehiclePlate,
+                    vehicleName = vehicleName,
+                    vehicleType = vehicleType,
                     destinations = destinations
                 )
             } catch (e: Exception) {

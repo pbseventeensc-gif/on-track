@@ -14,6 +14,9 @@ data class Trip(
     val branchId: String = "",
     val adminBulkSjUrl: String = "",
     val adminBulkSjUrls: List<String> = emptyList(),
+    val vehiclePlate: String = "",
+    val vehicleName: String = "",
+    val vehicleType: String = "",
     val destinations: List<Destination> = emptyList()
 )
 
@@ -31,5 +34,7 @@ data class Destination(
     val proofPhotoSj: String = "",
     val proofPhotoItems: List<String> = emptyList(),
     val pendingReason: String = "",
-    val pendingProofPhotoUrl: String = ""
+    val pendingProofPhotoUrl: String = "",
+    val vehiclePlate: String = "",
+    val vehicleName: String = ""
 )

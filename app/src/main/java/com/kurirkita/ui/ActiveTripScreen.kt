@@ -16,8 +16,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -37,6 +39,7 @@ import coil.compose.rememberAsyncImagePainter
 import com.KurirKita.model.Destination
 import com.KurirKita.model.Trip
 import com.google.firebase.Timestamp
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.storage.FirebaseStorage
 import com.google.android.gms.location.LocationServices
@@ -51,16 +54,122 @@ import android.net.Uri
 import java.io.ByteArrayOutputStream
 import java.util.UUID
 
+data class FleetVehicleOption(
+    val id: String,
+    val name: String,
+    val plate: String,
+    val category: String,
+    val defaultPerson: String
+)
+
+val COMPANY_FLEET_VEHICLES = listOf(
+    FleetVehicleOption("FLT-GMX-001", "Granmax B 9227 SCH (Agung)", "B 9227 SCH", "Granmax", "Agung"),
+    FleetVehicleOption("FLT-GMX-002", "Granmax B 9939 SCH (Soleh)", "B 9939 SCH", "Granmax", "Soleh"),
+    FleetVehicleOption("FLT-GMX-003", "Granmax B 9158 SCE (Romi)", "B 9158 SCE", "Granmax", "Romi"),
+    FleetVehicleOption("FLT-GMX-004", "Granmax B 9278 SCD (Alan)", "B 9278 SCD", "Granmax", "Alan"),
+    FleetVehicleOption("FLT-GMX-005", "Granmax B 9107 SCE (Yakub)", "B 9107 SCE", "Granmax", "Yakub"),
+    FleetVehicleOption("FLT-GMX-006", "Granmax B 1004 BKP (Cadangan Gudang)", "B 1004 BKP", "Granmax", "Gudang"),
+    FleetVehicleOption("FLT-TRK-001", "Truk Box B 9032 SCG (Iwan)", "B 9032 SCG", "Truk Box", "Iwan"),
+    FleetVehicleOption("FLT-TRK-002", "Truk Box B 9177 SCH (Husen)", "B 9177 SCH", "Truk Box", "Husen"),
+    FleetVehicleOption("FLT-TRK-003", "Truk Box B 9842 NCC (Altur)", "B 9842 NCC", "Truk Box", "Altur"),
+    FleetVehicleOption("FLT-TRK-004", "Truk Box B 9084 SCH (Rizki)", "B 9084 SCH", "Truk Box", "Rizki"),
+    FleetVehicleOption("FLT-PCK-001", "Pick Up B 9463 SAJ (Gudang)", "B 9463 SAJ", "Pick Up", "Gudang"),
+    FleetVehicleOption("FLT-L30-001", "L300 B 9243 PCJ (Gudang)", "B 9243 PCJ", "L300", "Gudang")
+)
+
+object DraftPhotoManager {
+    fun getSjFile(context: android.content.Context, tripId: String, stopIndex: Int): File {
+        return File(context.filesDir, "draft_${tripId}_stop_${stopIndex}_sj.jpg")
+    }
+    fun getItemFile(context: android.content.Context, tripId: String, stopIndex: Int, index: Int): File {
+        return File(context.filesDir, "draft_${tripId}_stop_${stopIndex}_item_${index}.jpg")
+    }
+    fun getPendingFile(context: android.content.Context, tripId: String, stopIndex: Int): File {
+        return File(context.filesDir, "draft_${tripId}_stop_${stopIndex}_pending.jpg")
+    }
+    fun clearDraftsForStop(context: android.content.Context, tripId: String, stopIndex: Int) {
+        try {
+            getSjFile(context, tripId, stopIndex).delete()
+            getItemFile(context, tripId, stopIndex, 0).delete()
+            getItemFile(context, tripId, stopIndex, 1).delete()
+            getPendingFile(context, tripId, stopIndex).delete()
+        } catch (_: Exception) {}
+    }
+}
+
+fun decodeSampledBitmapFromFile(file: File, reqWidth: Int = 1024, reqHeight: Int = 1024): Bitmap? {
+    if (!file.exists() || file.length() == 0L) return null
+    return try {
+        val options = android.graphics.BitmapFactory.Options().apply {
+            inJustDecodeBounds = true
+        }
+        android.graphics.BitmapFactory.decodeFile(file.absolutePath, options)
+
+        var inSampleSize = 1
+        val height = options.outHeight
+        val width = options.outWidth
+        if (height > reqHeight || width > reqWidth) {
+            val halfHeight = height / 2
+            val halfWidth = width / 2
+            while ((halfHeight / inSampleSize) >= reqHeight || (halfWidth / inSampleSize) >= reqWidth) {
+                inSampleSize *= 2
+            }
+        }
+
+        val decodeOptions = android.graphics.BitmapFactory.Options().apply {
+            this.inSampleSize = inSampleSize
+            this.inPreferredConfig = android.graphics.Bitmap.Config.RGB_565
+        }
+
+        var bitmap = android.graphics.BitmapFactory.decodeFile(file.absolutePath, decodeOptions)
+
+        if (bitmap != null) {
+            try {
+                val exifInterface = android.media.ExifInterface(file.absolutePath)
+                val orientation = exifInterface.getAttributeInt(
+                    android.media.ExifInterface.TAG_ORIENTATION,
+                    android.media.ExifInterface.ORIENTATION_UNDEFINED
+                )
+                val matrix = android.graphics.Matrix()
+                when (orientation) {
+                    android.media.ExifInterface.ORIENTATION_ROTATE_90 -> matrix.postRotate(90f)
+                    android.media.ExifInterface.ORIENTATION_ROTATE_180 -> matrix.postRotate(180f)
+                    android.media.ExifInterface.ORIENTATION_ROTATE_270 -> matrix.postRotate(270f)
+                }
+                if (!matrix.isIdentity) {
+                    bitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+                }
+            } catch (_: Exception) {}
+        }
+        bitmap
+    } catch (_: Exception) {
+        null
+    }
+}
+
 @SuppressLint("MissingPermission")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ActiveTripScreen(trip: Trip, onBack: () -> Unit, onChatClick: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val db = FirebaseFirestore.getInstance()
+    val auth = remember { FirebaseAuth.getInstance() }
     var currentTrip by remember { mutableStateOf(trip) }
     val storage = FirebaseStorage.getInstance()
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
     var geofenceRadius by remember { mutableStateOf(200f) }
+
+    val isDriver = remember(currentTrip) {
+        val role = currentTrip.vehicleType.lowercase()
+        val courierId = currentTrip.courierId.lowercase()
+        val userEmail = auth.currentUser?.email?.lowercase() ?: ""
+        role == "mobil" ||
+        userEmail.contains("driver") ||
+        listOf("agung", "iwan", "soleh", "romi", "alan", "yakub", "husen", "altur", "rizki", "firdaus").any {
+            courierId.contains(it) || userEmail.contains(it)
+        }
+    }
+    var showCarPickerDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         db.collection("config").document("tracking").addSnapshotListener { snap, _ ->
@@ -130,22 +239,172 @@ fun ActiveTripScreen(trip: Trip, onBack: () -> Unit, onChatClick: () -> Unit) {
                 }
             }
 
+            if (isDriver) {
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (currentTrip.vehiclePlate.isNotEmpty()) Color(0xFFF0FDF4) else Color(0xFFFFFBEB)
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(
+                        width = 1.dp,
+                        color = if (currentTrip.vehiclePlate.isNotEmpty()) Color(0xFF22C55E) else Color(0xFFF59E0B)
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                "ARMADA MOBIL PENGANTARAN",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = if (currentTrip.vehiclePlate.isNotEmpty()) Color(0xFF15803D) else Color(0xFFB45309)
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            if (currentTrip.vehiclePlate.isNotEmpty()) {
+                                Text(
+                                    text = currentTrip.vehicleName.ifEmpty { "Mobil: ${currentTrip.vehiclePlate}" },
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Black,
+                                    color = Color(0xFF14532D)
+                                )
+                                Text(
+                                    text = "Plat: ${currentTrip.vehiclePlate}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color(0xFF166534)
+                                )
+                            } else {
+                                Text(
+                                    text = "⚠️ Belum Memilih Mobil",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Black,
+                                    color = Color(0xFF9A3412)
+                                )
+                                Text(
+                                    text = "Pilih mobil operasional yang digunakan hari ini",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color(0xFFB45309)
+                                )
+                            }
+                        }
+
+                        Button(
+                            onClick = { showCarPickerDialog = true },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (currentTrip.vehiclePlate.isNotEmpty()) Color(0xFF16A34A) else Color(0xFFEA580C)
+                            ),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Icon(Icons.Default.DirectionsCar, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                if (currentTrip.vehiclePlate.isNotEmpty()) "Ganti" else "Pilih Mobil",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (showCarPickerDialog) {
+                AlertDialog(
+                    onDismissRequest = { showCarPickerDialog = false },
+                    title = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.DirectionsCar, contentDescription = null, tint = Color(0xFF15803D))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Pilih Mobil Pengantaran", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                        }
+                    },
+                    text = {
+                        Column(modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
+                            Text(
+                                "Pilih armada operasional mobil yang Anda kendarai hari ini:",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.Gray,
+                                modifier = Modifier.padding(bottom = 12.dp)
+                            )
+
+                            COMPANY_FLEET_VEHICLES.forEach { car ->
+                                val isSelected = currentTrip.vehiclePlate == car.plate
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 4.dp)
+                                        .clickable {
+                                            db.collection("trips").document(currentTrip.tripId).update(
+                                                "vehiclePlate", car.plate,
+                                                "vehicleName", car.name,
+                                                "vehicleType", "mobil"
+                                            ).addOnSuccessListener {
+                                                Toast.makeText(context, "Mobil dipilih: ${car.name}", Toast.LENGTH_SHORT).show()
+                                                showCarPickerDialog = false
+                                            }.addOnFailureListener { e ->
+                                                Toast.makeText(context, "Gagal simpan mobil: ${e.message}", Toast.LENGTH_SHORT).show()
+                                            }
+                                        },
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = if (isSelected) Color(0xFFDCFCE7) else MaterialTheme.colorScheme.surfaceVariant
+                                    ),
+                                    border = if (isSelected) androidx.compose.foundation.BorderStroke(2.dp, Color(0xFF16A34A)) else null,
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            if (car.category == "Truk Box") "🚚" else "🚐",
+                                            style = MaterialTheme.typography.titleLarge,
+                                            modifier = Modifier.padding(end = 12.dp)
+                                        )
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(car.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                            Text("Plat: ${car.plate} • Default: ${car.defaultPerson}", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                                        }
+                                        if (isSelected) {
+                                            Icon(Icons.Default.Check, contentDescription = null, tint = Color(0xFF16A34A))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { showCarPickerDialog = false }) {
+                            Text("Tutup")
+                        }
+                    }
+                )
+            }
+
             Text("Titik Tujuan", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
 
             LazyColumn(modifier = Modifier.fillMaxSize()) {
-                items(currentTrip.destinations.sortedBy { it.stopIndex }) { dest ->
+                items(
+                    items = currentTrip.destinations.sortedBy { it.stopIndex },
+                    key = { it.stopIndex }
+                ) { dest ->
                     DestinationItem(
                         dest = dest,
+                        currentTrip = currentTrip,
                         client = fusedLocationClient,
                         radius = geofenceRadius,
+                        isDriver = isDriver,
+                        onRequestCarPicker = { showCarPickerDialog = true },
                         onUpdateStatus = { status ->
                             updateDestinationStatus(db, currentTrip, dest, status, null)
                         },
                         onUpdateWithCategorizedPhotos = { status, sjBmp, itemBmps ->
-                            uploadCategorizedPhotosAndUpdate(storage, db, currentTrip, dest, sjBmp, itemBmps, status)
+                            uploadCategorizedPhotosAndUpdate(context, storage, db, currentTrip, dest, sjBmp, itemBmps, status)
                         },
                         onUpdatePendingApproval = { reason, photoBmp ->
-                            uploadPendingProofPhotoAndUpdate(storage, db, currentTrip, dest, reason, photoBmp)
+                            uploadPendingProofPhotoAndUpdate(context, storage, db, currentTrip, dest, reason, photoBmp)
                         }
                     )
                 }
@@ -226,8 +485,11 @@ private fun checkLocationAndExecute(
 @Composable
 fun DestinationItem(
     dest: Destination,
+    currentTrip: Trip,
     client: com.google.android.gms.location.FusedLocationProviderClient,
     radius: Float,
+    isDriver: Boolean,
+    onRequestCarPicker: () -> Unit,
     onUpdateStatus: (String) -> Unit,
     onUpdateWithCategorizedPhotos: (String, Bitmap?, List<Bitmap>) -> Unit,
     onUpdatePendingApproval: (String, Bitmap) -> Unit
@@ -242,96 +504,65 @@ fun DestinationItem(
     var showPhotoDialog by remember { mutableStateOf(false) }
     var selectedFullImageUrl by remember { mutableStateOf<String?>(null) }
 
-    // Categorized photos state
+    // Persistent draft files on disk (survives LMK, camera app opening, and LazyColumn recycling)
+    val sjFile = remember(currentTrip.tripId, dest.stopIndex) {
+        DraftPhotoManager.getSjFile(context, currentTrip.tripId, dest.stopIndex)
+    }
+    val item0File = remember(currentTrip.tripId, dest.stopIndex) {
+        DraftPhotoManager.getItemFile(context, currentTrip.tripId, dest.stopIndex, 0)
+    }
+    val item1File = remember(currentTrip.tripId, dest.stopIndex) {
+        DraftPhotoManager.getItemFile(context, currentTrip.tripId, dest.stopIndex, 1)
+    }
+    val pendingFile = remember(currentTrip.tripId, dest.stopIndex) {
+        DraftPhotoManager.getPendingFile(context, currentTrip.tripId, dest.stopIndex)
+    }
+
+    var draftVersion by rememberSaveable(currentTrip.tripId, dest.stopIndex) { mutableStateOf(0) }
+
     var capturedSjBitmap by remember { mutableStateOf<Bitmap?>(null) }
-    val capturedItemBitmaps = remember { mutableStateListOf<Bitmap>() }
-    var activeCaptureMode by rememberSaveable { mutableStateOf("sj") } // "sj" or "item"
+    var capturedItem0Bitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var capturedItem1Bitmap by remember { mutableStateOf<Bitmap?>(null) }
+    var pendingPhotoBitmap by remember { mutableStateOf<Bitmap?>(null) }
+
+    LaunchedEffect(currentTrip.tripId, dest.stopIndex, draftVersion) {
+        capturedSjBitmap = if (sjFile.exists() && sjFile.length() > 0) decodeSampledBitmapFromFile(sjFile, 1024, 1024) else null
+        capturedItem0Bitmap = if (item0File.exists() && item0File.length() > 0) decodeSampledBitmapFromFile(item0File, 1024, 1024) else null
+        capturedItem1Bitmap = if (item1File.exists() && item1File.length() > 0) decodeSampledBitmapFromFile(item1File, 1024, 1024) else null
+        pendingPhotoBitmap = if (pendingFile.exists() && pendingFile.length() > 0) decodeSampledBitmapFromFile(pendingFile, 1024, 1024) else null
+    }
+
+    val capturedItemBitmaps = listOfNotNull(capturedItem0Bitmap, capturedItem1Bitmap)
+    var activeCaptureMode by rememberSaveable { mutableStateOf("sj") } // "sj" or "item" or "pending"
 
     // Pending Approval Dialog state
     var showPendingDialog by remember { mutableStateOf(false) }
     var pendingReasonSelected by remember { mutableStateOf("Klien Tutup / Toko Belum Buka") }
     var customPendingReason by remember { mutableStateOf("") }
-    var pendingPhotoBitmap by remember { mutableStateOf<Bitmap?>(null) }
 
     var photoUriString by rememberSaveable { mutableStateOf<String?>(null) }
-
-    // Helper to decode bitmap with downsampling & OOM protection for low-end phones
-    fun decodeSampledBitmap(uri: Uri, reqWidth: Int = 1024, reqHeight: Int = 1024): Bitmap? {
-        return try {
-            val options = android.graphics.BitmapFactory.Options().apply {
-                inJustDecodeBounds = true
-            }
-            context.contentResolver.openInputStream(uri)?.use { stream ->
-                android.graphics.BitmapFactory.decodeStream(stream, null, options)
-            }
-
-            var inSampleSize = 1
-            val height = options.outHeight
-            val width = options.outWidth
-            if (height > reqHeight || width > reqWidth) {
-                val halfHeight = height / 2
-                val halfWidth = width / 2
-                while ((halfHeight / inSampleSize) >= reqHeight || (halfWidth / inSampleSize) >= reqWidth) {
-                    inSampleSize *= 2
-                }
-            }
-
-            val decodeOptions = android.graphics.BitmapFactory.Options().apply {
-                this.inSampleSize = inSampleSize
-                this.inPreferredConfig = android.graphics.Bitmap.Config.RGB_565
-            }
-
-            var bitmap: Bitmap? = context.contentResolver.openInputStream(uri)?.use { stream ->
-                android.graphics.BitmapFactory.decodeStream(stream, null, decodeOptions)
-            }
-
-            if (bitmap != null) {
-                try {
-                    context.contentResolver.openInputStream(uri)?.use { inputStream ->
-                        val exifInterface = android.media.ExifInterface(inputStream)
-                        val orientation = exifInterface.getAttributeInt(
-                            android.media.ExifInterface.TAG_ORIENTATION,
-                            android.media.ExifInterface.ORIENTATION_UNDEFINED
-                        )
-                        val matrix = android.graphics.Matrix()
-                        when (orientation) {
-                            android.media.ExifInterface.ORIENTATION_ROTATE_90 -> matrix.postRotate(90f)
-                            android.media.ExifInterface.ORIENTATION_ROTATE_180 -> matrix.postRotate(180f)
-                            android.media.ExifInterface.ORIENTATION_ROTATE_270 -> matrix.postRotate(270f)
-                        }
-                        if (!matrix.isIdentity) {
-                            bitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
-                        }
-                    }
-                } catch (e: Exception) {
-                    // Ignore EXIF errors
-                }
-            }
-            bitmap
-        } catch (e: Exception) {
-            e.printStackTrace()
-            null
-        }
-    }
 
     val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
         val currentUri = photoUriString?.let { Uri.parse(it) }
         if (success && currentUri != null) {
-            val bitmap = decodeSampledBitmap(currentUri, 1024, 1024)
-            if (bitmap != null) {
-                if (activeCaptureMode == "sj") {
-                    capturedSjBitmap = bitmap
-                } else if (activeCaptureMode == "item") {
-                    if (capturedItemBitmaps.size < 2) {
-                        capturedItemBitmaps.add(bitmap)
-                    } else {
-                        Toast.makeText(context, "Maksimal 2 foto barang", Toast.LENGTH_SHORT).show()
-                    }
-                } else if (activeCaptureMode == "pending") {
-                    pendingPhotoBitmap = bitmap
+            try {
+                val targetFile = when (activeCaptureMode) {
+                    "sj" -> sjFile
+                    "item" -> if (!item0File.exists() || item0File.length() == 0L) item0File else item1File
+                    "pending" -> pendingFile
+                    else -> null
                 }
-            } else {
-                Toast.makeText(context, "Gagal memproses foto", Toast.LENGTH_SHORT).show()
+                if (targetFile != null) {
+                    context.contentResolver.openInputStream(currentUri)?.use { input ->
+                        targetFile.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                    draftVersion++
+                    Toast.makeText(context, "Foto tersimpan aman", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                Toast.makeText(context, "Gagal menyimpan foto: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -1006,7 +1237,11 @@ fun DestinationItem(
                                             contentScale = androidx.compose.ui.layout.ContentScale.Crop
                                         )
                                         IconButton(
-                                            onClick = { capturedSjBitmap = null },
+                                            onClick = {
+                                                sjFile.delete()
+                                                capturedSjBitmap = null
+                                                draftVersion++
+                                            },
                                             enabled = !isUploading,
                                             modifier = Modifier
                                                 .align(Alignment.TopEnd)
@@ -1049,29 +1284,60 @@ fun DestinationItem(
                                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    if (capturedItemBitmaps.isNotEmpty()) {
-                                        capturedItemBitmaps.forEachIndexed { index, bitmap ->
-                                            Box(
+                                    if (capturedItem0Bitmap != null) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(38.dp)
+                                                .clip(RoundedCornerShape(6.dp))
+                                        ) {
+                                            Image(
+                                                bitmap = capturedItem0Bitmap!!.asImageBitmap(),
+                                                contentDescription = "Barang 1",
+                                                modifier = Modifier.fillMaxSize(),
+                                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                            )
+                                            IconButton(
+                                                onClick = {
+                                                    item0File.delete()
+                                                    if (item1File.exists()) {
+                                                        item1File.renameTo(item0File)
+                                                    }
+                                                    draftVersion++
+                                                },
+                                                enabled = !isUploading,
                                                 modifier = Modifier
-                                                    .size(38.dp)
-                                                    .clip(RoundedCornerShape(6.dp))
+                                                    .align(Alignment.TopEnd)
+                                                    .size(16.dp)
+                                                    .background(Color.Black.copy(0.6f), CircleShape)
                                             ) {
-                                                Image(
-                                                    bitmap = bitmap.asImageBitmap(),
-                                                    contentDescription = "Barang",
-                                                    modifier = Modifier.fillMaxSize(),
-                                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                                                )
-                                                IconButton(
-                                                    onClick = { capturedItemBitmaps.removeAt(index) },
-                                                    enabled = !isUploading,
-                                                    modifier = Modifier
-                                                        .align(Alignment.TopEnd)
-                                                        .size(16.dp)
-                                                        .background(Color.Black.copy(0.6f), CircleShape)
-                                                ) {
-                                                    Icon(Icons.Default.Close, contentDescription = "Hapus", tint = Color.White, modifier = Modifier.size(10.dp))
-                                                }
+                                                Icon(Icons.Default.Close, contentDescription = "Hapus", tint = Color.White, modifier = Modifier.size(10.dp))
+                                            }
+                                        }
+                                    }
+                                    if (capturedItem1Bitmap != null) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(38.dp)
+                                                .clip(RoundedCornerShape(6.dp))
+                                        ) {
+                                            Image(
+                                                bitmap = capturedItem1Bitmap!!.asImageBitmap(),
+                                                contentDescription = "Barang 2",
+                                                modifier = Modifier.fillMaxSize(),
+                                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                            )
+                                            IconButton(
+                                                onClick = {
+                                                    item1File.delete()
+                                                    draftVersion++
+                                                },
+                                                enabled = !isUploading,
+                                                modifier = Modifier
+                                                    .align(Alignment.TopEnd)
+                                                    .size(16.dp)
+                                                    .background(Color.Black.copy(0.6f), CircleShape)
+                                            ) {
+                                                Icon(Icons.Default.Close, contentDescription = "Hapus", tint = Color.White, modifier = Modifier.size(10.dp))
                                             }
                                         }
                                     }
@@ -1131,9 +1397,14 @@ fun DestinationItem(
                                         android.widget.Toast.makeText(context, "Foto Surat Jalan dan Foto Barang wajib diambil sebelum menyelesaikan!", android.widget.Toast.LENGTH_LONG).show()
                                         return@Button
                                     }
+                                    if (isDriver && currentTrip.vehiclePlate.isEmpty()) {
+                                        android.widget.Toast.makeText(context, "Khusus Driver: Wajib memilih mobil pengantaran terlebih dahulu!", android.widget.Toast.LENGTH_LONG).show()
+                                        onRequestCarPicker()
+                                        return@Button
+                                    }
                                     validateSecurityAndLocation(context, client, dest.latitude, dest.longitude, radius) {
                                         isUploading = true
-                                        onUpdateWithCategorizedPhotos("done", capturedSjBitmap, capturedItemBitmaps.toList())
+                                        onUpdateWithCategorizedPhotos("done", capturedSjBitmap, capturedItemBitmaps)
                                     }
                                 },
                                 enabled = !isUploading && isPhotosComplete,
@@ -1168,6 +1439,7 @@ fun DestinationItem(
 }
 
 private fun uploadPendingProofPhotoAndUpdate(
+    context: android.content.Context,
     storage: FirebaseStorage,
     db: FirebaseFirestore,
     trip: Trip,
@@ -1183,12 +1455,19 @@ private fun uploadPendingProofPhotoAndUpdate(
                     it.copy(
                         status = "pending_approval",
                         pendingReason = reason,
-                        pendingProofPhotoUrl = url ?: ""
+                        pendingProofPhotoUrl = url ?: "",
+                        vehiclePlate = trip.vehiclePlate.ifEmpty { it.vehiclePlate },
+                        vehicleName = trip.vehicleName.ifEmpty { it.vehicleName }
                     )
                 } else it
             }
             val map = mutableMapOf<String, Any>("destinations" to updated)
+            if (trip.vehiclePlate.isNotEmpty()) {
+                map["vehiclePlate"] = trip.vehiclePlate
+                map["vehicleName"] = trip.vehicleName
+            }
             db.collection("trips").document(trip.tripId).update(map)
+            DraftPhotoManager.clearDraftsForStop(context, trip.tripId, dest.stopIndex)
         }
     }.start()
 }
@@ -1215,6 +1494,7 @@ private fun compressBitmapToBytes(source: Bitmap, maxDimension: Int = 1000, qual
 }
 
 private fun uploadCategorizedPhotosAndUpdate(
+    context: android.content.Context,
     storage: FirebaseStorage,
     db: FirebaseFirestore,
     trip: Trip,
@@ -1226,6 +1506,7 @@ private fun uploadCategorizedPhotosAndUpdate(
     val totalToUpload = (if (sjBitmap != null) 1 else 0) + itemBitmaps.size
     if (totalToUpload == 0) {
         updateDestinationStatus(db, trip, dest, status, null)
+        DraftPhotoManager.clearDraftsForStop(context, trip.tripId, dest.stopIndex)
         return
     }
 
@@ -1248,6 +1529,7 @@ private fun uploadCategorizedPhotosAndUpdate(
                 val combinedUrl = if (combinedList.isNotEmpty()) combinedList.joinToString(",") else null
 
                 updateDestinationStatus(db, trip, dest, status, combinedUrl, validSjUrl, validItemUrls)
+                DraftPhotoManager.clearDraftsForStop(context, trip.tripId, dest.stopIndex)
             }
         }
     }
@@ -1422,12 +1704,18 @@ private fun updateDestinationStatus(
                 completedTime = if (status == "done") Timestamp.now() else it.completedTime,
                 proofPhotoUrl = combinedUrl ?: it.proofPhotoUrl,
                 proofPhotoSj = sjUrl ?: it.proofPhotoSj,
-                proofPhotoItems = if (itemUrls.isNotEmpty()) itemUrls else it.proofPhotoItems
+                proofPhotoItems = if (itemUrls.isNotEmpty()) itemUrls else it.proofPhotoItems,
+                vehiclePlate = trip.vehiclePlate.ifEmpty { it.vehiclePlate },
+                vehicleName = trip.vehicleName.ifEmpty { it.vehicleName }
             )
         } else it
     }
     val map = mutableMapOf<String, Any>("destinations" to updated)
     if (status == "arrived" && trip.status != "completed") map["status"] = "in_progress"
     if (updated.all { it.status == "done" }) map["status"] = "completed"
+    if (trip.vehiclePlate.isNotEmpty()) {
+        map["vehiclePlate"] = trip.vehiclePlate
+        map["vehicleName"] = trip.vehicleName
+    }
     db.collection("trips").document(trip.tripId).update(map)
 }

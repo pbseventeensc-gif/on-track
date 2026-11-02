@@ -340,6 +340,40 @@
             return cTCid.contains(cMyCid) || cMyCid.contains(cTCid);
         }
 
+        const COMPANY_FLEET_VEHICLES = [
+            { plate: "B 9227 SCH", name: "Granmax B 9227 SCH (Agung)" },
+            { plate: "B 9939 SCH", name: "Granmax B 9939 SCH (Soleh)" },
+            { plate: "B 9158 SCE", name: "Granmax B 9158 SCE (Romi)" },
+            { plate: "B 9278 SCD", name: "Granmax B 9278 SCD (Alan)" },
+            { plate: "B 9107 SCE", name: "Granmax B 9107 SCE (Yakub)" },
+            { plate: "B 1004 BKP", name: "Granmax B 1004 BKP (Cadangan Gudang)" },
+            { plate: "B 9032 SCG", name: "Truk Box B 9032 SCG (Iwan)" },
+            { plate: "B 9177 SCH", name: "Truk Box B 9177 SCH (Husen)" },
+            { plate: "B 9842 NCC", name: "Truk Box B 9842 NCC (Altur)" },
+            { plate: "B 9084 SCH", name: "Truk Box B 9084 SCH (Rizki)" },
+            { plate: "B 9463 SAJ", name: "Pick Up B 9463 SAJ (Gudang)" },
+            { plate: "B 9243 PCJ", name: "L300 B 9243 PCJ (Gudang)" }
+        ];
+
+        function updateTripVehicle(tripId, plate) {
+            if (!plate) return;
+            const car = COMPANY_FLEET_VEHICLES.find(c => c.plate === plate);
+            const carName = car ? car.name : plate;
+            const activeDb = db || (window.firebase && window.firebase.firestore());
+            if (activeDb) {
+                activeDb.collection('trips').doc(tripId).update({
+                    vehiclePlate: plate,
+                    vehicleName: carName,
+                    vehicleType: 'mobil'
+                }).then(() => {
+                    alert("✅ Mobil pengantaran berhasil disetel: " + carName);
+                }).catch(err => {
+                    alert("Gagal menyimpan pilihan mobil: " + err.message);
+                });
+            }
+        }
+        window.updateTripVehicle = updateTripVehicle;
+
         function renderTasks() {
             const container = document.getElementById('tasks-container');
             if (!container) return;
@@ -363,6 +397,35 @@
                 const totalCount = dests.length || 1;
                 const progressPct = Math.round((doneCount / totalCount) * 100);
 
+                const driverTokens = ['altur', 'rizki', 'soleh', 'romi', 'firdaus', 'alan', 'yakub', 'iwan', 'agung', 'husen'];
+                const isDriver = (t.vehicleType === 'mobil') ||
+                    driverTokens.some(d => (t.courierId || '').toLowerCase().includes(d) || (currentCourierId || '').toLowerCase().includes(d));
+
+                let carSelectionHtml = '';
+                if (isDriver) {
+                    const hasCar = !!t.vehiclePlate;
+                    let optionsHtml = '<option value="">-- Pilih Mobil Pengantaran Hari Ini --</option>';
+                    COMPANY_FLEET_VEHICLES.forEach(c => {
+                        const sel = t.vehiclePlate === c.plate ? 'selected' : '';
+                        optionsHtml += `<option value="${c.plate}" ${sel}>${c.name}</option>`;
+                    });
+
+                    carSelectionHtml = `
+                        <div class="mb-3 p-2.5 rounded-3 border ${hasCar ? 'bg-success-subtle border-success-subtle' : 'bg-warning-subtle border-warning-subtle'}">
+                            <div class="d-flex align-items-center justify-content-between mb-1">
+                                <span class="extra-small fw-bold text-uppercase ${hasCar ? 'text-success' : 'text-warning-emphasis'}">
+                                    <i class="bi bi-truck me-1"></i> Armada Mobil Pengantaran
+                                </span>
+                                ${hasCar ? `<span class="badge bg-success text-white extra-small">Aktif: ${t.vehiclePlate}</span>` : '<span class="badge bg-danger text-white extra-small">Wajib Pilih</span>'}
+                            </div>
+                            <select class="form-select form-select-sm fw-bold border" onchange="updateTripVehicle('${t.id}', this.value)">
+                                ${optionsHtml}
+                            </select>
+                            ${!hasCar ? '<small class="text-danger extra-small fw-bold mt-1 d-block"><i class="bi bi-exclamation-triangle-fill me-1"></i>Khusus Driver: Silakan pilih mobil yang Anda gunakan sebelum menyelesaikan tugas.</small>' : ''}
+                        </div>
+                    `;
+                }
+
                 html += `
                     <div class="trip-card">
                         <div class="p-3 border-bottom bg-light d-flex align-items-center justify-content-between">
@@ -377,6 +440,7 @@
                         </div>
 
                         <div class="p-3">
+                            ${carSelectionHtml}
                             <div class="progress mb-3" style="height: 8px; border-radius: 10px;">
                                 <div class="progress-bar bg-success" role="progressbar" style="width: ${progressPct}%;"></div>
                             </div>
@@ -711,6 +775,16 @@
 
                 if (snap.exists) {
                     const tData = snap.data();
+                    const driverTokens = ['altur', 'rizki', 'soleh', 'romi', 'firdaus', 'alan', 'yakub', 'iwan', 'agung', 'husen'];
+                    const isDriver = (tData.vehicleType === 'mobil') ||
+                        driverTokens.some(d => (tData.courierId || '').toLowerCase().includes(d) || (currentCourierId || '').toLowerCase().includes(d));
+
+                    if (isDriver && !tData.vehiclePlate) {
+                        alert("Khusus Driver: Mohon pilih mobil pengantaran terlebih dahulu pada kotak tugas hari ini!");
+                        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="bi bi-cloud-arrow-up-fill me-1"></i> SIMPAN & SELESAIKAN'; }
+                        return;
+                    }
+
                     const updatedDests = (tData.destinations || []).map(d => {
                         if (d.stopIndex === stopIndex) {
                             return {
@@ -719,7 +793,9 @@
                                 completedTime: firebase.firestore.Timestamp.now(),
                                 proofPhotoSj: sjUrl || d.proofPhotoSj || "",
                                 proofPhotoItems: itemUrl ? [itemUrl] : (d.proofPhotoItems || []),
-                                proofPhotoUrl: combinedUrl || d.proofPhotoUrl || ""
+                                proofPhotoUrl: combinedUrl || d.proofPhotoUrl || "",
+                                vehiclePlate: tData.vehiclePlate || d.vehiclePlate || "",
+                                vehicleName: tData.vehicleName || d.vehicleName || ""
                             };
                         }
                         return d;

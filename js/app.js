@@ -3599,6 +3599,8 @@ function renderRecentShipments(filter = "") {
                         pendingProofPhotoUrl: d.pendingProofPhotoUrl || '',
                         courierId: courierIdStr,
                         carrier: cName,
+                        vehiclePlate: d.vehiclePlate || t.vehiclePlate || '',
+                        vehicleName: d.vehicleName || t.vehicleName || '',
                         eta: timeStr,
                         proofSjUrl: photos.sjUrl,
                         proofItemUrl: photos.itemUrl,
@@ -3715,7 +3717,7 @@ function renderRecentShipments(filter = "") {
                 ${s.pendingReason ? `<small class="text-danger extra-small d-block fw-bold text-truncate" style="max-width:240px"><i class="bi bi-exclamation-circle me-1"></i>${s.pendingReason}</small>` : (s.fullAddress ? `<small class="text-muted extra-small d-block text-truncate fw-normal" style="max-width:240px">${s.fullAddress}</small>` : '')}
             </td>
             <td class="text-nowrap" style="white-space: nowrap;">${statusBadgeHtml}</td>
-            <td class="fw-normal text-dark text-nowrap" style="white-space: nowrap;">${s.carrier}</td>
+            <td class="fw-normal text-dark text-nowrap" style="white-space: nowrap;">${s.carrier}${s.vehiclePlate ? `<span class="badge bg-light text-secondary border extra-small d-block mt-0.5 font-monospace"><i class="bi bi-truck me-1"></i>${s.vehiclePlate}</span>` : ''}</td>
             <td class="text-nowrap" style="white-space: nowrap;"><small class="fw-normal text-secondary">${s.eta}</small></td>
             <td class="text-nowrap">
                 <div class="d-inline-flex gap-1 align-items-center">
