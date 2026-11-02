@@ -687,6 +687,11 @@
 
             if (!tripId) return;
 
+            if (!sjFile || !itemFile) {
+                alert("Foto Surat Jalan (SJ) dan Foto Barang/Penerima WAJIB dilampirkan sebelum menyelesaikan pengantaran!");
+                return;
+            }
+
             if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span> MENGUNGGAH FOTO...'; }
             if (statusEl) statusEl.innerText = "⚡ Mengompres & mengunggah foto kilat...";
 

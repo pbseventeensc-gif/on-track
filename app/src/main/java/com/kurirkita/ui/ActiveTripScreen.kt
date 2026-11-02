@@ -1097,7 +1097,11 @@ fun DestinationItem(
                         }
 
                         // SUBMIT SECTION
-                        val totalPhotos = (if (capturedSjBitmap != null) 1 else 0) + capturedItemBitmaps.size
+                        val hasSj = capturedSjBitmap != null
+                        val hasItems = capturedItemBitmaps.isNotEmpty()
+                        val isPhotosComplete = hasSj && hasItems
+                        val totalPhotos = (if (hasSj) 1 else 0) + capturedItemBitmaps.size
+
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -1123,21 +1127,36 @@ fun DestinationItem(
 
                             Button(
                                 onClick = {
+                                    if (!isPhotosComplete) {
+                                        android.widget.Toast.makeText(context, "Foto Surat Jalan dan Foto Barang wajib diambil sebelum menyelesaikan!", android.widget.Toast.LENGTH_LONG).show()
+                                        return@Button
+                                    }
                                     validateSecurityAndLocation(context, client, dest.latitude, dest.longitude, radius) {
                                         isUploading = true
                                         onUpdateWithCategorizedPhotos("done", capturedSjBitmap, capturedItemBitmaps.toList())
                                     }
                                 },
-                                enabled = !isUploading,
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF1C40F), contentColor = Color.Black),
+                                enabled = !isUploading && isPhotosComplete,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFFF1C40F),
+                                    contentColor = Color.Black,
+                                    disabledContainerColor = Color(0xFFE2E8F0),
+                                    disabledContentColor = Color(0xFF94A3B8)
+                                ),
                                 shape = RoundedCornerShape(8.dp),
                                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                                 modifier = Modifier.height(36.dp)
                             ) {
                                 if (isUploading) {
                                     CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.Black, strokeWidth = 2.dp)
+                                } else if (isPhotosComplete) {
+                                    Text("KIRIM ($totalPhotos FOTO)", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Black)
+                                } else if (!hasSj && !hasItems) {
+                                    Text("FOTO SJ & BARANG WAJIB", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Black)
+                                } else if (!hasSj) {
+                                    Text("FOTO SJ WAJIB", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Black)
                                 } else {
-                                    Text(if (totalPhotos > 0) "KIRIM ($totalPhotos FOTO)" else "SELESAI (TANPA FOTO)", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Black)
+                                    Text("FOTO BARANG WAJIB", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Black)
                                 }
                             }
                         }
