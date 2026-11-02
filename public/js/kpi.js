@@ -104,10 +104,12 @@ async function exportKPIToExcel() {
         const hours = Math.floor((c.totalTime || 0) / 60);
         const mins = Math.round((c.totalTime || 0) % 60);
         const durationStr = hours > 0 ? `${hours}j ${mins}m` : `${mins}m`;
+        const vType = (c.vehicleType === 'mobil' || (c.mobilTrips || 0) > (c.motorTrips || 0)) ? 'Driver (Mobil)' : 'Kurir (Motor)';
 
         exportData.push({
             no: idx + 1,
             name: c.name,
+            armada: vType,
             completedStops: c.completedStops,
             totalStops: c.totalStops,
             rateStr: completionRate + "%",
@@ -132,7 +134,7 @@ async function exportKPIToExcel() {
         });
 
         // 1. Title Row
-        sheet.mergeCells('A1:I1');
+        sheet.mergeCells('A1:J1');
         const titleCell = sheet.getCell('A1');
         titleCell.value = "LAPORAN KPI & PERFORMA OPERASIONAL ARMADA - WTRACK";
         titleCell.font = { name: 'Calibri', size: 13, bold: true, color: { argb: 'FFFFFFFF' } };
@@ -145,7 +147,7 @@ async function exportKPIToExcel() {
         sheet.getRow(1).height = 26;
 
         // 2. Subtitle Row
-        sheet.mergeCells('A2:I2');
+        sheet.mergeCells('A2:J2');
         const subCell = sheet.getCell('A2');
         subCell.value = `Periode Evaluasi: ${periodText}  |  Total Personil Dievaluasi: ${exportData.length} Orang`;
         subCell.font = { name: 'Calibri', size: 9.5, italic: true, bold: true, color: { argb: 'FF1F4E79' } };
@@ -167,7 +169,7 @@ async function exportKPIToExcel() {
         // Header Row (Row 4)
         const headerRow = sheet.getRow(4);
         headerRow.height = 26;
-        const headers = ["No", "Nama Personil Kurir / Driver", "Terkirim", "Total Titik", "Tingkat Penyelesaian (%)", "Rating Bintang", "Total Jarak (km)", "Total Durasi Kerja", "Skor KPI"];
+        const headers = ["No", "Nama Personil Kurir / Driver", "Armada", "Terkirim", "Total Titik", "Tingkat Penyelesaian (%)", "Rating Bintang", "Total Jarak (km)", "Total Durasi Kerja", "Skor KPI"];
         headers.forEach((h, idx) => {
             const cell = headerRow.getCell(idx + 1);
             cell.value = h;
@@ -202,6 +204,7 @@ async function exportKPIToExcel() {
             const rowVals = [
                 d.no,
                 d.name,
+                d.armada,
                 d.completedStops,
                 d.totalStops,
                 d.rateStr,
@@ -228,7 +231,13 @@ async function exportKPIToExcel() {
                     cell.value = val;
                     cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF0F172A' } };
                     cell.alignment = { vertical: 'middle', horizontal: 'left' };
-                } else if (cIdx === 4 || cIdx === 8) {
+                } else if (cIdx === 2) {
+                    cell.value = val;
+                    const isMobil = String(val).includes('Mobil');
+                    cell.font = { name: 'Calibri', size: 9.5, bold: true, color: { argb: isMobil ? 'FF1E40AF' : 'FF475569' } };
+                    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isMobil ? 'FFDBEAFE' : 'FFF1F5F9' } };
+                } else if (cIdx === 5 || cIdx === 9) {
                     cell.value = val;
                     cell.font = { name: 'Calibri', size: 9.5, bold: true, color: { argb: 'FF166534' } };
                     cell.alignment = { vertical: 'middle', horizontal: 'center' };
@@ -244,6 +253,7 @@ async function exportKPIToExcel() {
         sheet.columns = [
             { width: 6 },   // No
             { width: 28 },  // Nama
+            { width: 16 },  // Armada
             { width: 14 },  // Terkirim
             { width: 14 },  // Total Titik
             { width: 22 },  // Rate
@@ -269,7 +279,8 @@ async function exportKPIToExcel() {
     if (typeof XLSX !== 'undefined') {
         const rawRows = exportData.map(d => ({
             "No": d.no,
-            "Courier Name": d.name,
+            "Nama Personil": d.name,
+            "Armada": d.armada,
             "Completed Stops": d.completedStops,
             "Total Stops": d.totalStops,
             "Completion Rate (%)": d.rateStr,
@@ -285,6 +296,43 @@ async function exportKPIToExcel() {
     }
 }
 window.exportKPIToExcel = exportKPIToExcel;
+
+function setKPIDateToday() {
+    const today = new Date().toLocaleDateString('sv-SE');
+    const start = document.getElementById('kpi-start-date');
+    const end = document.getElementById('kpi-end-date');
+    if (start) start.value = today;
+    if (end) end.value = today;
+    const periodSelect = document.getElementById('stat-period-filter');
+    if (periodSelect) periodSelect.value = 'today';
+    renderKPIView();
+}
+window.setKPIDateToday = setKPIDateToday;
+
+function setKPIDateThisMonth() {
+    const now = new Date();
+    const startStr = new Date(now.getFullYear(), now.getMonth(), 1).toLocaleDateString('sv-SE');
+    const endStr = new Date(now.getFullYear(), now.getMonth() + 1, 0).toLocaleDateString('sv-SE');
+    const start = document.getElementById('kpi-start-date');
+    const end = document.getElementById('kpi-end-date');
+    if (start) start.value = startStr;
+    if (end) end.value = endStr;
+    const periodSelect = document.getElementById('stat-period-filter');
+    if (periodSelect) periodSelect.value = 'this_month';
+    renderKPIView();
+}
+window.setKPIDateThisMonth = setKPIDateThisMonth;
+
+function setKPIDateAllTime() {
+    const start = document.getElementById('kpi-start-date');
+    const end = document.getElementById('kpi-end-date');
+    if (start) start.value = '';
+    if (end) end.value = '';
+    const periodSelect = document.getElementById('stat-period-filter');
+    if (periodSelect) periodSelect.value = 'all';
+    renderKPIView();
+}
+window.setKPIDateAllTime = setKPIDateAllTime;
 
 function updateKPIChartsFromFilter() {
     const period = document.getElementById('stat-period-filter')?.value || 'today';
@@ -378,7 +426,15 @@ function renderKPIView(filter = "") {
     // 1. Filter Armada Pengantaran (Vehicle Type: all | motor | mobil)
     const activeVehicleFilter = document.getElementById('kpi-vehicle-filter')?.value || 'all';
     if (activeVehicleFilter !== 'all') {
-        filteredTrips = filteredTrips.filter(t => (t.vehicleType || 'motor') === activeVehicleFilter);
+        filteredTrips = filteredTrips.filter(t => {
+            const cId = t.courierId || '';
+            const rawName = (typeof registeredUsers !== 'undefined' && registeredUsers[cId]) || (cId.length > 20 ? (typeof getCourierDisplayName === 'function' ? getCourierDisplayName(cId) : cId) : cId) || '';
+            const courierInfo = (typeof normalizeCourierIdentity === 'function')
+                ? normalizeCourierIdentity(cId, rawName)
+                : { canonicalId: cId, displayName: rawName, vehicleType: t.vehicleType || 'motor' };
+            const effectiveVehicleType = t.vehicleType || courierInfo.vehicleType || (typeof getCourierVehicleType === 'function' ? getCourierVehicleType(cId, rawName) : 'motor');
+            return effectiveVehicleType === activeVehicleFilter;
+        });
     }
 
     const courierStats = {};
@@ -402,7 +458,7 @@ function parseTimestampToMs(timeObj) {
         const cId = t.courierId || '';
         if (typeof isCourierInActiveBranch === 'function' && !isCourierInActiveBranch(cId)) return;
         if (cId.includes('EK74u0gA') || cId.toLowerCase().includes('novalgan')) return;
-        const rawName = registeredUsers[cId] || (cId.length > 20 ? getCourierDisplayName(cId) : cId);
+        const rawName = (typeof registeredUsers !== 'undefined' && registeredUsers[cId]) || (cId.length > 20 ? (typeof getCourierDisplayName === 'function' ? getCourierDisplayName(cId) : cId) : cId) || '';
         if (rawName.includes('EK74u0gA') || rawName.toLowerCase().includes('novalgan')) return;
 
         const courierInfo = (typeof normalizeCourierIdentity === 'function')
@@ -422,13 +478,15 @@ function parseTimestampToMs(timeObj) {
                 motorTrips: 0,
                 mobilTrips: 0,
                 regionsVisited: new Set(),
-                hasHeavyCargo: false
+                hasHeavyCargo: false,
+                vehicleType: courierInfo.vehicleType || 'motor'
             };
         }
 
-        const vType = courierInfo.vehicleType || t.vehicleType || 'motor';
+        const vType = courierInfo.vehicleType || t.vehicleType || (typeof getCourierVehicleType === 'function' ? getCourierVehicleType(cId, rawName) : 'motor');
         if (vType === 'mobil') {
             courierStats[targetId].mobilTrips++;
+            courierStats[targetId].vehicleType = 'mobil';
             if (t.adminBulkSjUrl || (Array.isArray(t.adminBulkSjUrls) && t.adminBulkSjUrls.length > 0)) {
                 courierStats[targetId].hasHeavyCargo = true;
             }
@@ -486,6 +544,7 @@ function parseTimestampToMs(timeObj) {
     });
 
     lastKPIData = Object.values(courierStats);
+    window.lastKPIData = lastKPIData;
 
     const searchVal = (filter || document.getElementById('kpi-search-input')?.value || "").toLowerCase();
     let displayCouriers = lastKPIData.filter(c => {

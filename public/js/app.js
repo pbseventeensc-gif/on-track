@@ -163,7 +163,7 @@ const MASTER_COURIERS = [
 
     // Driver (10 Personil)
     { canonicalId: 'altur', displayName: 'Altur', role: 'driver', vehicleType: 'mobil', defaultUid: 'U7A5dYrb4iZaB7VaWMqorLeqqgg2', matchTokens: ['altur', 'alturdriver05', 'u7a5d'] },
-    { canonicalId: 'rizki', displayName: 'Rizki', role: 'driver', vehicleType: 'mobil', defaultUid: 'gz9F6MqupoXEFTpOTJJ1aFjtSD52', matchTokens: ['rizki', 'rizky', 'rizkidriver07', 'gz9f6'] },
+    { canonicalId: 'rizki', displayName: 'Rizki', role: 'driver', vehicleType: 'mobil', defaultUid: 'gz9F6MqupoXEFTpOTJJ1aFjtSD52', matchTokens: ['rizki', 'rizky', 'rizkidriver07', 'gz9f6', 'vdyqr', 'vdyqrzlgiac', 'vdyqrzlgiacifietaeigotpp6fj2'] },
     { canonicalId: 'soleh', displayName: 'Soleh', role: 'driver', vehicleType: 'mobil', defaultUid: 'G1g9fwjcLSclVmg77ZfrVfT9dzY2', matchTokens: ['soleh', 'muhammadsoleh1', 'muhammadsoleh', 'g1g9f'] },
     { canonicalId: 'romi', displayName: 'Romi', role: 'driver', vehicleType: 'mobil', defaultUid: 'oC2EvdhruFMaKC10jmMUyYbmdtp1', matchTokens: ['romi', 'rommy', 'rommydriver19', 'oc2ev'] },
     { canonicalId: 'firdaus', displayName: 'Firdaus', role: 'driver', vehicleType: 'mobil', defaultUid: 'KgKbQdpUHmcQzu2o8N6czx0N7EP2', matchTokens: ['firdaus', 'kgkbq'] },
@@ -2042,6 +2042,21 @@ function initUsersSnapshot() {
                 registeredUsersObjects[u.name.toLowerCase()] = u;
             }
         });
+
+        // Ensure canonical mappings for legacy accounts (e.g. Rizki's previous UID VDyQRzlGiAcIfIetZeiGOtPP6fJ2)
+        registeredUsers['VDyQRzlGiAcIfIetZeiGOtPP6fJ2'] = 'Rizki';
+        registeredUsers['gz9F6MqupoXEFTpOTJJ1aFjtSD52'] = 'Rizki';
+        registeredUsers['rizki'] = 'Rizki';
+        registeredUsers['rizkidriver07@gmail.com'] = 'Rizki';
+        if (!registeredUsersObjects['VDyQRzlGiAcIfIetZeiGOtPP6fJ2']) {
+            registeredUsersObjects['VDyQRzlGiAcIfIetZeiGOtPP6fJ2'] = {
+                name: 'Rizki',
+                email: 'rizkidriver07@gmail.com',
+                role: 'driver',
+                userId: 'VDyQRzlGiAcIfIetZeiGOtPP6fJ2',
+                courierId: 'rizki'
+            };
+        }
 
         // Save to cache
         try {
