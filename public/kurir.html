@@ -124,11 +124,32 @@
         <div class="p-3 bg-white rounded-4 border shadow-sm mb-3">
             <label class="extra-small fw-extrabold text-muted text-uppercase mb-1 d-block"><i class="bi bi-person-badge me-1"></i> Identitas Kurir Logistik</label>
             <select id="courier-select" class="form-select form-select-sm fw-bold border-success-subtle py-2" style="border-radius: 12px; background-color: #F0FDF4;" onchange="onCourierChanged(this.value)">
-                <option value="pbseventeensc">🚚 pbseventeensc (Kurir Utama)</option>
-                <option value="UP70R51X">🚚 UP70R51X (ID HP)</option>
-                <option value="Beto">🚚 Beto</option>
-                <option value="Bayhaqi">🚚 Bayhaqi</option>
-                <option value="Ahmad">🚚 Ahmad</option>
+                <optgroup label="🛵 Kurir Motor (12 Personil)">
+                    <option value="pbseventeensc">🛵 pbseventeensc</option>
+                    <option value="ahmad">🛵 Ahmad</option>
+                    <option value="beto">🛵 Beto</option>
+                    <option value="eri">🛵 Eri</option>
+                    <option value="irfan">🛵 Irfan</option>
+                    <option value="baihaqi">🛵 Baihaqi</option>
+                    <option value="haris">🛵 Haris</option>
+                    <option value="umar">🛵 Umar</option>
+                    <option value="noval">🛵 Noval</option>
+                    <option value="jay">🛵 Jay</option>
+                    <option value="ferdi">🛵 Ferdi</option>
+                    <option value="jagat">🛵 Jagatbaru</option>
+                </optgroup>
+                <optgroup label="🚚 Driver Mobil / Truk (10 Personil)">
+                    <option value="altur">🚚 Altur</option>
+                    <option value="rizki">🚚 Rizki</option>
+                    <option value="soleh">🚚 Soleh</option>
+                    <option value="romi">🚚 Romi</option>
+                    <option value="firdaus">🚚 Firdaus</option>
+                    <option value="alan">🚚 Alan</option>
+                    <option value="yakub">🚚 Yakub</option>
+                    <option value="iwan">🚚 Iwan</option>
+                    <option value="agung">🚚 Agung</option>
+                    <option value="husen">🚚 Husen</option>
+                </optgroup>
             </select>
         </div>
 
@@ -329,15 +350,50 @@
             });
         }
 
+        const MASTER_COURIERS = [
+            { canonicalId: 'ahmad', displayName: 'Ahmad', role: 'kurir', vehicleType: 'motor', defaultUid: '9dhFtf5QTQW8zmb8cZW5YFgZfmH3' },
+            { canonicalId: 'beto', displayName: 'Beto', role: 'kurir', vehicleType: 'motor', defaultUid: 'l6fLsN7ijQdq5m2tcUs2xpmMFv63' },
+            { canonicalId: 'eri', displayName: 'Eri', role: 'kurir', vehicleType: 'motor', defaultUid: 'CkRWbGxehCfVOi4iMWvnm66W9NM2' },
+            { canonicalId: 'irfan', displayName: 'Irfan', role: 'kurir', vehicleType: 'motor', defaultUid: 'gQyw0Ot9pWY9DuWugNK7IpwaM352' },
+            { canonicalId: 'baihaqi', displayName: 'Baihaqi', role: 'kurir', vehicleType: 'motor', defaultUid: 'xONhqVSNSYcEcGCZyW2cLGJWQt92' },
+            { canonicalId: 'haris', displayName: 'Haris', role: 'kurir', vehicleType: 'motor', defaultUid: 'uWA0dLFxj0MsGe3YXHuvHjg1GZs1' },
+            { canonicalId: 'umar', displayName: 'Umar', role: 'kurir', vehicleType: 'motor', defaultUid: 'eRg9WzDaEgPPl6jcEzo0ERYNyI82' },
+            { canonicalId: 'noval', displayName: 'Noval', role: 'kurir', vehicleType: 'motor', defaultUid: 'D9hmxHZ2SJa2BgZN8DO2cT6lgGh1' },
+            { canonicalId: 'jay', displayName: 'Jay', role: 'kurir', vehicleType: 'motor', defaultUid: 'XFAoplNpgjc0QzqE6gcTIa5OA0r2' },
+            { canonicalId: 'ferdi', displayName: 'Ferdi', role: 'kurir', vehicleType: 'motor', defaultUid: 'BOMM2Wmk9LXs90qO3RWskGyIOk72' },
+            { canonicalId: 'jagat', displayName: 'Jagatbaru', role: 'kurir', vehicleType: 'motor', defaultUid: 'kwpGbShXoog9kFiRmevZpwTgVxv2' },
+            { canonicalId: 'pbseventeensc', displayName: 'pbseventeensc', role: 'kurir', vehicleType: 'motor', defaultUid: 'uP70R51x7CbR5ggHEyeXfsjSTfO2' },
+            { canonicalId: 'altur', displayName: 'Altur', role: 'driver', vehicleType: 'mobil', defaultUid: 'U7A5dYrb4iZaB7VaWMqorLeqqgg2' },
+            { canonicalId: 'rizki', displayName: 'Rizki', role: 'driver', vehicleType: 'mobil', defaultUid: 'gz9F6MqupoXEFTpOTJJ1aFjtSD52' },
+            { canonicalId: 'soleh', displayName: 'Soleh', role: 'driver', vehicleType: 'mobil', defaultUid: 'G1g9fwjcLSclVmg77ZfrVfT9dzY2' },
+            { canonicalId: 'romi', displayName: 'Romi', role: 'driver', vehicleType: 'mobil', defaultUid: 'oC2EvdhruFMaKC10jmMUyYbmdtp1' },
+            { canonicalId: 'firdaus', displayName: 'Firdaus', role: 'driver', vehicleType: 'mobil', defaultUid: 'KgKbQdpUHmcQzu2o8N6czx0N7EP2' },
+            { canonicalId: 'alan', displayName: 'Alan', role: 'driver', vehicleType: 'mobil', defaultUid: 'unNGSiqnOifJSXyQDRiiqlWd83q2' },
+            { canonicalId: 'yakub', displayName: 'Yakub', role: 'driver', vehicleType: 'mobil', defaultUid: '17zXKPw8SFXDhW6Z6lc547R4TEE2' },
+            { canonicalId: 'iwan', displayName: 'Iwan', role: 'driver', vehicleType: 'mobil', defaultUid: 'J3wejohLG5dXbX0im5ozeGzpjzt2' },
+            { canonicalId: 'agung', displayName: 'Agung', role: 'driver', vehicleType: 'mobil', defaultUid: 'RLLeIifIbmVj1HHKALY40n1lKRr1' },
+            { canonicalId: 'husen', displayName: 'Husen', role: 'driver', vehicleType: 'mobil', defaultUid: 'juHUuOWS4FOVpHxE59t4xf0ld1z1' }
+        ];
+
         function isMatchCourier(tCid, myCid) {
-            if (!tCid) return false;
+            if (!tCid || !myCid) return false;
             const cTCid = cleanStr(tCid);
             const cMyCid = cleanStr(myCid);
             if (cTCid === cMyCid) return true;
-            if (cMyCid === 'pbseventeensc' || cMyCid === 'up70r51x') {
-                return cTCid.includes('pbseventeensc') || cTCid.includes('up70r51x');
+
+            const profA = MASTER_COURIERS.find(m => cleanStr(m.canonicalId) === cMyCid || cleanStr(m.defaultUid) === cMyCid || cleanStr(m.displayName) === cMyCid);
+            const profB = MASTER_COURIERS.find(m => cleanStr(m.canonicalId) === cTCid || cleanStr(m.defaultUid) === cTCid || cleanStr(m.displayName) === cTCid);
+
+            if (profA && profB) {
+                return profA.canonicalId === profB.canonicalId;
             }
-            return cTCid.contains(cMyCid) || cMyCid.contains(cTCid);
+            if (profA) {
+                return cTCid === cleanStr(profA.canonicalId) || cTCid === cleanStr(profA.defaultUid) || cTCid === cleanStr(profA.displayName);
+            }
+            if (profB) {
+                return cMyCid === cleanStr(profB.canonicalId) || cMyCid === cleanStr(profB.defaultUid) || cMyCid === cleanStr(profB.displayName);
+            }
+            return false;
         }
 
         const COMPANY_FLEET_VEHICLES = [
@@ -378,7 +434,20 @@
             const container = document.getElementById('tasks-container');
             if (!container) return;
 
-            const myTrips = allTrips.filter(t => t.status !== 'completed' && isMatchCourier(t.courierId, currentCourierId));
+            const myTrips = allTrips.filter(t => {
+                // Jangan tampilkan trip yang sudah selesai
+                if (t.status === 'completed') return false;
+                // Hanya tampilkan pengiriman shift hari ini (isolasi ke tugas hari ini)
+                if (!isTripToday(t)) return false;
+                // Cocokkan identitas kurir secara tepat tanpa duplikasi
+                if (!isMatchCourier(t.courierId, currentCourierId)) return false;
+                // Jika semua tujuan sudah selesai, sembunyikan dari tugas aktif
+                const dests = t.destinations || [];
+                if (dests.length > 0 && dests.every(d => d.status === 'done' || d.status === 'arrived' || (d.proofPhotoUrl && d.proofPhotoUrl.length > 0))) {
+                    return false;
+                }
+                return true;
+            });
 
             if (myTrips.length === 0) {
                 container.innerHTML = `

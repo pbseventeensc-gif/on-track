@@ -527,99 +527,18 @@ window.UnifiedPoolUI = (function () {
   ];
 
   function buildCourierOptionsHtml() {
-    let sourceList = OFFICIAL_MASTER_COURIERS;
-    if (typeof MASTER_COURIERS !== 'undefined' && Array.isArray(MASTER_COURIERS) && MASTER_COURIERS.length > 0) {
-      sourceList = MASTER_COURIERS;
-    } else if (window.MASTER_COURIERS && Array.isArray(window.MASTER_COURIERS) && window.MASTER_COURIERS.length > 0) {
-      sourceList = window.MASTER_COURIERS;
+    if (typeof window.buildCourierOptgroupHtml === 'function') {
+      return window.buildCourierOptgroupHtml('-- Pilih Kurir Motor atau Driver Mobil --', 'defaultUid');
     }
-
-    const parseEntry = (c) => {
-      if (!c) return null;
-      if (typeof c === 'string') {
-        const found = OFFICIAL_MASTER_COURIERS.find(m => 
-          m.canonicalId.toLowerCase() === c.toLowerCase() || 
-          m.displayName.toLowerCase() === c.toLowerCase() ||
-          m.defaultUid === c
-        );
-        if (found) return found;
-
-        if (typeof window.normalizeCourierIdentity === 'function') {
-          const norm = window.normalizeCourierIdentity(c);
-          if (norm && norm.displayName && norm.displayName !== 'undefined') {
-            return {
-              canonicalId: norm.canonicalId || c,
-              displayName: norm.displayName,
-              defaultUid: norm.uid || norm.defaultUid || c,
-              role: norm.role || 'kurir',
-              vehicleType: norm.vehicleType || 'motor'
-            };
-          }
-        }
-        const isMob = c.toLowerCase().includes('driver') || c.toLowerCase().includes('truk') || c.toLowerCase().includes('granmax');
-        return {
-          canonicalId: c.toLowerCase(),
-          displayName: c.charAt(0).toUpperCase() + c.slice(1),
-          defaultUid: c,
-          role: isMob ? 'driver' : 'kurir',
-          vehicleType: isMob ? 'mobil' : 'motor'
-        };
-      }
-
-      // If c is an object:
-      let name = c.displayName || c.name || c.fullName || c.courierName || c.label || '';
-      if (!name || name === 'undefined') {
-        const found = OFFICIAL_MASTER_COURIERS.find(m => 
-          (c.canonicalId && m.canonicalId.toLowerCase() === c.canonicalId.toLowerCase()) || 
-          (c.defaultUid && m.defaultUid === c.defaultUid) ||
-          (c.id && (m.defaultUid === c.id || m.canonicalId === c.id))
-        );
-        if (found) return found;
-
-        if (typeof window.normalizeCourierIdentity === 'function') {
-          const norm = window.normalizeCourierIdentity(c.canonicalId || c.defaultUid || c.id || '');
-          if (norm && norm.displayName && norm.displayName !== 'undefined') {
-            name = norm.displayName;
-          }
-        }
-      }
-
-      if (!name || name === 'undefined') {
-        name = c.canonicalId || c.defaultUid || c.id || 'Kurir';
-      }
-
-      const role = c.role || (c.vehicleType === 'mobil' ? 'driver' : 'kurir');
-      const vehicleType = c.vehicleType || (role === 'driver' ? 'mobil' : 'motor');
-      const canonicalId = c.canonicalId || c.id || c.defaultUid || name;
-      const defaultUid = c.defaultUid || c.uid || c.id || canonicalId;
-
-      return {
-        canonicalId,
-        displayName: name,
-        defaultUid,
-        role,
-        vehicleType
-      };
-    };
-
-    const parsed = sourceList.map(parseEntry).filter(Boolean);
-    const motors = parsed.filter(c => c.role === 'kurir' || c.vehicleType === 'motor');
-    const cars = parsed.filter(c => c.role === 'driver' || c.vehicleType === 'mobil');
-
-    const renderOpt = c => {
-      const val = c.defaultUid || c.canonicalId;
-      const label = (c.displayName && c.displayName !== 'undefined') ? c.displayName : (c.canonicalId || 'Kurir');
-      const isMob = (c.vehicleType === 'mobil' || c.role === 'driver');
-      return `<option value="${val}" data-type="${isMob ? 'mobil' : 'motor'}" class="text-dark">${label}</option>`;
-    };
-
+    const kurirs = OFFICIAL_MASTER_COURIERS.filter(c => c.role === 'kurir');
+    const drivers = OFFICIAL_MASTER_COURIERS.filter(c => c.role === 'driver');
     return `
-      <option value="" class="text-dark">-- Pilih Kurir Motor atau Driver Mobil --</option>
-      <optgroup label="🛵 Kurir Motor (${motors.length} Personil)" class="text-dark">
-        ${motors.map(renderOpt).join('')}
+      <option value="">-- Pilih Kurir Motor atau Driver Mobil --</option>
+      <optgroup label="🛵 Kurir Motor (${kurirs.length} Personil)">
+        ${kurirs.map(c => `<option value="${c.defaultUid || c.canonicalId}" data-type="motor">${c.displayName || c.canonicalId}</option>`).join('')}
       </optgroup>
-      <optgroup label="🚚 Driver Mobil / Truk (${cars.length} Personil)" class="text-dark">
-        ${cars.map(renderOpt).join('')}
+      <optgroup label="🚚 Driver Mobil / Truk (${drivers.length} Personil)">
+        ${drivers.map(c => `<option value="${c.defaultUid || c.canonicalId}" data-type="mobil">${c.displayName || c.canonicalId}</option>`).join('')}
       </optgroup>
     `;
   }

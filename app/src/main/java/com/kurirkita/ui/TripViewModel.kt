@@ -174,13 +174,29 @@ class TripViewModel : ViewModel() {
     ) {
         val currentIds = synchronized(myIdentifiers) { myIdentifiers.toSet() }
 
+        val todayCalendar = Calendar.getInstance()
+        val todayYear = todayCalendar.get(Calendar.YEAR)
+        val todayDayOfYear = todayCalendar.get(Calendar.DAY_OF_YEAR)
+
         val tripList = allTrips.filter { t ->
             val cleanCId = cleanString(t.courierId)
             val isMatch = t.courierId == userId ||
                 currentIds.contains(cleanCId) ||
-                currentIds.any { id -> id.length >= 3 && (cleanCId.contains(id) || id.contains(cleanCId)) }
+                currentIds.contains(t.courierId)
 
-            t.status != "completed" && isMatch
+            // Strict date filter: Task must belong to today's shift
+            val tripCalendar = Calendar.getInstance().apply {
+                time = t.date.toDate()
+            }
+            val isToday = tripCalendar.get(Calendar.YEAR) == todayYear &&
+                          tripCalendar.get(Calendar.DAY_OF_YEAR) == todayDayOfYear
+
+            // Exclude if all destinations have been fulfilled
+            val allDestsDone = t.destinations.isNotEmpty() && t.destinations.all { d ->
+                d.status == "done" || d.proofPhotoUrl.isNotEmpty() || d.proofPhotoSj.isNotEmpty()
+            }
+
+            t.status != "completed" && !allDestsDone && isToday && isMatch
         }
 
         Log.d("TripVM", "SUCCESS: Found ${tripList.size} active trips for user ($userId). Identifiers: $currentIds")
