@@ -60,6 +60,9 @@ dependencies {
     implementation(libs.play.services.location)
     // implementation(libs.maps.compose)
 
+    // QR & Barcode Scanning (Google Play Services Code Scanner - Zero Permission Required)
+    implementation("com.google.android.gms:play-services-code-scanner:16.1.0")
+
     implementation(libs.cloudinary.android)
     implementation("io.coil-kt:coil-compose:2.4.0")
 

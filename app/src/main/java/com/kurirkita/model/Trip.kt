@@ -4,9 +4,13 @@ import com.google.firebase.Timestamp
 
 data class Trip(
     val tripId: String = "",
+    val sjNumber: String = "",
+    val shortCode: String = "",
+    val uniqueCode: String = "",
+    val customer: String = "",
     val courierId: String = "",
     val date: Timestamp = Timestamp.now(),
-    val status: String = "assigned", // "assigned" | "accepted" | "in_progress" | "completed"
+    val status: String = "assigned", // "assigned" | "accepted" | "in_progress" | "completed" | "pool"
     val totalDistanceKm: Double = 0.0,
     val acceptLatitude: Double? = null,
     val acceptLongitude: Double? = null,
@@ -36,5 +40,9 @@ data class Destination(
     val pendingReason: String = "",
     val pendingProofPhotoUrl: String = "",
     val vehiclePlate: String = "",
-    val vehicleName: String = ""
+    val vehicleName: String = "",
+    val sjNumber: String = "",
+    val shortCode: String = "",
+    val itemsSummary: String = "",
+    val qty: String = ""
 )

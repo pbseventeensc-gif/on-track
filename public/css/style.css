@@ -931,3 +931,203 @@ select.wtrack-select-hidden {
     z-index: 2140 !important;
 }
 
+
+
+/* ==========================================================================
+   AEROTRACK ERP DESIGN SYSTEM (Inspired by AeroTrack ERP UI on Dribbble)
+   Clean, high-density enterprise ERP table with subtle borders & pill tabs
+   ========================================================================== */
+
+.aerotrack-pill-nav {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px;
+    background: transparent;
+    margin-bottom: 14px;
+}
+
+.aerotrack-pill-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 9999px;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: #64748b;
+    border: 1px solid transparent;
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-decoration: none;
+}
+
+.aerotrack-pill-btn:hover {
+    color: #0f172a;
+    background: #f1f5f9;
+}
+
+.aerotrack-pill-btn.active {
+    background: #ffffff;
+    color: #0f172a;
+    font-weight: 600;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.aerotrack-filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: #ffffff;
+    border-bottom: 1px solid #e2e8f0;
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+}
+
+.aerotrack-input,
+.aerotrack-select {
+    height: 36px;
+    padding: 5px 12px;
+    font-size: 12.5px;
+    color: #1e293b;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    transition: all 0.15s ease;
+    outline: none;
+}
+
+.aerotrack-input:focus,
+.aerotrack-select:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.aerotrack-input::placeholder {
+    color: #94a3b8;
+}
+
+.aerotrack-table-container {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.aerotrack-table {
+    width: 100%;
+    margin-bottom: 0;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 12.5px;
+    background: #ffffff;
+}
+
+.aerotrack-table thead th {
+    background-color: #ffffff;
+    color: #64748b;
+    font-weight: 600;
+    font-size: 11.5px;
+    padding: 11px 14px;
+    text-align: left;
+    border-top: none;
+    border-bottom: 1px solid #e2e8f0;
+    border-right: 1px solid #f1f5f9;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+.aerotrack-table thead th:last-child {
+    border-right: none;
+}
+
+.aerotrack-table tbody td {
+    padding: 10px 14px;
+    color: #1e293b;
+    border-top: none;
+    border-bottom: 1px solid #f1f5f9;
+    border-right: 1px solid #f1f5f9;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+.aerotrack-table tbody td:last-child {
+    border-right: none;
+}
+
+.aerotrack-table tbody tr {
+    transition: background-color 0.12s ease;
+}
+
+.aerotrack-table tbody tr:hover {
+    background-color: #f8fafc;
+}
+
+.aerotrack-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.aerotrack-id-link {
+    color: #2563eb !important;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: color 0.12s ease;
+}
+
+.aerotrack-id-link:hover {
+    color: #1d4ed8 !important;
+    text-decoration: underline !important;
+}
+
+.aerotrack-num {
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+    color: #0f172a;
+}
+
+.aerotrack-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2.5px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    background: #f1f5f9;
+    color: #475569;
+    border: 1px solid #e2e8f0;
+    letter-spacing: 0.02em;
+}
+
+.aerotrack-badge.badge-success {
+    background: #ecfdf5;
+    color: #059669;
+    border-color: #a7f3d0;
+}
+
+.aerotrack-badge.badge-primary {
+    background: #eff6ff;
+    color: #2563eb;
+    border-color: #bfdbfe;
+}
+
+.aerotrack-badge.badge-warning {
+    background: #fffbeb;
+    color: #d97706;
+    border-color: #fde68a;
+}
+
+.aerotrack-badge.badge-purple {
+    background: #f5f3ff;
+    color: #7c3aed;
+    border-color: #ddd6fe;
+}

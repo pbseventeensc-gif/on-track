@@ -21,6 +21,7 @@
     <!-- Libraries -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
@@ -474,12 +475,33 @@
                 <i class="bi bi-geo-alt"></i> <span>Live Tracking</span>
             </a>
 
-            <div class="nav-category">Operations</div>
+            <div class="nav-category">Plan Delivery</div>
+            <!-- 1. Import SPK -->
+            <a href="javascript:void(0)" class="nav-link-custom fw-semibold" id="nav-import-spk" style="cursor: pointer;" onclick="openSPKImportModal()">
+                <i class="bi bi-file-earmark-arrow-up"></i> <span>Import SPK</span>
+            </a>
+            <!-- 2. Import Surat Jalan -->
+            <a href="javascript:void(0)" class="nav-link-custom fw-semibold" id="nav-import-sj" style="cursor: pointer;" onclick="openSJImportModal()">
+                <i class="bi bi-file-earmark-spreadsheet"></i> <span>Import Surat Jalan</span>
+            </a>
+            <!-- 3. Plan Shipment -->
+            <a href="javascript:void(0)" class="nav-link-custom" id="nav-pool" style="cursor: pointer;" onclick="switchTab('pool', this)">
+                <i class="bi bi-box-seam"></i> <span>Plan Shipment</span>
+            </a>
+            <!-- 4. Manajemen SPK -->
+            <a href="javascript:void(0)" class="nav-link-custom" id="nav-spk" style="cursor: pointer;" onclick="switchTab('spk', this)">
+                <i class="bi bi-journal-text"></i> <span>Manajemen SPK</span>
+            </a>
+
+            <div class="nav-category">Operations & Dispatch</div>
+            <!-- 5. Workstation Cikokol -->
+            <a href="javascript:void(0)" class="nav-link-custom" id="nav-branch-workstation" style="cursor: pointer;" onclick="switchTab('branch-workstation', this)">
+                <i class="bi bi-building-gear"></i> <span>Workstation Cikokol</span>
+                <span class="badge bg-warning text-dark ms-auto" id="badge-cikokol-count" style="display:none; font-size:10px;">0</span>
+            </a>
+
             <a href="javascript:void(0)" class="nav-link-custom" id="nav-dispatch" style="cursor: pointer;" onclick="switchTab('dispatch', this)">
                 <i class="bi bi-plus-square"></i> <span>Shipments</span>
-            </a>
-            <a href="javascript:void(0)" class="nav-link-custom" id="nav-pool" style="cursor: pointer;" onclick="switchTab('pool', this)">
-                <i class="bi bi-box-seam"></i> <span>SJ Pool</span>
             </a>
             <a href="javascript:void(0)" class="nav-link-custom" id="nav-fleet" style="cursor: pointer;" onclick="switchTab('fleet', this)">
                 <i class="bi bi-graph-up-arrow"></i> <span>KPI Kurir</span>
@@ -1799,81 +1821,105 @@
                 </div>
             </div>
 
-            <!-- SJ POOL VIEW -->
+            <!-- SJ POOL VIEW (AEROTRACK ERP UI STYLE) -->
             <div id="view-pool" class="view-section">
-                <div class="d-flex align-items-center justify-content-between mb-4">
-                    <div>
-                        <h4 class="fw-bold mb-1">SJ Pool</h4>
-                        <p class="text-muted small mb-0">Kelola dan tugaskan Surat Jalan yang disiapkan oleh Tim Traffic berdasarkan wilayah (Region).</p>
+                <!-- AeroTrack Top Pill Sub-Navigation -->
+                <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+                    <div class="aerotrack-pill-nav mb-0">
+                        <button class="aerotrack-pill-btn active" id="pill-all-plan" type="button" onclick="UnifiedPoolUI.setDeliveryStatusFilter('ALL')">
+                            <i class="bi bi-box-seam text-primary"></i> On Hand Plan Shipment
+                        </button>
+                        <button class="aerotrack-pill-btn text-danger fw-semibold" id="pill-pending-plan" type="button" onclick="UnifiedPoolUI.setDeliveryStatusFilter('PENDING_FAILED')">
+                            <i class="bi bi-exclamation-triangle-fill text-danger"></i> Pending / Gagal Terkirim
+                            <span class="badge bg-danger rounded-pill ms-1" id="badge-top-pending-count" style="display:none;">0</span>
+                        </button>
+                        <button class="aerotrack-pill-btn" type="button" onclick="window.switchView && window.switchView('view-branch-workstation')">
+                            <i class="bi bi-printer"></i> Workstation Cikokol
+                        </button>
+                        <button class="aerotrack-pill-btn" type="button" onclick="window.switchView && window.switchView('view-spk')">
+                            <i class="bi bi-journal-text"></i> SPK Produksi
+                        </button>
+                        <button class="aerotrack-pill-btn" type="button" onclick="window.switchView && window.switchView('view-trips')">
+                            <i class="bi bi-clock-history"></i> Riwayat Pengiriman
+                        </button>
                     </div>
-                    <button class="btn btn-dark btn-sm fw-bold px-3 py-2" style="border-radius:10px;" onclick="loadPoolTrips()">
-                        <i class="bi bi-arrow-clockwise me-1"></i> Refresh Pool
-                    </button>
+                    <div class="d-flex align-items-center gap-2">
+                        <button class="btn btn-sm btn-outline-primary fw-semibold px-3 aerotrack-input" type="button" onclick="window.sjImportEngine && window.sjImportEngine.triggerExcelFileInput()">
+                            <i class="bi bi-upload me-1"></i> Import SJ Baru
+                        </button>
+                        <button class="btn btn-sm btn-light border fw-semibold px-3 aerotrack-input" type="button" onclick="loadPoolTrips()">
+                            <i class="bi bi-arrow-clockwise me-1"></i> Refresh
+                        </button>
+                    </div>
                 </div>
 
-                <!-- Region Filter Dropdown -->
-                <div class="card border-0 shadow-sm mb-4" style="border-radius: 16px;">
-                    <div class="card-body p-3">
-                        <div class="d-flex align-items-center gap-3">
-                            <label class="fw-bold text-muted small mb-0"><i class="bi bi-funnel me-1"></i> Filter Wilayah (Region):</label>
-                            <select id="pool-region-select" class="form-select form-select-sm" style="max-width: 300px; border-radius: 10px;" onchange="filterPoolByRegion(this.value)">
-                                <option value="ALL">Semua Region / Wilayah</option>
-                                <option value="Jakarta Pusat">Jakarta Pusat</option>
-                                <option value="Jakarta Timur">Jakarta Timur</option>
-                                <option value="Jakarta Utara">Jakarta Utara</option>
-                                <option value="Jakarta Selatan">Jakarta Selatan</option>
-                                <option value="Jakarta Barat">Jakarta Barat</option>
-                                <option value="Depok">Depok</option>
-                                <option value="Bogor">Bogor</option>
-                                <option value="Bekasi">Bekasi</option>
-                                <option value="Tangerang">Tangerang</option>
-                                <option value="Karawang">Karawang</option>
-                                <option value="Serang">Serang</option>
+                <!-- AeroTrack ERP Data Grid Container -->
+                <div class="aerotrack-table-container shadow-sm mb-4">
+                    <!-- AeroTrack Filter Toolbar -->
+                    <div class="aerotrack-filter-bar">
+                        <input type="text" id="pool-search-id" class="aerotrack-input" placeholder="Stock ID / No. SJ" style="width: 170px;" oninput="renderPoolTable()">
+                        <input type="text" id="pool-search-customer" class="aerotrack-input" placeholder="All Customers / Alamat" style="width: 220px;" oninput="renderPoolTable()">
+                        <select id="pool-region-select" class="aerotrack-select" style="min-width: 170px;" onchange="filterPoolByRegion(this.value)">
+                            <option value="ALL">All Regions (Semua)</option>
+                            <option value="Jakarta Pusat">Jakarta Pusat</option>
+                            <option value="Jakarta Timur">Jakarta Timur</option>
+                            <option value="Jakarta Utara">Jakarta Utara</option>
+                            <option value="Jakarta Selatan">Jakarta Selatan</option>
+                            <option value="Jakarta Barat">Jakarta Barat</option>
+                            <option value="Depok">Depok</option>
+                            <option value="Bogor">Bogor</option>
+                            <option value="Bekasi">Bekasi</option>
+                            <option value="Tangerang">Tangerang</option>
+                            <option value="Karawang">Karawang</option>
+                            <option value="Serang">Serang</option>
+                        </select>
+                        
+                        <div class="ms-auto d-flex align-items-center gap-2 flex-wrap">
+                            <select id="bulk-courier-select" class="aerotrack-select" style="width: 190px;">
+                                <option value="">Pilih Kurir Tujuan...</option>
                             </select>
+                            <button class="btn btn-sm btn-dark fw-semibold px-3 aerotrack-input" onclick="bulkAssignPoolTrips()">
+                                <i class="bi bi-check2-all me-1"></i> Assign Terpilih
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger px-2.5 aerotrack-input" onclick="clearAllPoolTrips()" title="Hapus Seluruh Pool">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                            <span class="aerotrack-badge badge-primary ms-1" id="pool-selected-count">0 Terpilih</span>
                         </div>
                     </div>
-                </div>
 
-                <!-- Pool Trips List Container -->
-                <div class="card border-0 shadow-sm" style="border-radius: 16px;">
-                    <div class="card-body p-4">
-                        <!-- Bulk Action Bar -->
-                        <div class="d-flex align-items-center justify-content-between mb-3 pb-3 border-bottom flex-wrap gap-2">
-                            <div class="d-flex align-items-center gap-2">
-                                <span class="fw-bold text-muted small">Bulk Assign:</span>
-                                <select id="bulk-courier-select" class="form-select form-select-sm" style="width: 200px; border-radius: 8px;">
-                                    <option value="">Pilih Kurir Tujuan...</option>
-                                </select>
-                                <button class="btn btn-dark btn-sm fw-bold px-3 py-1" style="border-radius: 8px;" onclick="bulkAssignPoolTrips()">
-                                    <i class="bi bi-check2-all me-1"></i> Assign Terpilih
-                                </button>
-                                <button class="btn btn-outline-danger btn-sm px-2 py-1" style="border-radius: 8px;" onclick="clearAllPoolTrips()" title="Hapus Semua Pool">
-                                    <i class="bi bi-trash"></i>
-                                </button>
-                            </div>
-                            <span class="text-muted extra-small" id="pool-selected-count">0 Surat Jalan dipilih</span>
-                        </div>
-
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th style="width: 40px;">
-                                            <input type="checkbox" class="form-check-input" id="select-all-pool" onchange="toggleAllPool(this)">
-                                        </th>
-                                        <th>Trip ID / SJ</th>
-                                        <th>Alamat</th>
-                                        <th>Tujuan / Client</th>
-                                        <th>Aksi / Assign ke Kurir</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="pool-table-body">
-                                    <tr><td colspan="5" class="text-center py-4 text-muted">Memuat data penampungan...</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
+                    <!-- AeroTrack ERP Table -->
+                    <div class="table-responsive">
+                        <table class="table aerotrack-table align-middle">
+                            <thead>
+                                <tr>
+                                    <th style="width: 38px;" class="text-center">
+                                        <input type="checkbox" class="form-check-input" id="select-all-pool" onchange="toggleAllPool(this)">
+                                    </th>
+                                    <th style="width: 140px;">Trip ID / SJ</th>
+                                    <th style="min-width: 170px;">Customer</th>
+                                    <th style="min-width: 240px;">Alamat Kirim</th>
+                                    <th style="width: 120px;">Region</th>
+                                    <th style="width: 120px;">Item & Qty</th>
+                                    <th style="width: 220px;">Aksi / Assign Kurir</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pool-table-body">
+                                <tr><td colspan="7" class="text-center py-5 text-muted" style="font-size: 0.85rem;">Memuat data penampungan...</td></tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
+            </div>
+
+            <!-- WORKSTATION CIKOKOL VIEW -->
+            <div id="view-branch-workstation" class="view-section" style="display: none;">
+                <!-- Di-render oleh BranchWorkstation.renderBranchWorkstation() -->
+            </div>
+
+            <!-- MANAJEMEN SPK VIEW -->
+            <div id="view-spk" class="view-section" style="display: none;">
+                <!-- Di-render oleh SPKManager.renderSPKView() -->
             </div>
 
             <!-- SETTINGS VIEW -->
@@ -2363,13 +2409,217 @@
     </div>
 </div>
 
+<!-- MODAL: IMPORT SURAT JALAN & PREVIEW INTERAKTIF (AEROTRACK ERP UI STYLE) -->
+<div class="modal fade" id="modal-sj-import-preview" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable" style="max-width: 1240px;">
+        <div class="modal-content rounded-4 border-0 shadow-lg overflow-hidden">
+            <!-- AeroTrack ERP Modal Header -->
+            <div class="modal-header border-bottom py-3 px-4 bg-white d-flex align-items-center justify-content-between">
+                <div>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="aerotrack-badge badge-primary px-2.5 py-1">Import Engine</span>
+                        <h5 class="modal-title fw-bold text-dark m-0 fs-6">Import Surat Jalan Percetakan</h5>
+                        <span class="aerotrack-badge" id="sj-import-count-badge">0 Surat Jalan</span>
+                    </div>
+                    <small class="text-muted" style="font-size: 0.78rem;">Mendukung batch import 100+ file Word (.doc / .docx / RTF Crystal Reports) & Excel (.xlsx / .csv)</small>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <!-- AeroTrack Filter & Control Bar -->
+            <div class="aerotrack-filter-bar px-4 py-2.5 border-bottom bg-white d-flex align-items-center justify-content-between flex-wrap gap-2">
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <input type="file" id="sj-excel-native-input" class="d-none" accept=".xlsx, .xls, .csv, .docx, .doc, .rtf, .docm, .dotx, .dot" multiple onchange="window.sjImportEngine && window.sjImportEngine.handleExcelFileSelected(event)">
+                    <input type="file" id="sj-folder-native-input" class="d-none" webkitdirectory directory multiple onchange="window.sjImportEngine && window.sjImportEngine.handleExcelFolderSelected(event)">
+                    <button type="button" class="btn btn-sm btn-dark aerotrack-input d-flex align-items-center gap-1.5 fw-semibold" onclick="document.getElementById('sj-excel-native-input').click()">
+                        <i class="bi bi-file-earmark-arrow-up"></i> <span>Pilih File</span>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-light border aerotrack-input d-flex align-items-center gap-1.5 fw-semibold" onclick="document.getElementById('sj-folder-native-input').click()" title="Pilih satu folder berisi banyak file Surat Jalan (100+ file .doc/.docx)">
+                        <i class="bi bi-folder2-open text-primary"></i> <span>Pilih Folder</span>
+                    </button>
+                    <input type="text" id="preview-search-sj" class="aerotrack-input" placeholder="Cari No. SJ / Customer..." style="width: 230px;" oninput="window.sjImportEngine && window.sjImportEngine.filterPreviewTable(this.value)">
+                </div>
+                <div class="d-flex align-items-center gap-1.5 flex-wrap">
+                    <span class="text-muted extra-small me-1">Atur Cetak:</span>
+                    <button type="button" class="btn btn-sm btn-light border py-1 px-3 aerotrack-input fw-semibold" onclick="window.sjImportEngine && window.sjImportEngine.setBulkPrintBranch('pusat')">Pusat</button>
+                    <button type="button" class="btn btn-sm btn-light border py-1 px-3 aerotrack-input fw-semibold" onclick="window.sjImportEngine && window.sjImportEngine.setBulkPrintBranch('cikokol')">Cikokol</button>
+                </div>
+            </div>
+
+            <!-- Rekap Region Ringkas -->
+            <div id="sj-import-region-breakdown" class="px-4 py-2 bg-light border-bottom d-flex align-items-center flex-wrap gap-2" style="font-size: 0.78rem;"></div>
+
+            <!-- AeroTrack ERP Data Grid -->
+            <div class="modal-body p-3 bg-light">
+                <div class="aerotrack-table-container bg-white shadow-sm">
+                    <div class="table-responsive" style="max-height: 460px;">
+                        <table class="table aerotrack-table align-middle mb-0 text-nowrap">
+                            <thead class="sticky-top">
+                                <tr>
+                                    <th style="width: 38px;" class="text-center">
+                                        <input type="checkbox" class="form-check-input" id="check-all-preview-sj" checked onchange="window.sjImportEngine && window.sjImportEngine.toggleAllPreview(this.checked)">
+                                    </th>
+                                    <th style="width: 140px;">No. Surat Jalan</th>
+                                    <th style="width: 90px;">Kode Unik</th>
+                                    <th style="min-width: 180px;">Customer</th>
+                                    <th style="min-width: 220px;">Alamat Kirim</th>
+                                    <th style="width: 130px;">Wilayah</th>
+                                    <th style="width: 140px;">Lokasi Cetak</th>
+                                    <th style="min-width: 200px;">Item / Nama Barang</th>
+                                    <th style="width: 110px;">Ukuran</th>
+                                    <th style="width: 80px;" class="text-end">Qty</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sj-import-preview-tbody">
+                                <tr><td colspan="10" class="text-center py-5 text-muted" style="font-size: 0.85rem;">Belum ada file dipilih. Silakan pilih file Excel (.xlsx / .xls) atau Word (.docx / .doc) di atas.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AeroTrack ERP Modal Footer -->
+            <div class="modal-footer border-top py-3 px-4 bg-white d-flex justify-content-between">
+                <button type="button" class="btn btn-sm btn-light border px-3 aerotrack-input fw-semibold" data-bs-dismiss="modal">Tutup</button>
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="btn btn-sm btn-dark px-3 fw-semibold aerotrack-input" id="btn-commit-import-sj" onclick="window.sjImportEngine && window.sjImportEngine.commitImportBatch(false)">
+                        <i class="bi bi-box-arrow-in-down me-1"></i> Simpan ke Pool
+                    </button>
+                    <button type="button" class="btn btn-sm btn-primary px-3.5 fw-semibold aerotrack-input" id="btn-commit-import-and-print" onclick="window.sjImportEngine && window.sjImportEngine.commitImportBatch(true)">
+                        <i class="bi bi-printer me-1"></i> Simpan & Cetak SJ
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: IMPORT SPK PRODUKSI & PREVIEW (AEROTRACK ERP UI STYLE) -->
+<div class="modal fade" id="modal-spk-import-preview" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable" style="max-width: 1200px;">
+        <div class="modal-content rounded-4 border-0 shadow-lg overflow-hidden">
+            <!-- Header -->
+            <div class="modal-header border-bottom py-3 px-4 bg-white d-flex align-items-center justify-content-between">
+                <div>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="aerotrack-badge badge-warning px-2.5 py-1">SPK Engine</span>
+                        <h5 class="modal-title fw-bold text-dark m-0 fs-6">Import SPK Percetakan & Produksi</h5>
+                        <span class="aerotrack-badge" id="spk-import-count-badge">0 SPK</span>
+                    </div>
+                    <small class="text-muted" style="font-size: 0.78rem;">Alokasi percetakan otomatis: Mesin Digital Print, Nama Barang, Ukuran, Qty & Finishing</small>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <!-- Toolbar Input SPK -->
+            <div class="aerotrack-filter-bar px-4 py-2.5 border-bottom bg-white d-flex align-items-center justify-content-between flex-wrap gap-2">
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <input type="file" id="spk-excel-native-input" class="d-none" accept=".xlsx, .xls, .csv" multiple onchange="window.spkManager && window.spkManager.handleSPKUpload(event)">
+                    <input type="file" id="spk-folder-native-input" class="d-none" webkitdirectory directory multiple onchange="window.spkManager && window.spkManager.handleSPKFolderSelected(event)">
+                    <button type="button" class="btn btn-sm btn-dark aerotrack-input d-flex align-items-center gap-1.5 fw-semibold" onclick="document.getElementById('spk-excel-native-input').click()">
+                        <i class="bi bi-file-earmark-arrow-up"></i> <span>Pilih File</span>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-light border aerotrack-input d-flex align-items-center gap-1.5 fw-semibold" onclick="document.getElementById('spk-folder-native-input').click()" title="Pilih folder berisi file-file SPK">
+                        <i class="bi bi-folder2-open text-primary"></i> <span>Pilih Folder</span>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-danger aerotrack-input px-2.5" id="btn-spk-bulk-delete" style="display: none;" onclick="window.spkManager && window.spkManager.deleteSelectedSPKRows()" title="Hapus SPK terpilih">
+                        <i class="bi bi-trash me-1"></i> Hapus Terpilih
+                    </button>
+                </div>
+                <div class="d-flex align-items-center gap-1.5 flex-wrap">
+                    <span class="text-muted extra-small me-1">Alokasi Cabang:</span>
+                    <button type="button" class="btn btn-sm btn-light border py-1 px-3 aerotrack-input fw-semibold" onclick="window.spkManager && window.spkManager.setBulkBranch('pusat')">Pusat</button>
+                    <button type="button" class="btn btn-sm btn-light border py-1 px-3 aerotrack-input fw-semibold" onclick="window.spkManager && window.spkManager.setBulkBranch('cikokol')">Cikokol</button>
+                </div>
+            </div>
+
+            <!-- Table Preview SPK -->
+            <div class="modal-body p-3 bg-light">
+                <div class="aerotrack-table-container bg-white shadow-sm">
+                    <div class="table-responsive" style="max-height: 460px;">
+                        <table class="table aerotrack-table align-middle mb-0 text-nowrap">
+                            <thead class="sticky-top">
+                                <tr>
+                                    <th style="width: 38px;" class="text-center">
+                                        <input type="checkbox" class="form-check-input" id="check-all-preview-spk" checked onchange="window.spkManager && window.spkManager.toggleAllSPKPreview(this.checked)">
+                                    </th>
+                                    <th style="width: 44px;" class="text-center">No</th>
+                                    <th style="width: 140px;">Mesin</th>
+                                    <th style="min-width: 220px;">Nama Barang & Job</th>
+                                    <th style="width: 120px;">Ukuran</th>
+                                    <th style="width: 80px;" class="text-end">Qty</th>
+                                    <th style="width: 140px;">Finishing</th>
+                                    <th style="width: 130px;">Cabang</th>
+                                    <th style="width: 44px;" class="text-center"><i class="bi bi-trash text-muted"></i></th>
+                                </tr>
+                            </thead>
+                            <tbody id="spk-import-preview-tbody">
+                                <tr><td colspan="9" class="text-center py-5 text-muted" style="font-size: 0.85rem;">Belum ada file dipilih. Silakan pilih file Excel SPK di atas.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="modal-footer border-top py-3 px-4 bg-white d-flex justify-content-between">
+                <button type="button" class="btn btn-sm btn-light border px-3 aerotrack-input fw-semibold" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-sm btn-primary px-3.5 fw-semibold aerotrack-input" onclick="window.commitSPKImportPreview && window.commitSPKImportPreview()">
+                    <i class="bi bi-check-lg me-1"></i> Simpan SPK Produksi
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: TRANSIT PENGIRIMAN SHUTTLE DARI CIKOKOL KE PUSAT -->
+<div class="modal fade" id="modal-cikokol-ship-to-pusat" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 440px;">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <div class="modal-header border-bottom p-3 bg-light rounded-top-4">
+                <h6 class="modal-title fw-bold text-dark d-flex align-items-center gap-2 m-0">
+                    <i class="bi bi-truck text-warning fs-5"></i> <span>Kirim Barang Cikokol ke Pusat</span>
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-3">
+                <input type="hidden" id="cikokol-ship-trip-id">
+                <div class="mb-3">
+                    <small class="text-muted d-block">ID Surat Jalan: <b id="cikokol-ship-trip-label" class="text-dark"></b></small>
+                    <small class="text-muted d-block">Klien / Barang: <b id="cikokol-ship-client-label" class="text-dark"></b></small>
+                </div>
+                <div class="mb-3">
+                    <label class="extra-small fw-bold text-muted text-uppercase mb-1">Nama Driver Shuttle / Ekspedisi Internal</label>
+                    <input type="text" id="cikokol-ship-driver-input" class="form-control form-control-sm py-2" placeholder="Contoh: Pak Herman (Shuttle Cikokol-Pusat)" value="Shuttle Cabang Cikokol">
+                </div>
+            </div>
+            <div class="modal-footer border-top p-2 px-3 bg-light rounded-bottom-4">
+                <button type="button" class="btn btn-sm btn-light border px-3" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-sm btn-warning text-dark fw-bold px-3" onclick="window.BranchWorkstation && window.BranchWorkstation.confirmShipToPusat()">
+                    <i class="bi bi-send-fill me-1"></i> Konfirmasi Dikirim ke Pusat
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- HIDDEN FILE INPUTS UNTUK IMPORT EXCEL & WORD -->
+<input type="file" id="sj-excel-file-input" class="d-none" accept=".xlsx, .xls, .csv, .docx, .doc, .rtf, .docm, .dotx, .dot" onchange="window.sjImportEngine && window.sjImportEngine.handleExcelFileSelected(event)">
+<input type="file" id="spk-excel-file-input" class="d-none" accept=".xlsx, .xls, .csv, .docx, .doc, .rtf, .docm, .dotx, .dot" onchange="window.spkManager && window.spkManager.handleSPKUpload(event)">
+
 <!-- Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="/js/maps.js?v=174.0"></script>
 <script src="/js/fleet_vehicles.js?v=1.4"></script>
-<script src="/js/app.js?v=174.0"></script>
+<script src="/js/app.js?v=175.0"></script>
 <script src="/js/kpi.js?v=174.0"></script>
 <script src="/js/courier_audit.js?v=174.0"></script>
 <script src="/js/custom_dropdown.js?v=1.0"></script>
+<script src="/js/qr_print_dispatch.js?v=2.2"></script>
+<script src="/js/sj_import_engine.js?v=2.2"></script>
+<script src="/js/branch_workstation.js?v=2.2"></script>
+<script src="/js/spk_manager.js?v=2.2"></script>
+<script src="/js/web_qr_scanner_sim.js?v=2.2"></script>
+<script src="/js/unified_pool_ui.js?v=2.2"></script>
 </body>
 </html>

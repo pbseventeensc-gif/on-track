@@ -89,6 +89,10 @@ class TripViewModel : ViewModel() {
         fun parseTripFromDocument(doc: DocumentSnapshot): Trip? {
             try {
                 val tripId = doc.getString("tripId") ?: doc.id
+                val sjNumber = doc.getString("sjNumber") ?: doc.getString("noSJ") ?: ""
+                val shortCode = doc.getString("shortCode") ?: doc.getString("uniqueCode") ?: ""
+                val uniqueCode = doc.getString("uniqueCode") ?: shortCode
+                val customer = doc.getString("customer") ?: doc.getString("clientName") ?: ""
                 val courierId = doc.getString("courierId") ?: ""
                 val status = doc.getString("status") ?: "assigned"
                 val branchId = doc.getString("branchId") ?: ""
@@ -111,7 +115,7 @@ class TripViewModel : ViewModel() {
                 val destinations = rawDestinations.mapIndexed { idx, map ->
                     Destination(
                         stopIndex = (map["stopIndex"] as? Number)?.toInt() ?: (idx + 1),
-                        locationName = map["locationName"] as? String ?: "Destination",
+                        locationName = map["locationName"] as? String ?: (if (customer.isNotEmpty()) customer else "Destination"),
                         address = map["address"] as? String ?: "",
                         latitude = (map["latitude"] as? Number)?.toDouble() ?: 0.0,
                         longitude = (map["longitude"] as? Number)?.toDouble() ?: 0.0,
@@ -129,12 +133,20 @@ class TripViewModel : ViewModel() {
                         pendingReason = map["pendingReason"] as? String ?: "",
                         pendingProofPhotoUrl = map["pendingProofPhotoUrl"] as? String ?: "",
                         vehiclePlate = map["vehiclePlate"] as? String ?: vehiclePlate,
-                        vehicleName = map["vehicleName"] as? String ?: vehicleName
+                        vehicleName = map["vehicleName"] as? String ?: vehicleName,
+                        sjNumber = (map["sjNumber"] as? String) ?: (map["noSJ"] as? String) ?: sjNumber,
+                        shortCode = (map["shortCode"] as? String) ?: (map["uniqueCode"] as? String) ?: shortCode,
+                        itemsSummary = map["itemsSummary"] as? String ?: "",
+                        qty = map["qty"] as? String ?: ""
                     )
                 }
 
                 return Trip(
                     tripId = tripId,
+                    sjNumber = sjNumber,
+                    shortCode = shortCode,
+                    uniqueCode = uniqueCode,
+                    customer = customer,
                     courierId = courierId,
                     date = date,
                     status = status,
@@ -168,7 +180,7 @@ class TripViewModel : ViewModel() {
                 currentIds.contains(cleanCId) ||
                 currentIds.any { id -> id.length >= 3 && (cleanCId.contains(id) || id.contains(cleanCId)) }
 
-            t.status != "completed" && isMatch && isWithinDays(t.date, 3)
+            t.status != "completed" && isMatch
         }
 
         Log.d("TripVM", "SUCCESS: Found ${tripList.size} active trips for user ($userId). Identifiers: $currentIds")
@@ -316,6 +328,218 @@ class TripViewModel : ViewModel() {
             }
             .addOnFailureListener {
                 onComplete(emptyList())
+            }
+    }
+
+    fun findTripByCode(rawCode: String, onResult: (Trip?, String) -> Unit) {
+        val trimmed = rawCode.trim()
+        if (trimmed.isEmpty()) {
+            onResult(null, "Kode atau QR Code tidak boleh kosong.")
+            return
+        }
+
+        var targetTripId: String? = null
+        var targetSj: String? = null
+        var targetShortCode: String? = null
+
+        if (trimmed.startsWith("WTRACK|SJ|", ignoreCase = true)) {
+            val parts = trimmed.split("|")
+            targetTripId = parts.getOrNull(2)?.trim()
+            targetSj = parts.getOrNull(3)?.trim()
+            targetShortCode = parts.getOrNull(4)?.trim()
+        } else {
+            if (trimmed.startsWith("TRIP_", ignoreCase = true)) {
+                targetTripId = trimmed
+            } else if (trimmed.startsWith("SJ-", ignoreCase = true) || trimmed.startsWith("SJ/", ignoreCase = true)) {
+                targetSj = trimmed
+            } else if (trimmed.length in 4..7) {
+                targetShortCode = trimmed.uppercase()
+            } else {
+                targetSj = trimmed
+            }
+        }
+
+        val cleanRaw = cleanString(trimmed)
+
+        // 1. Cek memory cache trip terlebih dahulu
+        val cachedMatch = cachedAllTrips.firstOrNull { t ->
+            val matchId = targetTripId != null && (t.tripId.equals(targetTripId, ignoreCase = true) || t.tripId.contains(targetTripId, ignoreCase = true))
+            val matchShort = targetShortCode != null && (t.shortCode.equals(targetShortCode, ignoreCase = true) || t.uniqueCode.equals(targetShortCode, ignoreCase = true))
+            val matchSj = targetSj != null && (t.sjNumber.contains(targetSj, ignoreCase = true) || t.tripId.contains(targetSj, ignoreCase = true))
+            val directMatch = t.tripId.contains(trimmed, ignoreCase = true) ||
+                              t.shortCode.equals(trimmed, ignoreCase = true) ||
+                              t.uniqueCode.equals(trimmed, ignoreCase = true) ||
+                              t.sjNumber.contains(trimmed, ignoreCase = true) ||
+                              cleanString(t.tripId).contains(cleanRaw) ||
+                              cleanString(t.shortCode) == cleanRaw ||
+                              cleanString(t.uniqueCode) == cleanRaw ||
+                              cleanString(t.sjNumber).contains(cleanRaw) ||
+                              cleanString(t.customer).contains(cleanRaw)
+
+            val destMatch = t.destinations.any { d ->
+                cleanString(d.locationName).contains(cleanRaw) ||
+                cleanString(d.address).contains(cleanRaw) ||
+                (targetSj != null && d.sjNumber.contains(targetSj, ignoreCase = true)) ||
+                (targetShortCode != null && (d.shortCode.equals(targetShortCode, ignoreCase = true) || d.shortCode.contains(targetShortCode, ignoreCase = true))) ||
+                d.sjNumber.contains(trimmed, ignoreCase = true) ||
+                d.shortCode.equals(trimmed, ignoreCase = true)
+            }
+
+            matchId || matchShort || matchSj || directMatch || destMatch
+        }
+
+        if (cachedMatch != null) {
+            onResult(cachedMatch, "")
+            return
+        }
+
+        // 2. Query Firestore
+        val tripsRef = db.collection("trips")
+        if (targetTripId != null) {
+            tripsRef.document(targetTripId).get().addOnSuccessListener { doc ->
+                if (doc.exists()) {
+                    val trip = parseTripFromDocument(doc)
+                    if (trip != null) {
+                        onResult(trip, "")
+                        return@addOnSuccessListener
+                    }
+                }
+                searchTripsInFirestore(tripsRef, trimmed, targetSj, targetShortCode, onResult)
+            }.addOnFailureListener {
+                searchTripsInFirestore(tripsRef, trimmed, targetSj, targetShortCode, onResult)
+            }
+        } else {
+            searchTripsInFirestore(tripsRef, trimmed, targetSj, targetShortCode, onResult)
+        }
+    }
+
+    private fun searchTripsInFirestore(
+        tripsRef: com.google.firebase.firestore.CollectionReference,
+        rawQuery: String,
+        targetSj: String?,
+        targetShortCode: String?,
+        onResult: (Trip?, String) -> Unit
+    ) {
+        // Ambil 150 trip terbaru dari Firestore tanpa filter ketat agar surat jalan testing dapat diambil langsung
+        tripsRef.limit(150).get()
+            .addOnSuccessListener { snap ->
+                val cleanRaw = cleanString(rawQuery)
+                var foundTrip: Trip? = null
+
+                for (doc in snap.documents) {
+                    val tId = doc.getString("tripId") ?: doc.id
+                    val sjNum = doc.getString("sjNumber") ?: doc.getString("noSJ") ?: ""
+                    val sCode = doc.getString("shortCode") ?: doc.getString("uniqueCode") ?: ""
+                    val cust = doc.getString("customer") ?: doc.getString("clientName") ?: ""
+
+                    @Suppress("UNCHECKED_CAST")
+                    val rawDestinations = doc.get("destinations") as? List<Map<String, Any?>> ?: emptyList()
+
+                    val matchDirect = (targetShortCode != null && (sCode.equals(targetShortCode, ignoreCase = true) || sCode.contains(targetShortCode, ignoreCase = true))) ||
+                                      (targetSj != null && sjNum.contains(targetSj, ignoreCase = true)) ||
+                                      sCode.equals(rawQuery, ignoreCase = true) ||
+                                      sjNum.contains(rawQuery, ignoreCase = true) ||
+                                      tId.contains(rawQuery, ignoreCase = true) ||
+                                      cust.contains(rawQuery, ignoreCase = true) ||
+                                      cleanString(sCode) == cleanRaw ||
+                                      cleanString(sjNum).contains(cleanRaw) ||
+                                      cleanString(tId).contains(cleanRaw) ||
+                                      cleanString(cust).contains(cleanRaw)
+
+                    val matchDest = rawDestinations.any { d ->
+                        val loc = (d["locationName"] as? String) ?: ""
+                        val addr = (d["address"] as? String) ?: ""
+                        val dSj = (d["sjNumber"] as? String) ?: (d["noSJ"] as? String) ?: ""
+                        val dSc = (d["shortCode"] as? String) ?: (d["uniqueCode"] as? String) ?: ""
+
+                        (targetShortCode != null && (dSc.equals(targetShortCode, ignoreCase = true) || dSc.contains(targetShortCode, ignoreCase = true))) ||
+                        (targetSj != null && dSj.contains(targetSj, ignoreCase = true)) ||
+                        loc.contains(rawQuery, ignoreCase = true) ||
+                        addr.contains(rawQuery, ignoreCase = true) ||
+                        dSj.contains(rawQuery, ignoreCase = true) ||
+                        dSc.equals(rawQuery, ignoreCase = true) ||
+                        cleanString(loc).contains(cleanRaw) ||
+                        cleanString(addr).contains(cleanRaw) ||
+                        cleanString(dSj).contains(cleanRaw) ||
+                        cleanString(dSc) == cleanRaw
+                    }
+
+                    if (matchDirect || matchDest) {
+                        foundTrip = parseTripFromDocument(doc)
+                        break
+                    }
+                }
+
+                if (foundTrip != null) {
+                    onResult(foundTrip, "")
+                } else {
+                    onResult(null, "Surat Jalan '${rawQuery}' tidak ditemukan di database.")
+                }
+            }
+            .addOnFailureListener { e ->
+                onResult(null, "Gagal mencari data: ${e.message}")
+            }
+    }
+
+    fun claimExistingTrip(trip: Trip, onComplete: (Boolean, String) -> Unit) {
+        val currentUser = auth.currentUser
+        if (currentUser == null) {
+            onComplete(false, "Kurir belum login.")
+            return
+        }
+
+        val myUid = currentUser.uid
+        val myEmail = currentUser.email ?: ""
+        val myName = if (myEmail.contains("@")) myEmail.substringBefore("@") else myUid.take(8)
+
+        // Anggap saja SJ yang dites belum diantar (sesuai instruksi user)
+        // Bebaskan klaim penugasan untuk pengujian kurir
+        val updates = mutableMapOf<String, Any>(
+            "courierId" to myUid,
+            "courierName" to myName,
+            "status" to "in_progress",
+            "date" to Timestamp.now(),
+            "acceptedTime" to Timestamp.now(),
+            "branchWorkflowStatus" to "in_transit"
+        )
+
+        // Reset destination statuses to "pending" so courier can test the entire workflow
+        if (trip.destinations.isNotEmpty()) {
+            val resetDests = trip.destinations.map { d ->
+                mapOf(
+                    "stopIndex" to d.stopIndex,
+                    "locationName" to d.locationName,
+                    "address" to d.address,
+                    "latitude" to d.latitude,
+                    "longitude" to d.longitude,
+                    "status" to "pending",
+                    "sjNumber" to d.sjNumber,
+                    "shortCode" to d.shortCode,
+                    "itemsSummary" to d.itemsSummary,
+                    "qty" to d.qty,
+                    "proofPhotoUrl" to "",
+                    "proofPhotoSj" to "",
+                    "proofPhotoItems" to emptyList<String>()
+                )
+            }
+            updates["destinations"] = resetDests
+        }
+
+        db.collection("trips").document(trip.tripId).update(updates)
+            .addOnSuccessListener {
+                onComplete(true, "Berhasil mengambil Surat Jalan ${trip.sjNumber.ifEmpty { trip.tripId }}!")
+                refresh()
+            }
+            .addOnFailureListener { _ ->
+                // Jika dokumen memerlukan set merge (misal trip dari mock/local)
+                db.collection("trips").document(trip.tripId).set(updates, com.google.firebase.firestore.SetOptions.merge())
+                    .addOnSuccessListener {
+                        onComplete(true, "Berhasil mengambil Surat Jalan ${trip.sjNumber.ifEmpty { trip.tripId }}!")
+                        refresh()
+                    }
+                    .addOnFailureListener { err ->
+                        onComplete(false, "Gagal mengklaim tugas: ${err.message}")
+                    }
             }
     }
 

@@ -263,6 +263,15 @@ const COURIER_PHOTO_MAP = {
     'rommy': '/assets/couriers/Romi.jpeg',
     'umar': '/assets/couriers/Umar.jpeg'
 };
+
+function isEvenPlate(plate) {
+    if (!plate || typeof plate !== 'string') return false;
+    const match = plate.match(/\d+/);
+    if (!match) return false;
+    const lastDigit = parseInt(match[0].slice(-1), 10);
+    return !isNaN(lastDigit) && lastDigit % 2 === 0;
+}
+window.isEvenPlate = isEvenPlate;
 window.COURIER_PHOTO_MAP = COURIER_PHOTO_MAP;
 
 function getCourierPhoto(cId, cName) {
@@ -1399,7 +1408,7 @@ function isTabAllowedForRole(role, viewId) {
         return viewId === 'dashboard' || viewId === 'monitor' || viewId === 'pod-archive';
     }
     if (r === 'admin_dm2' || r === 'dm2' || r === 'admintrafficdm2' || r === 'traffic_dm2' || r.includes('dm2') || r === 'branch_admin' || r === 'branch') {
-        return viewId === 'dashboard' || viewId === 'monitor' || viewId === 'dispatch' || viewId === 'pool' || viewId === 'pod-archive';
+        return viewId === 'dashboard' || viewId === 'monitor' || viewId === 'dispatch' || viewId === 'pool' || viewId === 'branch-workstation' || viewId === 'spk' || viewId === 'pod-archive';
     }
     return false;
 }
@@ -1466,14 +1475,23 @@ function applyRoleAccessControl() {
         }
     }
 
-    [navDashboard, navMonitor, navDispatch, navFleet, navPool, navChat, navPodArchive, navReports, navSettings].forEach(el => {
+    const navImportSpk = document.getElementById('nav-import-spk');
+    const navImportSj = document.getElementById('nav-import-sj');
+    const navBranchWorkstation = document.getElementById('nav-branch-workstation');
+    const navSpk = document.getElementById('nav-spk');
+
+    [navDashboard, navMonitor, navImportSpk, navImportSj, navBranchWorkstation, navSpk, navPool, navDispatch, navFleet, navChat, navPodArchive, navReports, navSettings].forEach(el => {
         if (el) el.style.display = '';
     });
 
     if (r === 'sales_admin' || r === 'sales') {
+        if (navImportSpk) navImportSpk.style.display = 'none';
+        if (navImportSj) navImportSj.style.display = 'none';
         if (navDispatch) navDispatch.style.display = 'none';
         if (navFleet) navFleet.style.display = 'none';
         if (navPool) navPool.style.display = 'none';
+        if (navBranchWorkstation) navBranchWorkstation.style.display = 'none';
+        if (navSpk) navSpk.style.display = 'none';
         if (navChat) navChat.style.display = 'none';
         if (navReports) navReports.style.display = 'none';
         if (navSettings) navSettings.style.display = 'none';
@@ -1546,7 +1564,19 @@ function switchTab(viewId, el) {
     } else if (viewId === 'reports') {
         if (typeof loadFullHistory === 'function') loadFullHistory();
     } else if (viewId === 'pool') {
-        if (typeof loadPoolTrips === 'function') loadPoolTrips();
+        if (window.UnifiedPoolUI && typeof window.UnifiedPoolUI.renderUnifiedPoolView === 'function') {
+            window.UnifiedPoolUI.renderUnifiedPoolView();
+        } else if (typeof loadPoolTrips === 'function') {
+            loadPoolTrips();
+        }
+    } else if (viewId === 'branch-workstation') {
+        if (window.BranchWorkstation && typeof window.BranchWorkstation.renderBranchWorkstation === 'function') {
+            window.BranchWorkstation.renderBranchWorkstation();
+        }
+    } else if (viewId === 'spk') {
+        if (window.SPKManager && typeof window.SPKManager.renderSPKView === 'function') {
+            window.SPKManager.renderSPKView();
+        }
     } else if (viewId === 'courier-audit') {
         if (typeof renderCourierAuditView === 'function') renderCourierAuditView();
     } else if (viewId === 'fleet-inventory') {
@@ -1563,31 +1593,52 @@ let allPoolTrips = [];
 async function loadPoolTrips() {
     const activeDb = getDb();
     const tbody = document.getElementById('pool-table-body');
-    if (!activeDb || !tbody) return;
+    if (!tbody) return;
 
     try {
         tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">Memuat SJ Pool...</td></tr>';
-        const snap = await activeDb.collection('trips').get();
         allPoolTrips = [];
 
-        snap.forEach(doc => {
-            const t = doc.data();
-            t.id = doc.id;
-            const isAssignedActive = t.courierId && t.courierId.trim() !== "" && t.status === 'in_progress';
-            if (t.status !== 'completed' && !isAssignedActive) {
-                allPoolTrips.push(t);
+        if (activeDb) {
+            try {
+                const snap = await activeDb.collection('trips').get();
+                snap.forEach(doc => {
+                    const t = doc.data();
+                    t.id = doc.id;
+                    const isAssignedActive = t.courierId && t.courierId.trim() !== "" && t.status === 'in_progress';
+                    if (t.status !== 'completed' && !isAssignedActive) {
+                        allPoolTrips.push(t);
+                    }
+                });
+            } catch (fsErr) {
+                console.warn("Firestore fetch pool ditolak / offline, menggunakan cache lokal:", fsErr);
             }
-        });
+        }
+
+        // Muat dari penyimpanan lokal (LocalStorage)
+        try {
+            const rawStored = localStorage.getItem('wtrack_local_trips');
+            if (rawStored) {
+                const localTrips = JSON.parse(rawStored);
+                if (Array.isArray(localTrips)) {
+                    localTrips.forEach(lt => {
+                        if (!allPoolTrips.some(existing => existing.id === lt.id)) {
+                            allPoolTrips.unshift(lt);
+                        }
+                    });
+                }
+            }
+        } catch (e) {}
 
         const bulkSelect = document.getElementById('bulk-courier-select');
-        if (bulkSelect) {
+        if (bulkSelect && typeof buildCourierOptgroupHtml === 'function') {
             bulkSelect.innerHTML = buildCourierOptgroupHtml('Pilih Kurir Tujuan...', 'defaultUid');
         }
 
         renderPoolTable();
     } catch (e) {
         console.error("Error loading pool trips:", e);
-        tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-danger">Gagal memuat: ${e.message}</td></tr>`;
+        renderPoolTable();
     }
 }
 window.loadPoolTrips = loadPoolTrips;
@@ -1620,8 +1671,22 @@ function renderPoolTable() {
         });
     }
 
+    const searchId = (document.getElementById('pool-search-id')?.value || '').toLowerCase().trim();
+    const searchCust = (document.getElementById('pool-search-customer')?.value || '').toLowerCase().trim();
+
+    if (searchId) {
+        filtered = filtered.filter(t => (t.sjNumber || t.tripId || t.id || '').toLowerCase().includes(searchId));
+    }
+    if (searchCust) {
+        filtered = filtered.filter(t => {
+            const cust = (t.customer || '').toLowerCase();
+            const dests = (t.destinations || []).map(d => (d.address || '') + ' ' + (d.locationName || '')).join(' ').toLowerCase();
+            return cust.includes(searchCust) || dests.includes(searchCust);
+        });
+    }
+
     if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" class="text-center py-4 text-muted">Tidak ada Surat Jalan di penampungan untuk region ini.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="text-center py-5 text-muted" style="font-size: 0.85rem;">Tidak ada Surat Jalan di penampungan untuk kriteria ini.</td></tr>`;
         updatePoolSelectionCount();
         return;
     }
@@ -1630,30 +1695,44 @@ function renderPoolTable() {
 
     tbody.innerHTML = '';
     filtered.forEach(t => {
-        const firstDest = t.destinations && t.destinations.length > 0 ? t.destinations[0].locationName : 'Tujuan';
-        const firstAddress = t.destinations && t.destinations.length > 0 ? (t.destinations[0].address || '-') : '-';
-        const destCount = t.destinations ? t.destinations.length : 0;
+        const firstDest = t.destinations && t.destinations.length > 0 ? t.destinations[0].locationName : (t.customer || 'Tujuan');
+        const firstAddress = t.destinations && t.destinations.length > 0 ? (t.destinations[0].address || '-') : (t.address || '-');
+        const displayId = t.sjNumber || t.tripId || t.id;
+        const regionName = t.region || 'Jabodetabek';
+        const itemsCount = t.items && t.items.length ? t.items.length : 1;
+        const qtyLabel = t.qty || '1 Pcs';
 
         tbody.innerHTML += `
             <tr>
-                <td>
+                <td class="text-center" style="width: 38px;">
                     <input type="checkbox" class="form-check-input pool-checkbox" value="${t.id}" onchange="updatePoolSelectionCount()">
                 </td>
-                <td><strong>${t.tripId || t.id}</strong></td>
-                <td>
-                    <div class="text-muted small text-truncate" style="max-width: 250px;" title="${firstAddress}">${firstAddress}</div>
+                <td style="width: 140px;">
+                    <a class="aerotrack-id-link font-monospace" onclick="showTripDetailsModal('${t.id}')" title="Klik untuk lihat detail SJ">${displayId}</a>
                 </td>
-                <td>
-                    <div class="fw-bold">${firstDest}</div>
-                    <small class="text-muted">${destCount} titik tujuan</small>
+                <td style="min-width: 170px;">
+                    <div class="fw-semibold text-dark text-truncate" style="max-width: 220px;" title="${t.customer || firstDest}">${t.customer || firstDest}</div>
                 </td>
-                <td>
-                    <div class="d-flex align-items-center gap-2">
-                        <select class="form-select form-select-sm" id="select-courier-${t.id}" style="width: 160px; border-radius: 6px; font-size: 0.85rem;">
+                <td style="min-width: 240px;">
+                    <span class="text-muted text-truncate d-inline-block" style="max-width: 280px;" title="${firstAddress}">${firstAddress}</span>
+                </td>
+                <td style="width: 120px;">
+                    <span class="aerotrack-badge badge-primary">${regionName}</span>
+                </td>
+                <td style="width: 120px;">
+                    <span class="aerotrack-num">${itemsCount} Items</span>
+                    <span class="text-muted extra-small d-block">(${qtyLabel})</span>
+                </td>
+                <td style="width: 220px;">
+                    <div class="d-flex align-items-center gap-1.5">
+                        <select class="aerotrack-select py-0 px-2" id="select-courier-${t.id}" style="width: 140px; font-size: 0.78rem; height: 32px;">
                             ${courierOptions}
                         </select>
-                        <button class="btn btn-sm btn-dark fw-bold px-3" style="border-radius: 6px;" onclick="assignPoolTripToCourier('${t.id}')">
+                        <button class="btn btn-sm btn-dark py-1 px-2.5 fw-semibold" style="border-radius: 6px; font-size: 0.78rem;" onclick="assignPoolTripToCourier('${t.id}')">
                             Assign
+                        </button>
+                        <button class="btn btn-sm btn-light border py-1 px-2 text-danger" style="border-radius: 6px; font-size: 0.78rem;" onclick="deleteSinglePoolTrip('${t.id}')" title="Hapus dari Pool">
+                            <i class="bi bi-trash"></i>
                         </button>
                     </div>
                 </td>
@@ -1662,6 +1741,26 @@ function renderPoolTable() {
     });
     updatePoolSelectionCount();
 }
+
+async function deleteSinglePoolTrip(tripId) {
+    if (!confirm("Hapus Surat Jalan ini dari Pool?")) return;
+    try {
+        const activeDb = getDb();
+        if (activeDb) {
+            await activeDb.collection('trips').doc(tripId).delete();
+        }
+        allPoolTrips = allPoolTrips.filter(t => t.id !== tripId);
+        try {
+            const localSaved = JSON.parse(localStorage.getItem('wellen_local_trips') || '[]');
+            localStorage.setItem('wellen_local_trips', JSON.stringify(localSaved.filter(t => t.id !== tripId)));
+        } catch(e) {}
+        showToast("Surat Jalan berhasil dihapus dari Pool.");
+        renderPoolTable();
+    } catch(err) {
+        alert("Gagal menghapus: " + err.message);
+    }
+}
+window.deleteSinglePoolTrip = deleteSinglePoolTrip;
 
 function toggleAllPool(source) {
     document.querySelectorAll('.pool-checkbox').forEach(cb => cb.checked = source.checked);
@@ -1758,15 +1857,34 @@ async function clearAllPoolTrips() {
 
     try {
         const activeDb = getDb();
-        if (!activeDb) return;
+        if (activeDb) {
+            try {
+                const batch = activeDb.batch();
+                poolTrips.forEach(t => {
+                    const ref = activeDb.collection('trips').doc(t.id);
+                    batch.delete(ref);
+                });
+                await batch.commit();
+            } catch (dbErr) {
+                console.warn("Firestore delete failed / offline:", dbErr);
+            }
+        }
 
-        const batch = activeDb.batch();
-        poolTrips.forEach(t => {
-            const ref = activeDb.collection('trips').doc(t.id);
-            batch.delete(ref);
-        });
+        // Hapus juga dari LocalStorage agar bersih sempurna
+        try {
+            const poolIds = new Set(poolTrips.map(t => t.id));
+            const rawStored = localStorage.getItem('wtrack_local_trips');
+            if (rawStored) {
+                const localTrips = JSON.parse(rawStored);
+                if (Array.isArray(localTrips)) {
+                    const remaining = localTrips.filter(lt => !poolIds.has(lt.id));
+                    localStorage.setItem('wtrack_local_trips', JSON.stringify(remaining));
+                }
+            }
+        } catch (lsErr) {
+            console.warn("LocalStorage delete error:", lsErr);
+        }
 
-        await batch.commit();
         showToast(`Berhasil menghapus ${poolTrips.length} Surat Jalan dari SJ Pool.`);
         loadPoolTrips();
     } catch (e) {
@@ -3867,7 +3985,15 @@ function renderRecentShipments(filter = "") {
         const isDriver = (vType === 'mobil');
         let vehicleBadgeHtml = '';
         if (s.vehiclePlate) {
-            vehicleBadgeHtml = `<span class="badge bg-primary-subtle text-primary border border-primary-subtle extra-small d-block mt-0.5 font-monospace cursor-pointer px-1.5 py-0.5" onclick="adminChangeTripVehicle('${s.tripId}', '${s.vehiclePlate}')" title="Klik untuk ganti armada mobil (Admin)"><i class="bi bi-truck me-1"></i>${s.vehiclePlate}</span>`;
+            const isGenap = isEvenPlate(s.vehiclePlate);
+            const badgeClass = isGenap
+                ? 'badge bg-warning-subtle text-dark border border-warning-subtle extra-small d-block mt-0.5 font-monospace cursor-pointer px-1.5 py-0.5'
+                : 'badge bg-primary-subtle text-primary border border-primary-subtle extra-small d-block mt-0.5 font-monospace cursor-pointer px-1.5 py-0.5';
+            const badgeStyle = isGenap
+                ? 'style="background-color: #fef9c3 !important; color: #854d0e !important; border: 1px solid #fef08a !important;"'
+                : 'style="background-color: #eff6ff !important; color: #1d4ed8 !important; border: 1px solid #bfdbfe !important;"';
+            const ganjilGenapLabel = isGenap ? 'Genap (Kuning Soft)' : 'Ganjil (Biru Soft)';
+            vehicleBadgeHtml = `<span class="${badgeClass}" ${badgeStyle} onclick="adminChangeTripVehicle('${s.tripId}', '${s.vehiclePlate}')" title="Klik untuk ganti armada mobil (Admin) - Plat ${ganjilGenapLabel}"><i class="bi bi-truck me-1"></i>${s.vehiclePlate}</span>`;
         } else if (isDriver) {
             vehicleBadgeHtml = `<span class="badge bg-light text-secondary border extra-small d-block mt-0.5 cursor-pointer px-1.5 py-0.5" onclick="adminChangeTripVehicle('${s.tripId}', '')" title="Klik untuk tentukan armada mobil (Admin)"><i class="bi bi-truck me-1"></i>+ Mobil</span>`;
         }
