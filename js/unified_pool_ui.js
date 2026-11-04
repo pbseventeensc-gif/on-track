@@ -18,13 +18,54 @@ window.UnifiedPoolUI = (function () {
 
   function init() {
     console.log("UnifiedPoolUI initialized.");
-    // Hook event listener jika ada
+    // Bersihkan cache demo/sample lama dari localStorage
+    try {
+      const rawStored = localStorage.getItem('wtrack_local_trips');
+      if (rawStored) {
+        const storedTrips = JSON.parse(rawStored);
+        if (Array.isArray(storedTrips)) {
+          const cleaned = storedTrips.filter(t => {
+            const tid = String(t.id || t.tripId || t.noSJ || '');
+            return !tid.startsWith('SJ-DEMO-') && !tid.startsWith('TRIP_') && !tid.startsWith('SJ-821457') && !tid.startsWith('SJ-200008') && !tid.startsWith('SJ-209914') && !tid.startsWith('SJ-796379');
+          });
+          localStorage.setItem('wtrack_local_trips', JSON.stringify(cleaned));
+        }
+      }
+      localStorage.removeItem('wellen_local_trips');
+    } catch (e) {}
+
+    if (Array.isArray(window.allPoolTrips)) {
+      window.allPoolTrips = window.allPoolTrips.filter(t => {
+        const tid = String(t.id || t.tripId || t.noSJ || '');
+        return !tid.startsWith('SJ-DEMO-') && !tid.startsWith('TRIP_') && !tid.startsWith('SJ-821457') && !tid.startsWith('SJ-200008') && !tid.startsWith('SJ-209914') && !tid.startsWith('SJ-796379');
+      });
+    }
+
+    if (window.mockDatabase && Array.isArray(window.mockDatabase.suratJalanList)) {
+      window.mockDatabase.suratJalanList = window.mockDatabase.suratJalanList.filter(t => {
+        const tid = String(t.id || t.tripId || t.noSJ || '');
+        return !tid.startsWith('SJ-DEMO-') && !tid.startsWith('TRIP_') && !tid.startsWith('SJ-821457') && !tid.startsWith('SJ-200008') && !tid.startsWith('SJ-209914') && !tid.startsWith('SJ-796379');
+      });
+    }
   }
 
   function getTripsSource() {
     const combined = [];
     const seenIds = new Set();
-    const deletedSet = window.__deletedSJIds || new Set();
+    
+    // Ambil deletedSet dari localStorage agar permanen tersimpan
+    let deletedSet = new Set();
+    try {
+      const rawDel = localStorage.getItem('wtrack_deleted_pool_ids');
+      if (rawDel) {
+        const arrDel = JSON.parse(rawDel);
+        if (Array.isArray(arrDel)) deletedSet = new Set(arrDel);
+      }
+    } catch (e) {}
+    if (window.__deletedSJIds instanceof Set) {
+      window.__deletedSJIds.forEach(id => deletedSet.add(id));
+    }
+    window.__deletedSJIds = deletedSet;
 
     function detectRegion(addr = '', name = '') {
       const text = (addr + ' ' + name).toLowerCase();
@@ -44,6 +85,9 @@ window.UnifiedPoolUI = (function () {
       if (!t) return;
       const tid = String(t.id || t.tripId || t.noSJ || t.sjNumber);
       if (!tid || seenIds.has(tid) || deletedSet.has(tid)) return;
+
+      // Filter out demo/dummy trip IDs if any linger in cache
+      if (tid.startsWith('SJ-DEMO-') || tid.startsWith('TRIP_') || tid.startsWith('SJ-821457') || tid.startsWith('SJ-200008') || tid.startsWith('SJ-209914') || tid.startsWith('SJ-796379')) return;
 
       const todayStr = new Date().toISOString().split('T')[0];
       const dDate = t.date || t.dateFolder || todayStr;
@@ -94,7 +138,7 @@ window.UnifiedPoolUI = (function () {
       window.allPoolTrips.forEach(addTrip);
     }
 
-    // 2. Dari LocalStorage
+    // 2. Dari LocalStorage (wtrack_local_trips hasil import user)
     try {
       const rawStored = localStorage.getItem('wtrack_local_trips');
       if (rawStored) {
@@ -105,181 +149,14 @@ window.UnifiedPoolUI = (function () {
       }
     } catch (e) {}
 
-    // 3. Dari window.allCurrentTrips (DATA ASLI REAL FIRESTORE)
-    if (Array.isArray(window.allCurrentTrips) && window.allCurrentTrips.length > 0) {
-      window.allCurrentTrips.forEach(rt => {
-        if (!rt) return;
-        const rDests = Array.isArray(rt.destinations) ? rt.destinations : [];
-        let dateStr = new Date().toISOString().split('T')[0];
-        if (rt.date?.seconds) {
-          dateStr = new Date(rt.date.seconds * 1000).toISOString().split('T')[0];
-        } else if (rt.date) {
-          dateStr = String(rt.date).slice(0, 10);
-        }
-
-        if (rDests.length === 0) {
-          const rtStatus = (rt.status || 'pending').toLowerCase();
-          const isRtFailed = (rtStatus === 'failed' || rtStatus === 'returned' || !!rt.failedReason);
-          const isRtAssigned = (rtStatus === 'in_progress' || rtStatus === 'driver_assigned' || rtStatus === 'departed' || (rt.courierId && !isRtFailed));
-          const isRtCompleted = (rtStatus === 'completed' || rtStatus === 'done');
-
-          if (isRtCompleted) return;
-          if (isRtAssigned && !isRtFailed) return;
-
-          addTrip({
-            id: rt.id,
-            tripId: rt.id,
-            noSJ: rt.sjNumber || rt.noSJ || `SJ/${rt.id.replace('TRIP_', '')}`,
-            sjNumber: rt.sjNumber || rt.noSJ || `SJ/${rt.id.replace('TRIP_', '')}`,
-            uniqueCode: rt.uniqueCode || rt.shortCode || `WK-${rt.id.slice(-5).toUpperCase()}`,
-            shortCode: rt.shortCode || rt.uniqueCode || `WK-${rt.id.slice(-5).toUpperCase()}`,
-            customer: rt.customer || rt.clientName || 'Klien Wellen',
-            address: rt.address || '-',
-            region: rt.region || detectRegion(rt.address, rt.customer),
-            printLocation: rt.originBranch || rt.printLocation || 'pusat',
-            date: dateStr,
-            status: isRtFailed ? 'failed' : 'pending',
-            deliveryStatus: isRtFailed ? 'failed' : 'pending',
-            isFailed: isRtFailed,
-            items: rt.items || [{ nama: 'Item Cetakan', qty: 1 }]
-          });
-        } else {
-          rDests.forEach((d, idx) => {
-            const destId = `${rt.id}_D${idx + 1}`;
-            const noSJ = d.sjNumber || rt.sjNumber || rt.noSJ || `SJ-${rt.id.replace('TRIP_', '').slice(-6)}-${idx + 1}`;
-            const shortCode = d.shortCode || rt.shortCode || rt.uniqueCode || `WK-${rt.id.replace('TRIP_', '').slice(-4).toUpperCase()}`;
-            const customer = d.locationName || rt.customer || 'Klien Wellen';
-            const address = d.address || rt.address || '-';
-            const region = d.region || rt.region || detectRegion(address, customer);
-
-            const destStatus = (d.status || rt.status || 'pending').toLowerCase();
-            const todayStr = new Date().toISOString().split('T')[0];
-            const isDestOld = (dateStr < todayStr);
-            const isDestFailed = (destStatus === 'failed' || destStatus === 'returned' || destStatus === 'undelivered' || !!d.pendingReason || !!rt.failedReason);
-            const isDestAssigned = (destStatus === 'in_progress' || destStatus === 'driver_assigned' || destStatus === 'departed' || (rt.status === 'in_progress' && !isDestFailed) || (rt.courierId && !isDestFailed));
-            const isDestCompleted = (destStatus === 'completed' || destStatus === 'done' || destStatus === 'delivered' || rt.status === 'completed' || rt.status === 'done');
-
-            // Exclude jika sudah selesai atau sedang diantar kurir
-            if (isDestCompleted) return;
-            if (isDestAssigned && !isDestFailed) return;
-
-            const isDestPendingRollover = isDestFailed || isDestOld;
-
-            addTrip({
-              id: destId,
-              tripId: rt.id,
-              noSJ: noSJ,
-              sjNumber: noSJ,
-              uniqueCode: shortCode,
-              shortCode: shortCode,
-              customer: customer,
-              clientName: customer,
-              address: address,
-              region: region,
-              printLocation: rt.originBranch || rt.printLocation || (region === 'Tangerang' ? 'cikokol' : 'pusat'),
-              date: dateStr,
-              status: isDestFailed ? 'failed' : 'pending',
-              deliveryStatus: isDestFailed ? 'failed' : 'pending',
-              isPendingRollover: isDestPendingRollover,
-              isFailed: isDestFailed,
-              isRolloverFromYesterday: isDestOld && !isDestFailed,
-              items: [{
-                nama: d.itemsSummary || 'Item Cetakan',
-                qty: d.qty || 1
-              }]
-            });
-          });
-        }
-      });
-    }
-
-    // 4. Dari mockDatabase
-    if (combined.length === 0 && window.mockDatabase && Array.isArray(window.mockDatabase.suratJalanList)) {
-      window.mockDatabase.suratJalanList.forEach(addTrip);
-    }
-
-    // 5. Default dummy jika masih kosong sama sekali (hanya jika belum ada penghapusan oleh user)
-    if (combined.length === 0 && !window.__hasExplicitlyEmptiedPool && deletedSet.size === 0) {
-      const dummy = generateSampleSJData();
-      dummy.forEach(addTrip);
-      if (!window.mockDatabase) window.mockDatabase = {};
-      window.mockDatabase.suratJalanList = dummy;
-    }
+    // Note: window.allCurrentTrips (database riwayat Firebase) dan generateSampleSJData (dummy) SENGAJA TIDAK dimasukkan ke Plan Shipment
+    // agar pool benar-benar bersih dan hanya menampung data import real yang siap dikirim.
 
     return combined;
   }
 
   function generateSampleSJData() {
-    const today = new Date().toISOString().split('T')[0];
-    return [
-      {
-        id: "SJ-DEMO-001",
-        noSJ: "SJ/2026/11/001",
-        date: today,
-        customer: "PT Astra International Tbk",
-        address: "Jl. Gaya Motor Raya No.8, Sunter II, Jakarta Utara",
-        region: "Jakarta Utara",
-        printLocation: "pusat",
-        uniqueCode: "WK-9A2F1B",
-        status: "pool",
-        source: "import_excel",
-        items: [{ nama: "Brosur Annual Report A4", qty: 2500, satuan: "Rim" }]
-      },
-      {
-        id: "SJ-DEMO-002",
-        noSJ: "SJ/2026/11/002",
-        date: today,
-        customer: "Shopee Indonesia - SCBD",
-        address: "Pacific Century Place Lt. 26, SCBD, Jakarta Selatan",
-        region: "Jakarta Selatan",
-        printLocation: "pusat",
-        uniqueCode: "WK-3C8D7E",
-        status: "pool",
-        source: "import_excel",
-        items: [{ nama: "Banner Roll Up 80x200cm", qty: 15, satuan: "Pcs" }]
-      },
-      {
-        id: "SJ-DEMO-003",
-        noSJ: "SJ/2026/11/003",
-        date: today,
-        customer: "Mall @ Alam Sutera",
-        address: "Jl. Jalur Sutera Barat Kav. 16, Tangerang",
-        region: "Tangerang",
-        printLocation: "cikokol",
-        uniqueCode: "WK-4E1B9C",
-        status: "pool",
-        branchStatus: "Diterima",
-        source: "import_excel",
-        items: [{ nama: "Backdrop Event Promo 4x3m", qty: 2, satuan: "Set" }]
-      },
-      {
-        id: "SJ-DEMO-004",
-        noSJ: "SJ/2026/11/004",
-        date: today,
-        customer: "PT Paragon Technology (Wardah)",
-        address: "Kawasan Industri Jatake, Tangerang",
-        region: "Tangerang",
-        printLocation: "cikokol",
-        uniqueCode: "WK-7H2K4M",
-        status: "pool",
-        branchStatus: "Print",
-        source: "import_excel",
-        items: [{ nama: "Box Packaging Cosmetic", qty: 10000, satuan: "Pcs" }]
-      },
-      {
-        id: "SJ-DEMO-005",
-        noSJ: "SJ/2026/11/005",
-        date: today,
-        customer: "Grand Indonesia Shopping Town",
-        address: "Jl. M.H. Thamrin No.1, Jakarta Pusat",
-        region: "Jakarta Pusat",
-        printLocation: "pusat",
-        uniqueCode: "WK-5M8P2Q",
-        status: "pool",
-        source: "import_excel",
-        items: [{ nama: "Flyer Event Ramadhan A5", qty: 5000, satuan: "Lembar" }]
-      }
-    ];
+    return [];
   }
 
   function renderUnifiedPoolView() {
@@ -1007,11 +884,16 @@ window.UnifiedPoolUI = (function () {
       return;
     }
 
-    if (!confirm(`Hapus ${checked.length} Surat Jalan terpilih dari SJ Pool? Tindakan ini tidak dapat dibatalkan.`)) return;
+    if (!confirm(`Hapus ${checked.length} Surat Jalan terpilih dari Plan Shipment? Tindakan ini tidak dapat dibatalkan.`)) return;
 
     const checkedSet = new Set(checked);
     window.__deletedSJIds = window.__deletedSJIds || new Set();
     checked.forEach(id => window.__deletedSJIds.add(String(id)));
+
+    // Simpan ke localStorage agar permanen tersimpan
+    try {
+      localStorage.setItem('wtrack_deleted_pool_ids', JSON.stringify(Array.from(window.__deletedSJIds)));
+    } catch (e) {}
 
     // 1. Hapus dari window.allPoolTrips
     if (Array.isArray(window.allPoolTrips)) {
@@ -1048,7 +930,7 @@ window.UnifiedPoolUI = (function () {
     }
 
     if (typeof window.showToast === 'function') {
-      window.showToast(`Berhasil menghapus ${checked.length} Surat Jalan dari Pool!`, 'info');
+      window.showToast(`Berhasil menghapus ${checked.length} Surat Jalan dari Plan Shipment!`, 'info');
     }
 
     renderUnifiedPoolView();
@@ -1061,11 +943,16 @@ window.UnifiedPoolUI = (function () {
     const t = trips.find(x => String(x.id || x.tripId || x.noSJ || x.sjNumber) === String(id));
     const label = t ? (t.noSJ || t.sjNumber || t.id) : id;
 
-    if (!confirm(`Hapus Surat Jalan "${label}" dari Pool? Tindakan ini tidak dapat dibatalkan.`)) return;
+    if (!confirm(`Hapus Surat Jalan "${label}" dari Plan Shipment? Tindakan ini tidak dapat dibatalkan.`)) return;
 
     const targetId = String(id);
     window.__deletedSJIds = window.__deletedSJIds || new Set();
     window.__deletedSJIds.add(targetId);
+
+    // Simpan ke localStorage agar permanen tersimpan
+    try {
+      localStorage.setItem('wtrack_deleted_pool_ids', JSON.stringify(Array.from(window.__deletedSJIds)));
+    } catch (e) {}
 
     if (Array.isArray(window.allPoolTrips)) {
       window.allPoolTrips = window.allPoolTrips.filter(x => String(x.id || x.tripId || x.noSJ || x.sjNumber) !== targetId);
@@ -1103,6 +990,20 @@ window.UnifiedPoolUI = (function () {
 
     renderUnifiedPoolView();
     if (typeof window.updateGlobalStats === 'function') window.updateGlobalStats();
+  }
+
+  function clearAllPlanShipments() {
+    if (!confirm("Bersihkan seluruh data Surat Jalan di Plan Shipment?")) return;
+    window.allPoolTrips = [];
+    try {
+      localStorage.removeItem('wtrack_local_trips');
+      localStorage.removeItem('wellen_local_trips');
+    } catch (e) {}
+    if (window.mockDatabase) window.mockDatabase.suratJalanList = [];
+    renderUnifiedPoolView();
+    if (typeof window.showToast === 'function') {
+      window.showToast("Plan Shipment telah dibersihkan sepenuhnya.", "info");
+    }
   }
 
   function quickAssignSingle(id) {
@@ -1225,6 +1126,7 @@ window.UnifiedPoolUI = (function () {
     printSelectedSuratJalan,
     deleteSelectedPool,
     deleteSingleSJ,
+    clearAllPlanShipments,
     quickAssignSingle,
     quickPreviewQR,
     refresh
