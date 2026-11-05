@@ -211,7 +211,8 @@ const MASTER_COURIERS = [
     { canonicalId: 'yakub', displayName: 'Yakub', role: 'driver', vehicleType: 'mobil', defaultUid: '17zXKPw8SFXDhW6Z6lc547R4TEE2', matchTokens: ['yakub', 'yakubdriver08', '17zxk'] },
     { canonicalId: 'iwan', displayName: 'Iwan', role: 'driver', vehicleType: 'mobil', defaultUid: 'J3wejohLG5dXbX0im5ozeGzpjzt2', matchTokens: ['iwan', 'iwandriver04', 'j3wej'] },
     { canonicalId: 'agung', displayName: 'Agung', role: 'driver', vehicleType: 'mobil', defaultUid: 'RLLeIifIbmVj1HHKALY40n1lKRr1', matchTokens: ['agung', 'agungdriver10', 'rllei'] },
-    { canonicalId: 'husen', displayName: 'Husen', role: 'driver', vehicleType: 'mobil', defaultUid: 'juHUuOWS4FOVpHxE59t4xf0ld1z1', matchTokens: ['husen', 'husensuka3', 'husensuka', 'juhu'] }
+    { canonicalId: 'husen', displayName: 'Husen', role: 'driver', vehicleType: 'mobil', defaultUid: 'juHUuOWS4FOVpHxE59t4xf0ld1z1', matchTokens: ['husen', 'husensuka3', 'husensuka', 'juhu'] },
+    { canonicalId: 'sobri', displayName: 'Sobri', role: 'driver', vehicleType: 'mobil', defaultUid: 'Kh6qNGG8kEVjilS9tIHaGbCcAWh1', matchTokens: ['sobri', 'sobri2026', 'kh6q', 'kh6qn'] }
 ];
 window.MASTER_COURIERS = MASTER_COURIERS;
 
@@ -733,6 +734,7 @@ function getCourierColor(id, optName = '') {
     if (checkStr.includes('iwan')) return '#65A30D';
     if (checkStr.includes('agung')) return '#0369A1';
     if (checkStr.includes('husen')) return '#B45309';
+    if (checkStr.includes('sobri')) return '#0D9488';
 
     const colors = ['#2563EB', '#0D9488', '#16A34A', '#D97706', '#9333EA', '#DB2777', '#0284C7', '#EA580C', '#4F46E5', '#059669', '#C026D3', '#E11D48', '#7C3AED', '#0891B2', '#D946EF', '#CA8A04', '#475569', '#DC2626', '#65A30D', '#0369A1', '#B45309'];
     let hash = 0;
@@ -2216,6 +2218,20 @@ function initUsersSnapshot() {
             };
         }
 
+        registeredUsers['Kh6qNGG8kEVjilS9tIHaGbCcAWh1'] = 'Sobri';
+        registeredUsers['sobri'] = 'Sobri';
+        registeredUsers['sobri2026'] = 'Sobri';
+        registeredUsers['sobri2026@gmail.com'] = 'Sobri';
+        if (!registeredUsersObjects['Kh6qNGG8kEVjilS9tIHaGbCcAWh1']) {
+            registeredUsersObjects['Kh6qNGG8kEVjilS9tIHaGbCcAWh1'] = {
+                name: 'Sobri',
+                email: 'sobri2026@gmail.com',
+                role: 'driver',
+                userId: 'Kh6qNGG8kEVjilS9tIHaGbCcAWh1',
+                courierId: 'sobri2026'
+            };
+        }
+
         // Save to cache
         try {
             localStorage.setItem('cached_couriers', JSON.stringify(registeredUsers));
@@ -3028,7 +3044,7 @@ window.setMonitorCategoryTab = function(tab) {
 function getPersonilCategory(cId, cName) {
     const checkStr = (String(cName || '') + ' ' + String(cId || '')).toLowerCase();
     const kurirTokens = ['ahmad', 'beto', 'eri', 'irfan', 'baihaqi', 'baikaqi', 'bayhaqi', 'haris', 'umar', 'noval', 'jay', 'ferdi', 'jagat', 'jagad'];
-    const driverTokens = ['altur', 'rizki', 'soleh', 'romi', 'firdaus', 'alan', 'yakub', 'iwan', 'agung', 'husen', 'juhu'];
+    const driverTokens = ['altur', 'rizki', 'soleh', 'romi', 'firdaus', 'alan', 'yakub', 'iwan', 'agung', 'husen', 'juhu', 'sobri'];
 
     if (driverTokens.some(d => checkStr.includes(d))) return 'driver';
     if (kurirTokens.some(k => checkStr.includes(k))) return 'kurir';

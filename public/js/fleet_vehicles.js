@@ -235,7 +235,8 @@
         { id: 'iwan', name: 'Iwan', role: 'driver', vehicleType: 'mobil' },
         { id: 'husen', name: 'Husen', role: 'driver', vehicleType: 'mobil' },
         { id: 'altur', name: 'Altur', role: 'driver', vehicleType: 'mobil' },
-        { id: 'rizki', name: 'Rizki', role: 'driver', vehicleType: 'mobil' }
+        { id: 'rizki', name: 'Rizki', role: 'driver', vehicleType: 'mobil' },
+        { id: 'sobri', name: 'Sobri', role: 'driver', vehicleType: 'mobil' }
     ];
 
     // RBAC Guard helper

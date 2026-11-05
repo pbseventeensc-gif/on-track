@@ -54,6 +54,7 @@ window.getCourierColor = function(id, optName = '') {
     if (checkStr.includes('iwan')) return '#65A30D'; // Lime
     if (checkStr.includes('agung')) return '#0369A1'; // Ocean Blue
     if (checkStr.includes('husen') || checkStr.includes('juhu')) return '#B45309'; // Warm Bronze
+    if (checkStr.includes('sobri') || checkStr.includes('kh6q')) return '#0D9488'; // Teal
 
     // High contrast deterministic palette fallback
     const fallbackPalette = [
