@@ -1,0 +1,19 @@
+{
+  "name": "Wtrack Kurir Delivery",
+  "short_name": "Wtrack Kurir",
+  "description": "Aplikasi Pengantaran Kurir Wellen Print - Real-time Tracking & Proof of Delivery",
+  "start_url": "/kurir.html",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#F8FAFC",
+  "theme_color": "#FF471D",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/assets/wellen_logo.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

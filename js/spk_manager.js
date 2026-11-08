@@ -37,7 +37,13 @@
             try {
                 const parsed = JSON.parse(stored);
                 if (Array.isArray(parsed)) {
-                    spkOrdersList = parsed;
+                    // Otomatis bersihkan 3 SPK demo/mock bawaan agar tidak muncul lagi
+                    spkOrdersList = parsed.filter(item => {
+                        const idStr = String(item.spkId || item.id || '');
+                        const numStr = String(item.spkNumber || '');
+                        return !idStr.startsWith('SPK_20261103') && !numStr.includes('SPK/XI/2026/010');
+                    });
+                    saveSpkData();
                     return;
                 }
             } catch (e) {
@@ -45,69 +51,8 @@
             }
         }
 
-        // Jika user sebelumnya sudah pernah inisialisasi / menghapus data sampai 0, jangan buatkan lagi
-        if (localStorage.getItem(SPK_SEEDED_KEY) === 'true') {
-            spkOrdersList = [];
-            return;
-        }
-
-        // Demo awal saat pertama kali aplikasi dibuka
-        spkOrdersList = [
-            {
-                spkId: "SPK_20261103_001",
-                id: "SPK_20261103_001",
-                spkNumber: "SPK/XI/2026/0101",
-                clientName: "PT Sumber Alfaria Trijaya",
-                customer: "PT Sumber Alfaria Trijaya",
-                jobTitle: "Cetak Banner Promo November (Flexi 300gr)",
-                namaProduk: "Cetak Banner Promo November (Flexi 300gr)",
-                specs: "Flexi China 300gr, Finishing Seaming & Mata Ayam",
-                qty: "50 Lembar (2x1m)",
-                machineName: "HP Latex 3600",
-                productionBranch: "cikokol",
-                branch: "cikokol",
-                productionStatus: "printing",
-                jobReceivedAt: "08:15 WIB",
-                deadlineAt: "13:00 WIB",
-                linkedSjId: ""
-            },
-            {
-                spkId: "SPK_20261103_002",
-                id: "SPK_20261103_002",
-                spkNumber: "SPK/XI/2026/0102",
-                clientName: "Bank Central Asia (BCA)",
-                customer: "Bank Central Asia (BCA)",
-                jobTitle: "Brosur Tabungan & Kalender Meja 2027",
-                namaProduk: "Brosur Tabungan & Kalender Meja 2027",
-                specs: "Art Paper 150gr, Full Color 2 Sisi + UV Varnish",
-                qty: "1.000 Exp",
-                machineName: "HP Indigo 7R",
-                productionBranch: "pusat",
-                branch: "pusat",
-                productionStatus: "finishing",
-                jobReceivedAt: "08:45 WIB",
-                deadlineAt: "16:00 WIB",
-                linkedSjId: ""
-            },
-            {
-                spkId: "SPK_20261103_003",
-                id: "SPK_20261103_003",
-                spkNumber: "SPK/XI/2026/0103",
-                clientName: "Tokopedia Care BSD",
-                customer: "Tokopedia Care BSD",
-                jobTitle: "Acrylic Signboard & Branding Meeting Room",
-                namaProduk: "Acrylic Signboard & Branding Meeting Room",
-                specs: "Acrylic Marga Cipta 5mm + Laser Cut & UV Flatbed",
-                qty: "8 Set",
-                machineName: "SwissQPrint Impala 5",
-                productionBranch: "cikokol",
-                branch: "cikokol",
-                productionStatus: "packing",
-                jobReceivedAt: "09:00 WIB",
-                deadlineAt: "15:30 WIB",
-                linkedSjId: ""
-            }
-        ];
+        // Default kosong, tidak ada mock data SPK otomatis
+        spkOrdersList = [];
         saveSpkData();
     }
 

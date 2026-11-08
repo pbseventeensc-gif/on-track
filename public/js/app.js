@@ -262,7 +262,15 @@ const COURIER_PHOTO_MAP = {
     'rizki': '/assets/couriers/Rizki.jpeg',
     'romi': '/assets/couriers/Romi.jpeg',
     'rommy': '/assets/couriers/Romi.jpeg',
-    'umar': '/assets/couriers/Umar.jpeg'
+    'umar': '/assets/couriers/Umar.jpeg',
+    'pbseventeensc': 'https://ui-avatars.com/api/?name=PB&background=FF471D&color=fff&bold=true',
+    'ferdi': 'https://ui-avatars.com/api/?name=Ferdi&background=059669&color=fff&bold=true',
+    'altur': 'https://ui-avatars.com/api/?name=Altur&background=E11D48&color=fff&bold=true',
+    'soleh': 'https://ui-avatars.com/api/?name=Soleh&background=0891B2&color=fff&bold=true',
+    'alan': 'https://ui-avatars.com/api/?name=Alan&background=475569&color=fff&bold=true',
+    'yakub': 'https://ui-avatars.com/api/?name=Yakub&background=DC2626&color=fff&bold=true',
+    'iwan': 'https://ui-avatars.com/api/?name=Iwan&background=65A30D&color=fff&bold=true',
+    'sobri': 'https://ui-avatars.com/api/?name=Sobri&background=0D9488&color=fff&bold=true'
 };
 
 function isEvenPlate(plate) {
@@ -279,7 +287,7 @@ function getCourierPhoto(cId, cName) {
     if (!cId && !cName) return null;
     const norm = (typeof normalizeCourierIdentity === 'function') 
         ? normalizeCourierIdentity(cId, cName) 
-        : { canonicalId: (cId || '').toLowerCase() };
+        : { canonicalId: (cId || '').toLowerCase(), displayName: cName || cId };
 
     const canon = norm.canonicalId || (cId || '').toLowerCase();
     if (COURIER_PHOTO_MAP[canon]) return COURIER_PHOTO_MAP[canon];
@@ -288,7 +296,8 @@ function getCourierPhoto(cId, cName) {
     for (const k in COURIER_PHOTO_MAP) {
         if (str.includes(k)) return COURIER_PHOTO_MAP[k];
     }
-    return null;
+    const label = norm.displayName || cName || cId || 'K';
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(label)}&background=0f172a&color=fff&bold=true`;
 }
 window.getCourierPhoto = getCourierPhoto;
 
@@ -907,7 +916,7 @@ function isTripInDateRange(t, startMs, endMs) {
         return 0;
     };
 
-    let tripMs = parseMs(t.date) || parseMs(t.assignedTime) || parseMs(t.acceptedTime);
+    let tripMs = parseMs(t.date) || parseMs(t.assignedAt) || parseMs(t.assignedTime) || parseMs(t.acceptedTime) || parseMs(t.updatedAt) || parseMs(t.completedTime);
     if (!tripMs && t.id && t.id.startsWith('TRIP_')) {
         tripMs = parseInt(t.id.replace('TRIP_', '')) || 0;
     }
@@ -915,8 +924,16 @@ function isTripInDateRange(t, startMs, endMs) {
     const minMs = startMs || 0;
     const maxMs = endMs || Infinity;
 
-    // 1. Created/assigned date is in range
+    // 1. Created/assigned/updated date is in range
     if (tripMs > 0 && tripMs >= minMs && tripMs <= maxMs) {
+        return true;
+    }
+    const assignedMs = parseMs(t.assignedAt) || parseMs(t.assignedTime) || parseMs(t.acceptedTime);
+    if (assignedMs > 0 && assignedMs >= minMs && assignedMs <= maxMs) {
+        return true;
+    }
+    const updatedMs = parseMs(t.updatedAt) || parseMs(t.completedTime);
+    if (updatedMs > 0 && updatedMs >= minMs && updatedMs <= maxMs) {
         return true;
     }
 
@@ -1131,40 +1148,169 @@ document.addEventListener('click', (e) => {
     }
 });
 
+// --- Helper Deteksi Waktu & Peringatan Khusus Hari Ini (By Today Only) ---
+let currentActiveAlertDay = getLocalTodayDateString();
+
+function isTripToday(t) {
+    if (!t) return false;
+    const now = new Date();
+    const todayY = now.getFullYear();
+    const todayM = now.getMonth();
+    const todayD = now.getDate();
+    const todayDateStr = `${todayY}-${String(todayM + 1).padStart(2, '0')}-${String(todayD).padStart(2, '0')}`;
+
+    if (t.date) {
+        if (typeof t.date.toDate === 'function') {
+            const d = t.date.toDate();
+            return d.getFullYear() === todayY && d.getMonth() === todayM && d.getDate() === todayD;
+        }
+        if (typeof t.date.seconds === 'number') {
+            const d = new Date(t.date.seconds * 1000);
+            return d.getFullYear() === todayY && d.getMonth() === todayM && d.getDate() === todayD;
+        }
+        if (typeof t.date === 'string') {
+            const s = t.date.trim();
+            if (s.startsWith(todayDateStr)) return true;
+            const parsed = new Date(s);
+            if (!isNaN(parsed.getTime())) {
+                return parsed.getFullYear() === todayY && parsed.getMonth() === todayM && parsed.getDate() === todayD;
+            }
+        }
+    }
+
+    if (t.dateFolder && typeof t.dateFolder === 'string') {
+        if (t.dateFolder.trim() === todayDateStr) return true;
+    }
+
+    if (t.createdAt) {
+        if (typeof t.createdAt.toDate === 'function') {
+            const d = t.createdAt.toDate();
+            return d.getFullYear() === todayY && d.getMonth() === todayM && d.getDate() === todayD;
+        }
+        if (typeof t.createdAt.seconds === 'number') {
+            const d = new Date(t.createdAt.seconds * 1000);
+            return d.getFullYear() === todayY && d.getMonth() === todayM && d.getDate() === todayD;
+        }
+        if (typeof t.createdAt === 'string') {
+            const s = t.createdAt.trim();
+            if (s.startsWith(todayDateStr)) return true;
+            const parsed = new Date(s);
+            if (!isNaN(parsed.getTime())) {
+                return parsed.getFullYear() === todayY && parsed.getMonth() === todayM && parsed.getDate() === todayD;
+            }
+        }
+    }
+
+    if (t.id && typeof t.id === 'string' && t.id.startsWith('TRIP_')) {
+        const clean = t.id.replace('TRIP_', '').split('_')[0];
+        const ts = parseInt(clean, 10);
+        if (!isNaN(ts)) {
+            const d = ts > 1e11 ? new Date(ts) : new Date(ts * 1000);
+            return d.getFullYear() === todayY && d.getMonth() === todayM && d.getDate() === todayD;
+        }
+    }
+
+    return false;
+}
+window.isTripToday = isTripToday;
+
+function isDestinationPendingToday(d, trip) {
+    if (!d || d.status !== 'pending_approval') return false;
+    const now = new Date();
+    const todayY = now.getFullYear();
+    const todayM = now.getMonth();
+    const todayD = now.getDate();
+    const todayDateStr = `${todayY}-${String(todayM + 1).padStart(2, '0')}-${String(todayD).padStart(2, '0')}`;
+
+    const destTime = d.pendingAt || d.reportedAt || d.updatedAt || d.timestamp || d.arrivedAt;
+    if (destTime) {
+        if (typeof destTime.toDate === 'function') {
+            const dt = destTime.toDate();
+            return dt.getFullYear() === todayY && dt.getMonth() === todayM && dt.getDate() === todayD;
+        }
+        if (typeof destTime.seconds === 'number') {
+            const dt = new Date(destTime.seconds * 1000);
+            return dt.getFullYear() === todayY && dt.getMonth() === todayM && dt.getDate() === todayD;
+        }
+        if (typeof destTime === 'string') {
+            const s = destTime.trim();
+            if (s.startsWith(todayDateStr)) return true;
+            const parsed = new Date(s);
+            if (!isNaN(parsed.getTime())) {
+                return parsed.getFullYear() === todayY && parsed.getMonth() === todayM && parsed.getDate() === todayD;
+            }
+        }
+        if (typeof destTime === 'number') {
+            const dt = destTime > 1e11 ? new Date(destTime) : new Date(destTime * 1000);
+            return dt.getFullYear() === todayY && dt.getMonth() === todayM && dt.getDate() === todayD;
+        }
+    }
+
+    return isTripToday(trip);
+}
+window.isDestinationPendingToday = isDestinationPendingToday;
+
+function checkDayRollover() {
+    const today = getLocalTodayDateString();
+    if (today !== currentActiveAlertDay) {
+        console.log(`[Wtrack Alert System] Pergantian hari (${currentActiveAlertDay} -> ${today}). Mereset alert hari baru.`);
+        currentActiveAlertDay = today;
+        dismissedAlertIds.clear();
+        alertsClearedAt = 0;
+        isNotificationRead = false;
+        if (typeof updateHeaderDate === 'function') {
+            updateHeaderDate();
+        }
+        updateDynamicAlerts();
+    }
+}
+window.checkDayRollover = checkDayRollover;
+
+// Interval cek pergantian hari setiap 30 menit (1.800.000 ms) untuk memastikan alert otomatis bersih saat berganti hari
+if (typeof window !== 'undefined' && !window._dayRolloverInterval) {
+    window._dayRolloverInterval = setInterval(checkDayRollover, 30 * 60 * 1000);
+}
+
 function updateNotificationBell() {
+    checkDayRollover();
     const listEl = document.getElementById('notif-list-container');
     const badgeEl = document.getElementById('notif-badge');
     const countTextEl = document.getElementById('notif-count-text');
 
     notificationItems = [];
-    const now = Date.now();
 
-    allCurrentTrips.forEach(t => {
+    // 1. Peringatan Lapor Klien Tutup / Pending Approval HANYA UNTUK HARI INI
+    (allCurrentTrips || []).forEach(t => {
         if (t.destinations) {
             t.destinations.forEach(d => {
-                if (d.status === 'pending_approval') {
-                    const cName = registeredUsers[t.courierId] || t.courierId.substring(0,8);
-                    notificationItems.push({
-                        type: 'warning',
-                        icon: 'bi-exclamation-triangle',
-                        title: `Lapor Klien Tutup: ${d.locationName || 'Destination'}`,
-                        desc: `Kurir ${cName} mengajukan pending (${d.pendingReason || 'Klien Tutup'})`,
-                        tab: 'dashboard',
-                        tripId: t.id,
-                        courierId: t.courierId
-                    });
+                if (d.status === 'pending_approval' && isDestinationPendingToday(d, t)) {
+                    const alertId = `pending_app_${t.id}_${d.stopIndex}`;
+                    if (!dismissedAlertIds.has(alertId)) {
+                        const cName = registeredUsers[t.courierId] || (t.courierId ? t.courierId.substring(0,8) : 'Kurir');
+                        notificationItems.push({
+                            id: alertId,
+                            type: 'warning',
+                            icon: 'bi-exclamation-triangle',
+                            title: `Lapor Klien Tutup: ${d.locationName || 'Destination'}`,
+                            desc: `Kurir ${cName} mengajukan pending (${d.pendingReason || 'Klien Tutup'})`,
+                            tab: 'dashboard',
+                            tripId: t.id,
+                            courierId: t.courierId
+                        });
+                    }
                 }
             });
         }
     });
 
-    const activeCount = allCurrentTrips.filter(t => t.status === 'in_progress' || t.status === 'assigned').length;
-    if (activeCount > 0) {
+    // 2. Info Pengiriman Aktif HARI INI SAJA (bukan akumulasi trip lama)
+    const activeTodayCount = (allCurrentTrips || []).filter(t => (t.status === 'in_progress' || t.status === 'assigned') && isTripToday(t)).length;
+    if (activeTodayCount > 0) {
         notificationItems.push({
             type: 'info',
             icon: 'bi-truck',
-            title: `${activeCount} Pengiriman Aktif`,
-            desc: `Ada ${activeCount} tugas pengiriman berjalan`,
+            title: `${activeTodayCount} Pengiriman Aktif Hari Ini`,
+            desc: `Ada ${activeTodayCount} tugas pengiriman berjalan hari ini`,
             tab: 'dispatch'
         });
     }
@@ -1192,7 +1338,7 @@ function updateNotificationBell() {
 
     if (!listEl) return;
     if (totalCount === 0) {
-        listEl.innerHTML = '<div class="text-center py-4 text-muted extra-small"><i class="bi bi-check-circle fs-4 d-block mb-1 text-success"></i>Tidak ada peringatan baru. Semua lancar!</div>';
+        listEl.innerHTML = '<div class="text-center py-4 text-muted extra-small"><i class="bi bi-check-circle fs-4 d-block mb-1 text-success"></i>Tidak ada peringatan baru hari ini. Semua lancar!</div>';
     } else {
         listEl.innerHTML = notificationItems.map((item, idx) => {
             const bgClass = item.type === 'danger' ? '#FEF2F2' : item.type === 'warning' ? '#FFFBEB' : '#F0F9FF';
@@ -1218,7 +1364,15 @@ const dismissedAlertIds = new Set();
 
 function clearAllPriorityAlerts() {
     alertsClearedAt = Date.now();
-    dismissedAlertIds.clear();
+    (allCurrentTrips || []).forEach(t => {
+        if (t.destinations) {
+            t.destinations.forEach(d => {
+                if (d.status === 'pending_approval') {
+                    dismissedAlertIds.add(`pending_app_${t.id}_${d.stopIndex}`);
+                }
+            });
+        }
+    });
     if (typeof showToast === 'function') showToast("Semua peringatan prioritas dibersihkan.");
     updateDynamicAlerts();
 }
@@ -1233,27 +1387,25 @@ function dismissSingleAlert(alertId, event) {
 window.dismissSingleAlert = dismissSingleAlert;
 
 function updateDynamicAlerts() {
+    checkDayRollover();
     const container = document.getElementById('priority-alerts');
     updateNotificationBell();
     if(!container) return;
     container.innerHTML = '';
-    const now = Date.now();
-    const nowDate = new Date();
-    const todayDayMs = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate()).getTime();
 
-    allCurrentTrips.forEach(t => {
-        const cName = registeredUsers[t.courierId] || t.courierId.substring(0,8);
-        const tripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : (t.id ? parseInt(t.id.replace('TRIP_', '')) || 0 : 0));
+    (allCurrentTrips || []).forEach(t => {
+        const cName = registeredUsers[t.courierId] || (t.courierId ? t.courierId.substring(0,8) : 'Kurir');
 
-        // Auto-expire alerts on H+1: Only generate Priority Alerts for TODAY'S active trips
-        if (tripMs < todayDayMs) {
+        // Auto-expire alerts on H+1: HANYA generate Priority Alerts untuk pengantaran HARI INI (by today)
+        // Jika ganti hari, alert otomatis bersih / reset
+        if (!isTripToday(t)) {
             return;
         }
 
         // Pending Approval Alerts (Klien Tutup)
         if (t.destinations) {
             t.destinations.forEach((d) => {
-                if (d.status === 'pending_approval') {
+                if (d.status === 'pending_approval' && isDestinationPendingToday(d, t)) {
                     const alertId = `pending_app_${t.id}_${d.stopIndex}`;
                     if (!dismissedAlertIds.has(alertId)) {
                         const podBtn = d.pendingProofPhotoUrl ? `<button class="btn btn-xs btn-light border py-0.5 px-2 ms-1 extra-small rounded-pill text-danger fw-bold" onclick="openPoDModal('${d.pendingProofPhotoUrl}')"><i class="bi bi-camera me-1"></i>Foto Lokasi Tutup</button>` : '';
@@ -1279,7 +1431,7 @@ function updateDynamicAlerts() {
     });
 
     if(container.innerHTML === '') {
-        container.innerHTML = '<div class="text-center py-4 text-muted extra-small"><i class="bi bi-check-circle text-success me-1"></i> Tidak ada permohonan pending/klien tutup.</div>';
+        container.innerHTML = '<div class="text-center py-4 text-muted extra-small"><i class="bi bi-check-circle text-success me-1"></i> Tidak ada permohonan pending/klien tutup hari ini.</div>';
     }
 }
 
@@ -1348,8 +1500,17 @@ function toggleSidebar() {
 
 function toggleCollapse() {
     const sb = document.getElementById('sidebar');
+    const icon = document.getElementById('sidebar-collapse-icon');
     if (!sb) return;
     sb.classList.toggle('collapsed');
+
+    if (icon) {
+        if (sb.classList.contains('collapsed')) {
+            icon.className = 'bi bi-chevron-double-right';
+        } else {
+            icon.className = 'bi bi-chevron-double-left';
+        }
+    }
 
     setTimeout(() => {
         if(typeof map !== 'undefined' && map && typeof map.invalidateSize === 'function') map.invalidateSize();
@@ -1371,26 +1532,29 @@ function getRoleDisplayName(role) {
 function isTabAllowedForRole(role, viewId) {
     if (!role) return false;
     const r = String(role).toLowerCase();
+
+    // Izinkan modul ERP baru & Import SJ/SPK
+    if (viewId && (
+        viewId === 'import-sj' ||
+        viewId === 'import-spk' ||
+        viewId.startsWith('job-') ||
+        viewId.startsWith('deskprint-') ||
+        viewId.startsWith('prod-') ||
+        viewId.startsWith('inv-') ||
+        viewId.startsWith('qc-') ||
+        viewId.startsWith('analytics-')
+    )) {
+        return true;
+    }
+
     const isCentralAdmin = (
         r === 'super_admin' ||
         r === 'superadmin' ||
         r === 'admin' ||
         r === 'admin_logistik' ||
-        r === 'adminlogistik'
-    ) && (
-        r !== 'sales_admin' &&
-        r !== 'sales' &&
-        r !== 'admin_dm2' &&
-        r !== 'dm2' &&
-        r !== 'admintrafficdm2' &&
-        r !== 'traffic_dm2' &&
-        !r.includes('dm2') &&
-        r !== 'branch_admin' &&
-        r !== 'branch' &&
-        r !== 'courier' &&
-        r !== 'kurir' &&
-        r !== 'traffic' &&
-        r !== 'trafik'
+        r === 'adminlogistik' ||
+        r === 'courier' ||
+        r === 'kurir'
     );
 
     // AUDIT KURIR HARIAN: HANYA ADA DI MENU SUPERADMIN / ADMIN PUSAT (TIDAK BOLEH DI LOGIN CABANG, SALES, KURIR)
@@ -1527,16 +1691,21 @@ function switchTab(viewId, el) {
         target.style.display = 'block';
     }
 
-    // Deactivate all nav links
+    // Deactivate all nav links & sub-items
     document.querySelectorAll('.nav-link-custom').forEach(l => l.classList.remove('active'));
+    document.querySelectorAll('.sub-nav-item').forEach(l => l.classList.remove('active'));
 
     // Activate selected nav link
-    const navItem = (el && typeof el.closest === 'function') ? el.closest('.nav-link-custom') : document.getElementById('nav-' + viewId);
+    const navItem = (el && typeof el.closest === 'function') ? (el.closest('.nav-link-custom') || el.closest('.sub-nav-item')) : document.getElementById('nav-' + viewId);
     if (navItem) {
         navItem.classList.add('active');
     } else {
         const fallbackNav = document.getElementById('nav-' + viewId) || document.querySelector(`[onclick*="${viewId}"]`);
         if (fallbackNav) fallbackNav.classList.add('active');
+    }
+
+    if (typeof openGroupForView === 'function') {
+        openGroupForView(viewId);
     }
 
     // Close mobile sidebar if open
@@ -1637,10 +1806,18 @@ async function loadPoolTrips() {
             bulkSelect.innerHTML = buildCourierOptgroupHtml('Pilih Kurir Tujuan...', 'defaultUid');
         }
 
-        renderPoolTable();
+        if (window.UnifiedPoolUI && typeof window.UnifiedPoolUI.renderUnifiedPoolView === 'function') {
+            window.UnifiedPoolUI.renderUnifiedPoolView();
+        } else {
+            renderPoolTable();
+        }
     } catch (e) {
         console.error("Error loading pool trips:", e);
-        renderPoolTable();
+        if (window.UnifiedPoolUI && typeof window.UnifiedPoolUI.renderUnifiedPoolView === 'function') {
+            window.UnifiedPoolUI.renderUnifiedPoolView();
+        } else {
+            renderPoolTable();
+        }
     }
 }
 window.loadPoolTrips = loadPoolTrips;
@@ -2303,14 +2480,16 @@ function buildCourierOptgroupHtml(placeholderText = '-- Pilih Kurir Pengantaran 
     options.push(`<optgroup label="Kurir Motor (${kurirs.length} Personil)">`);
     kurirs.forEach(c => {
         const val = valueKey === 'canonicalId' ? c.canonicalId : (valueKey === 'displayName' ? c.displayName : c.defaultUid);
-        options.push(`<option value="${val}">${c.displayName}</option>`);
+        const avatar = getCourierPhoto(c.canonicalId, c.displayName) || '';
+        options.push(`<option value="${val}" data-avatar="${avatar}">${c.displayName}</option>`);
     });
     options.push(`</optgroup>`);
 
     options.push(`<optgroup label="Driver Mobil (${drivers.length} Personil)">`);
     drivers.forEach(c => {
         const val = valueKey === 'canonicalId' ? c.canonicalId : (valueKey === 'displayName' ? c.displayName : c.defaultUid);
-        options.push(`<option value="${val}">${c.displayName}</option>`);
+        const avatar = getCourierPhoto(c.canonicalId, c.displayName) || '';
+        options.push(`<option value="${val}" data-avatar="${avatar}">${c.displayName}</option>`);
     });
     options.push(`</optgroup>`);
 
@@ -2334,6 +2513,9 @@ function renderCourierOptions() {
         }
     }
     if (typeof onDispatchCourierChange === 'function') onDispatchCourierChange();
+    if (window.wtrackDropdown && typeof window.wtrackDropdown.initAll === 'function') {
+        setTimeout(() => window.wtrackDropdown.initAll(), 20);
+    }
 }
 
 function initRtdbListener() {
@@ -2374,6 +2556,13 @@ async function purgePastMonthsTripsFromDb(manual = false) {
 }
 window.purgePastMonthsTripsFromDb = purgePastMonthsTripsFromDb;
 
+window.syncAllCurrentTrips = function(list) {
+    if (Array.isArray(list)) {
+        allCurrentTrips = list;
+        window.allCurrentTrips = list;
+    }
+};
+
 function initTripsSnapshot() {
     const activeDb = getDb();
     if (!activeDb) {
@@ -2387,6 +2576,7 @@ function initTripsSnapshot() {
         snap.forEach(doc => {
             const t = doc.data();
             t.id = doc.id;
+            if (t.status === 'pool') return; // Pool items belong to SJ Pool until assigned
             if (t.status === 'assigned') {
                 t.status = 'in_progress';
             }
@@ -2395,6 +2585,7 @@ function initTripsSnapshot() {
             trips.push(t);
         });
         allCurrentTrips = trips;
+        window.allCurrentTrips = trips;
         if (typeof initDefaultDateFilters === 'function') initDefaultDateFilters();
         updateGlobalStats();
         renderRecentShipments();
@@ -2414,6 +2605,10 @@ function updateGlobalStats() {
     isUpdatingStats = true;
 
     try {
+        if (Array.isArray(window.allCurrentTrips) && window.allCurrentTrips.length > allCurrentTrips.length) {
+            allCurrentTrips = window.allCurrentTrips;
+        }
+
         let activeTrips = 0;
         let doneToday = 0;
         let delayedCount = 0;
@@ -2436,9 +2631,10 @@ function updateGlobalStats() {
 
         const now = new Date();
         const todayDayMs = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        const todayEndMs = todayDayMs + (24 * 60 * 60 * 1000) - 1;
 
         let filterStartMs = todayDayMs;
-        let filterEndMs = todayDayMs + (24 * 60 * 60 * 1000) - 1;
+        let filterEndMs = todayEndMs;
 
         if (startDateVal) {
             const parsed = parseDateBoundary(startDateVal, false);
@@ -2453,16 +2649,16 @@ function updateGlobalStats() {
             const selectedDateMode = document.getElementById('recent-date-filter')?.value || "today";
             if (selectedDateMode === "today" || !selectedDateMode) {
                 filterStartMs = todayDayMs;
-                filterEndMs = todayDayMs + (24 * 60 * 60 * 1000) - 1;
+                filterEndMs = todayEndMs;
             } else if (selectedDateMode === "3days") {
                 filterStartMs = todayDayMs - (2 * 24 * 60 * 60 * 1000);
-                filterEndMs = todayDayMs + (24 * 60 * 60 * 1000) - 1;
+                filterEndMs = todayEndMs;
             } else if (selectedDateMode === "7days") {
                 filterStartMs = todayDayMs - (6 * 24 * 60 * 60 * 1000);
-                filterEndMs = todayDayMs + (24 * 60 * 60 * 1000) - 1;
+                filterEndMs = todayEndMs;
             } else if (selectedDateMode === "month") {
                 filterStartMs = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-                filterEndMs = todayDayMs + (24 * 60 * 60 * 1000) - 1;
+                filterEndMs = todayEndMs;
             } else if (selectedDateMode === "all") {
                 filterStartMs = 0;
                 filterEndMs = Infinity;
@@ -2470,18 +2666,25 @@ function updateGlobalStats() {
         }
 
         const filteredTrips = allCurrentTrips.filter(t => {
+            if (!t || t.status === 'pool') return false;
             if (typeof isTripInActiveBranch === 'function' && !isTripInActiveBranch(t)) {
                 return false;
             }
 
-            const cName = getCourierDisplayName ? getCourierDisplayName(t.courierId) : t.courierId;
-            const tripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : (t.id ? parseInt(t.id.replace('TRIP_', '')) || 0 : 0));
+            const courierIdStr = t.courierId || '';
+            const cName = getCourierDisplayName ? getCourierDisplayName(courierIdStr) : courierIdStr;
 
-            if (selectedCarrier !== "all" && t.courierId !== selectedCarrier && cName.toLowerCase() !== selectedCarrier.toLowerCase()) {
-                return false;
+            if (selectedCarrier !== "all") {
+                const courierInfo = normalizeCourierIdentity(courierIdStr, cName);
+                const filterInfo = normalizeCourierIdentity(selectedCarrier, "");
+                if (courierIdStr !== selectedCarrier &&
+                    cName.toLowerCase() !== selectedCarrier.toLowerCase() &&
+                    courierInfo.canonicalId !== filterInfo.canonicalId) {
+                    return false;
+                }
             }
 
-            if (filterStartMs > 0 && (tripMs < filterStartMs || tripMs > filterEndMs)) {
+            if (filterStartMs > 0 && !isTripInDateRange(t, filterStartMs, filterEndMs)) {
                 return false;
             }
 
@@ -2491,12 +2694,12 @@ function updateGlobalStats() {
         let activeShipmentsCount = 0;
 
         filteredTrips.forEach(t => {
-            const tripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : 0);
+            const isTodayTrip = isTripInDateRange(t, todayDayMs, todayEndMs);
 
             if(t.status !== 'completed') {
                 couriersWithActiveTrip.add(t.courierId);
 
-                if (tripMs >= todayDayMs && t.status === 'in_progress') {
+                if (isTodayTrip && t.status === 'in_progress') {
                     const lastUpdate = t.destinations ? t.destinations.filter(d => d.status === 'done' || d.status === 'arrived').reduce((max, d) => {
                         const time = (d.completedTime || d.arrivalTime)?.seconds * 1000 || 0;
                         return time > max ? time : max;
@@ -2515,8 +2718,9 @@ function updateGlobalStats() {
             if(t.destinations && t.destinations.length > 0) {
                 t.destinations.forEach((d, i) => {
                     totalStops++;
+                    const hasPodPhoto = !!(d.proofPhotoUrl || d.proofPhotoSj || (d.proofPhotoItems && d.proofPhotoItems.length > 0));
                     const isAccPending = (d.status === 'pending' && d.pendingReason && d.pendingReason.length > 0) || d.status === 'returned' || d.status === 'failed';
-                    if (d.status === 'done' || d.proofPhotoUrl || d.status === 'completed') {
+                    if (d.status === 'done' || hasPodPhoto || d.status === 'completed' || t.status === 'completed') {
                         deliveredStops++;
                     } else if (isAccPending) {
                         returnedStops++;
@@ -2528,6 +2732,11 @@ function updateGlobalStats() {
                 grandTotalKM += calculateAccurateTripKM(t);
             } else if (t.status !== 'completed') {
                 activeShipmentsCount++;
+                totalStops++;
+                inTransitStops++;
+            } else {
+                totalStops++;
+                deliveredStops++;
             }
         });
 
@@ -2543,13 +2752,13 @@ function updateGlobalStats() {
         let grandTotalKMToday = 0;
 
         filteredTrips.forEach(t => {
-            const tripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : 0);
-            if (tripMs >= todayDayMs) {
+            if (isTripInDateRange(t, todayDayMs, todayEndMs)) {
                 if (t.destinations && t.destinations.length > 0) {
                     t.destinations.forEach((d, i) => {
                         totalStopsToday++;
+                        const hasPodPhoto = !!(d.proofPhotoUrl || d.proofPhotoSj || (d.proofPhotoItems && d.proofPhotoItems.length > 0));
                         const isAccPending = (d.status === 'pending' && d.pendingReason && d.pendingReason.length > 0) || d.status === 'returned' || d.status === 'failed';
-                        if (d.status === 'done' || d.proofPhotoUrl || d.status === 'completed') {
+                        if (d.status === 'done' || hasPodPhoto || d.status === 'completed' || t.status === 'completed') {
                             deliveredStopsToday++;
                         } else if (isAccPending) {
                             returnedStopsToday++;
@@ -3043,7 +3252,7 @@ window.setMonitorCategoryTab = function(tab) {
 
 function getPersonilCategory(cId, cName) {
     const checkStr = (String(cName || '') + ' ' + String(cId || '')).toLowerCase();
-    const kurirTokens = ['ahmad', 'beto', 'eri', 'irfan', 'baihaqi', 'baikaqi', 'bayhaqi', 'haris', 'umar', 'noval', 'jay', 'ferdi', 'jagat', 'jagad'];
+    const kurirTokens = ['ahmad', 'beto', 'eri', 'irfan', 'baihaqi', 'baikaqi', 'bayhaqi', 'haris', 'umar', 'noval', 'jay', 'ferdi', 'jagat', 'jagad', 'pbseventeensc'];
     const driverTokens = ['altur', 'rizki', 'soleh', 'romi', 'firdaus', 'alan', 'yakub', 'iwan', 'agung', 'husen', 'juhu', 'sobri'];
 
     if (driverTokens.some(d => checkStr.includes(d))) return 'driver';
@@ -3061,13 +3270,14 @@ function renderMonitorUI(filter = "") {
     const search = (typeof filter === 'string' ? filter : (document.getElementById('monitor-search')?.value || "")).toLowerCase().trim();
     const now = new Date();
     const todayDayMs = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const todayEndMs = todayDayMs + 86400000 - 1;
 
     const courierGroups = {};
 
     // 1. Gather couriers with today's trips (Merged & Deduplicated by Canonical ID)
     allCurrentTrips.forEach(t => {
-        const tripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : 0);
-        if (tripMs < todayDayMs) return; // Clean H+1: Only show today's trips
+        if (!t || t.status === 'pool') return;
+        if (!isTripInDateRange(t, todayDayMs, todayEndMs)) return; // Clean H+1: Only show today's trips
         const cId = t.courierId;
         if (!cId) return;
         const cName = registeredUsers[cId] || (typeof getCourierDisplayName === 'function' ? getCourierDisplayName(cId) : '');
@@ -3778,7 +3988,7 @@ function renderRecentShipments(filter = "") {
     }
 
     (allCurrentTrips || []).forEach(t => {
-        if (!t) return;
+        if (!t || t.status === 'pool') return;
         if (typeof isTripInActiveBranch === 'function' && !isTripInActiveBranch(t)) {
             return;
         }
@@ -3787,7 +3997,8 @@ function renderRecentShipments(filter = "") {
         const cName = typeof getCourierDisplayName === 'function' ? getCourierDisplayName(courierIdStr) : (courierIdStr ? courierIdStr.substring(0, 8) : 'Unknown');
         const tripIdStr = String(t.id || t.tripId || '');
         const tripIdShort = '#' + (tripIdStr.length > 6 ? tripIdStr.substring(tripIdStr.length - 6) : tripIdStr);
-        const tripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : (tripIdStr ? parseInt(tripIdStr.replace('TRIP_', '')) || 0 : 0));
+        const rawTripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : (t.assignedAt ? new Date(t.assignedAt).getTime() : (tripIdStr ? parseInt(tripIdStr.replace('TRIP_', '')) || 0 : 0)));
+        const tripMs = isNaN(rawTripMs) ? 0 : rawTripMs;
         const tripDateStr = tripMs ? new Date(tripMs).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '-';
 
         // Check Carrier Filter
@@ -3869,6 +4080,8 @@ function renderRecentShipments(filter = "") {
                     shipmentRows.push({
                         tripId: t.id,
                         displayId: uniqueShipmentId,
+                        noSJ: d.sjNumber || d.noSJ || t.sjNumber || t.noSJ || '-',
+                        adminSJ: t.adminSJ || d.adminSJ || '',
                         dateStr: tripDateStr,
                         tripMs: tripMs,
                         stopIndex: stopIdx,
@@ -3917,7 +4130,7 @@ function renderRecentShipments(filter = "") {
         const emptyMsg = (isSunday && isFilteringToday)
             ? "Hari ini hari Minggu (Libur Operasional). Tidak ada jadwal pengiriman kurir aktif."
             : "Tidak ada data pengiriman yang cocok dengan filter tanggal/status ini.";
-        table.innerHTML = `<tr><td colspan="7" class="text-center py-5 text-muted"><i class="bi bi-calendar2-check fs-2 d-block mb-2 text-secondary"></i>${emptyMsg}</td></tr>`;
+        table.innerHTML = `<tr><td colspan="9" class="text-center py-5 text-muted"><i class="bi bi-calendar2-check fs-2 d-block mb-2 text-secondary"></i>${emptyMsg}</td></tr>`;
         updateGlobalStats();
         return;
     }
@@ -4014,15 +4227,22 @@ function renderRecentShipments(filter = "") {
             vehicleBadgeHtml = `<span class="badge bg-light text-secondary border extra-small d-block mt-0.5 cursor-pointer px-1.5 py-0.5" onclick="adminChangeTripVehicle('${s.tripId}', '')" title="Klik untuk tentukan armada mobil (Admin)"><i class="bi bi-truck me-1"></i>+ Mobil</span>`;
         }
 
+        const carrierAvatarUrl = (typeof getCourierPhoto === 'function') ? getCourierPhoto(s.courierId, s.carrier) : null;
+        const carrierAvatarHtml = carrierAvatarUrl
+            ? `<img src="${carrierAvatarUrl}" alt="" style="width:22px;height:22px;border-radius:50%;object-fit:cover;margin-right:6px;border:1px solid #cbd5e1;vertical-align:middle;" onerror="this.style.display='none'">`
+            : '';
+
         rowsHtml.push(`<tr ${trStyle}>
             <td class="fw-normal text-muted extra-small text-nowrap" style="white-space: nowrap;">${s.dateStr}</td>
             <td class="fw-bold text-dark text-nowrap" style="white-space: nowrap;">${s.displayId} ${podIconsHtml} ${uploadBtn}</td>
+            <td class="fw-bold font-monospace text-dark text-nowrap" style="white-space: nowrap;">${s.noSJ && s.noSJ !== '-' ? s.noSJ : '<span class="text-muted">-</span>'}</td>
+            <td class="text-muted extra-small text-nowrap" style="white-space: nowrap;">${s.adminSJ && s.adminSJ !== '-' ? s.adminSJ : '<span class="text-muted">-</span>'}</td>
             <td>
                 <div class="fw-bold text-dark text-truncate" style="max-width:240px">${s.destinationName}</div>
                 ${s.pendingReason ? `<small class="text-danger extra-small d-block fw-bold text-truncate" style="max-width:240px"><i class="bi bi-exclamation-circle me-1"></i>${s.pendingReason}</small>` : (s.fullAddress ? `<small class="text-muted extra-small d-block text-truncate fw-normal" style="max-width:240px">${s.fullAddress}</small>` : '')}
             </td>
             <td class="text-nowrap" style="white-space: nowrap;">${statusBadgeHtml}</td>
-            <td class="fw-normal text-dark text-nowrap" style="white-space: nowrap;">${s.carrier}${vehicleBadgeHtml}</td>
+            <td class="fw-semibold text-dark text-nowrap" style="white-space: nowrap;"><div class="d-inline-flex align-items-center">${carrierAvatarHtml}<span>${s.carrier}</span></div>${vehicleBadgeHtml}</td>
             <td class="text-nowrap" style="white-space: nowrap;"><small class="fw-normal text-secondary">${s.eta}</small></td>
             <td class="text-nowrap">
                 <div class="d-inline-flex gap-1 align-items-center">
@@ -4338,7 +4558,7 @@ async function exportRecentShipmentsToExcel() {
     const exportData = [];
 
     (allCurrentTrips || []).forEach(t => {
-        if (!t) return;
+        if (!t || t.status === 'pool') return;
         if (typeof isTripInActiveBranch === 'function' && !isTripInActiveBranch(t)) {
             return;
         }
@@ -4347,7 +4567,8 @@ async function exportRecentShipmentsToExcel() {
         const cName = typeof getCourierDisplayName === 'function' ? getCourierDisplayName(courierIdStr) : (courierIdStr ? courierIdStr.substring(0, 8) : 'Unknown');
         const tripIdStr = String(t.id || t.tripId || '');
         const tripIdShort = '#' + (tripIdStr.length > 6 ? tripIdStr.substring(tripIdStr.length - 6) : tripIdStr);
-        const tripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : (tripIdStr ? parseInt(tripIdStr.replace('TRIP_', '')) || 0 : 0));
+        const rawTripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : (t.assignedAt ? new Date(t.assignedAt).getTime() : (tripIdStr ? parseInt(tripIdStr.replace('TRIP_', '')) || 0 : 0)));
+        const tripMs = isNaN(rawTripMs) ? 0 : rawTripMs;
         const tripDateStr = tripMs ? new Date(tripMs).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '-';
 
         // Check Carrier Filter using identity normalization
@@ -4417,6 +4638,8 @@ async function exportRecentShipmentsToExcel() {
                     exportData.push({
                         "Tanggal": tripDateStr,
                         "Shipment ID": uniqueShipmentId,
+                        "No. SJ": d.sjNumber || d.noSJ || t.sjNumber || t.noSJ || '-',
+                        "Admin SJ": t.adminSJ || d.adminSJ || '-',
                         "Trip Full ID": tripIdStr,
                         "Courier": cName,
                         "Tipe Armada": vType === 'mobil' ? 'Mobil' : 'Motor',
@@ -5411,15 +5634,13 @@ function initAuthListener() {
                         let uRole = (uData.role || '').toLowerCase();
                         let uEmail = (user.email || '').toLowerCase();
 
-                        if (!uRole) {
+                        if (!uRole || uRole === 'courier' || uRole === 'kurir' || uEmail.includes('pbseventeensc')) {
                             if (uEmail.includes('sales')) {
                                 uRole = 'sales_admin';
                             } else if (uEmail.includes('dm2')) {
                                 uRole = 'admin_dm2';
                             } else if (uEmail.includes('branch') || uEmail.includes('cikokol')) {
                                 uRole = 'branch_admin';
-                            } else if (uEmail.includes('adminlogistik') || uEmail.includes('admin_logistik')) {
-                                uRole = 'super_admin';
                             } else {
                                 uRole = 'super_admin';
                             }

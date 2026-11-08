@@ -25,8 +25,8 @@ window.UnifiedPoolUI = (function () {
         const storedTrips = JSON.parse(rawStored);
         if (Array.isArray(storedTrips)) {
           const cleaned = storedTrips.filter(t => {
-            const tid = String(t.id || t.tripId || t.noSJ || '');
-            return !tid.startsWith('SJ-DEMO-') && !tid.startsWith('TRIP_') && !tid.startsWith('SJ-821457') && !tid.startsWith('SJ-200008') && !tid.startsWith('SJ-209914') && !tid.startsWith('SJ-796379');
+            const sj = String(t.noSJ || t.sjNumber || t.id || '');
+            return !sj.startsWith('SJ-DEMO-') && !sj.startsWith('SJ-821457') && !sj.startsWith('SJ-200008') && !sj.startsWith('SJ-209914') && !sj.startsWith('SJ-796379');
           });
           localStorage.setItem('wtrack_local_trips', JSON.stringify(cleaned));
         }
@@ -36,15 +36,15 @@ window.UnifiedPoolUI = (function () {
 
     if (Array.isArray(window.allPoolTrips)) {
       window.allPoolTrips = window.allPoolTrips.filter(t => {
-        const tid = String(t.id || t.tripId || t.noSJ || '');
-        return !tid.startsWith('SJ-DEMO-') && !tid.startsWith('TRIP_') && !tid.startsWith('SJ-821457') && !tid.startsWith('SJ-200008') && !tid.startsWith('SJ-209914') && !tid.startsWith('SJ-796379');
+        const sj = String(t.noSJ || t.sjNumber || t.id || '');
+        return !sj.startsWith('SJ-DEMO-') && !sj.startsWith('SJ-821457') && !sj.startsWith('SJ-200008') && !sj.startsWith('SJ-209914') && !sj.startsWith('SJ-796379');
       });
     }
 
     if (window.mockDatabase && Array.isArray(window.mockDatabase.suratJalanList)) {
       window.mockDatabase.suratJalanList = window.mockDatabase.suratJalanList.filter(t => {
-        const tid = String(t.id || t.tripId || t.noSJ || '');
-        return !tid.startsWith('SJ-DEMO-') && !tid.startsWith('TRIP_') && !tid.startsWith('SJ-821457') && !tid.startsWith('SJ-200008') && !tid.startsWith('SJ-209914') && !tid.startsWith('SJ-796379');
+        const sj = String(t.noSJ || t.sjNumber || t.id || '');
+        return !sj.startsWith('SJ-DEMO-') && !sj.startsWith('SJ-821457') && !sj.startsWith('SJ-200008') && !sj.startsWith('SJ-209914') && !sj.startsWith('SJ-796379');
       });
     }
   }
@@ -83,11 +83,11 @@ window.UnifiedPoolUI = (function () {
 
     function addTrip(t) {
       if (!t) return;
-      const tid = String(t.id || t.tripId || t.noSJ || t.sjNumber);
+      const tid = String(t.noSJ || t.sjNumber || t.id || t.tripId);
       if (!tid || seenIds.has(tid) || deletedSet.has(tid)) return;
 
       // Filter out demo/dummy trip IDs if any linger in cache
-      if (tid.startsWith('SJ-DEMO-') || tid.startsWith('TRIP_') || tid.startsWith('SJ-821457') || tid.startsWith('SJ-200008') || tid.startsWith('SJ-209914') || tid.startsWith('SJ-796379')) return;
+      if (tid.startsWith('SJ-DEMO-') || tid.startsWith('SJ-821457') || tid.startsWith('SJ-200008') || tid.startsWith('SJ-209914') || tid.startsWith('SJ-796379')) return;
 
       const todayStr = new Date().toISOString().split('T')[0];
       const dDate = t.date || t.dateFolder || todayStr;
@@ -105,12 +105,20 @@ window.UnifiedPoolUI = (function () {
 
       const isPendingRollover = isFailed || isOld;
 
+      const rawSJ = (t.noSJ || t.sjNumber || '').trim();
+      const cleanSJ = rawSJ.startsWith('TRIP_') ? '' : rawSJ;
+
+      // Plan shipment hanya untuk Surat Jalan yang valid / data import (kosongkan data dummy TRIP_xxx)
+      if (!cleanSJ) return;
+
       // Normalisasi field agar aman ditampilkan di antarmuka
       const normalized = {
         id: tid,
-        tripId: tid,
-        noSJ: t.noSJ || t.sjNumber || tid,
-        sjNumber: t.sjNumber || t.noSJ || tid,
+        tripId: t.tripId || tid,
+        noSJ: cleanSJ,
+        sjNumber: cleanSJ,
+        adminSJ: t.adminSJ || (t.destinations && t.destinations[0]?.adminSJ) || '',
+        readyStatus: t.readyStatus || 'ready',
         uniqueCode: t.uniqueCode || t.shortCode || 'WK-AUTO',
         shortCode: t.shortCode || t.uniqueCode || 'WK-AUTO',
         customer: t.customer || t.clientName || (t.destinations && t.destinations[0]?.locationName) || 'Klien Wellen',
@@ -124,6 +132,7 @@ window.UnifiedPoolUI = (function () {
         deliveryStatus: isFailed ? 'failed' : 'pending',
         isPendingRollover: !!isPendingRollover,
         isFailed: !!isFailed,
+        pendingReason: t.pendingReason || (t.destinations && t.destinations[0]?.pendingReason) || '',
         isRolloverFromYesterday: !!(isOld && !isFailed),
         items: t.items || [{
           nama: (t.destinations && t.destinations[0]?.itemsSummary) || 'Item Cetakan',
@@ -149,8 +158,69 @@ window.UnifiedPoolUI = (function () {
       }
     } catch (e) {}
 
-    // Note: window.allCurrentTrips (database riwayat Firebase) dan generateSampleSJData (dummy) SENGAJA TIDAK dimasukkan ke Plan Shipment
-    // agar pool benar-benar bersih dan hanya menampung data import real yang siap dikirim.
+    // 3. Dari window.allCurrentTrips (Firebase database): Hanya ambil pengantaran pending yang memiliki Surat Jalan resmi (SJ-...)
+    if (Array.isArray(window.allCurrentTrips)) {
+      window.allCurrentTrips.forEach(t => {
+        if (!t) return;
+        const dStatus = (t.deliveryStatus || t.status || '').toLowerCase();
+        const isTripFailed = (dStatus === 'failed' || dStatus === 'returned' || dStatus === 'undelivered' || dStatus === 'klien_tutup' || !!t.isFailed || !!t.failedReason || !!t.pendingReason);
+
+        if (Array.isArray(t.destinations) && t.destinations.length > 0) {
+          t.destinations.forEach((d, idx) => {
+            if (!d) return;
+            const validSJ = (d.sjNumber || d.noSJ || t.noSJ || t.sjNumber || '').trim();
+            // Lewati jika bukan nomor Surat Jalan yang valid (jangan masukkan dummy TRIP_xxx)
+            if (!validSJ || validSJ.startsWith('TRIP_')) return;
+
+            const rawStatus = (d.status || '').toLowerCase();
+            const hasPendingReason = !!(d.pendingReason && String(d.pendingReason).trim().length > 0);
+            const isDestPending = (rawStatus === 'pending' && hasPendingReason) || rawStatus === 'pending_approval' || rawStatus === 'klien_tutup' || rawStatus === 'failed' || rawStatus === 'returned';
+
+            if (isDestPending || isTripFailed) {
+              const tid = validSJ;
+              if (!seenIds.has(tid) && !deletedSet.has(tid)) {
+                seenIds.add(tid);
+                const dDate = t.date?.seconds ? new Date(t.date.seconds * 1000).toISOString().split('T')[0] : (t.date || new Date().toISOString().split('T')[0]);
+                const reason = d.pendingReason || t.pendingReason || 'Pending Kurir / Klien Tutup';
+                const destCust = d.locationName || d.customer || t.customer || t.clientName || 'Klien Wellen';
+                const destAddr = d.address || t.address || '-';
+
+                combined.push({
+                  id: tid,
+                  tripId: t.id,
+                  originalTripId: t.id,
+                  stopIndex: d.stopIndex || (idx + 1),
+                  noSJ: validSJ,
+                  sjNumber: validSJ,
+                  adminSJ: t.adminSJ || d.adminSJ || '',
+                  readyStatus: 'ready',
+                  uniqueCode: d.uniqueCode || d.shortCode || t.uniqueCode || t.shortCode || 'WK-AUTO',
+                  shortCode: d.shortCode || d.uniqueCode || t.shortCode || t.uniqueCode || 'WK-AUTO',
+                  customer: destCust,
+                  clientName: destCust,
+                  address: destAddr,
+                  region: t.region || detectRegion(destAddr, destCust),
+                  printLocation: t.printLocation || t.originBranch || 'pusat',
+                  originBranch: t.originBranch || t.printLocation || 'pusat',
+                  date: dDate,
+                  status: 'failed',
+                  deliveryStatus: 'failed',
+                  isPendingRollover: true,
+                  isFailed: true,
+                  isPendingFromCourier: true,
+                  pendingReason: reason,
+                  assignedCourierName: (typeof getCourierDisplayName === 'function' ? getCourierDisplayName(t.courierId) : t.courierId) || '',
+                  items: (d.items && d.items.length > 0) ? d.items : [{
+                    nama: d.itemsSummary || 'Item Pending Pengiriman',
+                    qty: d.qty || '1'
+                  }]
+                });
+              }
+            }
+          });
+        }
+      });
+    }
 
     return combined;
   }
@@ -181,18 +251,20 @@ window.UnifiedPoolUI = (function () {
     const regionCounts = {};
     regions.forEach(r => regionCounts[r] = 0);
     let totalPool = 0;
-    let totalPending = 0;
+    let totalReady = 0;
+    let totalNotReady = 0;
     let totalFailed = 0;
     let totalCikokol = 0;
     let totalPusat = 0;
 
     allTrips.forEach(t => {
-      // Hanya hitung yang aktif (pending atau gagal kirim)
       totalPool++;
       if (t.isFailed) {
         totalFailed++;
+      } else if (t.readyStatus === 'not_ready') {
+        totalNotReady++;
       } else {
-        totalPending++;
+        totalReady++;
       }
       if (regionCounts[t.region] !== undefined) {
         regionCounts[t.region]++;
@@ -204,8 +276,13 @@ window.UnifiedPoolUI = (function () {
     // Update badge di pill sub-nav index.html jika ada
     const topPendingBadge = document.getElementById('badge-top-pending-count');
     if (topPendingBadge) {
-      topPendingBadge.innerText = totalFailed > 0 ? `${totalPending} / ${totalFailed}` : totalPending;
-      topPendingBadge.style.display = totalPool > 0 ? 'inline-block' : 'none';
+      topPendingBadge.innerText = totalFailed;
+      topPendingBadge.style.display = totalFailed > 0 ? 'inline-block' : 'none';
+    }
+    const topNotReadyBadge = document.getElementById('badge-top-not-ready-count');
+    if (topNotReadyBadge) {
+      topNotReadyBadge.innerText = totalNotReady;
+      topNotReadyBadge.style.display = totalNotReady > 0 ? 'inline-block' : 'none';
     }
 
     // 3. Filter trips sesuai kriteria
@@ -214,11 +291,15 @@ window.UnifiedPoolUI = (function () {
       if (t.status === 'completed' || t.deliveryStatus === 'completed' || t.status === 'done') return false;
       if ((t.status === 'in_progress' || t.deliveryStatus === 'in_progress' || t.assignedTo || t.courierId) && !t.isFailed) return false;
 
-      // Filter sub-tab Status: Semua, Pending, atau Gagal Kirim
-      if (activeDeliveryStatusFilter === 'PENDING') {
-        if (t.isFailed) return false;
+      // Filter sub-tab Status: Siap Kirim (ALL), Belum Siap Kirim (NOT_READY), atau Gagal/Pending Kirim (FAILED)
+      if (activeDeliveryStatusFilter === 'ALL') {
+        if (t.readyStatus === 'not_ready') return false;
+      } else if (activeDeliveryStatusFilter === 'NOT_READY') {
+        if (t.readyStatus !== 'not_ready') return false;
       } else if (activeDeliveryStatusFilter === 'FAILED' || activeDeliveryStatusFilter === 'PENDING_FAILED') {
         if (!t.isFailed) return false;
+      } else if (activeDeliveryStatusFilter === 'PENDING') {
+        if (t.isFailed || t.readyStatus === 'not_ready') return false;
       }
 
       if (activeDateFolder !== 'ALL') {
@@ -258,35 +339,41 @@ window.UnifiedPoolUI = (function () {
           <div class="d-flex align-items-center gap-2 flex-wrap">
             <h4 class="fw-bold mb-0 text-dark">Plan Shipment</h4>
             <span class="badge bg-primary px-2.5 py-1 rounded-pill extra-small">${totalPool} SJ Aktif</span>
-            <span class="badge bg-warning text-dark border border-warning-subtle px-2.5 py-1 rounded-pill extra-small fw-semibold d-inline-flex align-items-center gap-1">
-              <i class="bi bi-hourglass-split"></i> ${totalPending} Pending
+            <span class="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1 rounded-pill extra-small fw-semibold d-inline-flex align-items-center gap-1">
+              <i class="bi bi-check2-circle"></i> ${totalReady} Siap Kirim
             </span>
+            ${totalNotReady > 0 ? `
+              <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 px-2.5 py-1 rounded-pill extra-small fw-bold d-inline-flex align-items-center gap-1">
+                <i class="bi bi-clock-history"></i> ${totalNotReady} Belum Ready
+              </span>
+            ` : ''}
             ${totalFailed > 0 ? `
               <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 px-2.5 py-1 rounded-pill extra-small fw-bold d-inline-flex align-items-center gap-1">
-                <i class="bi bi-x-circle-fill"></i> ${totalFailed} Gagal Kirim
+                <i class="bi bi-x-circle-fill"></i> ${totalFailed} Pending / Gagal
               </span>
             ` : ''}
           </div>
           <p class="text-muted small mb-0 mt-1">
-            Database Surat Jalan terintegrasi Excel, klasifikasi Region otomatis, penugasan kurir & cetak QR Code resmi.
+            Database Surat Jalan terintegrasi Excel, verifikasi kesiapan barang (Checker), klasifikasi Region otomatis & penugasan armada.
           </p>
         </div>
       </div>
 
-      <!-- SUB-TABS FILTER: SEMUA SJ VS PENDING VS GAGAL TERKIRIM -->
+      <!-- SUB-TABS FILTER: ON HAND SIAP KIRIM VS BELUM SIAP KIRIM VS PENDING/GAGAL KIRIM -->
       <div class="d-flex align-items-center justify-content-between mb-2.5">
         <div class="aerotrack-pill-nav mb-0">
           <button class="aerotrack-pill-btn ${activeDeliveryStatusFilter === 'ALL' ? 'active' : ''}" 
                   type="button" onclick="UnifiedPoolUI.setDeliveryStatusFilter('ALL')">
-            <i class="bi bi-box-seam ${activeDeliveryStatusFilter === 'ALL' ? 'text-primary' : ''}"></i> Semua (${totalPool})
+            <i class="bi bi-box-seam ${activeDeliveryStatusFilter === 'ALL' ? 'text-primary' : ''}"></i> On Hand Siap Kirim (${totalReady})
           </button>
-          <button class="aerotrack-pill-btn ${activeDeliveryStatusFilter === 'PENDING' ? 'active' : ''} text-warning fw-semibold" 
-                  type="button" onclick="UnifiedPoolUI.setDeliveryStatusFilter('PENDING')">
-            <i class="bi bi-hourglass-split text-warning"></i> Pending (${totalPending})
+          <button class="aerotrack-pill-btn ${activeDeliveryStatusFilter === 'NOT_READY' ? 'active' : ''} text-warning fw-semibold" 
+                  type="button" onclick="UnifiedPoolUI.setDeliveryStatusFilter('NOT_READY')">
+            <i class="bi bi-clock-history text-warning"></i> Belum Siap Kirim
+            <span class="badge ${totalNotReady > 0 ? 'bg-warning text-dark' : 'bg-secondary text-white'} rounded-pill ms-1">${totalNotReady}</span>
           </button>
           <button class="aerotrack-pill-btn ${activeDeliveryStatusFilter === 'FAILED' || activeDeliveryStatusFilter === 'PENDING_FAILED' ? 'active' : ''} text-danger fw-semibold" 
                   type="button" onclick="UnifiedPoolUI.setDeliveryStatusFilter('FAILED')">
-            <i class="bi bi-x-circle-fill text-danger"></i> Gagal Kirim
+            <i class="bi bi-exclamation-triangle-fill text-danger"></i> Pending / Gagal Kirim
             <span class="badge ${totalFailed > 0 ? 'bg-danger text-white' : 'bg-secondary text-white'} rounded-pill ms-1">${totalFailed}</span>
           </button>
         </div>
@@ -299,8 +386,8 @@ window.UnifiedPoolUI = (function () {
           <div class="d-flex align-items-center gap-1.5 flex-nowrap">
             <input type="text" id="pool-unified-search" class="aerotrack-input" placeholder="Stock ID / No. SJ / Customer..." style="width: 180px; font-size: 0.8rem;" value="${currentSearchQuery}" oninput="UnifiedPoolUI.setSearchQuery(this.value)">
             
-            <select class="aerotrack-select" style="min-width: 120px; font-size: 0.8rem;" onchange="UnifiedPoolUI.setRegionFilter(this.value)">
-              <option value="ALL" ${activeRegionFilter === 'ALL' ? 'selected' : ''}>Wilayah (${totalPool})</option>
+            <select id="pool-region-filter" class="form-select form-select-sm aerotrack-select" style="min-width: 155px; font-size: 0.8rem;" onchange="UnifiedPoolUI.setRegionFilter(this.value)">
+              <option value="ALL" ${activeRegionFilter === 'ALL' ? 'selected' : ''}>Semua Wilayah (${totalPool})</option>
               ${regions.map(r => `<option value="${r}" ${activeRegionFilter === r ? 'selected' : ''}>${r} (${regionCounts[r]})</option>`).join('')}
             </select>
 
@@ -320,8 +407,8 @@ window.UnifiedPoolUI = (function () {
               ` : ''}
             </div>
 
-            <select class="aerotrack-select" style="min-width: 105px; font-size: 0.8rem;" onchange="UnifiedPoolUI.setPrintFilter(this.value)">
-              <option value="ALL" ${activePrintLocationFilter === 'ALL' ? 'selected' : ''}>Lokasi</option>
+            <select id="pool-print-filter" class="form-select form-select-sm aerotrack-select" style="min-width: 135px; font-size: 0.8rem;" onchange="UnifiedPoolUI.setPrintFilter(this.value)">
+              <option value="ALL" ${activePrintLocationFilter === 'ALL' ? 'selected' : ''}>Semua Lokasi</option>
               <option value="pusat" ${activePrintLocationFilter === 'pusat' ? 'selected' : ''}>Pusat (${totalPusat})</option>
               <option value="cikokol" ${activePrintLocationFilter === 'cikokol' ? 'selected' : ''}>Cikokol (${totalCikokol})</option>
             </select>
@@ -352,13 +439,25 @@ window.UnifiedPoolUI = (function () {
 
           <div class="d-flex align-items-center gap-2 flex-wrap ms-auto">
             <span class="extra-small text-muted fw-bold text-uppercase d-none d-sm-inline">Tugaskan:</span>
-            <select id="pool-bulk-courier" class="aerotrack-select" style="min-width: 175px; max-width: 220px; font-size: 0.8rem;">
+            <select id="pool-bulk-courier" class="form-select form-select-sm aerotrack-select" style="min-width: 210px; max-width: 250px; font-size: 0.8rem;">
               ${UnifiedPoolUI.buildCourierOptionsHtml()}
             </select>
             <button class="btn btn-sm btn-primary aerotrack-input fw-semibold px-3 py-1.5 d-flex align-items-center gap-1 shadow-sm" 
                     onclick="UnifiedPoolUI.assignSelectedToCourier()" title="Tugaskan Surat Jalan Terpilih">
               <i class="bi bi-send-check"></i>
               <span>Tugaskan</span>
+            </button>
+
+            <!-- Checker Bulk Action Buttons -->
+            <button class="btn btn-sm btn-outline-warning aerotrack-input fw-semibold px-2.5 py-1.5 d-flex align-items-center gap-1" 
+                    onclick="UnifiedPoolUI.bulkSetReadyStatus(false)" title="Tandai Surat Jalan Terpilih BELUM READY (Pindah ke Belum Siap Kirim)">
+              <i class="bi bi-clock-history"></i>
+              <span>Belum Ready</span>
+            </button>
+            <button class="btn btn-sm btn-outline-success aerotrack-input fw-semibold px-2.5 py-1.5 d-flex align-items-center gap-1" 
+                    onclick="UnifiedPoolUI.bulkSetReadyStatus(true)" title="Tandai Surat Jalan Terpilih SUDAH READY (Siap Kirim)">
+              <i class="bi bi-check2-circle"></i>
+              <span>Siap Kirim</span>
             </button>
 
             <button class="btn btn-sm btn-outline-primary aerotrack-input fw-semibold px-2.5 py-1.5 d-flex align-items-center gap-1" 
@@ -382,19 +481,20 @@ window.UnifiedPoolUI = (function () {
                   <input type="checkbox" class="form-check-input" id="select-all-pool" onchange="UnifiedPoolUI.toggleAllCheckbox(this)">
                 </th>
                 <th style="width: 135px;">No. Surat Jalan</th>
+                <th style="width: 105px;">Admin SJ</th>
                 <th style="width: 85px;">Kode Unik</th>
                 <th style="width: 105px;">Tanggal</th>
-                <th style="min-width: 170px; max-width: 250px;">Customer & Item</th>
+                <th style="min-width: 170px; max-width: 250px;">Customer</th>
                 <th style="min-width: 200px; max-width: 300px;">Alamat Kirim</th>
                 <th style="width: 110px;">Wilayah</th>
-                <th style="width: 110px;" class="text-center">Status</th>
+                <th style="width: 120px;" class="text-center">Status</th>
                 <th style="width: 90px;" class="text-center">Print</th>
-                <th style="width: 110px;" class="text-end">Aksi</th>
+                <th style="width: 150px;" class="text-end">Aksi / Checker</th>
               </tr>
             </thead>
             <tbody id="pool-table-body">
               ${filtered.length === 0 ? `
-                <tr><td colspan="10" class="text-center py-5 text-muted" style="font-size: 0.85rem;">
+                <tr><td colspan="11" class="text-center py-5 text-muted" style="font-size: 0.85rem;">
                   <i class="bi bi-inbox fs-2 d-block mb-2 text-muted"></i>
                   Belum ada Surat Jalan di pool untuk kriteria ini.<br>
                   <button class="btn btn-outline-success btn-sm mt-3 fw-bold aerotrack-input" onclick="document.getElementById('sj-excel-file-input').click()">
@@ -409,6 +509,10 @@ window.UnifiedPoolUI = (function () {
     `;
 
     updateSelectionCount();
+    if (window.wtrackDropdown) {
+      if (typeof window.wtrackDropdown.close === 'function') window.wtrackDropdown.close();
+      if (typeof window.wtrackDropdown.initAll === 'function') window.wtrackDropdown.initAll();
+    }
     if (window.lucide) lucide.createIcons();
   }
 
@@ -422,8 +526,8 @@ window.UnifiedPoolUI = (function () {
       ? `<span class="aerotrack-badge extra-small">${t.branchStatus}</span>` 
       : '';
 
-    const firstItem = (t.items && t.items[0]) ? `${t.items[0].nama} (${t.items[0].qty} ${t.items[0].satuan || ''})` : (t.itemDescription || 'Barang Cetakan');
-    const displayId = t.noSJ || t.sjNumber || t.id;
+    const rawSJ = (t.noSJ || t.sjNumber || '').trim();
+    const displayId = (rawSJ && !rawSJ.startsWith('TRIP_')) ? rawSJ : '-';
 
     // Row Background Styling
     let rowBgStyle = '';
@@ -439,7 +543,14 @@ window.UnifiedPoolUI = (function () {
           <input type="checkbox" class="form-check-input pool-checkbox" value="${t.id}" onchange="UnifiedPoolUI.updateSelectionCount()">
         </td>
         <td style="width: 135px;">
-          <a class="aerotrack-id-link font-monospace fw-bold" onclick="UnifiedPoolUI.quickPreviewQR('${t.id}')" title="Klik untuk lihat QR Code">${displayId}</a>
+          ${displayId !== '-' ? `
+            <a class="aerotrack-id-link font-monospace fw-bold" onclick="UnifiedPoolUI.quickPreviewQR('${t.id}')" title="Klik untuk lihat QR Code">${displayId}</a>
+          ` : `
+            <span class="text-muted font-monospace">-</span>
+          `}
+        </td>
+        <td style="width: 105px;">
+          <span class="text-muted extra-small font-monospace fw-semibold">${t.adminSJ || '-'}</span>
         </td>
         <td style="width: 85px;">
           <span class="aerotrack-badge font-monospace">${t.uniqueCode || 'WK-AUTO'}</span>
@@ -452,7 +563,6 @@ window.UnifiedPoolUI = (function () {
         </td>
         <td style="min-width: 170px; max-width: 250px;">
           <div class="fw-semibold text-dark" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.3; white-space: normal; word-break: break-word;" title="${t.customer || '-'}">${t.customer || '-'}</div>
-          <small class="text-muted extra-small d-block text-truncate mt-0.5" style="max-width: 240px;">${firstItem}</small>
         </td>
         <td style="min-width: 200px; max-width: 300px;">
           <div class="text-muted" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.35; font-size: 0.825rem; white-space: normal; word-break: break-word;" title="${t.address || '-'}">
@@ -462,23 +572,36 @@ window.UnifiedPoolUI = (function () {
         <td style="width: 110px;">
           <span class="aerotrack-badge badge-primary">${t.region || 'Jabodetabek'}</span>
         </td>
-        <td class="text-center" style="width: 110px;">
-          ${t.isFailed ? `
-            <span class="badge bg-danger text-white extra-small fw-semibold px-2 py-1 d-inline-flex align-items-center gap-1 shadow-xs">
-              <i class="bi bi-x-circle-fill"></i> Gagal Kirim
+        <td class="text-center" style="width: 120px;">
+          ${t.readyStatus === 'not_ready' ? `
+            <span class="badge bg-secondary text-white extra-small fw-semibold px-2 py-1 d-inline-flex align-items-center gap-1 shadow-xs">
+              <i class="bi bi-clock-history"></i> Belum Ready
+            </span>
+          ` : (t.isFailed ? `
+            <span class="badge bg-danger text-white extra-small fw-semibold px-2 py-1 d-inline-flex align-items-center gap-1 shadow-xs" title="${t.pendingReason || 'Gagal / Pending'}">
+              <i class="bi bi-x-circle-fill"></i> ${t.isPendingFromCourier ? 'Pending Kurir' : 'Gagal Kirim'}
             </span>
           ` : `
-            <span class="badge bg-warning text-dark border border-warning-subtle extra-small fw-semibold px-2 py-1 d-inline-flex align-items-center gap-1">
-              <i class="bi bi-hourglass-split"></i> Pending
+            <span class="badge bg-success-subtle text-success border border-success-subtle extra-small fw-semibold px-2 py-1 d-inline-flex align-items-center gap-1">
+              <i class="bi bi-check2"></i> Siap Kirim
             </span>
-          `}
+          `)}
         </td>
         <td class="text-center" style="width: 90px;">
           ${locBadge}
           ${branchState ? `<div class="mt-1">${branchState}</div>` : ''}
         </td>
-        <td class="text-end" style="width: 110px;">
+        <td class="text-end" style="width: 150px;">
           <div class="d-flex align-items-center justify-content-end gap-1">
+            ${t.readyStatus === 'not_ready' ? `
+              <button class="btn btn-sm btn-success py-1 px-2 aerotrack-input fw-semibold extra-small" onclick="UnifiedPoolUI.toggleReadyStatus('${t.id}', true)" title="Barang fisik sudah ready, pindahkan ke On Hand Siap Kirim">
+                <i class="bi bi-check2-circle me-1"></i>Siap
+              </button>
+            ` : `
+              <button class="btn btn-sm btn-outline-warning text-dark py-1 px-2 aerotrack-input fw-semibold extra-small" onclick="UnifiedPoolUI.toggleReadyStatus('${t.id}', false)" title="Barang fisik belum ready, pindahkan ke Belum Siap Kirim">
+                <i class="bi bi-clock-history text-warning me-1"></i>Belum Ready
+              </button>
+            `}
             ${(t.printLocation === 'cikokol' || t.originBranch === 'cikokol') ? `
             <button class="btn btn-sm btn-light border py-1 px-2 text-dark aerotrack-input" onclick="UnifiedPoolUI.printSingleSJ('${t.id}')" title="Cetak Surat Jalan (Cikokol)">
               <i class="bi bi-printer text-primary"></i>
@@ -670,108 +793,157 @@ window.UnifiedPoolUI = (function () {
     }
   }
 
+  function matchesTripIdentifier(item, checkedList) {
+    if (!item || !Array.isArray(checkedList)) return false;
+    const candidates = [
+      item.id,
+      item.tripId,
+      item.noSJ,
+      item.sjNumber
+    ].filter(Boolean).map(v => String(v).trim());
+    return candidates.some(c => checkedList.includes(c));
+  }
+
   function assignSelectedToCourier() {
     const courierSelect = document.getElementById('pool-bulk-courier');
     const courierVal = courierSelect?.value;
-    const courierName = courierSelect?.options[courierSelect.selectedIndex]?.text || "Kurir Lapangan";
+    const rawCourierText = courierSelect?.options[courierSelect.selectedIndex]?.text || "Kurir Lapangan";
+    const courierName = rawCourierText.replace(/^[^\wA-Za-z]+/, '').trim();
 
     if (!courierVal) {
       alert("Silakan pilih Kurir Motor atau Driver terlebih dahulu!");
       return;
     }
 
-    const checked = Array.from(document.querySelectorAll('.pool-checkbox:checked')).map(cb => cb.value);
+    const checked = Array.from(document.querySelectorAll('.pool-checkbox:checked')).map(cb => String(cb.value).trim());
     if (checked.length === 0) {
       alert("Pilih minimal 1 Surat Jalan dengan mencentang kotak centang (checkbox) untuk ditugaskan!");
       return;
     }
 
     const trips = getTripsSource();
-    const targetTrips = trips.filter(t => checked.includes(String(t.id)));
+    const targetTrips = trips.filter(t => matchesTripIdentifier(t, checked));
 
     if (targetTrips.length === 0) {
       alert("Surat Jalan terpilih tidak ditemukan.");
       return;
     }
 
+    const nowIso = new Date().toISOString();
+
     targetTrips.forEach(t => {
       t.status = 'in_progress';
       t.deliveryStatus = 'in_progress';
       t.assignedTo = courierName;
+      t.courierName = courierName;
       t.courierId = courierVal;
-      t.assignedAt = new Date().toISOString();
+      t.assignedAt = nowIso;
       t.isPendingRollover = false;
       t.isFailed = false;
     });
 
-    // Update juga di window.allPoolTrips jika ada
+    // Req 10: Hapus SJ yang sudah berhasil ditugaskan dari window.allPoolTrips agar langsung hilang dari tabel Plan Shipment
     if (Array.isArray(window.allPoolTrips)) {
-      window.allPoolTrips.forEach(pt => {
-        const pid = String(pt.id || pt.tripId);
-        if (checked.includes(pid)) {
-          pt.status = 'in_progress';
-          pt.deliveryStatus = 'in_progress';
-          pt.assignedTo = courierName;
-          pt.courierId = courierVal;
-        }
-      });
+      window.allPoolTrips = window.allPoolTrips.filter(pt => !matchesTripIdentifier(pt, checked));
     }
 
-    // Update juga di window.allCurrentTrips jika ada
-    if (Array.isArray(window.allCurrentTrips)) {
-      window.allCurrentTrips.forEach(rt => {
-        const rootId = String(rt.id);
-        const hasMatchedDest = checked.some(cId => cId === rootId || cId.startsWith(rootId + '_D'));
-        if (hasMatchedDest) {
-          rt.status = 'in_progress';
-          rt.courierId = courierVal;
-          rt.courierName = courierName;
-          if (Array.isArray(rt.destinations)) {
-            rt.destinations.forEach(d => {
-              d.status = 'in_progress';
-              delete d.pendingReason;
-            });
-          }
+    // Update juga di localStorage wtrack_local_trips agar statusnya menjadi in_progress (bukan pending di pool lagi)
+    try {
+      let storedList = [];
+      const rawStored = localStorage.getItem('wtrack_local_trips');
+      if (rawStored) {
+        const parsed = JSON.parse(rawStored);
+        if (Array.isArray(parsed)) storedList = parsed;
+      }
+      storedList.forEach(st => {
+        if (matchesTripIdentifier(st, checked)) {
+          st.status = 'in_progress';
+          st.deliveryStatus = 'in_progress';
+          st.assignedTo = courierName;
+          st.courierName = courierName;
+          st.courierId = courierVal;
+          st.assignedAt = nowIso;
+          st.isPendingRollover = false;
+          st.isFailed = false;
         }
       });
-    }
+      targetTrips.forEach(tt => {
+        const exists = storedList.some(st => matchesTripIdentifier(st, [tt.id, tt.noSJ, tt.sjNumber]));
+        if (!exists) {
+          storedList.unshift(tt);
+        }
+      });
+      localStorage.setItem('wtrack_local_trips', JSON.stringify(storedList.slice(0, 500)));
+    } catch(e) {}
 
-    // Sinkronisasi ke Firestore agar terbaca langsung di APK Android Kurir
+    // Req 12 & 13: Sinkronisasi langsung ke window.allCurrentTrips & Firestore agar Dashboard Admin dan Aplikasi Kurir sinkron real-time!
     const activeDb = (typeof getDb === 'function' ? getDb() : window.db);
-    if (activeDb && typeof firebase !== 'undefined' && firebase.firestore) {
-      targetTrips.forEach(t => {
-        const rootTripId = t.tripId || t.id.split('_D')[0];
+    if (!Array.isArray(window.allCurrentTrips)) {
+      window.allCurrentTrips = [];
+    }
+
+    targetTrips.forEach(t => {
+      const cleanSJ = String(t.noSJ || t.sjNumber || t.id).trim();
+      const safeDocId = cleanSJ.replace(/[\/\\]/g, '-');
+      const firestoreTs = (typeof firebase !== 'undefined' && firebase.firestore && firebase.firestore.Timestamp)
+        ? firebase.firestore.Timestamp.now()
+        : new Date();
+
+      const tripPayload = {
+        id: safeDocId,
+        tripId: safeDocId,
+        noSJ: cleanSJ,
+        sjNumber: cleanSJ,
+        adminSJ: t.adminSJ || '',
+        shortCode: t.shortCode || t.uniqueCode || 'WK-AUTO',
+        uniqueCode: t.uniqueCode || t.shortCode || 'WK-AUTO',
+        courierId: courierVal,
+        courierName: courierName,
+        customer: t.customer || t.clientName || 'Klien Wellen',
+        clientName: t.clientName || t.customer || 'Klien Wellen',
+        address: t.address || '-',
+        region: t.region || 'Jakarta Pusat',
+        originBranch: t.originBranch || t.printLocation || 'pusat',
+        branchId: t.originBranch || t.printLocation || 'pusat',
+        status: 'in_progress',
+        deliveryStatus: 'in_progress',
+        date: firestoreTs,
+        acceptedTime: firestoreTs,
+        assignedAt: nowIso,
+        destinations: [{
+          stopIndex: 1,
+          locationName: t.customer || t.clientName || 'Klien Wellen',
+          address: t.address || '-',
+          status: 'in_progress',
+          sjNumber: cleanSJ,
+          noSJ: cleanSJ,
+          adminSJ: t.adminSJ || '',
+          shortCode: t.shortCode || t.uniqueCode || 'WK-AUTO',
+          itemsSummary: t.items && t.items[0] ? t.items[0].nama : 'Item Cetakan',
+          qty: t.items && t.items[0] ? String(t.items[0].qty) : '1'
+        }]
+      };
+
+      const existingIdx = window.allCurrentTrips.findIndex(rt => rt.id === safeDocId || rt.noSJ === cleanSJ || rt.sjNumber === cleanSJ);
+      if (existingIdx >= 0) {
+        window.allCurrentTrips[existingIdx] = { ...window.allCurrentTrips[existingIdx], ...tripPayload };
+      } else {
+        window.allCurrentTrips.unshift(tripPayload);
+      }
+
+      if (typeof window.syncAllCurrentTrips === 'function') {
+        window.syncAllCurrentTrips(window.allCurrentTrips);
+      }
+
+      if (activeDb) {
         try {
-          activeDb.collection('trips').doc(rootTripId).set({
-            tripId: rootTripId,
-            sjNumber: t.sjNumber || t.noSJ,
-            shortCode: t.shortCode || t.uniqueCode,
-            uniqueCode: t.uniqueCode || t.shortCode,
-            courierId: courierVal,
-            courierName: courierName,
-            status: 'in_progress',
-            date: firebase.firestore.Timestamp.now(),
-            acceptedTime: firebase.firestore.Timestamp.now(),
-            destinations: [{
-              stopIndex: 1,
-              locationName: t.customer || t.clientName || 'Klien Wellen',
-              address: t.address || '-',
-              status: 'in_progress',
-              sjNumber: t.sjNumber || t.noSJ,
-              shortCode: t.shortCode || t.uniqueCode,
-              itemsSummary: t.items && t.items[0] ? t.items[0].nama : 'Item Cetakan',
-              qty: t.items && t.items[0] ? String(t.items[0].qty) : '1'
-            }]
-          }, { merge: true }).catch(err => console.warn("Firestore sync error:", err));
+          activeDb.collection('trips').doc(safeDocId).set(tripPayload, { merge: true })
+            .catch(err => console.warn("Firestore sync error:", err));
         } catch (e) {
           console.warn("Firestore assignment exception:", e);
         }
-      });
-    }
-
-    try {
-      localStorage.setItem('wtrack_local_trips', JSON.stringify(trips.slice(0, 500)));
-    } catch(e) {}
+      }
+    });
 
     if (window.showToast) {
       window.showToast(`Berhasil menugaskan ${targetTrips.length} Surat Jalan ke ${courierName}! Surat Jalan berpindah ke Pengantaran Aktif.`, 'success');
@@ -928,59 +1100,17 @@ window.UnifiedPoolUI = (function () {
 
   function quickAssignSingle(id) {
     const courierSelect = document.getElementById('pool-bulk-courier');
-    let courierVal = courierSelect?.value;
-    let courierName = courierSelect?.options[courierSelect.selectedIndex]?.text;
-
+    const courierVal = courierSelect?.value;
     if (!courierVal) {
       alert("Silakan pilih Kurir Motor / Driver Mobil pada dropdown di toolbar terlebih dahulu, lalu klik tombol Tugaskan ini.");
       courierSelect?.focus();
       return;
     }
 
-    const trips = getTripsSource();
-    const t = trips.find(x => x.id === id);
-    if (!t) return;
-
-    t.status = 'in_progress';
-    t.assignedTo = courierName;
-    t.courierId = courierVal;
-    t.assignedAt = new Date().toISOString();
-
-    const activeDb = (typeof getDb === 'function' ? getDb() : window.db);
-    if (activeDb && typeof firebase !== 'undefined' && firebase.firestore) {
-      const rootTripId = t.tripId || t.id.split('_D')[0];
-      try {
-        activeDb.collection('trips').doc(rootTripId).set({
-          tripId: rootTripId,
-          sjNumber: t.sjNumber || t.noSJ,
-          shortCode: t.shortCode || t.uniqueCode,
-          uniqueCode: t.uniqueCode || t.shortCode,
-          courierId: courierVal,
-          courierName: courierName,
-          status: 'in_progress',
-          date: firebase.firestore.Timestamp.now(),
-          acceptedTime: firebase.firestore.Timestamp.now(),
-          destinations: [{
-            stopIndex: 1,
-            locationName: t.customer || t.clientName || 'Klien Wellen',
-            address: t.address || '-',
-            status: 'pending',
-            sjNumber: t.sjNumber || t.noSJ,
-            shortCode: t.shortCode || t.uniqueCode,
-            itemsSummary: t.items && t.items[0] ? t.items[0].nama : 'Item Cetakan',
-            qty: t.items && t.items[0] ? String(t.items[0].qty) : '1'
-          }]
-        }, { merge: true }).catch(err => console.warn("Firestore sync error:", err));
-      } catch (e) {}
-    }
-
-    if (window.showToast) {
-      window.showToast(`SJ ${t.noSJ || t.id} ditugaskan ke ${courierName}!`, 'success');
-    } else {
-      alert(`SJ ${t.noSJ || t.id} ditugaskan ke ${courierName}!`);
-    }
-    renderUnifiedPoolView();
-    if (typeof window.renderRecentShipments === 'function') window.renderRecentShipments();
+    document.querySelectorAll('.pool-checkbox').forEach(cb => {
+      cb.checked = (String(cb.value) === String(id));
+    });
+    assignSelectedToCourier();
   }
 
   function quickPreviewQR(id) {
@@ -1006,20 +1136,110 @@ window.UnifiedPoolUI = (function () {
     }, 10);
   }
 
+  function matchesTripId(item, id) {
+    if (!item || !id) return false;
+    const sId = String(id).toLowerCase();
+    return String(item.id || '').toLowerCase() === sId ||
+           String(item.tripId || '').toLowerCase() === sId ||
+           String(item.noSJ || '').toLowerCase() === sId ||
+           String(item.sjNumber || '').toLowerCase() === sId;
+  }
+
+  function toggleReadyStatus(tripId, isReady) {
+    const newStatus = isReady ? 'ready' : 'not_ready';
+
+    // 1. Update di window.allPoolTrips
+    if (Array.isArray(window.allPoolTrips)) {
+      const found = window.allPoolTrips.find(x => matchesTripId(x, tripId));
+      if (found) found.readyStatus = newStatus;
+    }
+
+    // 2. Update di LocalStorage
+    try {
+      const rawStored = localStorage.getItem('wtrack_local_trips');
+      if (rawStored) {
+        const stored = JSON.parse(rawStored);
+        const item = stored.find(x => matchesTripId(x, tripId));
+        if (item) {
+          item.readyStatus = newStatus;
+          localStorage.setItem('wtrack_local_trips', JSON.stringify(stored));
+        }
+      }
+    } catch (e) {}
+
+    // 3. Update di window.allCurrentTrips
+    if (Array.isArray(window.allCurrentTrips)) {
+      const found = window.allCurrentTrips.find(x => matchesTripId(x, tripId));
+      if (found) found.readyStatus = newStatus;
+    }
+
+    // 4. Update di Firestore jika ada
+    const activeDb = (typeof window.getDb === 'function') ? window.getDb() : (window.firebase && window.firebase.firestore ? window.firebase.firestore() : null);
+    if (activeDb) {
+      activeDb.collection('trips').doc(tripId).update({ readyStatus: newStatus }).catch(() => {});
+    }
+
+    if (typeof window.showToast === 'function') {
+      window.showToast(isReady ? "✅ Barang SUDAH READY & dipindahkan ke Siap Kirim." : "⏳ Barang BELUM READY & dipindahkan ke tab Belum Siap Kirim.");
+    }
+    renderUnifiedPoolView();
+  }
+
+  function bulkSetReadyStatus(isReady) {
+    const checked = Array.from(document.querySelectorAll('.pool-checkbox:checked')).map(cb => cb.value);
+    if (checked.length === 0) {
+      alert(`Pilih minimal 1 Surat Jalan untuk ditandai ${isReady ? 'Siap Kirim' : 'Belum Ready'}!`);
+      return;
+    }
+
+    const newStatus = isReady ? 'ready' : 'not_ready';
+
+    if (Array.isArray(window.allPoolTrips)) {
+      window.allPoolTrips.forEach(pt => {
+        if (checked.some(cId => matchesTripId(pt, cId))) pt.readyStatus = newStatus;
+      });
+    }
+
+    try {
+      const rawStored = localStorage.getItem('wtrack_local_trips');
+      if (rawStored) {
+        const stored = JSON.parse(rawStored);
+        stored.forEach(item => {
+          if (checked.some(cId => matchesTripId(item, cId))) item.readyStatus = newStatus;
+        });
+        localStorage.setItem('wtrack_local_trips', JSON.stringify(stored));
+      }
+    } catch (e) {}
+
+    if (Array.isArray(window.allCurrentTrips)) {
+      window.allCurrentTrips.forEach(rt => {
+        if (checked.some(cId => matchesTripId(rt, cId))) rt.readyStatus = newStatus;
+      });
+    }
+
+    const activeDb = (typeof window.getDb === 'function') ? window.getDb() : (window.firebase && window.firebase.firestore ? window.firebase.firestore() : null);
+    if (activeDb) {
+      checked.forEach(id => {
+        activeDb.collection('trips').doc(id).update({ readyStatus: newStatus }).catch(() => {});
+      });
+    }
+
+    if (typeof window.showToast === 'function') {
+      window.showToast(`Berhasil menandai ${checked.length} Surat Jalan sebagai ${isReady ? 'SIAP KIRIM' : 'BELUM READY'}.`);
+    }
+    renderUnifiedPoolView();
+  }
+
   function setDeliveryStatusFilter(filter) {
     activeDeliveryStatusFilter = filter || 'ALL';
     // Sync state to pill sub-nav buttons
     const pillAll = document.getElementById('pill-all-plan');
+    const pillNotReady = document.getElementById('pill-not-ready-plan');
     const pillPending = document.getElementById('pill-pending-plan');
-    if (pillAll && pillPending) {
-      if (activeDeliveryStatusFilter === 'PENDING_FAILED') {
-        pillAll.classList.remove('active');
-        pillPending.classList.add('active');
-      } else {
-        pillAll.classList.add('active');
-        pillPending.classList.remove('active');
-      }
-    }
+    if (pillAll) pillAll.classList.toggle('active', activeDeliveryStatusFilter === 'ALL');
+    if (pillNotReady) pillNotReady.classList.toggle('active', activeDeliveryStatusFilter === 'NOT_READY');
+    if (pillPending) pillPending.classList.toggle('active', activeDeliveryStatusFilter === 'FAILED' || activeDeliveryStatusFilter === 'PENDING_FAILED');
+
     renderUnifiedPoolView();
   }
 
@@ -1047,6 +1267,8 @@ window.UnifiedPoolUI = (function () {
     deleteSelectedPool,
     deleteSingleSJ,
     clearAllPlanShipments,
+    toggleReadyStatus,
+    bulkSetReadyStatus,
     quickAssignSingle,
     quickPreviewQR,
     refresh

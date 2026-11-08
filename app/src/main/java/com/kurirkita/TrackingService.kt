@@ -26,34 +26,32 @@ class TrackingService : Service() {
     
     private var lastLocation: Location? = null
     private var totalDistanceKm: Double = 0.0
-    private var trackingIntervalMs: Long = 10000L
-    private var trackingMinDistance: Float = 10f // Default 10 meters
+    private var trackingIntervalMs: Long = 20000L // 20 detik (Hemat baterai & anti panas)
+    private var trackingMinDistance: Float = 20f  // Minimal gerak 20 meter baru update GPS
 
     override fun onCreate() {
         super.onCreate()
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         
-        // Listen for remote settings
+        // Listen for remote settings silently (tanpa menampilkan notifikasi radius ke kurir)
         FirebaseFirestore.getInstance().collection("config").document("tracking")
             .addSnapshotListener { snapshot, _ ->
                 val newInterval = snapshot?.getLong("intervalMs")
-                val newDistance = snapshot?.getDouble("geofenceRadius")?.toFloat()
-                    ?: snapshot?.getDouble("minDistance")?.toFloat()
+                val newDistance = snapshot?.getDouble("minDistance")?.toFloat()
                 
                 var changed = false
-                if (newInterval != null && newInterval != trackingIntervalMs) {
+                if (newInterval != null && newInterval >= 10000L && newInterval != trackingIntervalMs) {
                     trackingIntervalMs = newInterval
                     changed = true
                 }
-                if (newDistance != null && newDistance != trackingMinDistance) {
+                if (newDistance != null && newDistance >= 10f && newDistance != trackingMinDistance) {
                     trackingMinDistance = newDistance
                     changed = true
                 }
 
-                if (changed && FirebaseAuth.getInstance().currentUser != null) {
-                    Log.d("TrackingService", "Config changed: $trackingIntervalMs ms, $trackingMinDistance m")
+                if (changed) {
+                    Log.d("TrackingService", "Silent config sync: $trackingIntervalMs ms, $trackingMinDistance m")
                     startLocationUpdates()
-                    showConfigUpdateNotification()
                 }
             }
 
@@ -67,12 +65,20 @@ class TrackingService : Service() {
     }
 
     private fun updateTelemetry(location: Location) {
+        // Filter akurasi GPS buruk (> 35m) agar tidak terjadi GPS loncat / drift saat parkir atau di dalam gedung
+        if (location.hasAccuracy() && location.accuracy > 35f) {
+            return
+        }
+
         val courierId = FirebaseAuth.getInstance().currentUser?.uid ?: "anonymous"
         
-        // Calculate Distance
-        lastLocation?.let {
-            val distance = it.distanceTo(location) // meters
-            totalDistanceKm += (distance / 1000.0)
+        // Smart Odometer: Hanya hitung jarak jika perpindahan nyata >= 15m dan <= 2000m
+        lastLocation?.let { prev ->
+            val distance = prev.distanceTo(location) // meters
+            if (distance in 15f..2000f) {
+                // Faktor koreksi lekukan jalan raya (1.18x dari garis lurus antar titik sampel)
+                totalDistanceKm += ((distance * 1.18) / 1000.0)
+            }
         }
         lastLocation = location
 

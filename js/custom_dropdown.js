@@ -206,10 +206,40 @@
         const children = Array.from(selectEl.children);
         const currentVal = selectEl.value;
 
+        function resolveOptionAvatar(opt) {
+            if (!opt || !opt.value || opt.value === 'all') return '';
+            if (opt.dataset && opt.dataset.avatar) return opt.dataset.avatar;
+            const parentGroup = opt.parentElement && opt.parentElement.tagName === 'OPTGROUP' ? (opt.parentElement.label || '').toLowerCase() : '';
+            const isCourierSelect = selectId.includes('courier') || selectId.includes('carrier') || selectId.includes('personil') || parentGroup.includes('kurir') || parentGroup.includes('driver');
+            if (!isCourierSelect) return '';
+            const rawText = (opt.text || opt.label || '').replace(/^[^\wA-Za-z]+/, '').split('(')[0].trim();
+            if (typeof window.getCourierPhoto === 'function') {
+                const mapped = window.getCourierPhoto(opt.value, rawText);
+                if (mapped) return mapped;
+            }
+            if (rawText) {
+                return `https://ui-avatars.com/api/?name=${encodeURIComponent(rawText)}&background=0F172A&color=fff&size=64`;
+            }
+            return '';
+        }
+
+        function renderTriggerContent(triggerBtn, sel) {
+            const textEl = triggerBtn.querySelector('.wtrack-select-text');
+            if (!textEl) return;
+            const selectedOpt = sel.options && sel.selectedIndex >= 0 ? sel.options[sel.selectedIndex] : null;
+            const labelText = getSelectedOptionText(sel);
+            const avatarUrl = resolveOptionAvatar(selectedOpt);
+            if (avatarUrl) {
+                const cleanName = labelText.replace(/"/g, '&quot;');
+                textEl.innerHTML = `<span class="d-inline-flex align-items-center gap-2"><img src="${avatarUrl}" alt="" style="width:20px;height:20px;border-radius:50%;object-fit:cover;flex-shrink:0;border:1px solid #cbd5e1;" onerror="this.src='https://ui-avatars.com/api/?name='+encodeURIComponent('${cleanName}')+'&background=0F172A&color=fff'"><span>${labelText}</span></span>`;
+            } else {
+                textEl.textContent = labelText;
+            }
+        }
+
         function selectOption(opt) {
             selectEl.value = opt.value;
-            const textEl = triggerEl.querySelector('.wtrack-select-text');
-            if (textEl) textEl.textContent = opt.text;
+            renderTriggerContent(triggerEl, selectEl);
 
             selectEl.dispatchEvent(new Event('change', { bubbles: true }));
             selectEl.dispatchEvent(new Event('input', { bubbles: true }));
@@ -231,9 +261,29 @@
                 item.classList.add('active');
             }
 
+            const labelWrap = document.createElement('span');
+            labelWrap.style.display = 'inline-flex';
+            labelWrap.style.alignItems = 'center';
+            labelWrap.style.gap = '8px';
+
+            const avatarUrl = resolveOptionAvatar(opt);
+            if (avatarUrl) {
+                const img = document.createElement('img');
+                img.src = avatarUrl;
+                img.alt = itemText;
+                img.style.cssText = 'width: 24px; height: 24px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 1.5px solid #e2e8f0; background: #f8fafc;';
+                const fallbackName = itemText.replace(/^[^\wA-Za-z]+/, '').split('(')[0].trim() || 'K';
+                img.onerror = function() {
+                    this.onerror = null;
+                    this.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(fallbackName)}&background=0F172A&color=fff&size=64`;
+                };
+                labelWrap.appendChild(img);
+            }
+
             const labelSpan = document.createElement('span');
             labelSpan.textContent = itemText;
-            item.appendChild(labelSpan);
+            labelWrap.appendChild(labelSpan);
+            item.appendChild(labelWrap);
 
             if (isSelected) {
                 const checkSpan = document.createElement('span');
@@ -392,11 +442,42 @@
         }
     }
 
+    function updateTriggerTextWithAvatar(selectEl, trigger) {
+        if (!selectEl || !trigger) return;
+        const textEl = trigger.querySelector('.wtrack-select-text');
+        if (!textEl) return;
+        const selectedOpt = selectEl.options && selectEl.selectedIndex >= 0 ? selectEl.options[selectEl.selectedIndex] : null;
+        const labelText = getSelectedOptionText(selectEl);
+        let avatarUrl = '';
+        if (selectedOpt && selectedOpt.value && selectedOpt.value !== 'all') {
+            if (selectedOpt.dataset && selectedOpt.dataset.avatar) {
+                avatarUrl = selectedOpt.dataset.avatar;
+            } else {
+                const selectId = (selectEl.id || '').toLowerCase();
+                const parentGroup = selectedOpt.parentElement && selectedOpt.parentElement.tagName === 'OPTGROUP' ? (selectedOpt.parentElement.label || '').toLowerCase() : '';
+                if (selectId.includes('courier') || selectId.includes('carrier') || selectId.includes('personil') || parentGroup.includes('kurir') || parentGroup.includes('driver')) {
+                    const rawText = labelText.replace(/^[^\wA-Za-z]+/, '').split('(')[0].trim();
+                    if (typeof window.getCourierPhoto === 'function') {
+                        avatarUrl = window.getCourierPhoto(selectedOpt.value, rawText) || '';
+                    }
+                    if (!avatarUrl && rawText) {
+                        avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(rawText)}&background=0F172A&color=fff&size=64`;
+                    }
+                }
+            }
+        }
+        if (avatarUrl) {
+            const cleanName = labelText.replace(/"/g, '&quot;');
+            textEl.innerHTML = `<span class="d-inline-flex align-items-center gap-2"><img src="${avatarUrl}" alt="" style="width:20px;height:20px;border-radius:50%;object-fit:cover;flex-shrink:0;border:1px solid #cbd5e1;" onerror="this.src='https://ui-avatars.com/api/?name='+encodeURIComponent('${cleanName}')+'&background=0F172A&color=fff'"><span>${labelText}</span></span>`;
+        } else {
+            textEl.textContent = labelText;
+        }
+    }
+
     function enhanceSelect(selectEl) {
         if (!selectEl || selectEl._wtrackEnhanced) {
             if (selectEl && selectEl._wtrackTrigger) {
-                const textEl = selectEl._wtrackTrigger.querySelector('.wtrack-select-text');
-                if (textEl) textEl.textContent = getSelectedOptionText(selectEl);
+                updateTriggerTextWithAvatar(selectEl, selectEl._wtrackTrigger);
             }
             return;
         }
@@ -435,6 +516,7 @@
 
         selectEl._wtrackEnhanced = true;
         selectEl._wtrackTrigger = trigger;
+        updateTriggerTextWithAvatar(selectEl, trigger);
 
         // Toggle dropdown on click / touch with debounce to prevent double-firing
         const handleTrigger = (e) => {
@@ -450,11 +532,11 @@
         trigger.addEventListener('click', handleTrigger);
 
         selectEl.addEventListener('change', () => {
-            textSpan.textContent = getSelectedOptionText(selectEl);
+            updateTriggerTextWithAvatar(selectEl, trigger);
         });
 
         const observer = new MutationObserver(() => {
-            textSpan.textContent = getSelectedOptionText(selectEl);
+            updateTriggerTextWithAvatar(selectEl, trigger);
         });
         observer.observe(selectEl, { childList: true, subtree: true, attributes: true });
     }
@@ -471,6 +553,9 @@
             '#audit-vehicle-filter',
             '#audit-courier-select',
             '#pool-region-select',
+            '#pool-region-filter',
+            '#pool-print-filter',
+            '#pool-bulk-courier',
             '#bulk-courier-select',
             '#archive-courier-filter',
             '#archive-category-filter',

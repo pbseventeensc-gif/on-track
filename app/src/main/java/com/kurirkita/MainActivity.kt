@@ -4,56 +4,76 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.app.DownloadManager
 import android.content.BroadcastReceiver
+import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.provider.MediaStore
+import android.util.Base64
+import android.view.ViewGroup
+import android.webkit.*
 import android.widget.Toast
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
+import androidx.activity.addCallback
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Dashboard
-import androidx.compose.material.icons.filled.DarkMode
-import androidx.compose.material.icons.filled.DeleteSweep
-import androidx.compose.material.icons.filled.GpsFixed
-import androidx.compose.material.icons.filled.GpsOff
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.LightMode
-import androidx.compose.material.icons.filled.LocalShipping
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.KurirKita.model.Trip
-import com.KurirKita.model.User
-import com.KurirKita.ui.*
-import com.KurirKita.ui.theme.KurirKitaTheme
-import com.KurirKita.ui.theme.GaugeGreen
 import com.cloudinary.android.MediaManager
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
 import java.io.File
 
 class MainActivity : ComponentActivity() {
+
+    private lateinit var webView: WebView
+    private var fileUploadCallback: ValueCallback<Array<Uri>>? = null
+    private var cameraPhotoUri: Uri? = null
+
+    private val fileChooserLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (fileUploadCallback == null) return@registerForActivityResult
+        var results: Array<Uri>? = null
+        if (result.resultCode == RESULT_OK) {
+            val dataString = result.data?.dataString
+            val clipData = result.data?.clipData
+            if (clipData != null) {
+                results = Array(clipData.itemCount) { i -> clipData.getItemAt(i).uri }
+            } else if (dataString != null) {
+                results = arrayOf(Uri.parse(dataString))
+            } else if (cameraPhotoUri != null) {
+                results = arrayOf(cameraPhotoUri!!)
+            }
+        }
+        fileUploadCallback?.onReceiveValue(results)
+        fileUploadCallback = null
+        cameraPhotoUri = null
+    }
+
+    private val requestPermissionsLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { grants ->
+        if (grants[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+            grants[Manifest.permission.ACCESS_COARSE_LOCATION] == true) {
+            startBackgroundTrackingService()
+        }
+    }
+
+    private fun startBackgroundTrackingService() {
+        try {
+            val serviceIntent = Intent(this, TrackingService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(serviceIntent)
+            } else {
+                startService(serviceIntent)
+            }
+        } catch (e: Exception) {}
+    }
 
     private val onDownloadComplete = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -64,10 +84,10 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    @SuppressLint("UnspecifiedRegisterReceiverFlag")
+    @SuppressLint("SetJavaScriptEnabled", "UnspecifiedRegisterReceiverFlag")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
+
         // Register Download Receiver
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(onDownloadComplete, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE), RECEIVER_EXPORTED)
@@ -79,88 +99,237 @@ class MainActivity : ComponentActivity() {
             val config = mapOf("cloud_name" to "dgf3shxpf", "secure" to true)
             MediaManager.init(this, config)
         } catch (e: Exception) {}
-        
-        val currentUser = FirebaseAuth.getInstance().currentUser
-        if (currentUser != null) registerUserInFirestore(currentUser.uid, currentUser.email ?: "")
 
-        enableEdgeToEdge()
-        val prefs = getSharedPreferences("app_settings", Context.MODE_PRIVATE)
+        checkAndRequestPermissions()
 
-        setContent {
-            var darkTheme by remember { mutableStateOf(prefs.getBoolean("dark_mode", false)) }
-            
-            // Function to toggle theme and save it
-            val toggleTheme = {
-                darkTheme = !darkTheme
-                prefs.edit().putBoolean("dark_mode", darkTheme).apply()
-            }
-            
-            // --- FEATURE: IN-APP UPDATE (MATIKAN SEMENTARA AGAR TIDAK OVERWRITE DESAIN BARU) ---
-            var updateUrl by remember { mutableStateOf<String?>(null) }
-            var showUpdateDialog by remember { mutableStateOf(false) }
-            
-            /* 
-            LaunchedEffect(Unit) {
-                FirebaseFirestore.getInstance().collection("config").document("app_status")
-                    .addSnapshotListener { snap, _ ->
-                        val remoteVersion = snap?.getLong("versionCode") ?: 0L
-                        // ... logic update ...
-                    }
-            }
-            */
+        setupWebView()
 
-            KurirKitaTheme(darkTheme = darkTheme) {
-                if (showUpdateDialog && updateUrl != null) {
-                    AlertDialog(
-                        onDismissRequest = { showUpdateDialog = false },
-                        title = { Text("Update Tersedia!") },
-                        text = { Text("Versi terbaru sudah dirilis. Silakan unduh untuk fitur yang lebih stabil.") },
-                        confirmButton = {
-                            Button(onClick = {
-                                startDownload(updateUrl!!)
-                                showUpdateDialog = false
-                            }) { Text("UNDUH & INSTALL") }
-                        },
-                        dismissButton = {
-                            TextButton(onClick = { showUpdateDialog = false }) {
-                                Text("NANTI SAJA", color = Color.Gray)
-                            }
-                        }
-                    )
-                }
-
-                var isLoggedIn by remember { mutableStateOf(FirebaseAuth.getInstance().currentUser != null) }
-                if (!isLoggedIn) {
-                    LoginScreen(onLoginSuccess = { isLoggedIn = true })
-                } else {
-                    MainNavigation(
-                        darkTheme = darkTheme,
-                        onThemeToggle = toggleTheme,
-                        onLogout = {
-                            FirebaseAuth.getInstance().signOut()
-                            isLoggedIn = false
-                            stopTrackingService()
-                        },
-                        onStartService = { startTrackingService() },
-                        onStopService = { stopTrackingService() }
-                    )
-                }
+        onBackPressedDispatcher.addCallback(this) {
+            if (::webView.isInitialized && webView.canGoBack()) {
+                webView.goBack()
+            } else {
+                finish()
             }
         }
     }
 
-    private fun startDownload(url: String) {
-        val request = DownloadManager.Request(Uri.parse(url))
-            .setTitle("Wtrack Update")
-            .setDescription("Mengunduh versi terbaru...")
-            .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-            .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "wtrack_update.apk")
-            .setAllowedOverMetered(true)
-            .setAllowedOverRoaming(true)
+    private fun checkAndRequestPermissions() {
+        val permissions = mutableListOf(
+            Manifest.permission.CAMERA,
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissions.add(Manifest.permission.READ_MEDIA_IMAGES)
+            permissions.add(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            permissions.add(Manifest.permission.READ_EXTERNAL_STORAGE)
+        }
 
-        val dm = getSystemService(DOWNLOAD_SERVICE) as DownloadManager
-        dm.enqueue(request)
-        Toast.makeText(this, "Unduhan dimulai...", Toast.LENGTH_SHORT).show()
+        val needed = permissions.filter {
+            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
+        }
+        if (needed.isNotEmpty()) {
+            requestPermissionsLauncher.launch(needed.toTypedArray())
+        } else {
+            startBackgroundTrackingService()
+        }
+    }
+
+    @SuppressLint("SetJavaScriptEnabled")
+    private fun setupWebView() {
+        webView = WebView(this).apply {
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+            settings.apply {
+                javaScriptEnabled = true
+                domStorageEnabled = true
+                databaseEnabled = true
+                setGeolocationEnabled(true)
+                allowFileAccess = true
+                allowContentAccess = true
+                allowFileAccessFromFileURLs = true
+                allowUniversalAccessFromFileURLs = true
+                useWideViewPort = true
+                loadWithOverviewMode = true
+                mediaPlaybackRequiresUserGesture = false
+                cacheMode = WebSettings.LOAD_DEFAULT
+            }
+
+            webChromeClient = object : WebChromeClient() {
+                override fun onGeolocationPermissionsShowPrompt(
+                    origin: String?,
+                    callback: GeolocationPermissions.Callback?
+                ) {
+                    callback?.invoke(origin, true, false)
+                }
+
+                override fun onPermissionRequest(request: PermissionRequest?) {
+                    runOnUiThread {
+                        request?.grant(request.resources)
+                    }
+                }
+
+                override fun onShowFileChooser(
+                    mWebView: WebView?,
+                    filePathCallback: ValueCallback<Array<Uri>>?,
+                    fileChooserParams: FileChooserParams?
+                ): Boolean {
+                    fileUploadCallback?.onReceiveValue(null)
+                    fileUploadCallback = filePathCallback
+                    cameraPhotoUri = null
+
+                    val isCapture = fileChooserParams?.isCaptureEnabled == true
+                    var captureIntent: Intent? = null
+
+                    try {
+                        val photoFile = File.createTempFile(
+                            "POD_${System.currentTimeMillis()}_",
+                            ".jpg",
+                            cacheDir
+                        )
+                        cameraPhotoUri = FileProvider.getUriForFile(
+                            this@MainActivity,
+                            "${packageName}.fileprovider",
+                            photoFile
+                        )
+                        captureIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
+                            putExtra(MediaStore.EXTRA_OUTPUT, cameraPhotoUri)
+                            addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                    } catch (e: Exception) {
+                        cameraPhotoUri = null
+                    }
+
+                    val finalIntent: Intent = if (isCapture && captureIntent != null) {
+                        captureIntent
+                    } else {
+                        val contentIntent = fileChooserParams?.createIntent() ?: Intent(Intent.ACTION_GET_CONTENT).apply {
+                            type = "image/*"
+                        }
+                        if (captureIntent != null) {
+                            Intent.createChooser(contentIntent, "Pilih Sumber Foto").apply {
+                                putExtra(Intent.EXTRA_INITIAL_INTENTS, arrayOf(captureIntent))
+                            }
+                        } else {
+                            contentIntent
+                        }
+                    }
+
+                    try {
+                        fileChooserLauncher.launch(finalIntent)
+                    } catch (e: Exception) {
+                        fileUploadCallback = null
+                        cameraPhotoUri = null
+                        return false
+                    }
+                    return true
+                }
+            }
+
+            webViewClient = object : WebViewClient() {
+                override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                    val url = request?.url?.toString() ?: return false
+                    if (url.startsWith("tel:") || url.startsWith("whatsapp:") || url.startsWith("https://wa.me") || url.startsWith("https://api.whatsapp.com")) {
+                        try {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                            startActivity(intent)
+                            return true
+                        } catch (e: Exception) {
+                            Toast.makeText(this@MainActivity, "Aplikasi tidak ditemukan", Toast.LENGTH_SHORT).show()
+                            return true
+                        }
+                    }
+                    return false
+                }
+            }
+
+            addJavascriptInterface(AndroidBridge(), "AndroidBridge")
+        }
+
+        setContentView(webView)
+
+        // Load kurir.html directly from bundled assets
+        webView.loadUrl("file:///android_asset/kurir.html")
+    }
+
+    inner class AndroidBridge {
+        @JavascriptInterface
+        fun shareCardToWhatsApp(base64Data: String, captionText: String) {
+            runOnUiThread {
+                try {
+                    val cleanBase64 = base64Data.substringAfter("base64,", base64Data)
+                    val bytes = Base64.decode(cleanBase64, Base64.DEFAULT)
+                    val baseCache = externalCacheDir ?: cacheDir
+                    val shareDir = File(baseCache, "wa_cards")
+                    if (!shareDir.exists()) shareDir.mkdirs()
+
+                    // Hanya bersihkan file lama (> 2 jam) agar file yang sedang diupload WhatsApp tidak terhapus
+                    val now = System.currentTimeMillis()
+                    shareDir.listFiles()?.forEach { oldFile ->
+                        try {
+                            if (now - oldFile.lastModified() > 7200_000L) {
+                                oldFile.delete()
+                            }
+                        } catch (_: Exception) {}
+                    }
+
+                    val cardFile = File(shareDir, "Wellen_Bukti_Tiba_${now}.jpg")
+                    val decodedBitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                    if (decodedBitmap != null) {
+                        cardFile.outputStream().use { out ->
+                            decodedBitmap.compress(Bitmap.CompressFormat.JPEG, 92, out)
+                            out.flush()
+                        }
+                    } else {
+                        cardFile.writeBytes(bytes)
+                    }
+
+                    val contentUri = FileProvider.getUriForFile(
+                        this@MainActivity,
+                        "${packageName}.fileprovider",
+                        cardFile
+                    )
+
+                    val pm = packageManager
+                    val waPackages = listOf("com.whatsapp", "com.whatsapp.w4b")
+                    val installedWa = waPackages.firstOrNull { pkg ->
+                        try {
+                            pm.getPackageInfo(pkg, 0)
+                            true
+                        } catch (_: Exception) {
+                            false
+                        }
+                    }
+
+                    // Berikan izin baca URI eksplisit ke proses background WhatsApp agar upload gambar instan & tidak muter-muter
+                    waPackages.forEach { pkg ->
+                        try {
+                            grantUriPermission(pkg, contentUri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        } catch (_: Exception) {}
+                    }
+
+                    val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                        type = "image/jpeg"
+                        putExtra(Intent.EXTRA_STREAM, contentUri)
+                        putExtra(Intent.EXTRA_TEXT, captionText)
+                        clipData = ClipData.newRawUri("Kartu Bukti Pengiriman", contentUri)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+
+                    if (installedWa != null) {
+                        sendIntent.setPackage(installedWa)
+                        startActivity(sendIntent)
+                    } else {
+                        startActivity(Intent.createChooser(sendIntent, "Kirim Kartu Bukti via WhatsApp"))
+                    }
+                } catch (e: Exception) {
+                    Toast.makeText(this@MainActivity, "Gagal mengirim kartu WA: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
     }
 
     private fun installApk(context: Context) {
@@ -180,330 +349,8 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun startTrackingService() {
-        val intent = Intent(this, TrackingService::class.java)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(intent)
-        else startService(intent)
-    }
-
-    private fun stopTrackingService() {
-        val intent = Intent(this, TrackingService::class.java)
-        stopService(intent)
-    }
-
-    private fun registerUserInFirestore(uid: String, email: String) {
-        val userRef = FirebaseFirestore.getInstance().collection("users").document(uid)
-        userRef.get().addOnSuccessListener { snapshot ->
-            val existingName = snapshot.getString("name")
-            val existingCourierId = snapshot.getString("courierId")
-            val existingEmail = snapshot.getString("email")
-
-            val emailToUse = if (!existingEmail.isNullOrEmpty()) existingEmail else email
-            val defaultIdentifier = if (emailToUse.contains("@")) emailToUse.substringBefore("@") else uid.take(8)
-            val nameToUse = if (!existingName.isNullOrEmpty()) existingName else defaultIdentifier
-            val courierIdToUse = if (!existingCourierId.isNullOrEmpty()) existingCourierId else defaultIdentifier
-
-            val map = mutableMapOf<String, Any>(
-                "userId" to uid,
-                "email" to emailToUse,
-                "role" to "courier",
-                "courierId" to courierIdToUse,
-                "name" to nameToUse
-            )
-            userRef.set(map, com.google.firebase.firestore.SetOptions.merge())
-        }.addOnFailureListener {
-            val defaultIdentifier = if (email.contains("@")) email.substringBefore("@") else uid.take(8)
-            val map = mutableMapOf<String, Any>(
-                "userId" to uid,
-                "email" to email,
-                "role" to "courier",
-                "courierId" to defaultIdentifier,
-                "name" to defaultIdentifier
-            )
-            userRef.set(map, com.google.firebase.firestore.SetOptions.merge())
-        }
-    }
-
     override fun onDestroy() {
         super.onDestroy()
         try { unregisterReceiver(onDownloadComplete) } catch (e: Exception) {}
-    }
-}
-
-@Composable
-fun MainNavigation(
-    darkTheme: Boolean,
-    onThemeToggle: () -> Unit,
-    onLogout: () -> Unit,
-    onStartService: () -> Unit,
-    onStopService: () -> Unit
-) {
-    val tripViewModel: TripViewModel = viewModel()
-    var selectedTrip by tripViewModel.selectedTrip
-    var showChatTripId by tripViewModel.showChatTripId
-    var currentTab by tripViewModel.currentTab
-
-    Scaffold(
-        topBar = {
-            if (currentTab != "dashboard" && selectedTrip == null && showChatTripId == null) {
-                ServiceControlBar(onStartService, onStopService, onLogout, darkTheme, onThemeToggle)
-            }
-        },
-        bottomBar = {
-            // Sembunyikan navigasi bawah jika sedang chat atau buka detail tugas agar tidak terhimpit
-            if (selectedTrip == null && showChatTripId == null) {
-                NavigationBar(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    tonalElevation = 8.dp
-                ) {
-                    NavigationBarItem(
-                        selected = currentTab == "dashboard",
-                        onClick = { currentTab = "dashboard"; selectedTrip = null },
-                        icon = { Icon(Icons.Default.Dashboard, null) },
-                        label = { Text("Dashboard", fontWeight = FontWeight.Bold) },
-                        colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.primary, selectedTextColor = MaterialTheme.colorScheme.primary)
-                    )
-                    NavigationBarItem(
-                        selected = currentTab == "active",
-                        onClick = { currentTab = "active"; selectedTrip = null },
-                        icon = { Icon(Icons.Default.LocalShipping, null) },
-                        label = { Text("Tugas", fontWeight = FontWeight.Bold) },
-                        colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.primary, selectedTextColor = MaterialTheme.colorScheme.primary)
-                    )
-                    NavigationBarItem(
-                        selected = currentTab == "history",
-                        onClick = { currentTab = "history"; selectedTrip = null },
-                        icon = { Icon(Icons.Default.History, null) },
-                        label = { Text("Riwayat", fontWeight = FontWeight.Bold) },
-                        colors = NavigationBarItemDefaults.colors(selectedIconColor = MaterialTheme.colorScheme.primary, selectedTextColor = MaterialTheme.colorScheme.primary)
-                    )
-                }
-            }
-        }
-    ) { innerPadding ->
-        Box(modifier = Modifier.padding(if (selectedTrip == null && showChatTripId == null) innerPadding else PaddingValues(0.dp))) {
-            if (showChatTripId != null) {
-                ChatScreen(tripId = showChatTripId!!, onBack = { showChatTripId = null })
-            } else if (selectedTrip == null) {
-                when (currentTab) {
-                    "dashboard" -> {
-                        val dashboardState by tripViewModel.dashboardState.collectAsState()
-                        DashboardScreen(
-                            state = dashboardState,
-                            onMenuClick = { /* Handle menu */ },
-                            onCheckInClick = { onStartService() }
-                        )
-                    }
-                    "active" -> TripListScreen(viewModel = tripViewModel, onTripClick = { selectedTrip = it })
-                    "history" -> HistoryScreen(viewModel = tripViewModel, onTripClick = { selectedTrip = it })
-                }
-            } else {
-                ActiveTripScreen(trip = selectedTrip!!, onBack = { selectedTrip = null }, onChatClick = { showChatTripId = selectedTrip!!.tripId })
-            }
-        }
-    }
-}
-
-@Composable
-fun HistoryScreen(viewModel: TripViewModel, onTripClick: (Trip) -> Unit) {
-    val db = FirebaseFirestore.getInstance()
-    val auth = FirebaseAuth.getInstance()
-    var historyTrips by remember { mutableStateOf<List<Trip>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
-
-    DisposableEffect(Unit) {
-        val uid = auth.currentUser?.uid ?: return@DisposableEffect onDispose {}
-        val email = auth.currentUser?.email ?: ""
-        val prefix = if (email.contains("@")) email.substringBefore("@") else email
-
-        val listener = db.collection("trips")
-            .addSnapshotListener { snapshot, e ->
-                isLoading = false
-                if (snapshot != null) {
-                    val allTrips = snapshot.documents.mapNotNull { doc ->
-                        try {
-                            doc.toObject(Trip::class.java)?.copy(tripId = doc.id)
-                        } catch (_: Exception) {
-                            TripViewModel.parseTripFromDocument(doc)
-                        }
-                    }
-                    historyTrips = allTrips.filter { t ->
-                        val cleanCId = t.courierId.replace("[^a-zA-Z0-9]".toRegex(), "").lowercase()
-                        val cleanUid = uid.replace("[^a-zA-Z0-9]".toRegex(), "").lowercase()
-                        val cleanEmail = email.replace("[^a-zA-Z0-9]".toRegex(), "").lowercase()
-                        val cleanPrefix = prefix.replace("[^a-zA-Z0-9]".toRegex(), "").lowercase()
-
-                        val isJoyenMatch = (cleanPrefix.contains("joyen") || cleanEmail.contains("joyen") || cleanUid.contains("ni7roidcrffq2fke6q5decrepqc2")) &&
-                            (cleanCId.contains("joyen") || cleanCId == "4nm4m56vzemliusvn7lvh11seey1")
-
-                        val isMatch = t.courierId == uid ||
-                            cleanCId == cleanUid ||
-                            isJoyenMatch ||
-                            (cleanEmail.isNotEmpty() && (cleanCId == cleanEmail || cleanCId.contains(cleanEmail))) ||
-                            (cleanPrefix.isNotEmpty() && (cleanCId == cleanPrefix || cleanCId.contains(cleanPrefix) || cleanPrefix.contains(cleanCId)))
-
-                        val isPastDay = !TripViewModel.isToday(t.date)
-                        val isIncludeInHistory = t.status == "completed" || isPastDay
-
-                        isIncludeInHistory && isMatch && TripViewModel.isWithinDays(t.date, 3)
-                    }.sortedByDescending { it.date.seconds }
-                }
-            }
-        onDispose { listener.remove() }
-    }
-
-    Column(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(16.dp)) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Column {
-                Text(
-                    "Riwayat Tugas", 
-                    color = MaterialTheme.colorScheme.onBackground, 
-                    style = MaterialTheme.typography.titleLarge, 
-                    fontWeight = FontWeight.ExtraBold,
-                    letterSpacing = (-0.5).sp
-                )
-                Text(
-                    "Daftar tugas 3 hari terakhir (selesai/pending)",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
-                    fontWeight = FontWeight.Medium
-                )
-            }
-        }
-        Spacer(modifier = Modifier.height(20.dp))
-        if (isLoading) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = GaugeGreen, strokeWidth = 3.dp) }
-        } else if (historyTrips.isEmpty()) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { 
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Default.History, null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.1f))
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text("Belum ada riwayat tugas.", color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f), style = MaterialTheme.typography.bodyMedium) 
-                }
-            }
-        } else {
-            LazyColumn(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                items(historyTrips) { trip ->
-                    TripCard(trip, onClick = { onTripClick(trip) })
-                }
-                item { Spacer(modifier = Modifier.height(24.dp)) }
-            }
-        }
-    }
-}
-
-@Composable
-fun ServiceControlBar(onStart: () -> Unit, onStop: () -> Unit, onLogout: () -> Unit, darkTheme: Boolean, onThemeToggle: () -> Unit) {
-    var isTracking by remember { mutableStateOf(false) }
-    val permissions = mutableListOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) permissions.add(Manifest.permission.POST_NOTIFICATIONS)
-    val launcher = rememberLauncherForActivityResult(contract = ActivityResultContracts.RequestMultiplePermissions()) { results -> 
-        if (results.values.all { it }) { isTracking = true; onStart() } 
-    }
-
-    Surface(
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 2.dp,
-        modifier = Modifier.fillMaxWidth().statusBarsPadding()
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Image(
-                        painter = painterResource(id = R.drawable.wellen_logo),
-                        contentDescription = null,
-                        modifier = Modifier.size(40.dp).padding(end = 12.dp)
-                    )
-                    Column {
-                        Text(
-                            text = "Wellen Print",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        val uid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
-                        Text(
-                            text = "ID: ${uid.take(8).uppercase()}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-                
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onThemeToggle) {
-                        Icon(
-                            imageVector = if (darkTheme) Icons.Default.LightMode else Icons.Default.DarkMode,
-                            contentDescription = "Theme",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                    TextButton(onClick = onLogout) {
-                        Text("Keluar", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = if (isTracking) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                ),
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = if (isTracking) Icons.Default.GpsFixed else Icons.Default.GpsOff,
-                            contentDescription = null,
-                            tint = if (isTracking) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = if (isTracking) "Tracking Aktif" else "Tracking Nonaktif",
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = if (isTracking) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Switch(
-                        checked = isTracking,
-                        onCheckedChange = { checked ->
-                            if (checked) launcher.launch(permissions.toTypedArray())
-                            else { isTracking = false; onStop() }
-                        },
-                        scale = 0.8f
-                    )
-                }
-            }
-        }
-    }
-}
-
-// Helper to scale switch
-@Composable
-fun Switch(
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-    scale: Float = 1f,
-    enabled: Boolean = true
-) {
-    Box(modifier = Modifier.size((48 * scale).dp, (24 * scale).dp), contentAlignment = Alignment.Center) {
-        androidx.compose.material3.Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            enabled = enabled,
-            modifier = Modifier.padding(0.dp)
-        )
     }
 }

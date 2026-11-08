@@ -121,8 +121,16 @@
 
         function toggleCollapse() {
             const sb = document.getElementById('sidebar');
+            const icon = document.getElementById('sidebar-collapse-icon');
             if (!sb) return;
             sb.classList.toggle('collapsed');
+            if (icon) {
+                if (sb.classList.contains('collapsed')) {
+                    icon.className = 'bi bi-chevron-double-right';
+                } else {
+                    icon.className = 'bi bi-chevron-double-left';
+                }
+            }
             if (typeof refreshMapSizes === 'function') refreshMapSizes();
         }
         window.toggleCollapse = toggleCollapse;
@@ -144,16 +152,33 @@
             if (target) {
                 target.classList.add('active');
                 target.style.display = 'block';
+            } else {
+                // Modul belum dibuat / dalam pengembangan -> tampilkan 404 placeholder
+                const p404 = document.getElementById('view-placeholder-404');
+                if (p404) {
+                    p404.classList.add('active');
+                    p404.style.display = 'block';
+                    const titleEl = document.getElementById('placeholder-404-title');
+                    if (titleEl) {
+                        const navEl = document.getElementById('nav-' + viewId) || (el && el.innerText ? el : null);
+                        titleEl.innerText = navEl ? navEl.innerText.trim() : viewId;
+                    }
+                }
             }
 
             document.querySelectorAll('.nav-link-custom').forEach(l => l.classList.remove('active'));
+            document.querySelectorAll('.sub-nav-item').forEach(l => l.classList.remove('active'));
 
-            const navItem = (el && typeof el.closest === 'function') ? el.closest('.nav-link-custom') : document.getElementById('nav-' + viewId);
+            const navItem = (el && typeof el.closest === 'function') ? (el.closest('.nav-link-custom') || el.closest('.sub-nav-item')) : document.getElementById('nav-' + viewId);
             if (navItem) {
                 navItem.classList.add('active');
             } else {
                 const fallbackNav = document.getElementById('nav-' + viewId) || document.querySelector(`[onclick*="${viewId}"]`);
                 if (fallbackNav) fallbackNav.classList.add('active');
+            }
+
+            if (typeof openGroupForView === 'function') {
+                openGroupForView(viewId);
             }
 
             const sb = document.getElementById('sidebar');
@@ -166,11 +191,16 @@
             if (viewId === 'dashboard') {
                 if (typeof updateGlobalStats === 'function') updateGlobalStats();
                 if (typeof renderRecentShipments === 'function') renderRecentShipments();
+            } else if (viewId === 'pool') {
+                if (window.UnifiedPoolUI && typeof UnifiedPoolUI.renderUnifiedPoolView === 'function') {
+                    UnifiedPoolUI.renderUnifiedPoolView();
+                } else if (typeof loadPoolTrips === 'function') {
+                    loadPoolTrips();
+                }
             } else if (viewId === 'monitor') {
                 if (typeof renderMonitorUI === 'function') renderMonitorUI();
             } else if (viewId === 'dispatch') {
                 if (typeof renderCourierOptions === 'function') renderCourierOptions();
-                if (typeof loadClientsByRegion === 'function') loadClientsByRegion("");
             } else if (viewId === 'fleet') {
                 if (typeof renderKPIView === 'function') renderKPIView();
             } else if (viewId === 'chat') {
@@ -182,6 +212,41 @@
             }
         }
         window.switchTab = switchTab;
+
+        function openModulePlaceholder(title, category, el) {
+            document.querySelectorAll('.view-section').forEach(v => {
+                v.classList.remove('active');
+                v.style.display = 'none';
+            });
+
+            const target = document.getElementById('view-placeholder-404');
+            if (target) {
+                target.classList.add('active');
+                target.style.display = 'block';
+            }
+
+            const titleEl = document.getElementById('placeholder-404-title');
+            if (titleEl) titleEl.innerText = title || 'Modul Belum Tersedia';
+
+            const badgeEl = document.getElementById('placeholder-404-badge');
+            if (badgeEl) badgeEl.innerText = category ? `${category} • 404 Dalam Pengembangan` : '404 • Modul Dalam Pengembangan';
+
+            document.querySelectorAll('.nav-link-custom').forEach(l => l.classList.remove('active'));
+            document.querySelectorAll('.sub-nav-item').forEach(l => l.classList.remove('active'));
+
+            if (el) el.classList.add('active');
+
+            if (el && typeof el.closest === 'function') {
+                const parentGroup = el.closest('.sidebar-accordion-group');
+                if (parentGroup) parentGroup.classList.add('open');
+            }
+
+            const sb = document.getElementById('sidebar');
+            const backdrop = document.getElementById('sidebar-backdrop');
+            if (sb && window.innerWidth <= 991) sb.classList.remove('open');
+            if (backdrop) backdrop.classList.remove('active');
+        }
+        window.openModulePlaceholder = openModulePlaceholder;
 
         function loginAsLocalDemoAdmin() {
             window.isDemoMode = true;
@@ -266,39 +331,437 @@
     </script>
 
     <!-- Custom CSS Styles -->
-    <link rel="stylesheet" href="/css/style.css?v=108.0">
+    <link rel="stylesheet" href="/css/style.css?v=300.0">
     <style>
         :root {
-            --primary: #111827;
+            --primary: #FF471D;          /* Vibrant Brand Orange */
+            --primary-hover: #E03B14;
+            --secondary: #FFAA0A;        /* Warm Golden Amber */
+            --dark: #0A0A0A;             /* Deep Carbon Black */
             --bg-body: #F9FAFB;
             --border-color: #E5E7EB;
-            --text-main: #111827;
+            --text-main: #0A0A0A;
             --text-muted: #6B7280;
             --sidebar-width: 260px;
-            --status-transit: #3B82F6;
+            --sidebar-bg: #FF471D;
+            --status-transit: #FF471D;
             --status-delivered: #10B981;
-            --status-pending: #F59E0B;
+            --status-pending: #FFAA0A;
             --status-delayed: #EF4444;
         }
-        body { background-color: var(--bg-body); font-family: 'Plus Jakarta Sans', sans-serif; color: var(--text-main); overflow: hidden; height: 100vh; }
+        * {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif !important;
+        }
+        body {
+            background-color: var(--bg-body);
+            font-family: 'Plus Jakarta Sans', sans-serif !important;
+            color: var(--text-main);
+            overflow: hidden;
+            height: 100vh;
+        }
         .wrapper { display: flex; height: 100vh; width: 100vw; overflow: hidden; }
-        .sidebar { width: var(--sidebar-width); background: #fff; border-right: 1px solid var(--border-color); display: flex; flex-direction: column; transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), left 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 2000; position: relative; }
-        .sidebar.collapsed { width: 80px; }
-        .sidebar-backdrop { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1999; backdrop-filter: blur(2px); }
-        .sidebar-backdrop.active { display: block; }
-        .sidebar-header { padding: 20px; display: flex; align-items: center; gap: 12px; min-height: 120px; }
-        .main-logo { height: 70px; max-width: 100%; object-fit: contain; transition: 0.3s; }
-        .sidebar.collapsed .main-logo { height: 32px; }
-        .nav-category { font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; padding: 24px 24px 8px; letter-spacing: 0.05em; white-space: nowrap; overflow: hidden; }
-        .sidebar.collapsed .nav-category { opacity: 0; visibility: hidden; padding: 12px 0; height: 0; }
-        .nav-menu { flex: 1; overflow-y: auto; padding: 0 12px; overflow-x: hidden; }
-        .nav-link-custom { display: flex; align-items: center; padding: 10px 12px; color: var(--text-muted); font-weight: 500; text-decoration: none !important; border-radius: 8px; transition: 0.2s; cursor: pointer; margin-bottom: 2px; font-size: 0.9rem; white-space: nowrap; }
-        .nav-link-custom:hover { background: #F9FAFB; color: var(--primary); }
-        .nav-link-custom.active { background: #F3F4F6; color: var(--primary); font-weight: 600; }
-        .nav-link-custom i { font-size: 1.2rem; margin-right: 12px; min-width: 24px; text-align: center; }
-        .sidebar-footer { padding: 20px; border-top: 1px solid var(--border-color); display: flex; align-items: center; gap: 12px; white-space: nowrap; overflow: hidden; }
+
+        /* ======================================================== */
+        /* WELLEN PRINT ERP SIDEBAR - CARBON BLACK (#0A0A0A)       */
+        /* ======================================================== */
+        .sidebar {
+            width: var(--sidebar-width) !important;
+            background: linear-gradient(180deg, #0A0A0A 0%, #141414 100%) !important;
+            border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+            display: flex !important;
+            flex-direction: column !important;
+            transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1), left 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            z-index: 2000 !important;
+            position: relative !important;
+            color: #94A3B8 !important;
+            box-shadow: 2px 0 20px rgba(0, 0, 0, 0.4) !important;
+        }
+        .sidebar.collapsed { width: 68px !important; }
+
+        /* Top Bar: Search & Toggle << */
+        .sidebar-top-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 16px 14px 12px 14px;
+        }
+        .sidebar-search-wrapper {
+            flex: 1;
+            position: relative;
+            min-width: 0;
+        }
+        .sidebar-search-input {
+            width: 100% !important;
+            background: rgba(255, 255, 255, 0.06) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            border-radius: 10px !important;
+            color: #ffffff !important;
+            font-size: 13.5px !important;
+            font-weight: 500 !important;
+            padding: 8px 36px 8px 12px !important;
+            outline: none !important;
+            transition: 0.15s ease !important;
+        }
+        .sidebar-search-input::placeholder {
+            color: rgba(255, 255, 255, 0.45) !important;
+            font-size: 13px !important;
+        }
+        .sidebar-search-input:focus {
+            background: rgba(255, 255, 255, 0.1) !important;
+            border-color: rgba(255, 255, 255, 0.3) !important;
+            box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.12) !important;
+        }
+        .sidebar-search-wrapper i {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: rgba(255, 255, 255, 0.5) !important;
+            font-size: 13px;
+            pointer-events: none;
+        }
+        .sidebar-collapse-btn {
+            width: 38px;
+            height: 38px;
+            background: rgba(255, 255, 255, 0.06) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            border-radius: 10px !important;
+            color: rgba(255, 255, 255, 0.85) !important;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 12px;
+            transition: 0.15s ease;
+            flex-shrink: 0;
+        }
+        .sidebar-collapse-btn:hover {
+            background: rgba(255, 255, 255, 0.12) !important;
+            color: #ffffff !important;
+        }
+
+        /* Collapsed Top Bar */
+        .sidebar.collapsed .sidebar-search-wrapper { display: none !important; }
+        .sidebar.collapsed .sidebar-top-bar {
+            justify-content: center !important;
+            padding: 16px 0 10px 0 !important;
+            flex-direction: column !important;
+            gap: 12px !important;
+        }
+        .sidebar-collapsed-search-icon {
+            display: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            align-items: center;
+            justify-content: center;
+            color: rgba(255, 255, 255, 0.85) !important;
+            cursor: pointer;
+            transition: 0.15s;
+        }
+        .sidebar-collapsed-search-icon:hover {
+            background: rgba(255, 255, 255, 0.12) !important;
+            color: #ffffff !important;
+        }
+        .sidebar.collapsed .sidebar-collapsed-search-icon {
+            display: flex !important;
+        }
+
+        /* Navigation menu container */
+        .nav-menu {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 6px 8px 16px 8px !important;
+        }
+
+        /* Single Nav Link (like Dashboard) */
+        .nav-link-custom {
+            display: flex !important;
+            align-items: center !important;
+            padding: 10px 14px !important;
+            color: #94A3B8 !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            text-decoration: none !important;
+            border-radius: 10px !important;
+            transition: 0.15s ease !important;
+            cursor: pointer !important;
+            margin-bottom: 3px !important;
+            white-space: nowrap !important;
+        }
+        .nav-link-custom:hover {
+            background: rgba(255, 255, 255, 0.06) !important;
+            color: #ffffff !important;
+        }
+        .nav-link-custom.active {
+            background: rgba(255, 255, 255, 0.1) !important;
+            color: #ffffff !important;
+            font-weight: 700 !important;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+        }
+        .nav-link-custom i {
+            font-size: 17px !important;
+            margin-right: 12px !important;
+            min-width: 20px !important;
+            text-align: center !important;
+            color: #94A3B8 !important;
+        }
+        .nav-link-custom.active i, .nav-link-custom:hover i {
+            color: #ffffff !important;
+        }
+
+        /* Accordion Groups */
+        .sidebar-accordion-group {
+            margin: 3px 0 !important;
+            border-radius: 12px !important;
+            transition: background 0.18s ease, box-shadow 0.18s ease !important;
+        }
+        .sidebar-group-header {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            padding: 10px 14px !important;
+            border-radius: 10px !important;
+            color: #94A3B8 !important;
+            font-size: 14px !important;
+            font-weight: 500 !important;
+            cursor: pointer !important;
+            transition: 0.15s ease !important;
+            user-select: none !important;
+        }
+        .sidebar-group-header:hover {
+            color: #ffffff !important;
+            background: rgba(255, 255, 255, 0.06) !important;
+        }
+        .sidebar-group-header .group-icon {
+            font-size: 17px !important;
+            min-width: 20px !important;
+            margin-right: 12px !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            color: #94A3B8 !important;
+            transition: color 0.15s ease !important;
+        }
+        .sidebar-group-header:hover .group-icon {
+            color: #ffffff !important;
+        }
+        .sidebar-group-header .chevron-icon {
+            font-size: 11px !important;
+            color: #64748B !important;
+            transition: transform 0.2s ease !important;
+            margin-left: auto !important;
+        }
+
+        /* Expanded Accordion Group: Frosted Dark Card Wrapper (Dribbble gb 2) */
+        .sidebar-accordion-group.open {
+            background: rgba(255, 255, 255, 0.05) !important;
+            border: 1px solid rgba(255, 255, 255, 0.08) !important;
+            border-radius: 12px !important;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25) !important;
+        }
+        .sidebar-accordion-group.open .sidebar-group-header {
+            color: #ffffff !important;
+            font-weight: 700 !important;
+        }
+        .sidebar-accordion-group.open .sidebar-group-header .group-icon {
+            color: #ffffff !important;
+        }
+        .sidebar-accordion-group.open .chevron-icon {
+            transform: rotate(180deg) !important;
+            color: #ffffff !important;
+        }
+        .sidebar-accordion-group.open .sidebar-sub-items {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 2px !important;
+        }
+
+        /* Sub Navigation Items */
+        .sidebar-sub-items {
+            display: none;
+            padding: 4px 8px 12px 18px !important;
+        }
+        .sub-nav-item {
+            display: flex !important;
+            align-items: center !important;
+            gap: 10px !important;
+            padding: 7px 12px !important;
+            font-size: 13px !important;
+            color: #94A3B8 !important;
+            text-decoration: none !important;
+            border-radius: 8px !important;
+            transition: 0.15s ease !important;
+            cursor: pointer !important;
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            font-weight: 500 !important;
+        }
+        .sub-nav-item i.sub-icon {
+            font-size: 14px !important;
+            min-width: 18px !important;
+            text-align: center !important;
+            color: #64748B !important;
+            transition: color 0.15s ease !important;
+            flex-shrink: 0 !important;
+        }
+        .sub-nav-item:hover {
+            color: #ffffff !important;
+            background: rgba(255, 255, 255, 0.06) !important;
+        }
+        .sub-nav-item:hover i.sub-icon {
+            color: #ffffff !important;
+        }
+        .sub-nav-item.active {
+            color: #ffffff !important;
+            font-weight: 700 !important;
+            background: rgba(255, 255, 255, 0.12) !important;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+        }
+        .sub-nav-item.active i.sub-icon {
+            color: #FF471D !important;
+        }
+
+        /* Collapsed State: Vertical Icon Tiles on Carbon Black Background */
+        .sidebar.collapsed .sidebar-header {
+            padding: 12px 0 6px 0 !important;
+            justify-content: center !important;
+        }
+        .sidebar.collapsed .nav-menu {
+            padding: 4px 0 16px 0 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+        }
+        .sidebar.collapsed .nav-link-custom {
+            width: 44px !important;
+            height: 44px !important;
+            margin: 3px auto !important;
+            padding: 0 !important;
+            justify-content: center !important;
+            border-radius: 12px !important;
+            color: #94A3B8 !important;
+        }
+        .sidebar.collapsed .nav-link-custom span { display: none !important; }
+        .sidebar.collapsed .nav-link-custom i { margin-right: 0 !important; font-size: 19px !important; color: #94A3B8 !important; }
+        .sidebar.collapsed .sidebar-accordion-group {
+            margin: 3px 0 !important;
+            background: transparent !important;
+            box-shadow: none !important;
+            border: none !important;
+            width: 100% !important;
+            display: flex !important;
+            justify-content: center !important;
+        }
+        .sidebar.collapsed .sidebar-group-header {
+            width: 44px !important;
+            height: 44px !important;
+            margin: 0 auto !important;
+            padding: 0 !important;
+            justify-content: center !important;
+            border-radius: 12px !important;
+            color: #94A3B8 !important;
+        }
+        .sidebar.collapsed .sidebar-group-header span.group-title,
+        .sidebar.collapsed .sidebar-group-header .chevron-icon,
+        .sidebar.collapsed .sidebar-sub-items,
+        .sidebar.collapsed .profile-info {
+            display: none !important;
+        }
+        .sidebar.collapsed .sidebar-group-header .group-icon {
+            margin: 0 !important;
+            font-size: 19px !important;
+            min-width: unset !important;
+            color: #94A3B8 !important;
+        }
+        /* Active Tile highlight in collapsed mode */
+        .sidebar.collapsed .sidebar-accordion-group.open .sidebar-group-header,
+        .sidebar.collapsed .nav-link-custom.active,
+        .sidebar.collapsed .sidebar-group-header:hover {
+            background: rgba(255, 255, 255, 0.1) !important;
+            border: 1px solid rgba(255, 255, 255, 0.15) !important;
+            color: #ffffff !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+        }
+        .sidebar.collapsed .sidebar-accordion-group.open .sidebar-group-header .group-icon,
+        .sidebar.collapsed .nav-link-custom.active i,
+        .sidebar.collapsed .sidebar-group-header:hover .group-icon {
+            color: #ffffff !important;
+        }
+
+        /* Sidebar Footer */
+        .sidebar-footer {
+            padding: 14px 16px !important;
+            border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            white-space: nowrap;
+            overflow: hidden;
+            background: rgba(0, 0, 0, 0.2) !important;
+            color: #ffffff !important;
+        }
+        .sidebar.collapsed .profile-info { display: none !important; }
+        .sidebar.collapsed .sidebar-footer { justify-content: center !important; padding: 14px 0 !important; }
+        .dark-mode-text { color: #ffffff !important; font-weight: 500; }
+
+        /* Brand Colors for Core UI Elements */
+        .btn-primary, .btn-new-shipment {
+            background: #FF471D !important;
+            border-color: #FF471D !important;
+            color: #ffffff !important;
+            font-weight: 600 !important;
+        }
+        .btn-primary:hover, .btn-new-shipment:hover {
+            background: #E03B14 !important;
+            border-color: #E03B14 !important;
+        }
+        .badge.bg-primary {
+            background-color: #FF471D !important;
+        }
+        .badge.bg-warning {
+            background-color: #FFAA0A !important;
+            color: #0A0A0A !important;
+        }
+        .btn-dark {
+            background: #0A0A0A !important;
+            border-color: #0A0A0A !important;
+        }
+        .btn-dark:hover {
+            background: #262626 !important;
+            border-color: #262626 !important;
+        }
+
+        /* Sidebar Backdrop - Bebas Blur agar layar tidak buram */
+        .sidebar-backdrop {
+            display: none !important;
+            visibility: hidden !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+        }
+        @media (max-width: 991px) {
+            .sidebar-backdrop.active {
+                display: block !important;
+                visibility: visible !important;
+                position: fixed !important;
+                top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
+                background: rgba(0, 0, 0, 0.45) !important;
+                z-index: 1999 !important;
+                backdrop-filter: none !important;
+                -webkit-backdrop-filter: none !important;
+            }
+        }
+        @media (min-width: 992px) {
+            .sidebar-backdrop, .sidebar-backdrop.active {
+                display: none !important;
+                visibility: hidden !important;
+                backdrop-filter: none !important;
+                -webkit-backdrop-filter: none !important;
+            }
+        }
         .profile-img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
-        .collapse-toggle { position: absolute; right: -12px; top: 50%; transform: translateY(-50%); width: 24px; height: 48px; background: #000; color: #fff; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 1100; box-shadow: 0 2px 10px rgba(0,0,0,0.2); transition: 0.3s ease; border: 1px solid rgba(255,255,255,0.1); }
         .main-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; height: 100vh; min-height: 0; }
         .top-header { height: 70px; background: #fff; border-bottom: 1px solid var(--border-color); padding: 0 32px; display: flex; align-items: center; justify-content: space-between; }
         .search-container { position: relative; width: 300px; }
@@ -460,71 +923,197 @@
 
     <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
-        <div class="collapse-toggle" onclick="toggleCollapse()">
-            <i class="bi bi-chevron-left" style="font-size: 12px;"></i>
+        <!-- Search & Collapse Toggle Button (Exact Dribbble Layout gb 2) -->
+        <div class="sidebar-top-bar">
+            <div class="sidebar-search-wrapper">
+                <input type="text" id="erp-sidebar-search" class="sidebar-search-input" placeholder="Search" oninput="filterSidebarMenus(this.value)">
+                <i class="bi bi-search"></i>
+            </div>
+            <button class="sidebar-collapse-btn" id="btn-sidebar-collapse" onclick="toggleCollapse()" title="Collapse / Expand Sidebar">
+                <i class="bi bi-chevron-double-left" id="sidebar-collapse-icon"></i>
+            </button>
+            <div class="sidebar-collapsed-search-icon" onclick="toggleCollapse()" title="Search">
+                <i class="bi bi-search"></i>
+            </div>
         </div>
-        <div class="sidebar-header" style="padding: 20px 16px; min-height: 90px; justify-content: flex-start;">
-            <img src="/assets/wellen_logo.svg" class="main-logo" alt="Wellen Print" style="height: 72px; width: auto; max-width: 100%; object-fit: contain;">
-        </div>
 
-        <nav class="nav-menu">
-            <div class="nav-category">Overview</div>
-            <a href="javascript:void(0)" class="nav-link-custom active" id="nav-dashboard" style="cursor: pointer;" onclick="switchTab('dashboard', this)">
-                <i class="bi bi-grid-1x2"></i> <span>Dashboard</span>
-            </a>
-            <a href="javascript:void(0)" class="nav-link-custom" id="nav-monitor" style="cursor: pointer;" onclick="switchTab('monitor', this)">
-                <i class="bi bi-geo-alt"></i> <span>Live Tracking</span>
+        <nav class="nav-menu" style="overflow-y: auto; overflow-x: hidden; padding: 4px 8px 16px 8px; flex: 1;">
+            <!-- 1. Dashboard (Direct Link as in Dribbble gb 2) -->
+            <a href="javascript:void(0)" class="nav-link-custom active mb-1" id="nav-dashboard" onclick="switchTab('dashboard', this)">
+                <i class="bi bi-grid-fill"></i> <span>Dashboard</span>
             </a>
 
-            <div class="nav-category">Plan Delivery</div>
-            <!-- 1. Import SPK -->
-            <a href="javascript:void(0)" class="nav-link-custom fw-semibold" id="nav-import-spk" style="cursor: pointer;" onclick="openSPKImportModal()">
-                <i class="bi bi-file-earmark-arrow-up"></i> <span>Import SPK</span>
-            </a>
-            <!-- 2. Import Surat Jalan -->
-            <a href="javascript:void(0)" class="nav-link-custom fw-semibold" id="nav-import-sj" style="cursor: pointer;" onclick="openSJImportModal()">
-                <i class="bi bi-file-earmark-spreadsheet"></i> <span>Import Surat Jalan</span>
-            </a>
-            <!-- 3. Plan Shipment -->
-            <a href="javascript:void(0)" class="nav-link-custom" id="nav-pool" style="cursor: pointer;" onclick="switchTab('pool', this)">
-                <i class="bi bi-box-seam"></i> <span>Plan Shipment</span>
-            </a>
-            <!-- 4. Manajemen SPK -->
-            <a href="javascript:void(0)" class="nav-link-custom" id="nav-spk" style="cursor: pointer;" onclick="switchTab('spk', this)">
-                <i class="bi bi-journal-text"></i> <span>Manajemen SPK</span>
-            </a>
+            <!-- 2. Job Intake -->
+            <div class="sidebar-accordion-group" data-group="job-intake">
+                <div class="sidebar-group-header" onclick="toggleSidebarGroup('job-intake')">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-folder2 group-icon"></i>
+                        <span class="group-title">Job Intake</span>
+                    </div>
+                    <i class="bi bi-chevron-down chevron-icon"></i>
+                </div>
+                <div class="sidebar-sub-items">
+                    <a href="javascript:void(0)" class="sub-nav-item" id="nav-job-new-order" onclick="openModulePlaceholder('New Order', 'Job Intake', this)">
+                        <i class="bi bi-plus-circle sub-icon"></i> <span>New Order</span>
+                    </a>
+                    <a href="javascript:void(0)" class="sub-nav-item" id="nav-job-file-upload" onclick="openModulePlaceholder('File Upload', 'Job Intake', this)">
+                        <i class="bi bi-cloud-arrow-up sub-icon"></i> <span>File Upload</span>
+                    </a>
+                    <a href="javascript:void(0)" class="sub-nav-item" id="nav-import-spk" onclick="openSPKImportModal()">
+                        <i class="bi bi-file-earmark-spreadsheet sub-icon"></i> <span>SPK Import</span>
+                    </a>
+                    <a href="javascript:void(0)" class="sub-nav-item" id="nav-import-sj" onclick="openSJImportModal()">
+                        <i class="bi bi-file-earmark-arrow-down sub-icon"></i> <span>Surat Jalan Import</span>
+                    </a>
+                </div>
+            </div>
 
-            <div class="nav-category">Operations & Dispatch</div>
-            <!-- 5. Workstation Cikokol -->
-            <a href="javascript:void(0)" class="nav-link-custom" id="nav-branch-workstation" style="cursor: pointer;" onclick="switchTab('branch-workstation', this)">
-                <i class="bi bi-building-gear"></i> <span>Workstation Cikokol</span>
-                <span class="badge bg-warning text-dark ms-auto" id="badge-cikokol-count" style="display:none; font-size:10px;">0</span>
-            </a>
+            <!-- 3. Pre-Press / Desk print -->
+            <div class="sidebar-accordion-group" data-group="desk-print">
+                <div class="sidebar-group-header" onclick="toggleSidebarGroup('desk-print')">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-bezier2 group-icon"></i>
+                        <span class="group-title">Desk print</span>
+                    </div>
+                    <i class="bi bi-chevron-down chevron-icon"></i>
+                </div>
+                <div class="sidebar-sub-items">
+                    <a href="javascript:void(0)" class="sub-nav-item" id="nav-deskprint-prefile" onclick="openModulePlaceholder('Pre File management', 'Desk print', this)">
+                        <i class="bi bi-file-earmark-check sub-icon"></i> <span>Pre File management</span>
+                    </a>
+                </div>
+            </div>
 
-            <a href="javascript:void(0)" class="nav-link-custom" id="nav-dispatch" style="cursor: pointer;" onclick="switchTab('dispatch', this)">
-                <i class="bi bi-plus-square"></i> <span>Shipments</span>
-            </a>
-            <a href="javascript:void(0)" class="nav-link-custom" id="nav-fleet" style="cursor: pointer;" onclick="switchTab('fleet', this)">
-                <i class="bi bi-graph-up-arrow"></i> <span>KPI Kurir</span>
-            </a>
-            <a href="javascript:void(0)" class="nav-link-custom" id="nav-fleet-inventory" style="cursor: pointer; display: none;" onclick="switchTab('fleet-inventory', this)">
-                <i class="bi bi-truck-front-fill"></i> <span>Inventaris Armada</span>
-            </a>
-            <a href="javascript:void(0)" class="nav-link-custom" id="nav-courier-audit" style="cursor: pointer; display: none;" onclick="switchTab('courier-audit', this)">
-                <i class="bi bi-clock-history"></i> <span>Audit Kurir Harian</span>
-            </a>
-            <a href="javascript:void(0)" class="nav-link-custom" id="nav-chat" style="cursor: pointer;" onclick="switchTab('chat', this)">
-                <i class="bi bi-chat-dots"></i> <span>Drivers Chat</span>
-            </a>
+            <!-- 4. Production -->
+            <div class="sidebar-accordion-group" data-group="production">
+                <div class="sidebar-group-header" onclick="toggleSidebarGroup('production')">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-calendar4-week group-icon"></i>
+                        <span class="group-title">Production</span>
+                    </div>
+                    <i class="bi bi-chevron-down chevron-icon"></i>
+                </div>
+                <div class="sidebar-sub-items">
+                    <a href="javascript:void(0)" class="sub-nav-item" id="nav-prod-machine-assign" onclick="openModulePlaceholder('Machine Assignment', 'Production', this)">
+                        <i class="bi bi-printer sub-icon"></i> <span>Machine Assignment</span>
+                    </a>
+                    <a href="javascript:void(0)" class="sub-nav-item" id="nav-prod-scheduling" onclick="openModulePlaceholder('Production Scheduling', 'Production', this)">
+                        <i class="bi bi-calendar-event sub-icon"></i> <span>Production Scheduling</span>
+                    </a>
+                    <a href="javascript:void(0)" class="sub-nav-item" id="nav-prod-view" onclick="openModulePlaceholder('Production View', 'Production', this)">
+                        <i class="bi bi-kanban sub-icon"></i> <span>Production View</span>
+                    </a>
+                    <a href="javascript:void(0)" class="sub-nav-item" id="nav-prod-outdoor" onclick="openModulePlaceholder('Production Outdoor', 'Production', this)">
+                        <i class="bi bi-sun sub-icon"></i> <span>Production Outdoor</span>
+                    </a>
+                    <a href="javascript:void(0)" class="sub-nav-item" id="nav-prod-indoor" onclick="openModulePlaceholder('Production Indoor', 'Production', this)">
+                        <i class="bi bi-building sub-icon"></i> <span>Production Indoor</span>
+                    </a>
+                </div>
+            </div>
 
-            <div class="nav-category" id="cat-system">System</div>
-            <a href="javascript:void(0)" class="nav-link-custom" id="nav-pod-archive" style="cursor: pointer;" onclick="switchTab('pod-archive', this)">
-                <i class="bi bi-images"></i> <span>Arsip Foto PoD</span>
-            </a>
-            <a href="javascript:void(0)" class="nav-link-custom" id="nav-reports" style="cursor: pointer;" onclick="switchTab('reports', this)">
-                <i class="bi bi-bar-chart"></i> <span>Reports</span>
-            </a>
-            <a href="javascript:void(0)" class="nav-link-custom" id="nav-settings" style="cursor: pointer;" onclick="switchTab('settings', this)">
+            <!-- 5. Inventory (Open by default in Card container - exactly as in Dribbble gb 2) -->
+            <div class="sidebar-accordion-group open" data-group="inventory">
+                <div class="sidebar-group-header" onclick="toggleSidebarGroup('inventory')">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-boxes group-icon"></i>
+                        <span class="group-title">Inventory</span>
+                    </div>
+                    <i class="bi bi-chevron-down chevron-icon"></i>
+                </div>
+                <div class="sidebar-sub-items">
+                    <a href="javascript:void(0)" class="sub-nav-item" id="nav-inv-material" onclick="openModulePlaceholder('Paper & Substrates', 'Inventory', this)">
+                        <i class="bi bi-layers sub-icon"></i> <span>Paper & Substrates</span>
+                    </a>
+                    <a href="javascript:void(0)" class="sub-nav-item" id="nav-inv-ink" onclick="openModulePlaceholder('Ink & Toners', 'Inventory', this)">
+                        <i class="bi bi-droplet-half sub-icon"></i> <span>Ink & Toners</span>
+                    </a>
+                    <a href="javascript:void(0)" class="sub-nav-item" id="nav-inv-consumables" onclick="openModulePlaceholder('Consumables & Parts', 'Inventory', this)">
+                        <i class="bi bi-tools sub-icon"></i> <span>Consumables & Parts</span>
+                    </a>
+                    <a href="javascript:void(0)" class="sub-nav-item" id="nav-inv-supplier" onclick="openModulePlaceholder('Supplier Management', 'Inventory', this)">
+                        <i class="bi bi-person-badge sub-icon"></i> <span>Supplier Management</span>
+                    </a>
+                    <a href="javascript:void(0)" class="sub-nav-item" id="nav-fleet-inventory" style="display: none;" onclick="switchTab('fleet-inventory', this)">
+                        <i class="bi bi-truck-front sub-icon"></i> <span>Fleet Inventory</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- 6. QC & Shipping (Live Modules) -->
+            <div class="sidebar-accordion-group" data-group="qc-shipping">
+                <div class="sidebar-group-header" onclick="toggleSidebarGroup('qc-shipping')">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-truck group-icon"></i>
+                        <span class="group-title">QC & Shipping</span>
+                    </div>
+                    <i class="bi bi-chevron-down chevron-icon"></i>
+                </div>
+                <div class="sidebar-sub-items">
+                    <a href="javascript:void(0)" class="sub-nav-item" id="nav-qc-quality-control" onclick="openModulePlaceholder('Quality Control', 'QC & Shipping', this)">
+                        <i class="bi bi-shield-check sub-icon"></i> <span>Quality Control</span>
+                    </a>
+                    <a href="javascript:void(0)" class="sub-nav-item" id="nav-qc-packaging" onclick="openModulePlaceholder('Packaging', 'QC & Shipping', this)">
+                        <i class="bi bi-box-seam sub-icon"></i> <span>Packaging</span>
+                    </a>
+                    <a href="javascript:void(0)" class="sub-nav-item" id="nav-monitor" onclick="switchTab('monitor', this)">
+                        <i class="bi bi-geo-alt sub-icon"></i> <span>Live Tracking</span>
+                    </a>
+                    <a href="javascript:void(0)" class="sub-nav-item" id="nav-pool" onclick="switchTab('pool', this)">
+                        <i class="bi bi-clipboard2-check sub-icon"></i> <span>Plan Shipment</span>
+                    </a>
+                    <a href="javascript:void(0)" class="sub-nav-item" id="nav-spk" onclick="switchTab('spk', this)">
+                        <i class="bi bi-card-checklist sub-icon"></i> <span>SPK Management</span>
+                    </a>
+                    <a href="javascript:void(0)" class="sub-nav-item" id="nav-branch-workstation" onclick="switchTab('branch-workstation', this)">
+                        <i class="bi bi-pc-display-horizontal sub-icon"></i> <span>Workstation Cikokol</span>
+                        <span class="badge bg-warning text-dark ms-auto" id="badge-cikokol-count" style="display:none; font-size:10px;">0</span>
+                    </a>
+                    <a href="javascript:void(0)" class="sub-nav-item" id="nav-dispatch" onclick="switchTab('dispatch', this)">
+                        <i class="bi bi-send sub-icon"></i> <span>Manual Dispatch</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- 7. Analytics & Report (Live Reports & Analytics) -->
+            <div class="sidebar-accordion-group" data-group="analytics-report">
+                <div class="sidebar-group-header" onclick="toggleSidebarGroup('analytics-report')">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-bar-chart-line group-icon"></i>
+                        <span class="group-title">Analytics & Report</span>
+                    </div>
+                    <i class="bi bi-chevron-down chevron-icon"></i>
+                </div>
+                <div class="sidebar-sub-items">
+                    <a href="javascript:void(0)" class="sub-nav-item" id="nav-analytics-efficiency" onclick="openModulePlaceholder('Efficiency Report', 'Analytics & Report', this)">
+                        <i class="bi bi-graph-up-arrow sub-icon"></i> <span>Efficiency Report</span>
+                    </a>
+                    <a href="javascript:void(0)" class="sub-nav-item" id="nav-analytics-waste" onclick="openModulePlaceholder('Waste Report', 'Analytics & Report', this)">
+                        <i class="bi bi-trash3 sub-icon"></i> <span>Waste Report</span>
+                    </a>
+                    <a href="javascript:void(0)" class="sub-nav-item" id="nav-analytics-cost" onclick="openModulePlaceholder('Cost Analysis', 'Analytics & Report', this)">
+                        <i class="bi bi-cash-stack sub-icon"></i> <span>Cost Analysis</span>
+                    </a>
+                    <a href="javascript:void(0)" class="sub-nav-item" id="nav-reports" onclick="switchTab('reports', this)">
+                        <i class="bi bi-file-earmark-bar-graph sub-icon"></i> <span>Shipping Report</span>
+                    </a>
+                    <a href="javascript:void(0)" class="sub-nav-item" id="nav-courier-audit" style="display: none;" onclick="switchTab('courier-audit', this)">
+                        <i class="bi bi-person-check sub-icon"></i> <span>Daily Courier Audit</span>
+                    </a>
+                    <a href="javascript:void(0)" class="sub-nav-item" id="nav-fleet" onclick="switchTab('fleet', this)">
+                        <i class="bi bi-speedometer2 sub-icon"></i> <span>Courier Performance (KPI)</span>
+                    </a>
+                    <a href="javascript:void(0)" class="sub-nav-item" id="nav-pod-archive" onclick="switchTab('pod-archive', this)">
+                        <i class="bi bi-images sub-icon"></i> <span>PoD Photo Archive</span>
+                    </a>
+                    <a href="javascript:void(0)" class="sub-nav-item" id="nav-chat" onclick="switchTab('chat', this)">
+                        <i class="bi bi-chat-dots sub-icon"></i> <span>Drivers Chat</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Settings -->
+            <a href="javascript:void(0)" class="nav-link-custom mt-2" id="nav-settings" onclick="switchTab('settings', this)">
                 <i class="bi bi-gear"></i> <span>Settings</span>
             </a>
         </nav>
@@ -599,6 +1188,9 @@
                         <option value="cikokol">Cikokol</option>
                     </select>
                 </div>
+                <button class="btn btn-light border text-success d-flex align-items-center gap-1.5 px-3 py-2 fw-bold me-1" style="border-radius: 10px; font-size: 0.82rem; background: #f0fdf4; border-color: #bbf7d0 !important;" onclick="openWaGroupConfigModal()" title="Pengaturan Auto-Grup WhatsApp Kurir Motor & Driver Mobil">
+                    <i class="bi bi-whatsapp"></i> <span>Grup WA Otomatis</span>
+                </button>
                 <button class="btn btn-light border text-danger d-flex align-items-center gap-1 px-3 py-2 fw-semibold" style="border-radius: 10px; font-size: 0.85rem;" onclick="handleLogout()" title="Logout">
                     <i class="bi bi-box-arrow-right"></i> <span>Logout</span>
                 </button>
@@ -733,6 +1325,8 @@
                                     <tr class="text-nowrap">
                                         <th style="background: #ffffff; white-space: nowrap;" class="fw-semibold cursor-pointer text-nowrap" onclick="sortRecentShipments('date')">Date <i id="sort-icon-date" class="bi bi-arrow-down-up text-muted ms-1"></i></th>
                                         <th style="background: #ffffff; white-space: nowrap;" class="fw-semibold cursor-pointer text-nowrap" onclick="sortRecentShipments('id')">Shipment ID <i id="sort-icon-id" class="bi bi-arrow-down-up text-muted ms-1"></i></th>
+                                        <th style="background: #ffffff; white-space: nowrap;" class="fw-semibold text-nowrap">No. SJ</th>
+                                        <th style="background: #ffffff; white-space: nowrap;" class="fw-semibold text-nowrap">Admin SJ</th>
                                         <th style="background: #ffffff; white-space: nowrap;" class="fw-semibold cursor-pointer text-nowrap" onclick="sortRecentShipments('destination')">Destination <i id="sort-icon-destination" class="bi bi-arrow-down-up text-muted ms-1"></i></th>
                                         <th style="background: #ffffff; white-space: nowrap;" class="fw-semibold cursor-pointer text-nowrap" onclick="sortRecentShipments('status')">Status <i id="sort-icon-status" class="bi bi-arrow-down-up text-muted ms-1"></i></th>
                                         <th style="background: #ffffff; white-space: nowrap;" class="fw-semibold cursor-pointer text-nowrap" onclick="sortRecentShipments('carrier')">Carrier <i id="sort-icon-carrier" class="bi bi-arrow-down-up text-muted ms-1"></i></th>
@@ -813,54 +1407,6 @@
                                     <button class="btn btn-dark px-3 fw-bold d-flex align-items-center gap-1" style="border-radius: 10px; font-size: 0.85rem;" onclick="addManualAddress()">
                                         <i class="bi bi-plus-lg"></i> <span>ADD</span>
                                     </button>
-                                </div>
-
-                                <div class="border rounded-3 p-3 bg-light shadow-sm">
-                                    <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
-                                        <div class="d-flex align-items-center">
-                                            <label class="extra-small fw-bold text-muted text-uppercase mb-0">Quick Pick by Region</label>
-                                            <span id="client-qty" class="badge bg-dark ms-2" style="font-size: 0.65rem; border-radius: 6px;">0</span>
-                                        </div>
-                                        <div class="d-flex align-items-center gap-2">
-                                            <div class="form-check p-0 m-0" style="min-height: auto;">
-                                                <input type="checkbox" class="form-check-input ms-0" id="select-all-clients" onchange="toggleAllClients(this.checked)" style="width: 14px; height: 14px; margin-top: 0;">
-                                                <label class="form-check-label extra-small fw-bold text-muted ms-1" for="select-all-clients">ALL</label>
-                                            </div>
-                                            <select id="region-filter" class="form-select form-select-sm w-auto border-0 bg-white shadow-sm fw-bold text-primary" onchange="loadClientsByRegion(this.value)">
-                                                <option value="">All Regions</option>
-                                                <option value="Auto-detected">Auto-detected</option>
-                                                <option value="Banten">Banten</option>
-                                                <option value="Bekasi">Bekasi</option>
-                                                <option value="Bogor">Bogor</option>
-                                                <option value="Cikarang">Cikarang</option>
-                                                <option value="Cilegon">Cilegon</option>
-                                                <option value="Depok">Depok</option>
-                                                <option value="Jakarta Barat">Jakarta Barat</option>
-                                                <option value="Jakarta Pusat">Jakarta Pusat</option>
-                                                <option value="Jakarta Selatan">Jakarta Selatan</option>
-                                                <option value="Jakarta Timur">Jakarta Timur</option>
-                                                <option value="Jakarta Utara">Jakarta Utara</option>
-                                                <option value="Karawang">Karawang</option>
-                                                <option value="Serang">Serang</option>
-                                                <option value="Tangerang">Tangerang</option>
-                                            </select>
-                                        </div>
-                                    </div>
-
-                                    <div class="position-relative mb-3">
-                                        <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" style="font-size: 0.8rem;"></i>
-                                        <input type="text" id="client-search-input" class="form-control form-control-sm ps-5 py-2" style="border-radius: 8px; font-size: 0.8rem;" placeholder="Cari Nama Toko, PT, atau Alamat..." oninput="filterClients(this.value)">
-                                    </div>
-
-                                    <div id="client-list-container" class="overflow-y-auto mb-3 pe-1" style="max-height: 200px;">
-                                        <p class="text-center py-3 text-muted extra-small">Loading clients...</p>
-                                    </div>
-                                    <div class="d-flex gap-2">
-                                        <button class="btn btn-sm btn-outline-dark flex-grow-1 fw-bold py-2" style="border-radius: 8px;" onclick="addSelectedClients()"><i class="bi bi-plus-circle me-1"></i> ADD SELECTED TO ROUTE</button>
-                                        <button class="btn btn-sm btn-outline-danger px-3 py-2" style="border-radius: 8px;" onclick="clearAllClients()" title="Hapus Semua Client dari Database">
-                                            <i class="bi bi-trash3-fill"></i>
-                                        </button>
-                                    </div>
                                 </div>
                             </div>
 
@@ -1828,7 +2374,11 @@
                 <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
                     <div class="aerotrack-pill-nav mb-0">
                         <button class="aerotrack-pill-btn active" id="pill-all-plan" type="button" onclick="UnifiedPoolUI.setDeliveryStatusFilter('ALL')">
-                            <i class="bi bi-box-seam text-primary"></i> On Hand Plan Shipment
+                            <i class="bi bi-box-seam text-primary"></i> On Hand Siap Kirim
+                        </button>
+                        <button class="aerotrack-pill-btn text-warning fw-semibold" id="pill-not-ready-plan" type="button" onclick="UnifiedPoolUI.setDeliveryStatusFilter('NOT_READY')">
+                            <i class="bi bi-clock-history text-warning"></i> Belum Siap Kirim
+                            <span class="badge bg-warning text-dark rounded-pill ms-1" id="badge-top-not-ready-count" style="display:none;">0</span>
                         </button>
                         <button class="aerotrack-pill-btn text-danger fw-semibold" id="pill-pending-plan" type="button" onclick="UnifiedPoolUI.setDeliveryStatusFilter('PENDING_FAILED')">
                             <i class="bi bi-exclamation-triangle-fill text-danger"></i> Pending / Gagal Terkirim
@@ -2053,6 +2603,32 @@
                         </div>
                     </div>
                 </div>
+            </div>
+
+            <!-- 404 / DALAM PENGEMBANGAN PLACEHOLDER VIEW (Untuk Fitur yang Belum Ada) -->
+            <div id="view-placeholder-404" class="view-section" style="display: none;">
+                <div class="d-flex flex-column align-items-center justify-content-center text-center p-5 bg-white rounded-4 border shadow-sm my-3" style="min-height: 520px;">
+                    <div class="mb-4 d-inline-flex align-items-center justify-content-center rounded-circle bg-light border" style="width: 88px; height: 88px;">
+                        <i class="bi bi-cone-striped fs-1 text-warning"></i>
+                    </div>
+                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-3 py-1.5 mb-2 fw-semibold" id="placeholder-404-badge" style="font-size: 12px;">
+                        404 • Modul Dalam Pengembangan
+                    </span>
+                    <h3 class="fw-bold text-dark mb-2" id="placeholder-404-title">Modul Belum Tersedia</h3>
+                    <p class="text-muted mb-4" style="max-width: 480px; font-size: 13.5px; line-height: 1.6;" id="placeholder-404-desc">
+                        Halaman ini merupakan bagian dari roadmap pengembangan sistem Wellen Print ERP. Fitur ini sedang disiapkan dan belum aktif di sistem saat ini.
+                    </p>
+                    <div class="d-flex gap-2 flex-wrap justify-content-center">
+                        <button class="btn btn-primary px-4 py-2 fw-semibold" style="border-radius: 10px; font-size: 13px;" onclick="switchTab('dashboard')">
+                            <i class="bi bi-speedometer2 me-1.5"></i> Kembali ke Dashboard
+                        </button>
+                        <button class="btn btn-outline-dark px-3.5 py-2 fw-semibold" style="border-radius: 10px; font-size: 13px;" onclick="switchTab('pool')">
+                            <i class="bi bi-box-seam me-1.5"></i> Buka Plan Shipment
+                        </button>
+                    </div>
+                </div>
+            </div>
+</div>
             </div>
 
         </div>
@@ -2432,8 +3008,8 @@
                 <div class="d-flex align-items-center gap-2 flex-wrap">
                     <input type="file" id="sj-excel-native-input" class="d-none" accept=".xlsx, .xls, .csv, .docx, .doc, .rtf, .docm, .dotx, .dot" multiple onchange="window.sjImportEngine && window.sjImportEngine.handleExcelFileSelected(event)">
                     <input type="file" id="sj-folder-native-input" class="d-none" webkitdirectory directory multiple onchange="window.sjImportEngine && window.sjImportEngine.handleExcelFolderSelected(event)">
-                    <button type="button" class="btn btn-sm btn-dark aerotrack-input d-flex align-items-center gap-1.5 fw-semibold" onclick="document.getElementById('sj-excel-native-input').click()">
-                        <i class="bi bi-file-earmark-arrow-up"></i> <span>Pilih File</span>
+                    <button type="button" class="btn btn-sm aerotrack-input d-flex align-items-center gap-1.5 fw-semibold" style="background: transparent !important; color: #0f172a !important; border: 1.5px solid #cbd5e1 !important;" onclick="document.getElementById('sj-excel-native-input').click()">
+                        <i class="bi bi-file-earmark-arrow-up text-primary"></i> <span>Pilih File</span>
                     </button>
                     <button type="button" class="btn btn-sm btn-light border aerotrack-input d-flex align-items-center gap-1.5 fw-semibold" onclick="document.getElementById('sj-folder-native-input').click()" title="Pilih satu folder berisi banyak file Surat Jalan (100+ file .doc/.docx)">
                         <i class="bi bi-folder2-open text-primary"></i> <span>Pilih Folder</span>
@@ -2461,6 +3037,7 @@
                                         <input type="checkbox" class="form-check-input" id="check-all-preview-sj" checked onchange="window.sjImportEngine && window.sjImportEngine.toggleAllPreview(this.checked)">
                                     </th>
                                     <th style="width: 140px;">No. Surat Jalan</th>
+                                    <th style="width: 110px;">Admin SJ</th>
                                     <th style="width: 90px;">Kode Unik</th>
                                     <th style="min-width: 180px;">Customer</th>
                                     <th style="min-width: 220px;">Alamat Kirim</th>
@@ -2483,8 +3060,8 @@
             <div class="modal-footer border-top py-3 px-4 bg-white d-flex justify-content-between">
                 <button type="button" class="btn btn-sm btn-light border px-3 aerotrack-input fw-semibold" data-bs-dismiss="modal">Tutup</button>
                 <div class="d-flex align-items-center gap-2">
-                    <button type="button" class="btn btn-sm btn-dark px-3 fw-semibold aerotrack-input" id="btn-commit-import-sj" onclick="window.sjImportEngine && window.sjImportEngine.commitImportBatch(false)">
-                        <i class="bi bi-box-arrow-in-down me-1"></i> Simpan ke Pool
+                    <button type="button" class="btn btn-sm px-3 fw-semibold aerotrack-input" id="btn-commit-import-sj" style="background: transparent !important; color: #0f172a !important; border: 1.5px solid #0f172a !important;" onclick="window.sjImportEngine && window.sjImportEngine.commitImportBatch(false)">
+                        <i class="bi bi-box-arrow-in-down me-1 text-primary"></i> Simpan ke Pool
                     </button>
                     <button type="button" class="btn btn-sm btn-primary px-3.5 fw-semibold aerotrack-input" id="btn-commit-import-and-print" onclick="window.sjImportEngine && window.sjImportEngine.commitImportBatch(true)">
                         <i class="bi bi-printer me-1"></i> Simpan & Cetak SJ
@@ -2517,8 +3094,8 @@
                 <div class="d-flex align-items-center gap-2 flex-wrap">
                     <input type="file" id="spk-excel-native-input" class="d-none" accept=".xlsx, .xls, .csv" multiple onchange="window.spkManager && window.spkManager.handleSPKUpload(event)">
                     <input type="file" id="spk-folder-native-input" class="d-none" webkitdirectory directory multiple onchange="window.spkManager && window.spkManager.handleSPKFolderSelected(event)">
-                    <button type="button" class="btn btn-sm btn-dark aerotrack-input d-flex align-items-center gap-1.5 fw-semibold" onclick="document.getElementById('spk-excel-native-input').click()">
-                        <i class="bi bi-file-earmark-arrow-up"></i> <span>Pilih File</span>
+                    <button type="button" class="btn btn-sm aerotrack-input d-flex align-items-center gap-1.5 fw-semibold" style="background: transparent !important; color: #0f172a !important; border: 1.5px solid #cbd5e1 !important;" onclick="document.getElementById('spk-excel-native-input').click()">
+                        <i class="bi bi-file-earmark-arrow-up text-primary"></i> <span>Pilih File</span>
                     </button>
                     <button type="button" class="btn btn-sm btn-light border aerotrack-input d-flex align-items-center gap-1.5 fw-semibold" onclick="document.getElementById('spk-folder-native-input').click()" title="Pilih folder berisi file-file SPK">
                         <i class="bi bi-folder2-open text-primary"></i> <span>Pilih Folder</span>
@@ -2604,6 +3181,188 @@
     </div>
 </div>
 
+<!-- MODAL KONFIGURASI AUTO-GRUP WHATSAPP (KURIR MOTOR & DRIVER MOBIL) -->
+<div class="modal fade" id="waGroupConfigModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 540px;">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header border-bottom px-4 py-3" style="background: #f0fdf4;">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="rounded-3 d-flex align-items-center justify-content-center text-white" style="width: 38px; height: 38px; background: #25D366; font-size: 1.2rem;">
+                        <i class="bi bi-whatsapp"></i>
+                    </div>
+                    <div>
+                        <h6 class="fw-bold m-0 text-dark">Integrasi Auto-Grup WhatsApp (Motor &amp; Mobil)</h6>
+                        <small class="text-muted" style="font-size: 0.75rem;">Laporan Kartu Bukti Tiba otomatis terpisah sesuai role Kurir / Driver</small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="p-3 rounded-3 mb-3" style="background: #f8fafc; border: 1px solid #e2e8f0;">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="fw-bold small text-dark">🛵 Grup Kurir Motor</span>
+                        <span class="badge bg-success-subtle text-success extra-small">Aktif Terhubung</span>
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-5">
+                            <label class="extra-small text-muted fw-semibold">Nama Grup Motor</label>
+                            <input type="text" id="cfg-wa-motor-name" class="form-control form-control-sm ps-2 fw-bold" value="Kurir Wellen Print">
+                        </div>
+                        <div class="col-7">
+                            <label class="extra-small text-muted fw-semibold">ID Grup WhatsApp (@g.us)</label>
+                            <input type="text" id="cfg-wa-motor-id" class="form-control form-control-sm ps-2 font-monospace" value="6285351258810-1542885383@g.us">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-3 rounded-3 mb-3" style="background: #f8fafc; border: 1px solid #e2e8f0;">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="fw-bold small text-dark">🚚 Grup Driver Mobil</span>
+                        <span class="badge bg-primary-subtle text-primary extra-small">Aktif Terhubung</span>
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-5">
+                            <label class="extra-small text-muted fw-semibold">Nama Grup Mobil</label>
+                            <input type="text" id="cfg-wa-mobil-name" class="form-control form-control-sm ps-2 fw-bold" value="Wellen Print's Driver">
+                        </div>
+                        <div class="col-7">
+                            <label class="extra-small text-muted fw-semibold">ID Grup WhatsApp (@g.us)</label>
+                            <input type="text" id="cfg-wa-mobil-id" class="form-control form-control-sm ps-2 font-monospace" value="6285351258810-1545222253@g.us">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-3 rounded-3 mb-3" style="background: #fffbeb; border: 1px solid #fde68a;">
+                    <div class="form-check form-switch mb-2">
+                        <input class="form-check-input" type="checkbox" id="cfg-wa-cc-checker">
+                        <label class="form-check-label fw-bold small text-dark" for="cfg-wa-cc-checker">
+                            CC Otomatis ke Grup Checker (`TIM CHECKER &amp; LOGISTIK DM`)
+                        </label>
+                    </div>
+                    <input type="text" id="cfg-wa-checker-id" class="form-control form-control-sm ps-2 font-monospace" value="120363230482600014@g.us">
+                </div>
+
+                <div class="p-3 rounded-3" style="background: #f0fdf4; border: 1px solid #bbf7d0;">
+                    <label class="fw-bold small text-dark d-block mb-1">
+                        Token API WA Gateway (Fonnte) — Opsional untuk 100% Kirim Tanpa Klik
+                    </label>
+                    <small class="text-muted d-block mb-2" style="font-size: 0.73rem;">
+                        Jika diisi Token Fonnte, Kartu Bukti Tiba langsung terkirim otomatis ke grup di latar belakang begitu kurir klik Selesai. Jika dikosongkan, HP kurir otomatis membuka layar Share WA dengan Kartu sudah terlampir.
+                    </small>
+                    <div class="input-group input-group-sm">
+                        <input type="password" id="cfg-wa-api-token" class="form-control ps-2 font-monospace" placeholder="Masukkan Token Fonnte (opsional)...">
+                        <button class="btn btn-outline-secondary" type="button" onclick="const el=document.getElementById('cfg-wa-api-token'); el.type = el.type==='password'?'text':'password';">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-top px-4 py-3 bg-light d-flex justify-content-between">
+                <button type="button" class="btn btn-sm btn-light border px-3" data-bs-dismiss="modal">Tutup</button>
+                <button type="button" class="btn btn-sm text-white fw-bold px-4" style="background: #25D366;" onclick="saveWaGroupConfigFromAdmin()">
+                    <i class="bi bi-check2-circle me-1"></i> Simpan &amp; Sinkronkan ke Semua Kurir
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    window.adminWaGroupConfig = {
+        motorGroupName: "Kurir Wellen Print",
+        motorGroupId: "6285351258810-1542885383@g.us",
+        mobilGroupName: "Wellen Print's Driver",
+        mobilGroupId: "6285351258810-1545222253@g.us",
+        checkerGroupName: "TIM CHECKER & LOGISTIK DM",
+        checkerGroupId: "120363230482600014@g.us",
+        apiToken: "",
+        autoSendOnComplete: true,
+        ccCheckerGroup: false
+    };
+
+    (function initAdminWaGroupConfig() {
+        try {
+            const localRaw = localStorage.getItem('wtrack_wa_group_config');
+            if (localRaw) {
+                window.adminWaGroupConfig = { ...window.adminWaGroupConfig, ...JSON.parse(localRaw) };
+            }
+        } catch (e) {}
+
+        if (typeof firebase !== 'undefined' && firebase.database) {
+            try {
+                const ref = firebase.database().ref('settings/wa_group_config');
+                ref.on('value', (snap) => {
+                    if (snap.exists()) {
+                        window.adminWaGroupConfig = { ...window.adminWaGroupConfig, ...snap.val() };
+                        localStorage.setItem('wtrack_wa_group_config', JSON.stringify(window.adminWaGroupConfig));
+                    } else {
+                        // Simpan default ID grup resmi ke Firebase jika belum ada
+                        ref.set(window.adminWaGroupConfig);
+                    }
+                });
+            } catch (e) {}
+        }
+    })();
+
+    function openWaGroupConfigModal() {
+        const cfg = window.adminWaGroupConfig;
+        const mName = document.getElementById('cfg-wa-motor-name');
+        const mId = document.getElementById('cfg-wa-motor-id');
+        const cName = document.getElementById('cfg-wa-mobil-name');
+        const cId = document.getElementById('cfg-wa-mobil-id');
+        const chkCc = document.getElementById('cfg-wa-cc-checker');
+        const chkId = document.getElementById('cfg-wa-checker-id');
+        const tok = document.getElementById('cfg-wa-api-token');
+
+        if (mName) mName.value = cfg.motorGroupName || "Kurir Wellen Print";
+        if (mId) mId.value = cfg.motorGroupId || "6285351258810-1542885383@g.us";
+        if (cName) cName.value = cfg.mobilGroupName || "Wellen Print's Driver";
+        if (cId) cId.value = cfg.mobilGroupId || "6285351258810-1545222253@g.us";
+        if (chkCc) chkCc.checked = !!cfg.ccCheckerGroup;
+        if (chkId) chkId.value = cfg.checkerGroupId || "120363230482600014@g.us";
+        if (tok) tok.value = cfg.apiToken || "";
+
+        const modalEl = document.getElementById('waGroupConfigModal');
+        if (modalEl && typeof bootstrap !== 'undefined') {
+            bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        }
+    }
+
+    function saveWaGroupConfigFromAdmin() {
+        const updated = {
+            motorGroupName: document.getElementById('cfg-wa-motor-name')?.value.trim() || "Kurir Wellen Print",
+            motorGroupId: document.getElementById('cfg-wa-motor-id')?.value.trim() || "6285351258810-1542885383@g.us",
+            mobilGroupName: document.getElementById('cfg-wa-mobil-name')?.value.trim() || "Wellen Print's Driver",
+            mobilGroupId: document.getElementById('cfg-wa-mobil-id')?.value.trim() || "6285351258810-1545222253@g.us",
+            checkerGroupName: "TIM CHECKER & LOGISTIK DM",
+            checkerGroupId: document.getElementById('cfg-wa-checker-id')?.value.trim() || "120363230482600014@g.us",
+            ccCheckerGroup: !!document.getElementById('cfg-wa-cc-checker')?.checked,
+            apiToken: document.getElementById('cfg-wa-api-token')?.value.trim() || "",
+            autoSendOnComplete: true,
+            updatedAt: new Date().toISOString()
+        };
+
+        window.adminWaGroupConfig = updated;
+        try {
+            localStorage.setItem('wtrack_wa_group_config', JSON.stringify(updated));
+        } catch (e) {}
+
+        if (typeof firebase !== 'undefined' && firebase.database) {
+            try {
+                firebase.database().ref('settings/wa_group_config').set(updated);
+            } catch (e) {}
+        }
+
+        const modalEl = document.getElementById('waGroupConfigModal');
+        if (modalEl && typeof bootstrap !== 'undefined') {
+            bootstrap.Modal.getInstance(modalEl)?.hide();
+        }
+        if (typeof showToast === 'function') {
+            showToast("✅ Konfigurasi Grup WA Kurir Motor & Driver Mobil berhasil disinkronkan!");
+        }
+    }
+</script>
+
 <!-- HIDDEN FILE INPUTS UNTUK IMPORT EXCEL & WORD -->
 <input type="file" id="sj-excel-file-input" class="d-none" accept=".xlsx, .xls, .csv, .docx, .doc, .rtf, .docm, .dotx, .dot" onchange="window.sjImportEngine && window.sjImportEngine.handleExcelFileSelected(event)">
 <input type="file" id="spk-excel-file-input" class="d-none" accept=".xlsx, .xls, .csv, .docx, .doc, .rtf, .docm, .dotx, .dot" onchange="window.spkManager && window.spkManager.handleSPKUpload(event)">
@@ -2619,8 +3378,9 @@
 <script src="/js/qr_print_dispatch.js?v=2.2"></script>
 <script src="/js/sj_import_engine.js?v=2.2"></script>
 <script src="/js/branch_workstation.js?v=2.2"></script>
-<script src="/js/spk_manager.js?v=2.2"></script>
+<script src="/js/spk_manager.js?v=3.0"></script>
 <script src="/js/web_qr_scanner_sim.js?v=2.2"></script>
 <script src="/js/unified_pool_ui.js?v=3.0"></script>
+<script src="/js/erp_sidebar.js?v=1.0"></script>
 </body>
 </html>

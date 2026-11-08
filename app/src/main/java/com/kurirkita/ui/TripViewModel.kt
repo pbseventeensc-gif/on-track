@@ -179,10 +179,20 @@ class TripViewModel : ViewModel() {
         val todayDayOfYear = todayCalendar.get(Calendar.DAY_OF_YEAR)
 
         val tripList = allTrips.filter { t ->
+            // Surat Jalan POOL sama sekali TIDAK BOLEH tampil di aplikasi kurir
+            if (t.status.equals("pool", ignoreCase = true) || t.status.equals("not_ready", ignoreCase = true)) {
+                return@filter false
+            }
+            if (t.courierId.isBlank()) {
+                return@filter false
+            }
+
             val cleanCId = cleanString(t.courierId)
-            val isMatch = t.courierId == userId ||
+            val isMatch = cleanCId.isNotEmpty() && (t.courierId == userId ||
                 currentIds.contains(cleanCId) ||
-                currentIds.contains(t.courierId)
+                currentIds.contains(t.courierId))
+
+            if (!isMatch) return@filter false
 
             // Strict date filter: Task must belong to today's shift
             val tripCalendar = Calendar.getInstance().apply {
@@ -196,7 +206,7 @@ class TripViewModel : ViewModel() {
                 d.status == "done" || d.proofPhotoUrl.isNotEmpty() || d.proofPhotoSj.isNotEmpty()
             }
 
-            t.status != "completed" && !allDestsDone && isToday && isMatch
+            t.status != "completed" && !allDestsDone && isToday
         }
 
         Log.d("TripVM", "SUCCESS: Found ${tripList.size} active trips for user ($userId). Identifiers: $currentIds")

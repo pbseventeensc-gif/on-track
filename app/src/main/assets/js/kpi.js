@@ -1,0 +1,1123 @@
+// ==========================================
+// WTRACK LOGISTICS - KPI & STATISTICS MODULE
+// ==========================================
+
+let rankingChart = null;
+let distributionChart = null;
+let lastKPIData = [];
+let kpiSortField = 'stops';
+let kpiSortAsc = false;
+let currentStatMetric = 'stops';
+
+window.courierPodStore = {};
+
+function openCourierPoDGallery(courierKey, courierName) {
+    const list = window.courierPodStore[courierKey] || [];
+    if (list.length === 0) return alert(`Belum ada foto Bukti Pengiriman untuk ${courierName}`);
+
+    let modalEl = document.getElementById('courierPodGalleryModal');
+    if (!modalEl) {
+        modalEl = document.createElement('div');
+        modalEl.id = 'courierPodGalleryModal';
+        modalEl.className = 'modal fade';
+        modalEl.tabIndex = -1;
+        modalEl.innerHTML = `
+            <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+                <div class="modal-content border-0 shadow-lg" style="border-radius: 16px;">
+                    <div class="modal-header border-bottom py-3">
+                        <div>
+                            <h6 class="modal-title fw-semibold text-dark m-0" id="courierPodModalTitle">Foto Bukti Pengiriman</h6>
+                            <small class="text-muted extra-small" id="courierPodModalSubtitle">0 Foto</small>
+                        </div>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body p-3 bg-light">
+                        <div class="row g-2" id="courierPodGalleryGrid"></div>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modalEl);
+    }
+
+    document.getElementById('courierPodModalTitle').innerText = `Bukti Pengiriman — ${courierName}`;
+    document.getElementById('courierPodModalSubtitle').innerText = `${list.length} foto bukti pengiriman (PoD)`;
+
+    const grid = document.getElementById('courierPodGalleryGrid');
+    grid.innerHTML = '';
+
+    list.forEach((pod) => {
+        const tagBadge = pod.tag ? `<span class="position-absolute bottom-0 start-0 m-1 badge ${pod.badgeClass || 'bg-dark'} extra-small fw-bold" style="font-size: 0.6rem;">${pod.tag}</span>` : '';
+        grid.innerHTML += `
+            <div class="col-6 col-sm-4 col-md-3">
+                <div class="card h-100 border shadow-sm overflow-hidden" style="border-radius: 10px;">
+                    <div class="position-relative" style="height: 110px; background: #e2e8f0;">
+                        <img src="${pod.url}" class="w-100 h-100 object-fit-cover cursor-pointer" onclick="openPoDModal('${pod.url}')" title="Klik untuk memperbesar">
+                        <span class="position-absolute top-0 start-0 m-1 badge bg-dark opacity-75 extra-small fw-normal">Stop ${pod.stopIndex}</span>
+                        ${tagBadge}
+                    </div>
+                    <div class="p-1.5 px-2 bg-white">
+                        <div class="extra-small text-truncate text-muted fw-normal" title="${pod.locationName}">${pod.locationName}</div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    const bsModal = new bootstrap.Modal(modalEl);
+    bsModal.show();
+}
+window.openCourierPoDGallery = openCourierPoDGallery;
+
+// Helper: Calculate realistic road distance in KM
+function calculateDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371; // Earth's radius in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const straightDist = R * c;
+
+    // Solusi A: Apply 1.25x Road Factor for realistic road driving distance
+    return straightDist * 1.25;
+}
+
+function sortKPITable(field) {
+    if (kpiSortField === field) {
+        kpiSortAsc = !kpiSortAsc;
+    } else {
+        kpiSortField = field;
+        kpiSortAsc = false;
+    }
+    renderKPIView();
+}
+
+async function exportKPIToExcel() {
+    if (!lastKPIData || lastKPIData.length === 0) return alert("Tidak ada data KPI untuk diekspor!");
+
+    const exportData = [];
+    lastKPIData.forEach((c, idx) => {
+        const completionRate = c.totalStops > 0 ? Math.round((c.completedStops / c.totalStops) * 100) : 0;
+        const stars = c.totalStops > 0 ? parseFloat(((completionRate / 100) * 5.0).toFixed(1)) : 0.0;
+        const hours = Math.floor((c.totalTime || 0) / 60);
+        const mins = Math.round((c.totalTime || 0) % 60);
+        const durationStr = hours > 0 ? `${hours}j ${mins}m` : `${mins}m`;
+        const vType = (c.vehicleType === 'mobil' || (c.mobilTrips || 0) > (c.motorTrips || 0)) ? 'Driver (Mobil)' : 'Kurir (Motor)';
+
+        exportData.push({
+            no: idx + 1,
+            name: c.name,
+            armada: vType,
+            completedStops: c.completedStops,
+            totalStops: c.totalStops,
+            rateStr: completionRate + "%",
+            stars: stars,
+            km: c.totalKM.toFixed(1),
+            duration: durationStr,
+            score: completionRate
+        });
+    });
+
+    const startDateVal = document.getElementById('kpi-start-date')?.value;
+    const endDateVal = document.getElementById('kpi-end-date')?.value;
+    const periodSelect = document.getElementById('stat-period-filter')?.value;
+    const activeVehFilter = document.getElementById('kpi-vehicle-filter')?.value || 'all';
+    const fleetTitle = activeVehFilter === 'mobil' ? 'Driver Mobil' : (activeVehFilter === 'motor' ? 'Kurir Motor' : 'Seluruh Personil');
+
+    let periodText = 'Hari Ini';
+    let fileDateSuffix = new Date().toISOString().slice(0, 10);
+
+    if (startDateVal && endDateVal) {
+        if (startDateVal === endDateVal) {
+            const d = new Date(startDateVal + "T00:00:00");
+            periodText = d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+            fileDateSuffix = startDateVal;
+        } else {
+            const d1 = new Date(startDateVal + "T00:00:00");
+            const d2 = new Date(endDateVal + "T00:00:00");
+            periodText = `${d1.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })} s/d ${d2.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+            fileDateSuffix = `${startDateVal}_sd_${endDateVal}`;
+        }
+    } else if (startDateVal && !endDateVal) {
+        periodText = `Mulai ${startDateVal}`;
+        fileDateSuffix = `Mulai_${startDateVal}`;
+    } else if (!startDateVal && endDateVal) {
+        periodText = `Sampai ${endDateVal}`;
+        fileDateSuffix = `Sampai_${endDateVal}`;
+    } else if (periodSelect === 'all') {
+        periodText = 'Semua Periode (All-Time)';
+        fileDateSuffix = 'All_Time';
+    } else if (periodSelect === 'this_month') {
+        periodText = 'Bulan Ini';
+        fileDateSuffix = 'Bulan_Ini';
+    } else if (periodSelect === 'this_week') {
+        periodText = 'Minggu Ini';
+        fileDateSuffix = 'Minggu_Ini';
+    } else {
+        periodText = 'Semua Periode (All-Time)';
+        fileDateSuffix = 'All_Time';
+    }
+
+    if (typeof ExcelJS !== 'undefined') {
+        const workbook = new ExcelJS.Workbook();
+        workbook.creator = "Wtrack Logistics";
+        workbook.created = new Date();
+
+        const sheet = workbook.addWorksheet("KPI_Performance", {
+            views: [{ showGridLines: true }]
+        });
+
+        // 1. Title Row
+        sheet.mergeCells('A1:J1');
+        const titleCell = sheet.getCell('A1');
+        titleCell.value = "LAPORAN KPI & PERFORMA OPERASIONAL ARMADA - WTRACK";
+        titleCell.font = { name: 'Calibri', size: 13, bold: true, color: { argb: 'FFFFFFFF' } };
+        titleCell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FF1F4E79' }
+        };
+        titleCell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+        sheet.getRow(1).height = 26;
+
+        // 2. Subtitle Row
+        sheet.mergeCells('A2:J2');
+        const subCell = sheet.getCell('A2');
+        subCell.value = `Periode Evaluasi: ${periodText}  |  Kategori: ${fleetTitle}  |  Total Personil Dievaluasi: ${exportData.length} Orang`;
+        subCell.font = { name: 'Calibri', size: 9.5, italic: true, bold: true, color: { argb: 'FF1F4E79' } };
+        subCell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFEBF3FA' }
+        };
+        subCell.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+        subCell.border = {
+            top: { style: 'thin', color: { argb: 'FF94A3B8' } },
+            bottom: { style: 'thin', color: { argb: 'FF94A3B8' } }
+        };
+        sheet.getRow(2).height = 20;
+
+        // Row 3: Blank
+        sheet.getRow(3).height = 8;
+
+        // Header Row (Row 4)
+        const headerRow = sheet.getRow(4);
+        headerRow.height = 26;
+        const headers = ["No", "Nama Personil Kurir / Driver", "Armada", "Terkirim", "Total Titik", "Tingkat Penyelesaian (%)", "Rating Bintang", "Total Jarak (km)", "Total Durasi Kerja", "Skor KPI"];
+        headers.forEach((h, idx) => {
+            const cell = headerRow.getCell(idx + 1);
+            cell.value = h;
+            cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+            cell.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'FF1F4E79' }
+            };
+            cell.alignment = { vertical: 'middle', horizontal: 'center' };
+            cell.border = {
+                top: { style: 'thin', color: { argb: 'FF1F4E79' } },
+                left: { style: 'thin', color: { argb: 'FF94A3B8' } },
+                bottom: { style: 'medium', color: { argb: 'FF0F2C59' } },
+                right: { style: 'thin', color: { argb: 'FF94A3B8' } }
+            };
+        });
+
+        const thinBorder = {
+            top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+        };
+
+        exportData.forEach((d, idx) => {
+            const row = sheet.getRow(idx + 5);
+            row.height = 22;
+            const isEven = (idx % 2 === 0);
+            const bgArgb = isEven ? 'FFFFFFFF' : 'FFF8FAFC';
+
+            const rowVals = [
+                d.no,
+                d.name,
+                d.armada,
+                d.completedStops,
+                d.totalStops,
+                d.rateStr,
+                d.stars,
+                d.km,
+                d.duration,
+                d.score
+            ];
+
+            rowVals.forEach((val, cIdx) => {
+                const cell = row.getCell(cIdx + 1);
+                cell.border = thinBorder;
+                cell.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: bgArgb }
+                };
+
+                if (cIdx === 0) {
+                    cell.value = val;
+                    cell.font = { name: 'Calibri', size: 9.5, color: { argb: 'FF475569' } };
+                    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                } else if (cIdx === 1) {
+                    cell.value = val;
+                    cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF0F172A' } };
+                    cell.alignment = { vertical: 'middle', horizontal: 'left' };
+                } else if (cIdx === 2) {
+                    cell.value = val;
+                    const isMobil = String(val).includes('Mobil');
+                    cell.font = { name: 'Calibri', size: 9.5, bold: true, color: { argb: isMobil ? 'FF1E40AF' : 'FF475569' } };
+                    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isMobil ? 'FFDBEAFE' : 'FFF1F5F9' } };
+                } else if (cIdx === 5 || cIdx === 9) {
+                    cell.value = val;
+                    cell.font = { name: 'Calibri', size: 9.5, bold: true, color: { argb: 'FF166534' } };
+                    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCFCE7' } };
+                } else {
+                    cell.value = val;
+                    cell.font = { name: 'Calibri', size: 9, color: { argb: 'FF334155' } };
+                    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                }
+            });
+        });
+
+        sheet.columns = [
+            { width: 6 },   // No
+            { width: 28 },  // Nama
+            { width: 16 },  // Armada
+            { width: 14 },  // Terkirim
+            { width: 14 },  // Total Titik
+            { width: 22 },  // Rate
+            { width: 16 },  // Stars
+            { width: 20 },  // KM
+            { width: 20 },  // Durasi
+            { width: 14 }   // Score
+        ];
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `Wtrack_KPI_${fleetTitle.replace(/\s+/g, '_')}_${fileDateSuffix}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        return;
+    }
+
+    if (typeof XLSX !== 'undefined') {
+        const rawRows = exportData.map(d => ({
+            "No": d.no,
+            "Nama Personil": d.name,
+            "Armada": d.armada,
+            "Completed Stops": d.completedStops,
+            "Total Stops": d.totalStops,
+            "Completion Rate (%)": d.rateStr,
+            "Rating Stars": d.stars,
+            "Total Distance (km)": d.km,
+            "Total Duration": d.duration,
+            "KPI Score": d.score
+        }));
+        const ws = XLSX.utils.json_to_sheet(rawRows);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "KPI Performance");
+        XLSX.writeFile(wb, `Wtrack_KPI_${fleetTitle.replace(/\s+/g, '_')}_${fileDateSuffix}.xlsx`);
+    }
+}
+window.exportKPIToExcel = exportKPIToExcel;
+
+function setKPIDateToday() {
+    const today = new Date().toLocaleDateString('sv-SE');
+    const start = document.getElementById('kpi-start-date');
+    const end = document.getElementById('kpi-end-date');
+    if (start) start.value = today;
+    if (end) end.value = today;
+    const periodSelect = document.getElementById('stat-period-filter');
+    if (periodSelect) periodSelect.value = 'today';
+    renderKPIView();
+}
+window.setKPIDateToday = setKPIDateToday;
+
+function setKPIDateThisMonth() {
+    const now = new Date();
+    const startStr = new Date(now.getFullYear(), now.getMonth(), 1).toLocaleDateString('sv-SE');
+    const endStr = new Date(now.getFullYear(), now.getMonth() + 1, 0).toLocaleDateString('sv-SE');
+    const start = document.getElementById('kpi-start-date');
+    const end = document.getElementById('kpi-end-date');
+    if (start) start.value = startStr;
+    if (end) end.value = endStr;
+    const periodSelect = document.getElementById('stat-period-filter');
+    if (periodSelect) periodSelect.value = 'this_month';
+    renderKPIView();
+}
+window.setKPIDateThisMonth = setKPIDateThisMonth;
+
+function setKPIDateAllTime() {
+    const start = document.getElementById('kpi-start-date');
+    const end = document.getElementById('kpi-end-date');
+    if (start) start.value = '';
+    if (end) end.value = '';
+    const periodSelect = document.getElementById('stat-period-filter');
+    if (periodSelect) periodSelect.value = 'all';
+    renderKPIView();
+}
+window.setKPIDateAllTime = setKPIDateAllTime;
+
+function updateKPIChartsFromFilter() {
+    const period = document.getElementById('stat-period-filter')?.value || 'today';
+    const metric = document.getElementById('stat-metric-filter')?.value || 'stops';
+
+    const now = new Date();
+    const todayStartMs = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const todayEndMs = todayStartMs + (24 * 60 * 60 * 1000) - 1;
+
+    let startMs = 0;
+    let endMs = Infinity;
+
+    if (period === 'today') {
+        startMs = todayStartMs;
+        endMs = todayEndMs;
+    } else if (period === 'this_week') {
+        const monday = new Date(now);
+        const day = now.getDay() || 7;
+        monday.setDate(now.getDate() - day + 1);
+        startMs = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate()).getTime();
+        endMs = todayEndMs;
+    } else if (period === 'this_month') {
+        startMs = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+        endMs = todayEndMs;
+    }
+
+    const kpiStart = document.getElementById('kpi-start-date');
+    const kpiEnd = document.getElementById('kpi-end-date');
+    if (kpiStart && kpiEnd && period !== 'all') {
+        kpiStart.value = new Date(startMs).toLocaleDateString('sv-SE');
+        kpiEnd.value = new Date(endMs).toLocaleDateString('sv-SE');
+    } else if (kpiStart && kpiEnd && period === 'all') {
+        kpiStart.value = '';
+        kpiEnd.value = '';
+    }
+
+    currentStatMetric = metric;
+    renderKPIView();
+}
+
+function renderKPIView(filter = "") {
+    const tbody = document.getElementById('kpi-table-body');
+    if(!tbody) return;
+    tbody.innerHTML = '';
+
+    const startDateVal = document.getElementById('kpi-start-date')?.value;
+    const endDateVal = document.getElementById('kpi-end-date')?.value;
+
+    let filteredTrips = (typeof allCurrentTrips !== 'undefined' && allCurrentTrips) ? allCurrentTrips : (window.allCurrentTrips || []);
+
+    if (typeof isTripInActiveBranch === 'function') {
+        filteredTrips = filteredTrips.filter(t => isTripInActiveBranch(t));
+    }
+
+    const now = new Date();
+    const todayStartMs = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const todayEndMs = todayStartMs + (24 * 60 * 60 * 1000) - 1;
+
+    let startMs = 0;
+    let endMs = Infinity;
+
+    const startInput = document.getElementById('kpi-start-date');
+    const endInput = document.getElementById('kpi-end-date');
+
+    // Inisialisasi default ke hari ini saat pertama kali dibuka jika kedua input masih kosong
+    if (startInput && !startInput.value && endInput && !endInput.value) {
+        const todayStr = now.toLocaleDateString('sv-SE');
+        startInput.value = todayStr;
+        endInput.value = todayStr;
+        startMs = todayStartMs;
+        endMs = todayEndMs;
+    } else {
+        if (startDateVal) {
+            startMs = new Date(startDateVal + "T00:00:00").getTime();
+        } else {
+            startMs = 0;
+        }
+
+        if (endDateVal) {
+            endMs = new Date(endDateVal + "T23:59:59.999").getTime();
+        } else {
+            endMs = Infinity;
+        }
+    }
+
+    filteredTrips = filteredTrips.filter(t => {
+        if (typeof isTripInDateRange === 'function') {
+            return isTripInDateRange(t, startMs, endMs);
+        }
+        const tripMs = parseTimestampToMs(t.date) || parseTimestampToMs(t.acceptedTime) || (t.id ? parseInt(t.id.replace('TRIP_', '')) || 0 : 0);
+        if (startMs > 0) {
+            return tripMs >= startMs && tripMs <= endMs;
+        }
+        return true;
+    });
+
+    // 1. Filter Armada Pengantaran (Vehicle Type: all | motor | mobil)
+    const activeVehicleFilter = document.getElementById('kpi-vehicle-filter')?.value || 'all';
+    if (activeVehicleFilter !== 'all') {
+        filteredTrips = filteredTrips.filter(t => {
+            const cId = t.courierId || '';
+            const rawName = (typeof registeredUsers !== 'undefined' && registeredUsers[cId]) || (cId.length > 20 ? (typeof getCourierDisplayName === 'function' ? getCourierDisplayName(cId) : cId) : cId) || '';
+            const courierInfo = (typeof normalizeCourierIdentity === 'function')
+                ? normalizeCourierIdentity(cId, rawName)
+                : { canonicalId: cId, displayName: rawName, vehicleType: t.vehicleType || 'motor' };
+            const effectiveVehicleType = courierInfo.vehicleType || t.vehicleType || (typeof getCourierVehicleType === 'function' ? getCourierVehicleType(cId, rawName) : 'motor');
+            return effectiveVehicleType === activeVehicleFilter;
+        });
+    }
+
+    const courierStats = {};
+    let totalCompleted = 0;
+    let grandTotalKM = 0;
+
+    // Selalu inisialisasi seluruh personil MASTER_COURIERS (10 Driver Mobil & 12 Kurir Motor)
+    // agar data personil tetap muncul lengkap di laporan KPI & Excel meskipun belum ada trip di rentang tanggal yang dipilih.
+    const masterList = (typeof MASTER_COURIERS !== 'undefined' && Array.isArray(MASTER_COURIERS)) ? MASTER_COURIERS : (window.MASTER_COURIERS || []);
+    masterList.forEach(m => {
+        if (activeVehicleFilter !== 'all' && m.vehicleType !== activeVehicleFilter) return;
+        const targetId = m.canonicalId;
+        courierStats[targetId] = {
+            name: m.displayName,
+            completedStops: 0,
+            totalStops: 0,
+            totalKM: 0,
+            totalTime: 0,
+            motorTrips: 0,
+            mobilTrips: 0,
+            regionsVisited: new Set(),
+            hasHeavyCargo: false,
+            vehicleType: m.vehicleType
+        };
+    });
+
+function parseTimestampToMs(timeObj) {
+    if (!timeObj) return 0;
+    if (typeof timeObj === 'number') return timeObj;
+    if (timeObj.seconds !== undefined) return timeObj.seconds * 1000;
+    if (timeObj._seconds !== undefined) return timeObj._seconds * 1000;
+    if (typeof timeObj === 'string') {
+        const d = new Date(timeObj);
+        return isNaN(d.getTime()) ? 0 : d.getTime();
+    }
+    if (timeObj instanceof Date) return timeObj.getTime();
+    return 0;
+}
+
+    filteredTrips.forEach(t => {
+        const cId = t.courierId || '';
+        if (typeof isCourierInActiveBranch === 'function' && !isCourierInActiveBranch(cId)) return;
+        const rawName = (typeof registeredUsers !== 'undefined' && registeredUsers[cId]) || (cId.length > 20 ? (typeof getCourierDisplayName === 'function' ? getCourierDisplayName(cId) : cId) : cId) || '';
+
+        const courierInfo = (typeof normalizeCourierIdentity === 'function')
+            ? normalizeCourierIdentity(cId, rawName)
+            : { canonicalId: cId, displayName: rawName, vehicleType: t.vehicleType || 'motor' };
+
+        const targetId = courierInfo.canonicalId;
+        const targetName = courierInfo.displayName;
+
+        if(!courierStats[targetId]) {
+            courierStats[targetId] = {
+                name: targetName,
+                completedStops: 0,
+                totalStops: 0,
+                totalKM: 0,
+                totalTime: 0,
+                motorTrips: 0,
+                mobilTrips: 0,
+                regionsVisited: new Set(),
+                hasHeavyCargo: false,
+                vehicleType: courierInfo.vehicleType || 'motor'
+            };
+        }
+
+        const vType = courierInfo.vehicleType || t.vehicleType || (typeof getCourierVehicleType === 'function' ? getCourierVehicleType(cId, rawName) : 'motor');
+        if (vType === 'mobil') {
+            courierStats[targetId].mobilTrips++;
+            courierStats[targetId].vehicleType = 'mobil';
+            if (t.adminBulkSjUrl || (Array.isArray(t.adminBulkSjUrls) && t.adminBulkSjUrls.length > 0)) {
+                courierStats[targetId].hasHeavyCargo = true;
+            }
+        } else {
+            courierStats[targetId].motorTrips++;
+        }
+        if (t.region) courierStats[targetId].regionsVisited.add(t.region);
+
+        let actualTripKM = 0;
+        if (t.destinations && t.destinations.length > 0) {
+            courierStats[targetId].totalStops += t.destinations.length;
+
+            for (let i = 0; i < t.destinations.length; i++) {
+                const d = t.destinations[i];
+                const isDone = (d.status === 'done' || (d.proofPhotoUrl && d.proofPhotoUrl.length > 0));
+                if (isDone) {
+                    courierStats[targetId].completedStops++;
+                }
+            }
+
+            // Hitung jarak akurat operasional rute (berangkat dari Base/GPS accepted -> rute tujuan -> pulang ke Base)
+            if (typeof calculateAccurateTripKM === 'function') {
+                actualTripKM = calculateAccurateTripKM(t);
+            } else {
+                const BASE_LAT = -6.1932;
+                const BASE_LNG = 106.6383;
+                const originLat = parseFloat(t.acceptLatitude) || BASE_LAT;
+                const originLng = parseFloat(t.acceptLongitude) || BASE_LNG;
+                const roadFactor = (vType === 'mobil') ? 1.35 : 1.30;
+                let prevPoint = { lat: originLat, lng: originLng };
+                let hasValidDests = false;
+
+                for (let i = 0; i < t.destinations.length; i++) {
+                    const d = t.destinations[i];
+                    const dLat = parseFloat(d.latitude || 0);
+                    const dLng = parseFloat(d.longitude || 0);
+                    if (dLat !== 0 && dLng !== 0) {
+                        const legDist = calculateDistance(prevPoint.lat, prevPoint.lng, dLat, dLng) * roadFactor;
+                        actualTripKM += Math.max(0.1, legDist);
+                        prevPoint = { lat: dLat, lng: dLng };
+                        hasValidDests = true;
+                    }
+                }
+                if (hasValidDests) {
+                    actualTripKM += calculateDistance(prevPoint.lat, prevPoint.lng, BASE_LAT, BASE_LNG) * roadFactor;
+                }
+            }
+
+            // Calculate Start-to-Finish Duration for this trip (ACCEPT -> LAST FINISH)
+            let startTimeMs = parseTimestampToMs(t.acceptedTime) || parseTimestampToMs(t.date);
+            if (!startTimeMs && t.destinations && t.destinations[0]) {
+                startTimeMs = parseTimestampToMs(t.destinations[0].arrivalTime);
+            }
+
+            let latestFinishMs = 0;
+            t.destinations.forEach(d => {
+                const finishMs = parseTimestampToMs(d.completedTime);
+                if (finishMs > latestFinishMs) latestFinishMs = finishMs;
+            });
+
+            if (startTimeMs > 0 && latestFinishMs > startTimeMs) {
+                const tripDurationMins = (latestFinishMs - startTimeMs) / (60 * 1000);
+                courierStats[targetId].totalTime += tripDurationMins;
+            }
+        } else {
+            courierStats[targetId].totalStops += 1;
+            if (t.status === 'completed') courierStats[targetId].completedStops += 1;
+        }
+        courierStats[targetId].totalKM += actualTripKM;
+        grandTotalKM += actualTripKM;
+
+        if(t.status === 'completed' || (t.destinations && t.destinations.every(d => d.status === 'done' || d.proofPhotoUrl))) {
+            totalCompleted++;
+        }
+    });
+
+    lastKPIData = Object.values(courierStats);
+    if (activeVehicleFilter !== 'all') {
+        lastKPIData = lastKPIData.filter(c => {
+            const v = c.vehicleType || (c.mobilTrips > c.motorTrips ? 'mobil' : 'motor');
+            return v === activeVehicleFilter;
+        });
+    }
+    window.lastKPIData = lastKPIData;
+
+    const searchVal = (filter || document.getElementById('kpi-search-input')?.value || "").toLowerCase();
+    let displayCouriers = lastKPIData.filter(c => {
+        const isOnline = currentOnlineCouriers[Object.keys(registeredUsers).find(k => registeredUsers[k] === c.name)] ? 'active' : 'offline';
+        return c.name.toLowerCase().includes(searchVal) || isOnline.includes(searchVal);
+    });
+
+    if (currentStatMetric === 'km') {
+        kpiSortField = 'distance';
+        kpiSortAsc = false;
+    } else {
+        kpiSortField = 'stops';
+        kpiSortAsc = false;
+    }
+
+    displayCouriers.sort((a, b) => {
+        let valA = a.completedStops;
+        let valB = b.completedStops;
+
+        if (kpiSortField === 'distance') {
+            valA = a.totalKM || 0;
+            valB = b.totalKM || 0;
+        } else if (kpiSortField === 'stops') {
+            valA = a.completedStops || 0;
+            valB = b.completedStops || 0;
+        } else if (kpiSortField === 'score' || kpiSortField === 'rating') {
+            valA = a.totalStops > 0 ? (a.completedStops / a.totalStops) : 0;
+            valB = b.totalStops > 0 ? (b.completedStops / b.totalStops) : 0;
+        } else if (kpiSortField === 'name') {
+            valA = a.name.toLowerCase();
+            valB = b.name.toLowerCase();
+        } else if (kpiSortField === 'status') {
+            valA = currentOnlineCouriers[Object.keys(registeredUsers).find(k => registeredUsers[k] === a.name)] ? 1 : 0;
+            valB = currentOnlineCouriers[Object.keys(registeredUsers).find(k => registeredUsers[k] === b.name)] ? 1 : 0;
+        }
+
+        if (valA < valB) return kpiSortAsc ? -1 : 1;
+        if (valA > valB) return kpiSortAsc ? 1 : -1;
+        return 0;
+    });
+
+    // Calculate overall completion efficiency percentage and totals for displayCouriers (matching bar chart)
+    let totalStopsFiltered = 0;
+    let totalCompletedStopsFiltered = 0;
+    let totalKmFiltered = 0;
+
+    displayCouriers.forEach(c => {
+        totalStopsFiltered += (c.totalStops || 0);
+        totalCompletedStopsFiltered += (c.completedStops || 0);
+        totalKmFiltered += (c.totalKM || 0);
+    });
+
+    const overallCompletionRate = totalStopsFiltered > 0
+        ? Math.round((totalCompletedStopsFiltered / totalStopsFiltered) * 100)
+        : 0;
+
+    const satRateEl = document.getElementById('kpi-sat-rate');
+    if (satRateEl) {
+        satRateEl.innerText = `${overallCompletionRate}%`;
+    }
+
+    const satLabelEl = document.getElementById('kpi-sat-label');
+    if (satLabelEl) {
+        const period = document.getElementById('stat-period-filter')?.value || 'today';
+        let periodText = 'hari ini';
+        if (period === 'this_week') periodText = 'minggu ini';
+        else if (period === 'this_month') periodText = 'bulan ini';
+        else if (period === 'all') periodText = 'keseluruhan';
+
+        satLabelEl.innerText = `Tingkat efisiensi penyelesaian pengiriman (${periodText})`;
+    }
+
+    const topCourier = displayCouriers[0];
+    const topCompleted = topCourier ? (topCourier.completedStops || 0) : 0;
+    const topKM = topCourier ? (topCourier.totalKM || 0) : 0;
+
+    if (document.getElementById('kpi-top-courier')) {
+        document.getElementById('kpi-top-courier').innerText = topCourier ? topCourier.name : '-';
+    }
+    const topSubEl = document.getElementById('kpi-top-subtitle');
+    if (topSubEl) {
+        if (activeVehicleFilter === 'motor') {
+            topSubEl.innerHTML = `<i class="bi bi-bicycle me-1 text-primary"></i> Top Kurir Motor (${topCompleted} Selesai)`;
+        } else if (activeVehicleFilter === 'mobil') {
+            topSubEl.innerHTML = `<i class="bi bi-truck me-1 text-primary"></i> Top Driver Mobil (${topKM.toFixed(1)} km)`;
+        } else if (currentStatMetric === 'km') {
+            topSubEl.innerHTML = `<i class="bi bi-geo-alt-fill me-1"></i> Terjauh (${topKM.toFixed(1)} km)`;
+        } else {
+            topSubEl.innerHTML = `<i class="bi bi-star-fill me-1"></i> MVP (${topCompleted} Selesai)`;
+        }
+    }
+    if (document.getElementById('kpi-total-done')) {
+        document.getElementById('kpi-total-done').innerText = `${topCompleted}`;
+    }
+    if (document.getElementById('kpi-total-km')) {
+        document.getElementById('kpi-total-km').innerText = `${topKM.toFixed(1)} km`;
+    }
+
+    // Render Achievement Showcase Badges
+    renderAchievementsShowcase(displayCouriers, activeVehicleFilter);
+
+    window.courierPodStore = {};
+    const tableRowsHtml = [];
+
+    displayCouriers.forEach(c => {
+        const courierId = Object.keys(registeredUsers).find(key => registeredUsers[key] === c.name) || c.name;
+        const isOnline = currentOnlineCouriers[courierId];
+
+        const podList = [];
+        filteredTrips.filter(t => t.courierId === courierId || registeredUsers[t.courierId] === c.name).forEach(trip => {
+            if (trip.destinations) {
+                trip.destinations.forEach(d => {
+                    const locName = d.locationName || `Stop ${d.stopIndex}`;
+
+                    if (d.proofPhotoSj) {
+                        podList.push({
+                            url: d.proofPhotoSj,
+                            tag: '📄 Surat Jalan',
+                            badgeClass: 'bg-primary',
+                            stopIndex: d.stopIndex,
+                            locationName: locName,
+                            tripId: trip.tripId
+                        });
+                    }
+                    let itemArr = [];
+                    if (Array.isArray(d.proofPhotoItems)) {
+                        itemArr = d.proofPhotoItems.filter(Boolean);
+                    } else if (typeof d.proofPhotoItems === 'string' && d.proofPhotoItems.trim().length > 0) {
+                        itemArr = d.proofPhotoItems.split(',').map(s => s.trim()).filter(Boolean);
+                    }
+
+                    if (itemArr.length > 0) {
+                        itemArr.forEach((itemUrl, itemIdx) => {
+                            if (itemUrl) {
+                                podList.push({
+                                    url: itemUrl,
+                                    tag: `📦 Barang #${itemIdx + 1}`,
+                                    badgeClass: 'bg-success',
+                                    stopIndex: d.stopIndex,
+                                    locationName: locName,
+                                    tripId: trip.tripId
+                                });
+                            }
+                        });
+                    }
+                    if (!d.proofPhotoSj && (!d.proofPhotoItems || d.proofPhotoItems.length === 0) && d.proofPhotoUrl) {
+                        const urls = d.proofPhotoUrl.split(',').map(s => s.trim()).filter(Boolean);
+                        urls.forEach((u, uIdx) => {
+                            const isSj = (uIdx === 0);
+                            podList.push({
+                                url: u,
+                                tag: isSj ? '📄 Surat Jalan' : `📦 Barang #${uIdx}`,
+                                badgeClass: isSj ? 'bg-primary' : 'bg-success',
+                                stopIndex: d.stopIndex,
+                                locationName: locName,
+                                tripId: trip.tripId
+                            });
+                        });
+                    }
+                });
+            }
+        });
+
+        window.courierPodStore[c.name] = podList;
+
+        let podBtnHtml = '';
+        if (podList.length > 0) {
+            podBtnHtml = `<button class="btn btn-sm btn-light border py-0.5 px-2 ms-2 extra-small rounded-pill text-primary fw-medium" onclick="openCourierPoDGallery('${c.name.replace(/'/g, "\\'")}', '${c.name.replace(/'/g, "\\'")}')" title="Lihat ${podList.length} Foto Bukti Pengiriman">
+                <i class="bi bi-images me-1"></i>${podList.length} Foto
+            </button>`;
+        }
+
+        const completionRate = c.totalStops > 0 ? (c.completedStops / c.totalStops) * 100 : 0;
+        let stars = 0.0;
+        let finalScore = 0;
+
+        if (c.totalStops > 0) {
+            if (c.completedStops >= c.totalStops) {
+                stars = 5.0;
+                finalScore = 100;
+            } else {
+                stars = parseFloat(((completionRate / 100) * 5.0).toFixed(1));
+                finalScore = Math.round(completionRate);
+            }
+        }
+
+        const hours = Math.floor(c.totalTime / 60);
+        const mins = Math.round(c.totalTime % 60);
+        const durationStr = hours > 0 ? `${hours}j ${mins}m` : `${mins}m`;
+
+        // Calculate badges
+        const badges = [];
+        if (c.completedStops >= 20) badges.push('<span class="badge bg-warning-subtle text-warning-emphasis extra-small" style="font-size:0.62rem;" title="Titik Selesai: 20+ Titik Selesai">Titik Selesai</span>');
+        if (c.totalKM >= 80) badges.push('<span class="badge bg-primary-subtle text-primary-emphasis extra-small" style="font-size:0.62rem;" title="KM Tertinggi: 80+ KM">KM Tertinggi</span>');
+        if (c.totalStops >= 5 && c.completedStops >= c.totalStops) badges.push('<span class="badge bg-success-subtle text-success-emphasis extra-small" style="font-size:0.62rem;" title="Zero Pending: 100% Selesai">Zero Pending</span>');
+        if (c.completedStops >= 5 && (c.totalTime / c.completedStops) <= 25) badges.push('<span class="badge bg-info-subtle text-info-emphasis extra-small" style="font-size:0.62rem;" title="Estimasi Waktu Antar: Cepat">Estimasi Waktu Antar</span>');
+        if (c.regionsVisited && c.regionsVisited.size >= 2) badges.push('<span class="badge text-white extra-small" style="background-color:#8b5cf6; font-size:0.62rem;" title="Lintas Wilayah: Lintas Wilayah">Lintas Wilayah</span>');
+        if (c.mobilTrips > 0 && c.hasHeavyCargo) badges.push('<span class="badge bg-danger-subtle text-danger-emphasis extra-small" style="font-size:0.62rem;" title="Pengantaran Tuntas: Muatan Mobil Tuntas">Pengantaran Tuntas</span>');
+
+        const isMobil = (c.vehicleType === 'mobil' || (c.mobilTrips || 0) > (c.motorTrips || 0));
+        const vehicleBadge = isMobil 
+            ? '<span class="badge bg-primary-subtle text-primary border border-primary-subtle extra-small px-1.5 py-0.5 me-1" style="font-size:0.65rem;"><i class="bi bi-truck me-0.5"></i>Mobil</span>'
+            : '<span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle extra-small px-1.5 py-0.5 me-1" style="font-size:0.65rem;"><i class="bi bi-bicycle me-0.5"></i>Motor</span>';
+
+        const badgesHtml = badges.length > 0 ? `<div class="d-flex flex-wrap gap-1 mt-1">${badges.join('')}</div>` : '';
+
+        tableRowsHtml.push(`<tr>
+            <td class="fw-semibold text-dark">
+                <div class="d-flex align-items-center flex-wrap">
+                    ${vehicleBadge}
+                    <span>${c.name}</span>
+                    ${podBtnHtml}
+                </div>
+                ${badgesHtml}
+            </td>
+            <td><span class="badge-pill ${isOnline ? 'badge-delivered' : 'badge-delayed'} fw-normal">${isOnline ? 'Active' : 'Offline'}</span></td>
+            <td><span class="fw-semibold">${c.completedStops}</span> / <span class="text-muted">${c.totalStops}</span></td>
+            <td><i class="bi bi-star-fill text-warning me-1"></i> <span class="fw-semibold">${stars.toFixed(1)}</span></td>
+            <td class="fw-normal">${c.totalKM.toFixed(1)} km</td>
+            <td><span class="badge bg-secondary-subtle text-dark fw-medium px-2 py-1">${finalScore}</span></td>
+        </tr>`);
+    });
+
+    tbody.innerHTML = tableRowsHtml.join('');
+
+    updateKPICharts(displayCouriers, filteredTrips);
+}
+
+function renderAchievementsShowcase(couriers, vehicleFilter) {
+    const container = document.getElementById('kpi-achievements-container');
+    if (!container) return;
+
+    if (!couriers || couriers.length === 0) {
+        container.innerHTML = '<div class="col-12 text-center text-muted py-3 extra-small">Belum ada data pencapaian untuk filter armada ini.</div>';
+        return;
+    }
+
+    // 1. Drop Master: Most completed stops (motor focus)
+    let dropMaster = couriers.slice().sort((a,b) => (b.completedStops || 0) - (a.completedStops || 0))[0];
+    if (dropMaster && dropMaster.completedStops === 0) dropMaster = null;
+
+    // 2. Kilometer King: Longest distance (mobil focus)
+    let kmKing = couriers.slice().sort((a,b) => (b.totalKM || 0) - (a.totalKM || 0))[0];
+    if (kmKing && kmKing.totalKM === 0) kmKing = null;
+
+    // 3. Zero Pending: Best completion rate with min 5 stops
+    let zeroPending = couriers.filter(c => c.totalStops >= 5 && c.completedStops >= c.totalStops).sort((a,b) => b.completedStops - a.completedStops)[0];
+
+    // 4. Speed Runner: Lowest avg minutes per stop (min 5 stops)
+    let speedRunner = couriers.filter(c => c.completedStops >= 5 && c.totalTime > 0).sort((a,b) => (a.totalTime / a.completedStops) - (b.totalTime / b.completedStops))[0];
+
+    // 5. Road Captain: Most regions visited
+    let roadCaptain = couriers.filter(c => c.regionsVisited && c.regionsVisited.size >= 2).sort((a,b) => b.regionsVisited.size - a.regionsVisited.size)[0];
+
+    // 6. Heavy Cargo: Completed mobil trips with bulk cargo
+    let heavyCargo = couriers.filter(c => c.mobilTrips > 0 && c.hasHeavyCargo).sort((a,b) => b.mobilTrips - a.mobilTrips)[0];
+
+    const cards = [
+        {
+            icon: '',
+            title: 'Titik Selesai',
+            armada: 'Kurir Motor',
+            badgeBg: 'bg-warning-subtle text-warning-emphasis',
+            desc: 'Penyelesai titik antar terbanyak',
+            holder: dropMaster ? `${dropMaster.name} (${dropMaster.completedStops} Selesai)` : 'Belum tercapai',
+            show: vehicleFilter !== 'mobil'
+        },
+        {
+            icon: '',
+            title: 'KM Tertinggi',
+            armada: 'Driver Mobil',
+            badgeBg: 'bg-primary-subtle text-primary-emphasis',
+            desc: 'Penjelajah rute jalan terjauh',
+            holder: kmKing ? `${kmKing.name} (${kmKing.totalKM.toFixed(1)} km)` : 'Belum tercapai',
+            show: vehicleFilter !== 'motor'
+        },
+        {
+            icon: '',
+            title: 'Zero Pending',
+            armada: 'Semua Armada',
+            badgeBg: 'bg-success-subtle text-success-emphasis',
+            desc: '100% tuntas tanpa ada kendala/toko tutup',
+            holder: zeroPending ? `${zeroPending.name} (${zeroPending.completedStops} Selesai)` : 'Belum tercapai',
+            show: true
+        },
+        {
+            icon: '',
+            title: 'Estimasi Waktu Antar',
+            armada: 'Kurir Motor',
+            badgeBg: 'bg-info-subtle text-info-emphasis',
+            desc: 'Pengantaran tercepat per titik',
+            holder: speedRunner ? `${speedRunner.name} (~${Math.round(speedRunner.totalTime / speedRunner.completedStops)}m/titik)` : 'Belum tercapai',
+            show: vehicleFilter !== 'mobil'
+        },
+        {
+            icon: '',
+            title: 'Lintas Wilayah',
+            armada: 'Driver Mobil',
+            badgeBg: 'text-white',
+            badgeStyle: 'background-color:#8b5cf6;',
+            desc: 'Penguasa rute lintas wilayah luar kota',
+            holder: roadCaptain ? `${roadCaptain.name} (${roadCaptain.regionsVisited.size} Wilayah)` : 'Belum tercapai',
+            show: vehicleFilter !== 'motor'
+        },
+        {
+            icon: '',
+            title: 'Pengantaran Tuntas',
+            armada: 'Driver Mobil',
+            badgeBg: 'bg-danger-subtle text-danger-emphasis',
+            desc: 'Pengiriman muatan mobil tuntas',
+            holder: heavyCargo ? `${heavyCargo.name} (${heavyCargo.mobilTrips} Rute)` : 'Belum tercapai',
+            show: vehicleFilter !== 'motor'
+        }
+    ];
+
+    const visibleCards = cards.filter(c => c.show);
+    const colClass = visibleCards.length <= 3 ? 'col-md-4' : 'col-md-4 col-lg-4';
+
+    container.innerHTML = visibleCards.map(c => `
+        <div class="${colClass}">
+            <div class="card h-100 border shadow-sm p-3" style="border-radius: 12px; background: #fafafa;">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="fs-4">${c.icon}</span>
+                    <span class="badge ${c.badgeBg} extra-small fw-semibold px-2 py-1" ${c.badgeStyle ? `style="${c.badgeStyle}"` : ''}>${c.armada}</span>
+                </div>
+                <div class="fw-bold text-dark fs-6 mb-0.5">${c.title}</div>
+                <small class="text-muted extra-small mb-2 d-block" style="font-size: 0.72rem;">${c.desc}</small>
+                <div class="mt-auto pt-2 border-top d-flex align-items-center gap-1 extra-small">
+                    <span class="fw-bold text-dark text-truncate" title="${c.holder}">${c.holder}</span>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function updateKPICharts(data, filteredTrips) {
+    const ctx1 = document.getElementById('kpiRankingChart')?.getContext('2d');
+    const ctx2 = document.getElementById('kpiDistributionChart')?.getContext('2d');
+
+    if (!ctx1 || !ctx2) return;
+
+    const displayData = (data && data.length > 0) ? data.slice(0, 15) : [];
+
+    const labels = displayData.map(c => c.name.length > 10 ? c.name.substring(0, 8) + '..' : c.name);
+
+    let chartValues = [];
+    let yAxisTitle = 'Titik Selesai';
+
+    if (currentStatMetric === 'km') {
+        chartValues = displayData.map(c => parseFloat((c.totalKM || 0).toFixed(1)));
+        yAxisTitle = 'Jarak (KM)';
+    } else {
+        chartValues = displayData.map(c => c.completedStops || 0);
+        yAxisTitle = 'Titik Selesai';
+    }
+
+    const backgroundColors = displayData.map((c, i) => i === 0 ? '#10B981' : '#E0F2FE');
+
+    if (rankingChart) rankingChart.destroy();
+    rankingChart = new Chart(ctx1, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: yAxisTitle,
+                data: chartValues,
+                backgroundColor: backgroundColors,
+                borderRadius: 12,
+                borderSkipped: false,
+                barThickness: 'flex',
+                maxBarThickness: 32
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const index = context.dataIndex;
+                            const item = displayData[index];
+                            if (!item) return '';
+                            return [
+                                `Selesai: ${item.completedStops} Titik`,
+                                `Jarak: ${item.totalKM.toFixed(1)} km`
+                            ];
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: '#F3F4F6' },
+                    ticks: { font: { family: 'Plus Jakarta Sans', size: 10 } }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { font: { family: 'Plus Jakarta Sans', size: 11, weight: '600' } }
+                }
+            }
+        }
+    });
+
+    let completedSum = 0, pendingSum = 0;
+    const tripsToCount = (filteredTrips && filteredTrips.length > 0) ? filteredTrips : allCurrentTrips.filter(t => {
+        if (typeof isTripInActiveBranch === 'function' && !isTripInActiveBranch(t)) return false;
+        if (t.courierId && typeof isCourierInActiveBranch === 'function' && !isCourierInActiveBranch(t.courierId)) return false;
+        return true;
+    });
+
+    tripsToCount.forEach(t => {
+        const cId = t.courierId || '';
+        if (cId.includes('EK74u0gA') || cId.toLowerCase().includes('novalgan') || cId.toLowerCase().includes('novalempah2')) return;
+        const cName = registeredUsers[cId] || (cId.length > 20 ? getCourierDisplayName(cId) : cId);
+        if (cName.includes('EK74u0gA') || cName.toLowerCase().includes('novalgan') || cName.toLowerCase().includes('novalempah2')) return;
+
+        if (t.destinations && t.destinations.length > 0) {
+            t.destinations.forEach(d => {
+                if (d.status === 'done' || d.proofPhotoUrl || d.status === 'completed') completedSum++;
+                else pendingSum++;
+            });
+        } else {
+            if (t.status === 'completed') completedSum++;
+            else pendingSum++;
+        }
+    });
+
+    const totalTasksSum = completedSum + pendingSum;
+    const pctCompletedSum = totalTasksSum > 0 ? Math.round((completedSum / totalTasksSum) * 100) : 0;
+    const pctPendingSum = totalTasksSum > 0 ? Math.round((pendingSum / totalTasksSum) * 100) : 0;
+
+    if (distributionChart) distributionChart.destroy();
+    distributionChart = new Chart(ctx2, {
+        type: 'doughnut',
+        data: {
+            labels: [`Completed (${pctCompletedSum}%)`, `Pending (${pctPendingSum}%)`],
+            datasets: [{
+                data: [completedSum, pendingSum],
+                backgroundColor: ['#10B981', '#F59E0B'],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        usePointStyle: true,
+                        boxWidth: 8,
+                        font: { family: 'Plus Jakarta Sans', size: 11, weight: '600' }
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const val = context.parsed || 0;
+                            const total = totalTasksSum > 0 ? totalTasksSum : 1;
+                            const pct = Math.round((val / total) * 100);
+                            return ` ${context.label}: ${val} Titik (${pct}%)`;
+                        }
+                    }
+                }
+            },
+            cutout: '72%'
+        },
+        plugins: [{
+            id: 'centerText',
+            afterDraw(chart) {
+                const { ctx, chartArea: { left, top, width, height } } = chart;
+                if (!width || !height) return;
+                ctx.save();
+                ctx.font = 'bold 22px "Plus Jakarta Sans", sans-serif';
+                ctx.fillStyle = '#111827';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(`${pctCompletedSum}%`, left + width / 2, top + height / 2 - 8);
+
+                ctx.font = '600 11px "Plus Jakarta Sans", sans-serif';
+                ctx.fillStyle = '#6B7280';
+                ctx.fillText('Selesai', left + width / 2, top + height / 2 + 12);
+                ctx.restore();
+            }
+        }]
+    });
+}

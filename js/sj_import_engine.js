@@ -161,6 +161,180 @@
     let parsedPreviewList = [];
     let currentImportFileName = '';
 
+    function isWellenSuratJalanLayout(rows2D) {
+        if (!rows2D || rows2D.length === 0) return false;
+        let foundSJHeader = false;
+        let foundKepadaYth = false;
+        for (let r = 0; r < Math.min(rows2D.length, 15); r++) {
+            const rowStr = rows2D[r].map(c => String(c || '').trim()).join(' ');
+            if (/SURAT\s*JALAN/i.test(rowStr) || /SJ[-_0-9A-Za-z]{4,}/i.test(rowStr)) {
+                foundSJHeader = true;
+            }
+            if (/Kepada\s*Yth/i.test(rowStr)) {
+                foundKepadaYth = true;
+            }
+        }
+        return foundSJHeader || foundKepadaYth;
+    }
+
+    function parseWellenSuratJalanSheet(rows2D, sheetName = '', fileName = '') {
+        let sjNumber = '';
+        let customer = '';
+        let storeDestination = '';
+        let dateStr = '';
+        let dibuatOleh = '';
+        let totalQty = '';
+        const items = [];
+
+        let isItemSection = false;
+        let itemColNama = -1;
+        let itemColUkuran = -1;
+        let itemColQty = -1;
+
+        for (let r = 0; r < rows2D.length; r++) {
+            const row = rows2D[r];
+            const fullRowText = row.join(' ');
+
+            // 1. Detect SJ Number
+            for (let c = 0; c < row.length; c++) {
+                const cell = String(row[c] || '');
+                if (!cell) continue;
+                const sjMatch = cell.match(/SJ[-_0-9A-Za-z/]+/i);
+                if (sjMatch && (cell.toUpperCase().includes('SURAT JALAN') || sjMatch[0].length >= 8)) {
+                    if (!sjNumber) sjNumber = sjMatch[0].trim();
+                }
+                if (!sjNumber && /SJ\s*[-:\.]\s*([0-9A-Za-z\-_]+)/i.test(cell)) {
+                    sjNumber = cell.match(/SJ\s*[-:\.]\s*([0-9A-Za-z\-_]+)/i)[1];
+                }
+            }
+
+            // 2. Detect "Kepada Yth" and Customer Name
+            if (/Kepada\s*Yth/i.test(fullRowText)) {
+                for (let nextR = r; nextR <= Math.min(r + 3, rows2D.length - 1); nextR++) {
+                    const nextRow = rows2D[nextR];
+                    for (let c = 0; c < nextRow.length; c++) {
+                        const cell = String(nextRow[c] || '').trim();
+                        if (cell && !/Kepada\s*Yth/i.test(cell) && cell.length > 2) {
+                            if (/PT|CV|TOKO|STORE|WARUNG|AGEN|IBU|BAPAK/i.test(cell) || (nextR > r && !customer)) {
+                                if (!customer) customer = cell;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 3. Detect Store Destination
+            for (let c = 0; c < row.length; c++) {
+                const cell = String(row[c] || '').trim();
+                if (!cell) continue;
+                if (/STORE\s+[A-Z0-9\s]+/i.test(cell) || (/TOKO|CABANG|MALL|GRAND|INDAH/i.test(cell) && cell.length > 8 && !cell.includes('Wellen') && !cell.includes('Pasar Minggu'))) {
+                    if (!storeDestination) storeDestination = cell;
+                }
+            }
+
+            // 4. Detect Table Header: No., Nama Barang, Ukuran, Qty
+            const lowerRow = row.map(x => String(x || '').toLowerCase().trim());
+            const namaIdx = lowerRow.findIndex(x => x.includes('nama barang') || x.includes('nama produk') || x.includes('item'));
+            const qtyIdx = lowerRow.findIndex(x => x === 'qty' || x.includes('qty') || x.includes('jumlah'));
+            const ukuranIdx = lowerRow.findIndex(x => x === 'ukuran' || x.includes('dimensi') || x.includes('size'));
+
+            if (namaIdx !== -1 && (qtyIdx !== -1 || ukuranIdx !== -1)) {
+                isItemSection = true;
+                itemColNama = namaIdx;
+                itemColUkuran = ukuranIdx;
+                itemColQty = qtyIdx;
+                continue;
+            }
+
+            if (isItemSection) {
+                if (lowerRow.some(x => x.includes('total') || x.includes('tgl') || x.includes('dibuat oleh'))) {
+                    const totalCellIdx = lowerRow.findIndex(x => x.includes('total'));
+                    if (totalCellIdx !== -1) {
+                        for (let c = totalCellIdx + 1; c < row.length; c++) {
+                            const val = String(row[c] || '').trim();
+                            if (val && !val.toLowerCase().includes('total')) {
+                                totalQty = val;
+                                break;
+                            }
+                        }
+                    }
+                    isItemSection = false;
+                } else {
+                    const namaVal = itemColNama >= 0 ? String(row[itemColNama] || '').trim() : '';
+                    const ukVal = itemColUkuran >= 0 ? String(row[itemColUkuran] || '').trim() : '';
+                    const qVal = itemColQty >= 0 ? String(row[itemColQty] || '').trim() : '';
+
+                    if (namaVal && namaVal.length > 2 && !namaVal.toLowerCase().includes('total')) {
+                        items.push({
+                            no: items.length + 1,
+                            nama: namaVal,
+                            ukuran: ukVal || '-',
+                            qty: qVal || '1.0'
+                        });
+                    }
+                }
+            }
+
+            // 5. Detect Date
+            if (/Tgl\s*[,:]/i.test(fullRowText) || /Tanggal/i.test(fullRowText)) {
+                const dateMatch = fullRowText.match(/(\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4})/i) || fullRowText.match(/(\d{4}[-/]\d{1,2}[-/]\d{1,2})/);
+                if (dateMatch) {
+                    dateStr = dateMatch[1];
+                }
+            }
+
+            // 6. Detect Dibuat Oleh
+            if (fullRowText.toUpperCase().includes('NINING') || fullRowText.toUpperCase().includes('DIBUAT OLEH')) {
+                for (let c = 0; c < row.length; c++) {
+                    const cell = String(row[c] || '').trim();
+                    if (cell && /^[A-Z\s]{4,30}$/.test(cell) && !cell.includes('DIBUAT') && !cell.includes('DIKIRIM') && !cell.includes('DITERIMA') && !cell.includes('NAMA')) {
+                        dibuatOleh = cell;
+                    }
+                }
+            }
+        }
+
+        let dateFolder = new Date().toISOString().slice(0, 10);
+        if (dateStr) {
+            try {
+                const months = { jan:1, feb:2, mar:3, apr:4, mei:5, may:5, jun:6, jul:7, agu:8, aug:8, sep:9, okt:10, oct:10, nov:11, des:12, dec:12 };
+                const m = dateStr.match(/(\d{1,2})\s+([A-Za-z]{3,9})\s+(\d{4})/i);
+                if (m) {
+                    const d = m[1].padStart(2, '0');
+                    const mon = months[m[2].toLowerCase().substring(0, 3)] || 1;
+                    const y = m[3];
+                    dateFolder = `${y}-${String(mon).padStart(2, '0')}-${d}`;
+                }
+            } catch(e) {}
+        }
+
+        const clientNameFinal = customer || 'PT TOYS GAMES INDONESIA';
+        const addressFinal = storeDestination || `Alamat Kirim ${clientNameFinal}`;
+        const reg = detectRegion(addressFinal, clientNameFinal);
+        const totalQtyNum = totalQty || (items.length > 0 ? items.reduce((s, it) => s + (parseFloat(it.qty) || 1), 0) + ' Pcs' : '1 Pcs');
+        const itemsSummary = items.length > 0 ? `${items.length} Item Cetakan (${totalQtyNum})` : 'Barang Cetakan';
+
+        return {
+            sjNumber: sjNumber || `SJ/${dateFolder.replace(/-/g, '')}/${Math.floor(1000 + Math.random()*9000)}`,
+            shortCode: generateUniqueCode(),
+            clientName: clientNameFinal,
+            customer: clientNameFinal,
+            address: addressFinal,
+            storeDestination: storeDestination || '',
+            region: reg,
+            originBranch: reg === 'Tangerang' ? 'cikokol' : 'pusat',
+            namaBarang: items[0]?.nama || 'Barang Cetakan',
+            ukuran: items[0]?.ukuran || '-',
+            qty: String(totalQtyNum).includes('Pcs') ? totalQtyNum : `${totalQtyNum} Pcs`,
+            itemsSummary: itemsSummary,
+            items: items.length > 0 ? items : [{ nama: 'Barang Cetakan', qty: '1 Pcs' }],
+            dateFolder: dateFolder,
+            dibuatOleh: dibuatOleh || '',
+            adminSJ: '', // Sesuai permintaan user: sementara blank
+            readyStatus: 'ready'
+        };
+    }
+
     // Baca dan parse file Excel (Mendukung format standar SJ dan Format SPK Wellen Print Gambar 1)
     async function parseExcelFile(file) {
         if (!file) throw new Error("File tidak ditemukan.");
@@ -174,6 +348,26 @@
                 try {
                     const data = new Uint8Array(e.target.result);
                     const workbook = XLSX.read(data, { type: 'array' });
+
+                    // A. Periksa apakah ada sheet yang menggunakan Format Layout Resmi Surat Jalan Wellen
+                    const wellenSjRows = [];
+                    for (const sName of workbook.SheetNames) {
+                        const sObj = workbook.Sheets[sName];
+                        if (!sObj) continue;
+                        const s2D = XLSX.utils.sheet_to_json(sObj, { header: 1, defval: '' });
+                        if (isWellenSuratJalanLayout(s2D)) {
+                            const parsed = parseWellenSuratJalanSheet(s2D, sName, currentImportFileName);
+                            parsed.rowIndex = wellenSjRows.length + 1;
+                            wellenSjRows.push(parsed);
+                        }
+                    }
+
+                    if (wellenSjRows.length > 0) {
+                        parsedPreviewList = wellenSjRows;
+                        return resolve(wellenSjRows);
+                    }
+
+                    // B. Jika bukan format Surat Jalan Wellen tunggal, gunakan parser tabel SPK standar
                     const sheetName = workbook.SheetNames[0];
                     const sheet = workbook.Sheets[sheetName];
 
@@ -1311,6 +1505,9 @@
                     <td style="width: 140px;">
                         <a class="aerotrack-id-link font-monospace">${r.sjNumber}</a>
                     </td>
+                    <td style="width: 110px;">
+                        <input type="text" class="form-control form-control-sm preview-admin-input py-0 px-2" data-index="${dataIdx}" placeholder="-" value="${r.adminSJ || ''}" style="width: 100px; font-size: 0.78rem; height: 32px;" title="Admin Penanggung Jawab SJ (Sementara kosong)">
+                    </td>
                     <td style="width: 90px;">
                         <span class="aerotrack-badge font-monospace">${r.shortCode}</span>
                     </td>
@@ -1441,8 +1638,10 @@
             // Baca update terakhir dari input tabel preview
             const regSel = document.querySelector(`.preview-region-select[data-index="${idx}"]`);
             const branchSel = document.querySelector(`.preview-branch-select[data-index="${idx}"]`);
+            const adminInput = document.querySelector(`.preview-admin-input[data-index="${idx}"]`);
             const finalRegion = regSel ? regSel.value : item.region;
             const finalBranch = branchSel ? branchSel.value : item.originBranch;
+            const finalAdminSJ = adminInput ? adminInput.value.trim() : (item.adminSJ || '');
 
             const tripId = `TRIP_${Date.now()}_${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
             savedTripIds.push(tripId);
@@ -1454,6 +1653,8 @@
                 tripId: tripId,
                 noSJ: item.sjNumber,
                 sjNumber: item.sjNumber,
+                adminSJ: finalAdminSJ,
+                readyStatus: item.readyStatus || 'ready',
                 uniqueCode: item.shortCode,
                 shortCode: item.shortCode,
                 customer: item.clientName,
@@ -1478,6 +1679,7 @@
                     stopIndex: 1,
                     sjNumber: item.sjNumber,
                     noSJ: item.sjNumber,
+                    adminSJ: finalAdminSJ,
                     shortCode: item.shortCode,
                     uniqueCode: item.shortCode,
                     locationName: item.clientName,
@@ -1597,8 +1799,7 @@
                 }
                 if (typeof window.renderUnifiedPoolView === 'function') {
                     window.renderUnifiedPoolView();
-                }
-                if (typeof window.loadPoolTrips === 'function') {
+                } else if (typeof window.loadPoolTrips === 'function') {
                     window.loadPoolTrips().catch(err => console.warn("loadPoolTrips sync:", err));
                 }
                 if (typeof window.renderRecentShipments === 'function') window.renderRecentShipments();

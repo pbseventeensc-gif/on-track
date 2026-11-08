@@ -604,6 +604,7 @@ fun TripCard(trip: Trip, onClick: (Trip) -> Unit) {
                         "assigned" -> Color(0xFF8B5CF6)
                         "accepted" -> Color(0xFF3B82F6)
                         "in_progress" -> Color(0xFF3B82F6)
+                        "pending" -> Color(0xFFF59E0B)
                         else -> Color(0xFF10B981)
                     }
 
@@ -611,6 +612,7 @@ fun TripCard(trip: Trip, onClick: (Trip) -> Unit) {
                         "assigned" -> "TUGAS"
                         "accepted" -> "IN PROGRESS"
                         "in_progress" -> "IN PROGRESS"
+                        "pending" -> "PENDING"
                         else -> trip.status.uppercase()
                     }
                     
