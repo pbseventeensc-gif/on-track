@@ -841,10 +841,9 @@ function safeSplitPhotoUrls(val) {
     if (typeof val !== 'string') return [];
     const trimmed = val.trim();
     if (!trimmed) return [];
-    if (trimmed.startsWith('data:')) {
-        return [trimmed];
-    }
-    return trimmed.split(',').map(s => s.trim()).filter(Boolean);
+    
+    // Split on comma ONLY if followed by http://, https://, or data: to avoid breaking base64 data URLs
+    return trimmed.split(/,(?=\s*(?:https?:\/\/|data:))/).map(s => s.trim()).filter(Boolean);
 }
 window.safeSplitPhotoUrls = safeSplitPhotoUrls;
 
@@ -1043,10 +1042,19 @@ function openPoDModal(url) {
     setActiveImage(0);
 
     const modalEl = document.getElementById('imageModal');
-    if (modalEl && typeof bootstrap !== 'undefined') {
-        let instance = bootstrap.Modal.getInstance(modalEl);
-        if (!instance) instance = new bootstrap.Modal(modalEl);
-        instance.show();
+    if (modalEl) {
+        if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+            try {
+                const instance = bootstrap.Modal.getOrCreateInstance(modalEl);
+                instance.show();
+                return;
+            } catch(e) {
+                console.warn("Bootstrap modal show fallback:", e);
+            }
+        }
+        modalEl.classList.add('show');
+        modalEl.style.display = 'block';
+        document.body.classList.add('modal-open');
     }
 }
 
@@ -3185,9 +3193,14 @@ async function submitTrip() {
             assignedVehicleName = vObj ? vObj.name : (assignedVehiclePlate ? `Mobil ${assignedVehiclePlate}` : '');
         }
 
+        const cName = cid ? ((typeof getCourierDisplayName === 'function' ? getCourierDisplayName(cid) : '') || (registeredUsers[cid] || '')) : '';
+
         await activeDb.collection('trips').doc(id).set({
             tripId: id,
             courierId: cid,
+            courierName: cName,
+            carrier: cName,
+            driver: cName,
             vehicleType: vehicleType,
             vehiclePlate: assignedVehiclePlate,
             vehicleName: assignedVehicleName,
@@ -3206,6 +3219,8 @@ async function submitTrip() {
                 longitude: parseFloat(d.lng !== undefined ? d.lng : (d.longitude || 106.8456)),
                 status: "pending",
                 proofPhotoUrl: "",
+                proofPhotoSj: "",
+                proofPhotoItems: [],
                 vehiclePlate: assignedVehiclePlate,
                 vehicleName: assignedVehicleName
             }))
@@ -3856,7 +3871,7 @@ function openAuditSjModal(tripId) {
             trip.destinations.forEach((d, idx) => {
                 const locName = d.locationName || `Stop ${d.stopIndex || (idx + 1)}`;
                 if (d.proofPhotoSj) {
-                    const firstUrl = d.proofPhotoSj.split(',')[0].trim();
+                    const firstUrl = safeSplitPhotoUrls(d.proofPhotoSj)[0];
                     if (firstUrl) {
                         podSjItems.push({
                             url: firstUrl,
@@ -3866,7 +3881,7 @@ function openAuditSjModal(tripId) {
                         });
                     }
                 } else if (d.proofPhotoUrl) {
-                    const firstUrl = d.proofPhotoUrl.split(',')[0].trim();
+                    const firstUrl = safeSplitPhotoUrls(d.proofPhotoUrl)[0];
                     if (firstUrl) {
                         podSjItems.push({
                             url: firstUrl,
@@ -4466,23 +4481,49 @@ function executeRenderRecentShipments(filter = "") {
 
     const rowsHtml = [];
     rowsToRender.forEach(s => {
-        let podIconsHtml = '';
+        const uploadBtn = `<button class="btn btn-sm btn-link text-primary p-0 ms-1 text-decoration-none" onclick="openManualUploadModal('${s.tripId}', ${s.stopIndex}, '${s.destinationName.replace(/'/g, "\\'")}')" title="Upload Foto PoD Manual Admin"><i class="bi bi-upload"></i></button>`;
+
+        let podCellHtml = '';
+        const allPhotosList = [];
         if (s.proofSjUrl) {
-            podIconsHtml += `<i class="bi bi-file-earmark-check-fill text-success ms-1 cursor-pointer fs-6" data-url="${s.proofSjUrl.replace(/"/g, '&quot;')}" onclick="openPoDModal(this.dataset.url)" title="Lihat Foto Surat Jalan (SJ)"></i>`;
+            safeSplitPhotoUrls(s.proofSjUrl).forEach(u => { if (u && !allPhotosList.includes(u)) allPhotosList.push(u); });
         }
         if (s.proofItemUrl) {
-            const itemCount = safeSplitPhotoUrls(s.proofItemUrl).length;
-            const itemBadgeTitle = itemCount > 1 ? `Lihat Foto Fisik Barang (${itemCount} Foto)` : `Lihat Foto Fisik Barang`;
-            podIconsHtml += `<i class="bi bi-box-seam-fill text-primary ms-1 cursor-pointer fs-6" data-url="${s.proofItemUrl.replace(/"/g, '&quot;')}" onclick="openPoDModal(this.dataset.url)" title="${itemBadgeTitle}"></i>`;
+            safeSplitPhotoUrls(s.proofItemUrl).forEach(u => { if (u && !allPhotosList.includes(u)) allPhotosList.push(u); });
         }
-        if (!podIconsHtml && s.proofUrl) {
-            podIconsHtml = `<i class="bi bi-camera-fill text-success ms-1 cursor-pointer" data-url="${s.proofUrl.replace(/"/g, '&quot;')}" onclick="openPoDModal(this.dataset.url)" title="Lihat Foto PoD"></i>`;
-        }
-        if (!podIconsHtml && s.pendingProofPhotoUrl) {
-            podIconsHtml = `<i class="bi bi-camera-fill text-danger ms-1 cursor-pointer" data-url="${s.pendingProofPhotoUrl.replace(/"/g, '&quot;')}" onclick="openPoDModal(this.dataset.url)" title="Lihat Foto Lokasi Tutup"></i>`;
+        if (s.proofUrl) {
+            safeSplitPhotoUrls(s.proofUrl).forEach(u => { if (u && !allPhotosList.includes(u)) allPhotosList.push(u); });
         }
 
-        const uploadBtn = `<button class="btn btn-sm btn-link text-primary p-0 ms-1 text-decoration-none" onclick="openManualUploadModal('${s.tripId}', ${s.stopIndex}, '${s.destinationName.replace(/'/g, "\\'")}')" title="Upload Foto PoD Manual Admin"><i class="bi bi-upload"></i></button>`;
+        if (allPhotosList.length > 0) {
+            const firstImg = allPhotosList[0];
+            const allUrlsCombined = allPhotosList.join(',');
+            const countLabel = allPhotosList.length > 1 ? `${allPhotosList.length} Foto` : 'Lihat Foto';
+            podCellHtml = `
+                <div class="d-inline-flex align-items-center gap-1.5">
+                    <img src="${firstImg}" alt="PoD" style="width:28px; height:28px; border-radius:6px; object-fit:cover; border:1px solid #cbd5e1; cursor:pointer;" onclick="openPoDModal(this.dataset.url)" data-url="${allUrlsCombined.replace(/"/g, '&quot;')}" title="Klik untuk perbesar bukti foto">
+                    <button type="button" class="btn btn-xs btn-outline-success fw-bold py-1 px-2 d-inline-flex align-items-center gap-1 shadow-2xs" style="font-size:0.72rem; border-radius:6px;" onclick="openPoDModal(this.dataset.url)" data-url="${allUrlsCombined.replace(/"/g, '&quot;')}" title="Lihat Foto Bukti Pengantaran">
+                        <i class="bi bi-camera-fill"></i> ${countLabel}
+                    </button>
+                    ${uploadBtn}
+                </div>`;
+        } else if (s.pendingProofPhotoUrl) {
+            const pendImg = safeSplitPhotoUrls(s.pendingProofPhotoUrl)[0] || '';
+            podCellHtml = `
+                <div class="d-inline-flex align-items-center gap-1.5">
+                    ${pendImg ? `<img src="${pendImg}" alt="Tutup" style="width:28px; height:28px; border-radius:6px; object-fit:cover; border:1px solid #fca5a5; cursor:pointer;" onclick="openPoDModal(this.dataset.url)" data-url="${s.pendingProofPhotoUrl.replace(/"/g, '&quot;')}" title="Klik untuk perbesar">` : ''}
+                    <button type="button" class="btn btn-xs btn-outline-danger fw-bold py-1 px-2 d-inline-flex align-items-center gap-1 shadow-2xs" style="font-size:0.72rem; border-radius:6px;" onclick="openPoDModal(this.dataset.url)" data-url="${s.pendingProofPhotoUrl.replace(/"/g, '&quot;')}" title="Lihat Foto Lokasi Tutup">
+                        <i class="bi bi-exclamation-triangle-fill"></i> Foto Tutup
+                    </button>
+                    ${uploadBtn}
+                </div>`;
+        } else {
+            podCellHtml = `
+                <div class="d-inline-flex align-items-center gap-1">
+                    <span class="text-muted extra-small fst-italic">Belum ada foto</span>
+                    ${uploadBtn}
+                </div>`;
+        }
 
         let statusBadgeHtml = `<span class="badge-pill badge-${s.statusClass} fw-normal">${s.status}</span>`;
         let trStyle = '';
@@ -4524,7 +4565,7 @@ function executeRenderRecentShipments(filter = "") {
 
         rowsHtml.push(`<tr ${trStyle}>
             <td class="fw-normal text-muted extra-small text-nowrap" style="white-space: nowrap;">${s.dateStr}</td>
-            <td class="fw-bold text-dark text-nowrap" style="white-space: nowrap;">${s.displayId} ${podIconsHtml} ${uploadBtn}</td>
+            <td class="fw-bold text-dark text-nowrap" style="white-space: nowrap;">${s.displayId}</td>
             <td class="fw-bold font-monospace text-dark text-nowrap" style="white-space: nowrap;">${s.noSJ && s.noSJ !== '-' ? s.noSJ : '<span class="text-muted">-</span>'}</td>
             <td class="text-muted extra-small text-nowrap" style="white-space: nowrap;">${s.adminSJ && s.adminSJ !== '-' ? s.adminSJ : '<span class="text-muted">-</span>'}</td>
             <td>
@@ -4532,6 +4573,7 @@ function executeRenderRecentShipments(filter = "") {
                 ${s.pendingReason ? `<small class="text-danger extra-small d-block fw-bold text-truncate" style="max-width:240px"><i class="bi bi-exclamation-circle me-1"></i>${s.pendingReason}</small>` : (s.fullAddress ? `<small class="text-muted extra-small d-block text-truncate fw-normal" style="max-width:240px">${s.fullAddress}</small>` : '')}
             </td>
             <td class="text-nowrap" style="white-space: nowrap;">${statusBadgeHtml}</td>
+            <td class="text-nowrap" style="white-space: nowrap;">${podCellHtml}</td>
             <td class="fw-semibold text-dark text-nowrap" style="white-space: nowrap;"><div class="d-inline-flex align-items-center">${carrierAvatarHtml}<span>${s.carrier}</span></div>${vehicleBadgeHtml}</td>
             <td class="text-nowrap" style="white-space: nowrap;"><small class="fw-normal text-secondary">${s.eta}</small></td>
             <td class="text-nowrap">
@@ -4746,11 +4788,11 @@ async function submitManualUploadPhoto() {
                 const isMatch = d.stopIndex === stopIndex || (d.stopIndex === undefined && d.locationName === targetLocName);
                 if (isMatch) {
                     let existingSj = d.proofPhotoSj || '';
-                    let existingItems = Array.isArray(d.proofPhotoItems) ? [...d.proofPhotoItems] : (typeof d.proofPhotoItems === 'string' && d.proofPhotoItems ? d.proofPhotoItems.split(',').map(s=>s.trim()).filter(Boolean) : []);
+                    let existingItems = Array.isArray(d.proofPhotoItems) ? [...d.proofPhotoItems] : (typeof d.proofPhotoItems === 'string' && d.proofPhotoItems ? safeSplitPhotoUrls(d.proofPhotoItems) : []);
 
                     if (category === 'sj') {
                         if (existingSj && existingSj.trim().length > 0) {
-                            const sjArr = existingSj.split(',').map(s=>s.trim()).filter(Boolean);
+                            const sjArr = safeSplitPhotoUrls(existingSj);
                             uploadedUrls.forEach(u => { if (!sjArr.includes(u)) sjArr.push(u); });
                             existingSj = sjArr.join(',');
                         } else {
@@ -5430,12 +5472,16 @@ async function exportFullReportsToExcel() {
                         cell.font.color = { argb: 'FF92400E' };
                     }
                 } else if (cIdx === 10) {
-                    if (val && typeof val === 'string' && val.startsWith('http')) {
+                    const firstPhoto = safeSplitPhotoUrls(val)[0];
+                    if (firstPhoto && firstPhoto.startsWith('http')) {
                         cell.value = {
                             text: '📸 Lihat Foto PoD',
-                            hyperlink: val.split(',')[0].trim()
+                            hyperlink: firstPhoto
                         };
                         cell.font = { name: 'Calibri', size: 9.5, bold: true, color: { argb: 'FF1D4ED8' }, underline: true };
+                    } else if (firstPhoto && firstPhoto.startsWith('data:image')) {
+                        cell.value = '📸 Foto Tersimpan (Base64)';
+                        cell.font = { name: 'Calibri', size: 9, bold: true, color: { argb: 'FF166534' } };
                     } else {
                         cell.value = '-';
                         cell.font = { name: 'Calibri', size: 8.5, italic: true, color: { argb: 'FF94A3B8' } };
@@ -6462,7 +6508,7 @@ function collectPoDArchivePhotos() {
 
                 // 1. Surat Jalan (SJ)
                 if (extracted.sjUrl && (selectedCategory === 'all' || selectedCategory === 'sj')) {
-                    const sjList = extracted.sjUrl.split(',').map(s => s.trim()).filter(Boolean);
+                    const sjList = safeSplitPhotoUrls(extracted.sjUrl);
                     sjList.forEach((sjUrl, sIdx) => {
                         if (sjUrl && !seenUrls.has(sjUrl)) {
                             seenUrls.add(sjUrl);
@@ -6507,7 +6553,7 @@ function collectPoDArchivePhotos() {
 
                 // 3. Pending / Toko Tutup photo
                 if (d.pendingProofPhotoUrl && (selectedCategory === 'all' || selectedCategory === 'item' || selectedCategory === 'pending')) {
-                    const pendList = d.pendingProofPhotoUrl.split(',').map(s => s.trim()).filter(Boolean);
+                    const pendList = safeSplitPhotoUrls(d.pendingProofPhotoUrl);
                     pendList.forEach((pendUrl) => {
                         if (pendUrl && !seenUrls.has(pendUrl)) {
                             seenUrls.add(pendUrl);

@@ -1946,13 +1946,22 @@
 
     function hasRealProofPhoto(d) {
         if (!d) return false;
-        const url = d.proofPhotoUrl || d.proofPhotoSj || (d.proofPhotoItems && d.proofPhotoItems[0]) || d.proofUrl || d.photoUrl || '';
-        if (typeof url !== 'string') return false;
-        const clean = url.trim();
-        if (clean.length < 10) return false;
-        if (clean === '-' || clean === 'none' || clean === 'undefined' || clean === 'null' || clean === 'false') return false;
-        if (clean.startsWith('data:image/svg+xml')) return false; // Ignore placeholder dummy SVG
-        return clean.startsWith('http://') || clean.startsWith('https://') || clean.startsWith('data:image/');
+        const candidates = [];
+        if (Array.isArray(d.proofPhotoItems)) candidates.push(...d.proofPhotoItems);
+        if (d.proofPhotoUrl) candidates.push(d.proofPhotoUrl);
+        if (d.proofPhotoSj) candidates.push(d.proofPhotoSj);
+        if (d.proofSJUrl) candidates.push(d.proofSJUrl);
+        if (d.proofUrl) candidates.push(d.proofUrl);
+        if (d.photoUrl) candidates.push(d.photoUrl);
+
+        return candidates.some(url => {
+            if (typeof url !== 'string') return false;
+            const clean = url.trim();
+            if (clean.length < 10) return false;
+            if (clean === '-' || clean === 'none' || clean === 'undefined' || clean === 'null' || clean === 'false') return false;
+            if (clean.startsWith('data:image/svg+xml')) return false; // Ignore placeholder dummy SVG
+            return clean.startsWith('http://') || clean.startsWith('https://') || clean.startsWith('data:image/');
+        });
     }
 
     function parseAnyDateMs(rawDate) {
@@ -2853,7 +2862,7 @@
                     <div class="shipment-card-left">
                         <div class="shipment-vehicle-badge">${displayVehicleIcon}</div>
                         <div>
-                            <h6 class="shipment-no-title">${s.noSJ}</h6>
+                            <h6 class="shipment-no-title">${s.noSJ && s.noSJ !== '-' ? s.noSJ : `Titik ${s.stopIndex || 1} • Manual Dispatch`}</h6>
                             <div class="shipment-route-text">${s.destination}</div>
                         </div>
                     </div>
@@ -4097,7 +4106,7 @@
                                 proofPhotoItems: [finalBarangPhoto]
                             };
                         }
-                        const dDone = (d.status === 'done' || d.status === 'completed' || d.proofPhotoUrl || d.proofPhotoSj);
+                        const dDone = (d.status === 'done' || d.status === 'completed' || (Array.isArray(d.proofPhotoItems) && d.proofPhotoItems.length > 0) || d.proofPhotoUrl || d.proofPhotoSj);
                         if (!dDone) {
                             allDone = false;
                         }
@@ -4162,7 +4171,7 @@
         const confSj = document.getElementById('confirmed-modal-sj');
         const confStore = document.getElementById('confirmed-modal-store');
         const confAddr = document.getElementById('confirmed-modal-addr');
-        if (confSj) confSj.innerText = (finishedTarget && finishedTarget.noSJ && finishedTarget.noSJ !== '-') ? finishedTarget.noSJ : '#SJ';
+        if (confSj) confSj.innerText = (finishedTarget && finishedTarget.noSJ && finishedTarget.noSJ !== '-') ? finishedTarget.noSJ : (finishedTarget ? `Titik ${finishedTarget.stopIndex || 1}` : '#SJ');
         if (confStore) confStore.innerText = (finishedTarget && finishedTarget.destination) ? finishedTarget.destination : 'Tujuan';
         if (confAddr) confAddr.innerText = (finishedTarget && finishedTarget.address) ? finishedTarget.address : '-';
 
