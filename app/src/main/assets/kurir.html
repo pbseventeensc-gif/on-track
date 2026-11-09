@@ -1505,6 +1505,49 @@
 
 
     <!-- ======================================================== -->
+    <!-- 5B. TUGAS DIAMBIL (IN TRANSIT) MODAL DARI SCAN BARCODE / QR-->
+    <!-- ======================================================== -->
+    <div class="modal fade" id="taskClaimedModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+        <div class="modal-dialog modal-dialog-centered" style="max-width: 380px;">
+            <div class="modal-content modal-confirmed-content p-4" style="border-radius: 28px; border: none; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);">
+                <!-- Animated Vehicle / Compass Illustration -->
+                <div class="confirmed-illustration mb-3">
+                    <div style="width: 80px; height: 80px; border-radius: 50%; background: #EFF6FF; display: flex; align-items: center; justify-content: center; margin: 0 auto; position: relative;">
+                        <span style="font-size: 42px;" id="claimed-modal-icon">🛵</span>
+                        <div class="check-badge-floating" style="background: #3B82F6; box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4);">
+                            <i class="bi bi-geo-alt-fill"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <h4 class="fw-extrabold text-dark mb-1" style="font-size: 1.35rem;">Tugas Berhasil Diambil!</h4>
+                <p class="text-muted extra-small mb-3">Surat Jalan dipindahkan dari Plan Shipment ke Status <b>In Transit</b> di Dashboard &amp; Aplikasi.</p>
+
+                <!-- Ringkasan Tugas Diambil -->
+                <div class="p-3 rounded-4 mb-3 text-start border" style="background: #f8fafc; border-color: #e2e8f0 !important;">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span class="badge bg-dark text-white fw-bold px-2.5 py-1" id="claimed-modal-sj" style="font-size: 0.78rem;">#SJ-1126-01287</span>
+                        <span class="badge bg-warning-subtle text-warning border border-warning-subtle extra-small fw-bold"><i class="bi bi-bicycle me-1"></i>In Transit</span>
+                    </div>
+                    <div class="fw-bold text-dark text-truncate mt-1" id="claimed-modal-store" style="font-size: 0.92rem;">PT TOYS GAMES INDONESIA</div>
+                    <div class="extra-small text-muted text-truncate mt-0.5" id="claimed-modal-addr">STORE TOYS KINGDOM GRAND INDONESIA</div>
+                </div>
+
+                <!-- Tombol Navigasi Maps & Beranda -->
+                <div class="w-100 d-flex flex-column gap-2">
+                    <a id="claimed-modal-nav-btn" href="#" target="_blank" class="btn btn-brand-primary w-100 py-3 fw-bold d-flex align-items-center justify-content-center gap-2 shadow-sm" style="border-radius: 16px; font-size: 0.95rem;">
+                        <i class="bi bi-compass-fill fs-5"></i> Buka Navigasi Maps
+                    </a>
+                    <button type="button" class="btn btn-outline-secondary w-100 py-2.5 fw-bold" style="border-radius: 16px; font-size: 0.88rem; border-color: #cbd5e1; color: #475569;" data-bs-dismiss="modal" onclick="closeClaimedModalAndGoHome()">
+                        Lihat di Tugas Aktif
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ======================================================== -->
     <!-- 6. PARCEL CONFIRMED POPUP (Attractive Success Card)       -->
     <!-- ======================================================== -->
     <div class="modal fade" id="parcelConfirmedModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
@@ -2238,6 +2281,9 @@
                             completedAt: dest.completedAt || t.completedAt || (isDone ? dateIso : null),
                             address: dest.address || t.address || 'Alamat Lokasi',
                             phone: dest.phone || t.phone || '021-5506999',
+                            latitude: dest.latitude || t.latitude || null,
+                            longitude: dest.longitude || t.longitude || null,
+                            region: dest.region || t.region || '',
                             proofPhotoUrl: dest.proofPhotoUrl || (dest.proofPhotoItems && dest.proofPhotoItems[0]) || t.proofPhotoUrl || '',
                             proofSJUrl: dest.proofPhotoSj || dest.proofSJUrl || t.proofSJUrl || ''
                         });
@@ -2297,6 +2343,9 @@
                             date: t.assignedAt || t.date || new Date().toISOString(),
                             address: dest.address || t.address || 'Alamat Lokasi',
                             phone: dest.phone || '021-5506999',
+                            latitude: dest.latitude || t.latitude || null,
+                            longitude: dest.longitude || t.longitude || null,
+                            region: dest.region || t.region || '',
                             proofPhotoUrl: dest.proofPhotoUrl || '',
                             proofSJUrl: dest.proofSJUrl || dest.proofPhotoSj || ''
                         });
@@ -2883,7 +2932,7 @@
                         <div class="text-secondary"><i class="bi bi-geo-alt-fill text-danger me-1.5"></i>${s.address}</div>
                     </div>
                     <div class="d-flex gap-2 mb-1 align-items-center">
-                        <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s.address)}" target="_blank" class="btn btn-sm btn-light border flex-1 fw-bold extra-small text-dark">
+                        <a href="${getGoogleMapsNavUrl(s)}" target="_blank" class="btn btn-sm btn-light border flex-1 fw-bold extra-small text-dark">
                             <i class="bi bi-compass text-primary me-1"></i> Navigasi Maps
                         </a>
                         <a href="tel:${s.phone}" class="btn btn-sm btn-light border flex-1 fw-bold extra-small text-dark">
@@ -3588,31 +3637,320 @@
         scanCurrentVideoFrame(true);
     }
 
-    function onBarcodeDetectedSuccess(rawCode) {
-        stopBarcodeScannerCamera();
-        const cleanCode = String(rawCode || '').trim();
-        let matched = null;
-        if (cleanCode) {
-            matched = masterShipments.find(s =>
-                s.noSJ.toLowerCase().includes(cleanCode.toLowerCase()) ||
-                String(s.id).toLowerCase().includes(cleanCode.toLowerCase())
-            );
-        }
-        if (!matched) {
-            matched = masterShipments.find(s => s.status !== 'delivered') || masterShipments[0];
+    function getGoogleMapsNavUrl(s) {
+        if (!s) return 'https://maps.google.com';
+        const lat = parseFloat(s.latitude);
+        const lng = parseFloat(s.longitude);
+        const hasValidCoords = !isNaN(lat) && !isNaN(lng) && (Math.abs(lat) > 0.001 || Math.abs(lng) > 0.001);
+
+        if (hasValidCoords) {
+            return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
         }
 
-        if (matched) {
-            showToast(`✅ Barcode Terverifikasi: ${matched.noSJ}`);
-            navigateToScreen('home');
-            setTimeout(() => {
-                openUploadCompleteModal(matched.id, matched.noSJ, matched.destination);
-            }, 400);
+        const queryParts = [s.destination, s.address, s.region].filter(Boolean);
+        const query = queryParts.join(', ');
+        return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query || s.address || 'Jakarta')}`;
+    }
+
+    function parseWtrackBarcode(rawCode) {
+        const raw = String(rawCode || '').trim();
+        if (!raw) return null;
+        let tripId = '';
+        let sjNumber = '';
+        let shortCode = '';
+
+        if (raw.startsWith('WTRACK|')) {
+            const parts = raw.split('|');
+            // WTRACK|SJ|tripId|sjNumber|shortCode
+            tripId = parts[2] || '';
+            sjNumber = parts[3] || '';
+            shortCode = parts[4] || '';
         } else {
-            const label = cleanCode || 'SJ-1126-01287';
-            showToast(`✅ Barcode Terbaca: ${label}`);
+            const sjMatch = raw.match(/SJ-\d{2,4}-\d{4,6}/i);
+            if (sjMatch) {
+                sjNumber = sjMatch[0];
+            } else if (raw.startsWith('SJ-')) {
+                sjNumber = raw;
+            } else if (/^\d{5,8}$/.test(raw)) {
+                shortCode = raw;
+            } else if (raw.startsWith('TRIP_')) {
+                tripId = raw;
+            }
+        }
+        return {
+            raw,
+            tripId,
+            sjNumber,
+            shortCode,
+            searchKeys: [raw, tripId, sjNumber, shortCode].filter(Boolean)
+        };
+    }
+
+    async function onBarcodeDetectedSuccess(rawCode) {
+        stopBarcodeScannerCamera();
+        const parsed = parseWtrackBarcode(rawCode);
+        if (!parsed || parsed.searchKeys.length === 0) {
+            showToast('⚠️ Barcode / QR tidak valid.');
+            navigateToScreen('home');
+            return;
+        }
+
+        showToast('🔍 Memverifikasi Barcode / QR Surat Jalan...');
+
+        try {
+            let foundTrip = null;
+            let foundDocId = null;
+
+            // 1. Cari di Firestore trips
+            if (typeof firestoreDb !== 'undefined' && firestoreDb) {
+                // Cari langsung berdasarkan Doc ID
+                const docIdCandidates = [parsed.tripId, parsed.sjNumber, parsed.raw].filter(Boolean);
+                for (const cId of docIdCandidates) {
+                    try {
+                        const snap = await firestoreDb.collection('trips').doc(cId).get();
+                        if (snap.exists) {
+                            foundTrip = { id: snap.id, ...snap.data() };
+                            foundDocId = snap.id;
+                            break;
+                        }
+                    } catch(e) {}
+                }
+
+                // Query field lookups jika belum ketemu
+                if (!foundTrip) {
+                    const queryLookups = [];
+                    if (parsed.shortCode) {
+                        queryLookups.push(firestoreDb.collection('trips').where('shortCode', '==', parsed.shortCode).limit(1));
+                        queryLookups.push(firestoreDb.collection('trips').where('uniqueCode', '==', parsed.shortCode).limit(1));
+                    }
+                    if (parsed.sjNumber) {
+                        queryLookups.push(firestoreDb.collection('trips').where('noSJ', '==', parsed.sjNumber).limit(1));
+                        queryLookups.push(firestoreDb.collection('trips').where('sjNumber', '==', parsed.sjNumber).limit(1));
+                    }
+                    if (parsed.raw.startsWith('WTRACK|')) {
+                        queryLookups.push(firestoreDb.collection('trips').where('qrPayload', '==', parsed.raw).limit(1));
+                    }
+
+                    for (const q of queryLookups) {
+                        try {
+                            const qSnap = await q.get();
+                            if (!qSnap.empty) {
+                                const doc = qSnap.docs[0];
+                                foundTrip = { id: doc.id, ...doc.data() };
+                                foundDocId = doc.id;
+                                break;
+                            }
+                        } catch(e) {}
+                    }
+                }
+            }
+
+            // 2. Cari di cache lokal (wtrack_local_trips)
+            if (!foundTrip) {
+                try {
+                    const rawLocal = localStorage.getItem('wtrack_local_trips');
+                    if (rawLocal) {
+                        const localTrips = JSON.parse(rawLocal);
+                        if (Array.isArray(localTrips)) {
+                            foundTrip = localTrips.find(t => {
+                                const str = JSON.stringify(t);
+                                return parsed.searchKeys.some(k => str.includes(k));
+                            });
+                            if (foundTrip) foundDocId = foundTrip.id || foundTrip.tripId;
+                        }
+                    }
+                } catch(e) {}
+            }
+
+            // 3. Fallback jika sudah ada di masterShipments
+            if (!foundTrip) {
+                const inMaster = masterShipments.find(s => {
+                    const sStr = `${s.id} ${s.noSJ} ${s.rootTripId}`.toLowerCase();
+                    return parsed.searchKeys.some(k => sStr.includes(k.toLowerCase()));
+                });
+                if (inMaster) {
+                    foundTrip = {
+                        id: inMaster.rootTripId || inMaster.id,
+                        noSJ: inMaster.noSJ,
+                        status: inMaster.status === 'delivered' ? 'completed' : 'in_progress',
+                        destinations: [{
+                            locationName: inMaster.destination,
+                            address: inMaster.address,
+                            phone: inMaster.phone,
+                            status: inMaster.status === 'delivered' ? 'done' : 'in_progress',
+                            latitude: inMaster.latitude,
+                            longitude: inMaster.longitude,
+                            region: inMaster.region
+                        }]
+                    };
+                    foundDocId = inMaster.rootTripId || inMaster.id;
+                }
+            }
+
+            if (!foundTrip) {
+                showToast(`❌ Surat Jalan tidak ditemukan untuk barcode: ${parsed.raw}`);
+                navigateToScreen('home');
+                return;
+            }
+
+            // Cek apakah sudah delivered sebelumnya
+            const hasRealProof = foundTrip.proofPhotoUrl || (foundTrip.destinations && foundTrip.destinations.some(d => d.proofPhotoUrl));
+            const isAlreadyDone = foundTrip.status === 'completed' || foundTrip.status === 'done' || (hasRealProof && foundTrip.destinations && foundTrip.destinations.every(d => d.status === 'done'));
+
+            const displaySJ = foundTrip.noSJ || foundTrip.sjNumber || parsed.sjNumber || 'SJ';
+            const formattedSJ = String(displaySJ).startsWith('#') ? displaySJ : '#' + displaySJ;
+            const firstDest = (foundTrip.destinations && foundTrip.destinations[0]) || {};
+            const displayStore = firstDest.locationName || foundTrip.clientName || foundTrip.customer || 'Tujuan Pengantaran';
+            const displayAddr = firstDest.address || foundTrip.address || '-';
+
+            if (isAlreadyDone) {
+                showToast(`✓ Surat Jalan ${formattedSJ} sudah selesai diantar sebelumnya.`);
+                navigateToScreen('home');
+                return;
+            }
+
+            // =========================================================================
+            // AMBIL TUGAS (CLAIM AS IN-TRANSIT):
+            // Pindahkan dari Plan Shipment ke Dashboard Admin & Tugas Aktif Kurir
+            // =========================================================================
+            const nowIso = new Date().toISOString();
+            const cUid = (currentCourier && (currentCourier.uid || currentCourier.id)) || 'courier';
+            const cName = (currentCourier && currentCourier.name) || 'Kurir';
+
+            const updateData = {
+                status: 'in_progress',
+                deliveryStatus: 'in_progress',
+                courierId: cUid,
+                courierName: cName,
+                carrier: cName,
+                assignedAt: nowIso
+            };
+
+            if (typeof firebase !== 'undefined' && firebase.firestore && firebase.firestore.FieldValue) {
+                updateData.acceptedTime = firebase.firestore.FieldValue.serverTimestamp();
+            }
+
+            if (Array.isArray(foundTrip.destinations)) {
+                updateData.destinations = foundTrip.destinations.map(d => ({
+                    ...d,
+                    status: (d.status === 'done' || d.status === 'completed') ? d.status : 'in_progress'
+                }));
+            }
+
+            // 1. Simpan update ke Firestore
+            if (firestoreDb && foundDocId) {
+                try {
+                    await firestoreDb.collection('trips').doc(foundDocId).set(updateData, { merge: true });
+                    const cleanSJNumber = (foundTrip.noSJ || foundTrip.sjNumber || parsed.sjNumber || '').trim();
+                    if (cleanSJNumber && cleanSJNumber !== foundDocId) {
+                        try {
+                            await firestoreDb.collection('trips').doc(cleanSJNumber).set(updateData, { merge: true });
+                        } catch(e) {}
+                    }
+                } catch(e) {
+                    console.warn("Firestore claim error:", e);
+                }
+            }
+
+            // 2. Simpan update ke local storage
+            try {
+                const rawLocal = localStorage.getItem('wtrack_local_trips');
+                let localTrips = rawLocal ? JSON.parse(rawLocal) : [];
+                let foundInLocal = false;
+                localTrips = localTrips.map(lt => {
+                    if (lt.id === foundDocId || lt.tripId === foundDocId || (displaySJ && lt.noSJ === displaySJ)) {
+                        foundInLocal = true;
+                        return { ...lt, ...updateData };
+                    }
+                    return lt;
+                });
+                if (!foundInLocal) {
+                    localTrips.unshift({ ...foundTrip, ...updateData, id: foundDocId });
+                }
+                localStorage.setItem('wtrack_local_trips', JSON.stringify(localTrips));
+            } catch(e) {}
+
+            // 3. Masukkan ke masterShipments Kurir sebagai In Transit
+            const subId = foundDocId;
+            const isKurirMotor = !currentCourier.role || currentCourier.role.includes('Motor') || currentCourier.vehicleType === 'motor';
+            const existingInMaster = masterShipments.find(s => s.id === subId || s.rootTripId === foundDocId || (displaySJ && s.noSJ === formattedSJ));
+
+            const cardObj = {
+                id: subId,
+                rootTripId: foundDocId,
+                stopIndex: firstDest.stopIndex || 1,
+                noSJ: formattedSJ,
+                vehicleIcon: isKurirMotor ? '🛵' : '🚚',
+                origin: foundTrip.originBranch === 'cikokol' ? 'Wellen Cikokol' : 'Wellen Pusat',
+                destination: displayStore,
+                status: 'in-transit',
+                isPendingReported: false,
+                pendingReason: '',
+                pendingProofPhotoUrl: '',
+                pendingAt: null,
+                date: nowIso,
+                address: displayAddr,
+                phone: firstDest.phone || foundTrip.phone || '021-5506999',
+                latitude: firstDest.latitude || foundTrip.latitude || null,
+                longitude: firstDest.longitude || foundTrip.longitude || null,
+                region: firstDest.region || foundTrip.region || '',
+                proofPhotoUrl: '',
+                proofSJUrl: ''
+            };
+
+            if (existingInMaster) {
+                Object.assign(existingInMaster, cardObj);
+            } else {
+                masterShipments.unshift(cardObj);
+            }
+
+            renderHomeScreen();
+            renderShipmentsScreen();
+
+            // 4. Tampilkan Modal Sukses Ambil Tugas (In Transit)
+            showTaskClaimedModal(cardObj);
+
+        } catch (err) {
+            console.error("Barcode processing error:", err);
+            showToast("⚠️ Gagal memproses barcode: " + (err.message || ''));
             navigateToScreen('home');
         }
+    }
+
+    function showTaskClaimedModal(s) {
+        const sjEl = document.getElementById('claimed-modal-sj');
+        const storeEl = document.getElementById('claimed-modal-store');
+        const addrEl = document.getElementById('claimed-modal-addr');
+        const iconEl = document.getElementById('claimed-modal-icon');
+        const navBtn = document.getElementById('claimed-modal-nav-btn');
+
+        if (sjEl) sjEl.innerText = s.noSJ || '#SJ';
+        if (storeEl) storeEl.innerText = s.destination || '-';
+        if (addrEl) addrEl.innerText = s.address || '-';
+        if (iconEl) iconEl.innerText = s.vehicleIcon || '🛵';
+
+        const navUrl = getGoogleMapsNavUrl(s);
+        if (navBtn) {
+            navBtn.href = navUrl;
+        }
+
+        navigateToScreen('home');
+        const modalEl = document.getElementById('taskClaimedModal');
+        if (modalEl && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+            const m = bootstrap.Modal.getOrCreateInstance(modalEl);
+            m.show();
+        } else {
+            showToast(`✅ Tugas ${s.noSJ} berhasil diambil (In Transit)!`);
+        }
+    }
+
+    function closeClaimedModalAndGoHome() {
+        const modalEl = document.getElementById('taskClaimedModal');
+        if (modalEl && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+            const m = bootstrap.Modal.getInstance(modalEl);
+            if (m) m.hide();
+        }
+        navigateToScreen('home');
     }
 
     function triggerGalleryQRUpload() {

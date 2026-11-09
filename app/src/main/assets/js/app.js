@@ -4224,8 +4224,16 @@ function isDummyAutoSJ(sj, tripId) {
 window.isDummyAutoSJ = isDummyAutoSJ;
 
 function getRealSJNumber(d, t) {
-    const candidate = (d && (d.sjNumber || d.noSJ)) || (t && (t.sjNumber || t.noSJ)) || '';
+    let candidate = (d && (d.sjNumber || d.noSJ)) || (t && (t.sjNumber || t.noSJ)) || '';
     const tripId = String((t && t.id) || (t && t.tripId) || '');
+    if (!candidate && t && t.qrPayload) {
+        const parts = String(t.qrPayload).split('|');
+        if (parts.length >= 4 && parts[3]) candidate = parts[3];
+    }
+    if (!candidate && tripId) {
+        const match = tripId.match(/SJ-\d{2,4}-\d{4,6}/i);
+        if (match) candidate = match[0];
+    }
     if (isDummyAutoSJ(candidate, tripId)) return '';
     return String(candidate).replace(/^#/, '').trim();
 }
@@ -4305,11 +4313,13 @@ function executeRenderRecentShipments(filter = "") {
         const courierIdStr = t.courierId || '';
         const cName = typeof getCourierDisplayName === 'function' ? getCourierDisplayName(courierIdStr) : (courierIdStr ? courierIdStr.substring(0, 8) : 'Unknown');
         const tripIdStr = String(t.id || t.tripId || '');
+        const rawDigits = tripIdStr.replace('TRIP_', '').replace(/_[A-Z0-9]+$/, '');
         let tripIdShort = '';
         if (tripIdStr.startsWith('SJ-')) {
             tripIdShort = '#' + tripIdStr;
+        } else if (rawDigits.includes('SJ-')) {
+            tripIdShort = '#' + rawDigits;
         } else if (tripIdStr.startsWith('TRIP_')) {
-            const rawDigits = tripIdStr.replace('TRIP_', '').replace(/_[A-Z0-9]+$/, '');
             tripIdShort = '#' + (rawDigits.length > 6 ? rawDigits.substring(rawDigits.length - 6) : rawDigits);
         } else {
             tripIdShort = '#' + (tripIdStr.length > 6 ? tripIdStr.substring(tripIdStr.length - 6) : tripIdStr);
@@ -4395,9 +4405,10 @@ function executeRenderRecentShipments(filter = "") {
                     const photos = extractDestinationPhotos(d, t);
 
                     const realSJ = getRealSJNumber(d, t);
+                    const itemDisplayId = realSJ ? `#${realSJ}-${stopIdx}` : uniqueShipmentId;
                     shipmentRows.push({
                         tripId: t.id,
-                        displayId: uniqueShipmentId,
+                        displayId: itemDisplayId,
                         noSJ: realSJ || '-',
                         adminSJ: t.adminSJ || d.adminSJ || '',
                         dateStr: tripDateStr,
@@ -4914,11 +4925,13 @@ async function exportRecentShipmentsToExcel() {
         const courierIdStr = t.courierId || '';
         const cName = typeof getCourierDisplayName === 'function' ? getCourierDisplayName(courierIdStr) : (courierIdStr ? courierIdStr.substring(0, 8) : 'Unknown');
         const tripIdStr = String(t.id || t.tripId || '');
+        const rawDigits = tripIdStr.replace('TRIP_', '').replace(/_[A-Z0-9]+$/, '');
         let tripIdShort = '';
         if (tripIdStr.startsWith('SJ-')) {
             tripIdShort = '#' + tripIdStr;
+        } else if (rawDigits.includes('SJ-')) {
+            tripIdShort = '#' + rawDigits;
         } else if (tripIdStr.startsWith('TRIP_')) {
-            const rawDigits = tripIdStr.replace('TRIP_', '').replace(/_[A-Z0-9]+$/, '');
             tripIdShort = '#' + (rawDigits.length > 6 ? rawDigits.substring(rawDigits.length - 6) : rawDigits);
         } else {
             tripIdShort = '#' + (tripIdStr.length > 6 ? tripIdStr.substring(tripIdStr.length - 6) : tripIdStr);
@@ -6443,11 +6456,13 @@ function collectPoDArchivePhotos() {
         const courierIdStr = t.courierId || '';
         const cName = typeof getCourierDisplayName === 'function' ? getCourierDisplayName(courierIdStr) : (courierIdStr ? courierIdStr.substring(0, 8) : 'Unknown');
         const tripIdStr = String(t.id || t.tripId || '');
+        const rawDigits = tripIdStr.replace('TRIP_', '').replace(/_[A-Z0-9]+$/, '');
         let tripIdShort = '';
         if (tripIdStr.startsWith('SJ-')) {
             tripIdShort = '#' + tripIdStr;
+        } else if (rawDigits.includes('SJ-')) {
+            tripIdShort = '#' + rawDigits;
         } else if (tripIdStr.startsWith('TRIP_')) {
-            const rawDigits = tripIdStr.replace('TRIP_', '').replace(/_[A-Z0-9]+$/, '');
             tripIdShort = '#' + (rawDigits.length > 6 ? rawDigits.substring(rawDigits.length - 6) : rawDigits);
         } else {
             tripIdShort = '#' + (tripIdStr.length > 6 ? tripIdStr.substring(tripIdStr.length - 6) : tripIdStr);
