@@ -1912,11 +1912,36 @@
         return false;
     }
 
+    function hasRealProofPhoto(d) {
+        if (!d) return false;
+        const url = d.proofPhotoUrl || d.proofPhotoSj || (d.proofPhotoItems && d.proofPhotoItems[0]) || d.proofUrl || d.photoUrl || '';
+        if (typeof url !== 'string') return false;
+        const clean = url.trim();
+        if (clean.length < 10) return false;
+        if (clean === '-' || clean === 'none' || clean === 'undefined' || clean === 'null' || clean === 'false') return false;
+        if (clean.startsWith('data:image/svg+xml')) return false; // Ignore placeholder dummy SVG
+        return clean.startsWith('http://') || clean.startsWith('https://') || clean.startsWith('data:image/');
+    }
+
     function parseAnyDateMs(rawDate) {
         if (!rawDate) return 0;
         if (typeof rawDate === 'number') return rawDate;
         if (rawDate.seconds) return rawDate.seconds * 1000;
+        if (rawDate._seconds) return rawDate._seconds * 1000;
         if (typeof rawDate.toDate === 'function') return rawDate.toDate().getTime();
+        if (typeof rawDate === 'string') {
+            const d = new Date(rawDate);
+            if (!isNaN(d.getTime())) return d.getTime();
+            const parts = rawDate.split(/[\/\-]/);
+            if (parts.length === 3) {
+                const day = parseInt(parts[0], 10);
+                const mon = parseInt(parts[1], 10) - 1;
+                const year = parseInt(parts[2], 10);
+                if (day > 0 && mon >= 0 && year > 2000) {
+                    return new Date(year, mon, day).getTime();
+                }
+            }
+        }
         const d = new Date(rawDate);
         return isNaN(d.getTime()) ? 0 : d.getTime();
     }
@@ -2117,7 +2142,10 @@
                             return;
                         }
 
-                        const isDone = (dest.status === 'done' || dest.status === 'completed' || t.status === 'completed' || t.status === 'done' || !!(dest.proofPhotoUrl || dest.proofPhotoSj));
+                        const hasProof = hasRealProofPhoto(dest) || hasRealProofPhoto(t);
+                        const isExplicitDone = dest.status === 'done' || dest.status === 'completed';
+                        const isTripDone = (t.status === 'completed' || t.status === 'done');
+                        const isDone = (hasProof && (isExplicitDone || isTripDone)) || (isTripDone && isExplicitDone && !dest.pendingReason && (dest.completedTime || t.completedAt));
                         const pendingReasonVal = dest.pendingReason || t.pendingReason || '';
                         const pendingPhotoVal = dest.pendingProofPhotoUrl || t.pendingProofPhotoUrl || '';
                         const isPendingReported = !isDone && (dest.status === 'pending_approval' || dest.status === 'klien_tutup' || !!pendingReasonVal);
@@ -2247,6 +2275,83 @@
         renderHomeScreen();
         renderShipmentsScreen();
         showToast("🗑️ Titik pengantaran berhasil dihapus");
+    }
+
+    async function reactivateCourierShipment(shipmentId, event) {
+        if (event) event.stopPropagation();
+        const target = masterShipments.find(s => s.id === shipmentId);
+        if (!target) return;
+        if (!confirm(`Kembalikan status pengantaran ${target.noSJ} (${target.destination}) ke status AKTIF (In Progress)?`)) return;
+
+        target.status = 'in-transit';
+        target.completedAt = null;
+        target.proofPhotoUrl = '';
+        target.proofSJUrl = '';
+
+        try {
+            const raw = localStorage.getItem('wtrack_local_trips');
+            if (raw) {
+                let stored = JSON.parse(raw);
+                if (Array.isArray(stored)) {
+                    const cleanSJ = target.noSJ.replace(/^#/, '');
+                    const found = stored.find(s => s.id === shipmentId || s.id === target.rootTripId || s.noSJ === cleanSJ || s.sjNumber === cleanSJ);
+                    if (found) {
+                        found.status = 'in_progress';
+                        found.deliveryStatus = 'in_progress';
+                        found.completedAt = null;
+                        if (found.destinations) {
+                            found.destinations.forEach(d => {
+                                d.status = 'in_progress';
+                                d.proofPhotoUrl = '';
+                                d.proofPhotoSj = '';
+                            });
+                        }
+                        localStorage.setItem('wtrack_local_trips', JSON.stringify(stored));
+                    }
+                }
+            }
+        } catch(e) {}
+
+        const rootId = target.rootTripId || shipmentId;
+        const stopIdx = target.stopIndex || 1;
+        const cleanSJ = target.noSJ ? target.noSJ.replace(/^#/, '') : '';
+
+        if (firestoreDb && rootId) {
+            try {
+                const tripRef = firestoreDb.collection('trips').doc(rootId);
+                const snap = await tripRef.get();
+                if (snap.exists) {
+                    const tData = snap.data();
+                    const dests = Array.isArray(tData.destinations) ? tData.destinations : [];
+                    const updatedDests = dests.map((d, idx) => {
+                        const thisIdx = d.stopIndex || (idx + 1);
+                        if (thisIdx === stopIdx || dests.length === 1 || (d.noSJ && d.noSJ === cleanSJ) || (d.sjNumber && d.sjNumber === cleanSJ)) {
+                            return {
+                                ...d,
+                                status: 'in_progress',
+                                completedTime: null,
+                                proofPhotoUrl: '',
+                                proofPhotoSj: '',
+                                proofPhotoItems: []
+                            };
+                        }
+                        return d;
+                    });
+                    await tripRef.update({
+                        destinations: updatedDests,
+                        status: 'in_progress',
+                        deliveryStatus: 'in_progress',
+                        completedAt: null
+                    });
+                }
+            } catch(e) {
+                console.warn("Reactivate trip error:", e);
+            }
+        }
+
+        renderHomeScreen();
+        renderShipmentsScreen();
+        showToast(`✅ Tugas ${target.noSJ} berhasil dikembalikan ke status Aktif!`);
     }
 
     let currentFilter = 'all';
@@ -2492,7 +2597,8 @@
         updateDynamicGreeting();
         const validList = getValidCourierShipments().filter(s => !isShipmentHistory(s));
         const activeList = validList.filter(s => s.status !== 'delivered');
-        const deliveredCount = validList.filter(s => s.status === 'delivered').length;
+        const deliveredList = validList.filter(s => s.status === 'delivered');
+        const deliveredCount = deliveredList.length;
         const pendingCount = validList.filter(s => s.status === 'pending' || s.isPendingReported).length;
 
         const statTotal = document.getElementById('home-stat-total');
@@ -2509,16 +2615,23 @@
 
         const previewContainer = document.getElementById('home-shipments-preview-container');
         if (previewContainer) {
-            const activeShipments = activeList;
-            if (activeShipments.length === 0) {
+            if (activeList.length > 0) {
+                previewContainer.innerHTML = activeList.map(s => renderShipmentCardHtml(s)).join('');
+            } else if (deliveredList.length > 0) {
+                previewContainer.innerHTML = `
+                    <div class="text-center py-3 px-3 bg-white rounded-4 border mx-3 shadow-sm mb-3">
+                        <i class="bi bi-check2-circle fs-2 text-success d-block mb-1"></i>
+                        <h6 class="fw-bold text-dark m-0">Semua Tugas Hari Ini Selesai (${deliveredCount} Titik)</h6>
+                        <small class="text-muted extra-small">Seluruh titik pengantaran hari ini telah terkirim.</small>
+                    </div>
+                    ${deliveredList.map(s => renderShipmentCardHtml(s)).join('')}`;
+            } else {
                 previewContainer.innerHTML = `
                     <div class="text-center py-4 px-3 bg-white rounded-4 border mx-3 shadow-sm">
-                        <i class="bi bi-check2-circle fs-1 text-success d-block mb-1"></i>
+                        <i class="bi bi-inbox fs-1 text-muted d-block mb-1"></i>
                         <h6 class="fw-bold text-dark m-0">Tidak Ada Titik Pengantaran Aktif</h6>
                         <small class="text-muted extra-small">Belum ada tugas pengantaran aktif atau semua tugas hari ini telah selesai.</small>
                     </div>`;
-            } else {
-                previewContainer.innerHTML = activeShipments.map(s => renderShipmentCardHtml(s)).join('');
             }
         }
     }
@@ -2700,7 +2813,13 @@
                     </div>
                     ${pendingInfoHtml}
                     ${proofPhotosHtml}
-                    ${s.status === 'delivered' ? '' : `
+                    ${s.status === 'delivered' ? `
+                    <div class="mt-2 text-end">
+                        <button type="button" class="btn btn-sm btn-outline-warning w-100 py-1.5 extra-small fw-bold" onclick="reactivateCourierShipment('${s.id}', event)">
+                            <i class="bi bi-arrow-counterclockwise me-1"></i> Kembalikan ke Aktif (Belum Selesai)
+                        </button>
+                    </div>
+                    ` : `
                     <div class="d-flex flex-column gap-1.5 mt-1">
                         <button class="btn btn-sm btn-brand-primary w-100 py-2 extra-small" onclick="openUploadCompleteModal('${s.id}', '${safeSJ}', '${safeDest}')">
                             <i class="bi bi-camera me-1"></i> Upload Bukti &amp; Selesaikan

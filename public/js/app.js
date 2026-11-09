@@ -902,6 +902,18 @@ function extractDestinationPhotos(d, t = null) {
     };
 }
 
+function hasRealProofPhoto(d) {
+    if (!d) return false;
+    const url = d.proofPhotoUrl || d.proofPhotoSj || (d.proofPhotoItems && d.proofPhotoItems[0]) || d.proofUrl || d.photoUrl || '';
+    if (typeof url !== 'string') return false;
+    const clean = url.trim();
+    if (clean.length < 10) return false;
+    if (clean === '-' || clean === 'none' || clean === 'undefined' || clean === 'null' || clean === 'false') return false;
+    if (clean.startsWith('data:image/svg+xml')) return false; // Ignore placeholder dummy SVG
+    return clean.startsWith('http://') || clean.startsWith('https://') || clean.startsWith('data:image/');
+}
+window.hasRealProofPhoto = hasRealProofPhoto;
+
 function isTripInDateRange(t, startMs, endMs) {
     if (!t) return false;
     if ((!startMs || startMs <= 0) && (!endMs || endMs === Infinity)) return true;
@@ -911,9 +923,20 @@ function isTripInDateRange(t, startMs, endMs) {
         if (typeof obj === 'number') return obj;
         if (obj.seconds !== undefined) return obj.seconds * 1000;
         if (obj._seconds !== undefined) return obj._seconds * 1000;
+        if (typeof obj.toDate === 'function') return obj.toDate().getTime();
         if (typeof obj === 'string') {
             const d = new Date(obj);
-            return isNaN(d.getTime()) ? 0 : d.getTime();
+            if (!isNaN(d.getTime())) return d.getTime();
+            const parts = obj.split(/[\/\-]/);
+            if (parts.length === 3) {
+                const day = parseInt(parts[0], 10);
+                const mon = parseInt(parts[1], 10) - 1;
+                const year = parseInt(parts[2], 10);
+                if (day > 0 && mon >= 0 && year > 2000) {
+                    return new Date(year, mon, day).getTime();
+                }
+            }
+            return 0;
         }
         if (obj instanceof Date) return obj.getTime();
         return 0;
@@ -2743,7 +2766,8 @@ function updateGlobalStats() {
                 }
             }
 
-            if (filterStartMs > 0 && !isTripInDateRange(t, filterStartMs, filterEndMs)) {
+            const isCompleted = (t.status === 'completed' || t.status === 'done' || t.deliveryStatus === 'completed');
+            if (isCompleted && filterStartMs > 0 && !isTripInDateRange(t, filterStartMs, filterEndMs)) {
                 return false;
             }
 
@@ -3333,10 +3357,12 @@ function renderMonitorUI(filter = "") {
 
     const courierGroups = {};
 
-    // 1. Gather couriers with today's trips (Merged & Deduplicated by Canonical ID)
+    // 1. Gather couriers with active or today's trips (Merged & Deduplicated by Canonical ID)
     allCurrentTrips.forEach(t => {
         if (!t || t.status === 'pool') return;
-        if (!isTripInDateRange(t, todayDayMs, todayEndMs)) return; // Clean H+1: Only show today's trips
+        const isCompleted = (t.status === 'completed' || t.status === 'done' || t.deliveryStatus === 'completed');
+        // Clean H+1: Only filter out COMPLETED trips that are not today. Active unfinished trips ALWAYS show on Live Monitor!
+        if (isCompleted && !isTripInDateRange(t, todayDayMs, todayEndMs)) return;
         const cId = t.courierId;
         if (!cId) return;
         const cName = registeredUsers[cId] || (typeof getCourierDisplayName === 'function' ? getCourierDisplayName(cId) : '');
@@ -3357,12 +3383,17 @@ function renderMonitorUI(filter = "") {
                 courierGroups[key] = { id: key, rawId: cId, name: displayName, trips: [], totalStops: 0, doneStops: 0 };
             }
             courierGroups[key].trips.push(t);
-            if (t.destinations) {
+            if (t.destinations && t.destinations.length > 0) {
                 courierGroups[key].totalStops += t.destinations.length;
-                courierGroups[key].doneStops += t.destinations.filter(d => d.status === 'done' || d.proofPhotoUrl || t.status === 'completed').length;
+                courierGroups[key].doneStops += t.destinations.filter(d => {
+                    if (d.status === 'done' || d.status === 'completed') return true;
+                    if (hasRealProofPhoto(d)) return true;
+                    if (t.status === 'completed' && !d.pendingReason) return true;
+                    return false;
+                }).length;
             } else {
                 courierGroups[key].totalStops += 1;
-                if (t.status === 'completed') courierGroups[key].doneStops += 1;
+                if (t.status === 'completed' || t.status === 'done') courierGroups[key].doneStops += 1;
             }
         }
     });
@@ -3495,6 +3526,9 @@ function renderMonitorUI(filter = "") {
                                 ${c.trips.length > 0 ? `
                                     <button class="btn btn-sm btn-link text-primary p-0 ms-1 text-decoration-none" onclick="openSwitchAllTripsCourierModal('${c.rawId || c.id}', '${c.name.replace(/'/g, "\\'")}', ${c.trips.length})" title="Switch / Transfer Semua Tugas ke Kurir/Driver Lain">
                                         <i class="bi bi-arrow-left-right" style="font-size:0.8rem"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-link text-warning p-0 ms-1 text-decoration-none" onclick="reactivateCourierAllTrips('${c.rawId || c.id}', '${c.name.replace(/'/g, "\\'")}')" title="Kembalikan / Aktifkan Kembali Semua Tugas Kurir Ini (Reactivate ke In Progress)">
+                                        <i class="bi bi-arrow-counterclockwise" style="font-size:0.85rem"></i>
                                     </button>
                                     <button class="btn btn-sm btn-link text-danger p-0 ms-1 text-decoration-none" onclick="deleteCourierActiveTrips('${c.rawId || c.id}', '${c.name.replace(/'/g, "\\'")}')" title="Batalkan Semua Tugas">
                                         <i class="bi bi-trash" style="font-size:0.8rem"></i>
@@ -3887,6 +3921,109 @@ async function deleteCourierActiveTrips(courierId, courierName) {
     }
 }
 
+async function reactivateCourierAllTrips(courierId, courierName) {
+    if (!confirm(`Kembalikan / Aktifkan SEMUA tugas milik "${courierName}" ke status AKTIF (In Progress)?\nTugas akan kembali muncul di aplikasi kurir/driver.`)) return;
+
+    try {
+        const activeDb = getDb();
+        if (!activeDb) throw new Error("Database belum siap.");
+
+        const norm = typeof normalizeCourierIdentity === 'function' ? normalizeCourierIdentity(courierId, courierName) : { canonicalId: (courierId || '').toLowerCase() };
+        const canon = norm.canonicalId;
+
+        const matchingTrips = (allCurrentTrips || []).filter(t => {
+            const tCid = t.courierId || '';
+            const tCname = registeredUsers[tCid] || (typeof getCourierDisplayName === 'function' ? getCourierDisplayName(tCid) : '');
+            const tNorm = typeof normalizeCourierIdentity === 'function' ? normalizeCourierIdentity(tCid, tCname) : { canonicalId: tCid.toLowerCase() };
+            return tCid === courierId || tNorm.canonicalId === canon || (t.driver && t.driver.toLowerCase().includes(canon));
+        });
+
+        if (matchingTrips.length === 0) {
+            alert(`Tidak ada trip yang ditemukan untuk ${courierName}.`);
+            return;
+        }
+
+        const batch = activeDb.batch();
+        matchingTrips.forEach(t => {
+            const dests = Array.isArray(t.destinations) ? t.destinations : [];
+            const resetDests = dests.map(d => ({
+                ...d,
+                status: 'in_progress',
+                completedTime: null,
+                proofPhotoUrl: '',
+                proofPhotoSj: '',
+                proofPhotoItems: []
+            }));
+            const ref = activeDb.collection('trips').doc(t.id);
+            batch.update(ref, {
+                destinations: resetDests,
+                status: 'in_progress',
+                deliveryStatus: 'in_progress',
+                completedAt: null
+            });
+            // Update in-memory
+            t.status = 'in_progress';
+            t.deliveryStatus = 'in_progress';
+            t.destinations = resetDests;
+            t.completedAt = null;
+        });
+
+        await batch.commit();
+        showToast(`✅ Seluruh tugas "${courierName}" (${matchingTrips.length} Trip) berhasil dikembalikan ke status AKTIF!`);
+        updateGlobalStats();
+        renderMonitorUI();
+        renderRecentShipments();
+    } catch(e) {
+        console.error("Reactivate error:", e);
+        alert("Gagal mengaktifkan kembali tugas: " + e.message);
+    }
+}
+window.reactivateCourierAllTrips = reactivateCourierAllTrips;
+
+async function reactivateTripToActive(tripId) {
+    if (!confirm(`Kembalikan status pengiriman ini ke AKTIF (In Progress)?\nTugas akan kembali muncul di aplikasi kurir/driver.`)) return;
+    try {
+        const activeDb = getDb();
+        if (!activeDb) throw new Error("Firestore belum siap.");
+        const tripRef = activeDb.collection('trips').doc(tripId);
+        const snap = await tripRef.get();
+        if (!snap.exists) throw new Error("Data pengiriman tidak ditemukan di Firestore.");
+        const tData = snap.data();
+        const dests = Array.isArray(tData.destinations) ? tData.destinations : [];
+        const resetDests = dests.map(d => ({
+            ...d,
+            status: 'in_progress',
+            completedTime: null,
+            proofPhotoUrl: '',
+            proofPhotoSj: '',
+            proofPhotoItems: []
+        }));
+        await tripRef.update({
+            destinations: resetDests,
+            status: 'in_progress',
+            deliveryStatus: 'in_progress',
+            completedAt: null
+        });
+
+        const memTrip = (allCurrentTrips || []).find(t => t.id === tripId);
+        if (memTrip) {
+            memTrip.status = 'in_progress';
+            memTrip.deliveryStatus = 'in_progress';
+            memTrip.destinations = resetDests;
+            memTrip.completedAt = null;
+        }
+
+        showToast("✅ Pengiriman berhasil dikembalikan ke status AKTIF!");
+        updateGlobalStats();
+        renderMonitorUI();
+        renderRecentShipments();
+    } catch(e) {
+        console.error("Reactivate trip error:", e);
+        alert("Gagal mengaktifkan kembali: " + e.message);
+    }
+}
+window.reactivateTripToActive = reactivateTripToActive;
+
 function filterMonitorAll(val) {
     activeFilter = val;
     refreshAllMonitorData();
@@ -4071,8 +4208,9 @@ function renderRecentShipments(filter = "") {
             }
         }
 
-        // Check Date Filter using robust date range check
-        if (filterStartMs > 0 && !isTripInDateRange(t, filterStartMs, filterEndMs)) {
+        // Check Date Filter: only completed trips are restricted by date; active trips always remain visible in queue
+        const isCompleted = (t.status === 'completed' || t.status === 'done' || t.deliveryStatus === 'completed');
+        if (isCompleted && filterStartMs > 0 && !isTripInDateRange(t, filterStartMs, filterEndMs)) {
             return;
         }
 
@@ -4641,8 +4779,9 @@ async function exportRecentShipmentsToExcel() {
             }
         }
 
-        // Check Date Filter using flexible range check
-        if (filterStartMs > 0 && !isTripInDateRange(t, filterStartMs, filterEndMs)) {
+        // Check Date Filter: only completed trips are strictly bound to date range; active trips remain visible
+        const isCompleted = (t.status === 'completed' || t.status === 'done' || t.deliveryStatus === 'completed');
+        if (isCompleted && filterStartMs > 0 && !isTripInDateRange(t, filterStartMs, filterEndMs)) {
             return;
         }
 
