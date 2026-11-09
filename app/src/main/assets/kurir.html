@@ -1505,36 +1505,44 @@
 
 
     <!-- ======================================================== -->
-    <!-- 6. PARCEL CONFIRMED POPUP (Matches Image 4 + 1 WA Logo)  -->
+    <!-- 6. PARCEL CONFIRMED POPUP (Attractive Success Card)       -->
     <!-- ======================================================== -->
     <div class="modal fade" id="parcelConfirmedModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
-        <div class="modal-dialog modal-dialog-centered" style="max-width: 360px;">
-            <div class="modal-content modal-confirmed-content">
+        <div class="modal-dialog modal-dialog-centered" style="max-width: 380px;">
+            <div class="modal-content modal-confirmed-content p-4" style="border-radius: 28px; border: none; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);">
                 <!-- 3D Parcel Illustration with Floating Green Checkmark -->
-                <div class="confirmed-illustration">
-                    <i class="bi bi-box-seam-fill box-3d-svg"></i>
-                    <div class="check-badge-floating">
+                <div class="confirmed-illustration mb-3">
+                    <i class="bi bi-box-seam-fill box-3d-svg" style="font-size: 68px; color: #f59e0b;"></i>
+                    <div class="check-badge-floating" style="background: #10B981; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);">
                         <i class="bi bi-check-lg"></i>
                     </div>
                 </div>
 
-                <h4 class="confirmed-title">Parcel Confirmed!</h4>
-                <p class="confirmed-desc">
-                    You've successfully confirmed receipt of your parcel. Foto surat jalan dan barang telah tersimpan aman.
-                </p>
+                <h4 class="fw-extrabold text-dark mb-1" style="font-size: 1.35rem;">Pengantaran Berhasil!</h4>
+                <p class="text-muted extra-small mb-3">Foto bukti dan status pengantaran berhasil disinkronkan ke Dashboard Admin.</p>
 
-                <!-- Actions: Back to Home + 1 Clean WhatsApp Logo Button -->
-                <div class="d-flex align-items-center gap-2 w-100">
-                    <button class="btn-brand-primary flex-grow-1 m-0" onclick="closeConfirmedModalAndGoHome()">
-                        Back to Home
+                <!-- Ringkasan Paket Terkirim -->
+                <div class="p-3 rounded-4 mb-3 text-start border" style="background: #f8fafc; border-color: #e2e8f0 !important;">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span class="badge bg-dark text-white fw-bold px-2.5 py-1" id="confirmed-modal-sj" style="font-size: 0.78rem;">#SJ</span>
+                        <span class="badge bg-success-subtle text-success border border-success-subtle extra-small fw-bold"><i class="bi bi-check2-circle me-1"></i>Tersimpan di Admin</span>
+                    </div>
+                    <div class="fw-bold text-dark text-truncate mt-1" id="confirmed-modal-store" style="font-size: 0.92rem;">Nama Tujuan</div>
+                    <div class="extra-small text-muted text-truncate" id="confirmed-modal-addr">-</div>
+                </div>
+
+                <!-- Opsi Kirim ke Grup WhatsApp atau Tidak -->
+                <div class="w-100 d-flex flex-column gap-2">
+                    <button type="button" class="btn btn-success w-100 py-3 fw-bold d-flex align-items-center justify-content-center gap-2 shadow-sm" style="border-radius: 16px; background: #25D366; border: none; font-size: 0.95rem;" onclick="triggerWaFromConfirmedModal()">
+                        <i class="bi bi-whatsapp fs-5"></i> Kirim Bukti ke Grup WhatsApp
                     </button>
-                    <button class="btn d-flex align-items-center justify-content-center shadow-sm flex-shrink-0" style="width: 52px; height: 52px; border-radius: 16px; background: #25D366; color: #fff; font-size: 1.45rem; border: none;" onclick="shareDeliveryViaWhatsApp(currentUploadTripId)" title="WhatsApp">
-                        <i class="bi bi-whatsapp"></i>
+                    <button type="button" class="btn btn-outline-secondary w-100 py-2.5 fw-bold" style="border-radius: 16px; font-size: 0.88rem; border-color: #cbd5e1; color: #475569;" onclick="closeConfirmedModalAndGoHome()">
+                        Selesai (Tanpa Kirim WA)
+                    </button>
+                    <button type="button" class="btn btn-link text-decoration-none text-muted extra-small py-1 mt-1" onclick="closeConfirmedModalAndGoShipments()">
+                        Lihat Daftar Pengiriman
                     </button>
                 </div>
-                <button class="btn-modal-outline" onclick="navigateToScreen('shipments')">
-                    Lihat Daftar Pengiriman
-                </button>
             </div>
         </div>
     </div>
@@ -3978,178 +3986,220 @@
     }
 
     // Req 12 & 13: Sinkronisasi Penuh Kurir <-> Dashboard Admin (Firestore & LocalStorage)
-    function submitParcelProof() {
+    async function submitParcelProof() {
         const defaultDummySJ = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='200' viewBox='0 0 300 200'><rect width='300' height='200' fill='%23f1f5f9' rx='10'/><text x='50%25' y='45%25' font-family='sans-serif' font-size='16' font-weight='bold' fill='%230f172a' text-anchor='middle'>BUKTI SURAT JALAN</text><text x='50%25' y='65%25' font-family='sans-serif' font-size='12' fill='%2310b981' font-weight='bold' text-anchor='middle'>%E2%9C%93 TERTANDA &amp; STEMPEL RESMI</text></svg>";
         const defaultDummyBarang = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='200' viewBox='0 0 300 200'><rect width='300' height='200' fill='%23f8fafc' rx='10'/><text x='50%25' y='45%25' font-family='sans-serif' font-size='16' font-weight='bold' fill='%230f172a' text-anchor='middle'>BUKTI FISIK BARANG</text><text x='50%25' y='65%25' font-family='sans-serif' font-size='12' fill='%23ff471d' font-weight='bold' text-anchor='middle'>Diterima Lengkap Sesuai SJ</text></svg>";
 
         const finalSJPhoto = currentSJPhoto || defaultDummySJ;
         const finalBarangPhoto = currentBarangPhoto || defaultDummyBarang;
 
-        if (currentUploadTripId) {
-            const target = masterShipments.find(s => s.id === currentUploadTripId);
-            const nowIso = new Date().toISOString();
-            if (target) {
-                target.status = 'delivered';
-                target.proofSJUrl = finalSJPhoto;
-                target.proofPhotoUrl = finalBarangPhoto;
-                target.completedAt = nowIso;
-            }
+        if (!currentUploadTripId) return;
 
-            try {
-                const raw = localStorage.getItem('wtrack_local_trips');
-                if (raw) {
-                    const stored = JSON.parse(raw);
-                    const cleanSJ = target ? target.noSJ.replace(/^#/, '') : '';
-                    const rawTripId = (target && target.rootTripId) ? target.rootTripId : currentUploadTripId;
-                    const cleanTripId = rawTripId ? rawTripId.replace(/_STOP_\d+$/, '') : currentUploadTripId;
-                    const found = stored.find(s => s.id === currentUploadTripId || s.id === cleanTripId || (cleanSJ && (s.noSJ === cleanSJ || s.sjNumber === cleanSJ)));
-                    if (found) {
-                        const targetStopIdx = (target && target.stopIndex) || 1;
-                        if (Array.isArray(found.destinations) && found.destinations.length > 0) {
-                            let destMatch = found.destinations.find(d => (d.stopIndex || 1) === targetStopIdx || (target && target.destination && d.locationName === target.destination));
-                            if (!destMatch && found.destinations.length === 1) destMatch = found.destinations[0];
-                            if (destMatch) {
-                                destMatch.status = 'done';
-                                destMatch.completedTime = nowIso;
-                                destMatch.proofPhotoUrl = finalBarangPhoto;
-                                destMatch.proofPhotoSj = finalSJPhoto;
-                            }
-                            const allLocalDone = found.destinations.every(d => d.status === 'done' || d.status === 'completed');
-                            if (allLocalDone) {
-                                found.status = 'completed';
-                                found.deliveryStatus = 'completed';
-                                found.completedAt = nowIso;
-                            } else {
-                                found.status = 'in_progress';
-                                found.deliveryStatus = 'in_progress';
-                            }
-                        } else {
+        const btnSubmit = document.querySelector('#uploadCompleteModal .btn-brand-primary');
+        const originalBtnHtml = btnSubmit ? btnSubmit.innerHTML : 'Konfirmasi Pengantaran';
+        if (btnSubmit) {
+            btnSubmit.disabled = true;
+            btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Menyimpan ke Admin...';
+        }
+
+        const target = masterShipments.find(s => s.id === currentUploadTripId);
+        const nowIso = new Date().toISOString();
+        if (target) {
+            target.status = 'delivered';
+            target.proofSJUrl = finalSJPhoto;
+            target.proofPhotoUrl = finalBarangPhoto;
+            target.completedAt = nowIso;
+        }
+
+        try {
+            const raw = localStorage.getItem('wtrack_local_trips');
+            if (raw) {
+                const stored = JSON.parse(raw);
+                const cleanSJ = target ? target.noSJ.replace(/^#/, '') : '';
+                const rawTripId = (target && target.rootTripId) ? target.rootTripId : currentUploadTripId;
+                const cleanTripId = rawTripId ? rawTripId.replace(/_STOP_\d+$/, '') : currentUploadTripId;
+                const found = stored.find(s => s.id === currentUploadTripId || s.id === cleanTripId || (cleanSJ && (s.noSJ === cleanSJ || s.sjNumber === cleanSJ)));
+                if (found) {
+                    const targetStopIdx = (target && target.stopIndex) || 1;
+                    if (Array.isArray(found.destinations) && found.destinations.length > 0) {
+                        let destMatch = found.destinations.find(d => (d.stopIndex || 1) === targetStopIdx || (target && target.destination && d.locationName === target.destination));
+                        if (!destMatch && found.destinations.length === 1) destMatch = found.destinations[0];
+                        if (destMatch) {
+                            destMatch.status = 'done';
+                            destMatch.completedTime = nowIso;
+                            destMatch.proofPhotoUrl = finalBarangPhoto;
+                            destMatch.proofPhotoSj = finalSJPhoto;
+                        }
+                        const allLocalDone = found.destinations.every(d => d.status === 'done' || d.status === 'completed');
+                        if (allLocalDone) {
                             found.status = 'completed';
                             found.deliveryStatus = 'completed';
                             found.completedAt = nowIso;
+                        } else {
+                            found.status = 'in_progress';
+                            found.deliveryStatus = 'in_progress';
                         }
-                        localStorage.setItem('wtrack_local_trips', JSON.stringify(stored));
+                    } else {
+                        found.status = 'completed';
+                        found.deliveryStatus = 'completed';
+                        found.completedAt = nowIso;
                     }
+                    localStorage.setItem('wtrack_local_trips', JSON.stringify(stored));
+                }
+            }
+        } catch(e) {
+            console.warn("Storage update note:", e);
+        }
+
+        if (firestoreDb) {
+            const rawTripId = (target && target.rootTripId) ? target.rootTripId : currentUploadTripId;
+            const docId = rawTripId ? rawTripId.replace(/_STOP_\d+$/, '') : currentUploadTripId;
+            const targetSjRaw = (target && target.noSJ && target.noSJ !== '-') ? target.noSJ.replace(/^#/, '').trim() : '';
+            const cleanSJ = (targetSjRaw && !(typeof isDummyAutoSJ === 'function' && isDummyAutoSJ(targetSjRaw, docId))) ? targetSjRaw : '';
+            const stopIdx = (target && target.stopIndex) || 1;
+            try {
+                const tripRef = firestoreDb.collection('trips').doc(docId);
+                const snap = await tripRef.get();
+                if (snap.exists) {
+                    const tData = snap.data();
+                    const existingTripSj = (tData.noSJ || tData.sjNumber || '').trim();
+                    const finalTripSj = cleanSJ || (existingTripSj && !(typeof isDummyAutoSJ === 'function' && isDummyAutoSJ(existingTripSj, docId)) ? existingTripSj : '');
+                    const dests = Array.isArray(tData.destinations) && tData.destinations.length > 0 ? tData.destinations : [{
+                        stopIndex: stopIdx,
+                        locationName: (target && target.destination) || 'Klien Wellen',
+                        address: (target && target.address) || '-',
+                        sjNumber: finalTripSj,
+                        noSJ: finalTripSj
+                    }];
+
+                    let allDone = true;
+                    let matchedTarget = false;
+                    const updatedDests = dests.map((d, idx) => {
+                        const thisIndex = d.stopIndex || (idx + 1);
+                        let isCurrentTarget = false;
+                        if (dests.length === 1) {
+                            isCurrentTarget = true;
+                        } else if (!matchedTarget && (thisIndex === stopIdx)) {
+                            isCurrentTarget = true;
+                            matchedTarget = true;
+                        } else if (!matchedTarget && target && target.destination && d.locationName && d.locationName === target.destination) {
+                            isCurrentTarget = true;
+                            matchedTarget = true;
+                        }
+
+                        if (isCurrentTarget) {
+                            return {
+                                ...d,
+                                status: 'done',
+                                completedTime: firebase.firestore.Timestamp.now(),
+                                proofPhotoUrl: finalBarangPhoto,
+                                proofPhotoSj: finalSJPhoto,
+                                proofPhotoItems: [finalBarangPhoto]
+                            };
+                        }
+                        const dDone = (d.status === 'done' || d.status === 'completed' || d.proofPhotoUrl || d.proofPhotoSj);
+                        if (!dDone) {
+                            allDone = false;
+                        }
+                        return d;
+                    });
+
+                    const updatePayload = {
+                        destinations: updatedDests,
+                        status: allDone ? 'completed' : (tData.status || 'in_progress'),
+                        deliveryStatus: allDone ? 'completed' : (tData.deliveryStatus || 'in_progress'),
+                        completedAt: allDone ? nowIso : (tData.completedAt || null),
+                        lastDeliveredAt: nowIso
+                    };
+
+                    await tripRef.update(updatePayload);
+                } else {
+                    await tripRef.set({
+                        tripId: docId,
+                        noSJ: cleanSJ,
+                        sjNumber: cleanSJ,
+                        courierId: currentCourier.uid || currentCourier.id,
+                        courierName: currentCourier.name,
+                        vehicleType: currentCourier.vehicleType || 'motor',
+                        status: 'completed',
+                        deliveryStatus: 'completed',
+                        completedAt: nowIso,
+                        date: firebase.firestore.Timestamp.now(),
+                        destinations: [{
+                            stopIndex: stopIdx,
+                            locationName: (target && target.destination) || 'Klien Wellen',
+                            address: (target && target.address) || '-',
+                            sjNumber: cleanSJ,
+                            noSJ: cleanSJ,
+                            status: 'done',
+                            completedTime: firebase.firestore.Timestamp.now(),
+                            proofPhotoUrl: finalBarangPhoto,
+                            proofPhotoSj: finalSJPhoto,
+                            proofPhotoItems: [finalBarangPhoto]
+                        }]
+                    }, { merge: true });
                 }
             } catch(e) {
-                console.warn("Storage update note:", e);
+                console.warn("tripRef save note:", e);
             }
+        }
 
-            if (firestoreDb) {
-                const rawTripId = (target && target.rootTripId) ? target.rootTripId : currentUploadTripId;
-                const docId = rawTripId ? rawTripId.replace(/_STOP_\d+$/, '') : currentUploadTripId;
-                const targetSjRaw = (target && target.noSJ && target.noSJ !== '-') ? target.noSJ.replace(/^#/, '').trim() : '';
-                const cleanSJ = (targetSjRaw && !(typeof isDummyAutoSJ === 'function' && isDummyAutoSJ(targetSjRaw, docId))) ? targetSjRaw : '';
-                const stopIdx = (target && target.stopIndex) || 1;
-                try {
-                    const tripRef = firestoreDb.collection('trips').doc(docId);
-                    tripRef.get().then(snap => {
-                        if (snap.exists) {
-                            const tData = snap.data();
-                            const existingTripSj = (tData.noSJ || tData.sjNumber || '').trim();
-                            const finalTripSj = cleanSJ || (existingTripSj && !(typeof isDummyAutoSJ === 'function' && isDummyAutoSJ(existingTripSj, docId)) ? existingTripSj : '');
-                            const dests = Array.isArray(tData.destinations) && tData.destinations.length > 0 ? tData.destinations : [{
-                                stopIndex: stopIdx,
-                                locationName: (target && target.destination) || 'Klien Wellen',
-                                address: (target && target.address) || '-',
-                                sjNumber: finalTripSj,
-                                noSJ: finalTripSj
-                            }];
-
-                            let allDone = true;
-                            let matchedTarget = false;
-                            const updatedDests = dests.map((d, idx) => {
-                                const thisIndex = d.stopIndex || (idx + 1);
-                                let isCurrentTarget = false;
-                                if (dests.length === 1) {
-                                    isCurrentTarget = true;
-                                } else if (!matchedTarget && (thisIndex === stopIdx)) {
-                                    isCurrentTarget = true;
-                                    matchedTarget = true;
-                                } else if (!matchedTarget && target && target.destination && d.locationName && d.locationName === target.destination) {
-                                    isCurrentTarget = true;
-                                    matchedTarget = true;
-                                }
-
-                                if (isCurrentTarget) {
-                                    return {
-                                        ...d,
-                                        status: 'done',
-                                        completedTime: firebase.firestore.Timestamp.now(),
-                                        proofPhotoUrl: finalBarangPhoto,
-                                        proofPhotoSj: finalSJPhoto,
-                                        proofPhotoItems: [finalBarangPhoto]
-                                    };
-                                }
-                                const dDone = (d.status === 'done' || d.status === 'completed' || d.proofPhotoUrl || d.proofPhotoSj);
-                                if (!dDone) {
-                                    allDone = false;
-                                }
-                                return d;
-                            });
-
-                            const updatePayload = {
-                                destinations: updatedDests,
-                                status: allDone ? 'completed' : (tData.status || 'in_progress'),
-                                deliveryStatus: allDone ? 'completed' : (tData.deliveryStatus || 'in_progress'),
-                                completedAt: allDone ? nowIso : (tData.completedAt || null),
-                                lastDeliveredAt: nowIso
-                            };
-
-                            tripRef.update(updatePayload).catch(e => console.warn("Firestore pod sync note:", e));
-                        } else {
-                            tripRef.set({
-                                tripId: docId,
-                                noSJ: cleanSJ,
-                                sjNumber: cleanSJ,
-                                courierId: currentCourier.uid || currentCourier.id,
-                                courierName: currentCourier.name,
-                                vehicleType: currentCourier.vehicleType || 'motor',
-                                status: 'completed',
-                                deliveryStatus: 'completed',
-                                completedAt: nowIso,
-                                date: firebase.firestore.Timestamp.now(),
-                                destinations: [{
-                                    stopIndex: stopIdx,
-                                    locationName: (target && target.destination) || 'Klien Wellen',
-                                    address: (target && target.address) || '-',
-                                    sjNumber: cleanSJ,
-                                    noSJ: cleanSJ,
-                                    status: 'done',
-                                    completedTime: firebase.firestore.Timestamp.now(),
-                                    proofPhotoUrl: finalBarangPhoto,
-                                    proofPhotoSj: finalSJPhoto,
-                                    proofPhotoItems: [finalBarangPhoto]
-                                }]
-                            }, { merge: true }).catch(e => console.warn("Firestore pod fallback set note:", e));
-                        }
-                    }).catch(e => console.warn("tripRef get note:", e));
-                } catch(e) {}
-            }
+        if (btnSubmit) {
+            btnSubmit.disabled = false;
+            btnSubmit.innerHTML = originalBtnHtml;
         }
 
         renderHomeScreen();
         renderShipmentsScreen();
 
+        // 1. Tutup modal upload foto
         const uploadModalEl = document.getElementById('uploadCompleteModal');
         const uploadModal = bootstrap.Modal.getInstance(uploadModalEl);
         if (uploadModal) uploadModal.hide();
 
-        const finishedTripId = currentUploadTripId;
+        // 2. Isi data ringkasan ke modal konfirmasi sukses (Parcel Confirmed)
+        const finishedTarget = target || masterShipments.find(s => s.id === currentUploadTripId);
+        const confSj = document.getElementById('confirmed-modal-sj');
+        const confStore = document.getElementById('confirmed-modal-store');
+        const confAddr = document.getElementById('confirmed-modal-addr');
+        if (confSj) confSj.innerText = (finishedTarget && finishedTarget.noSJ && finishedTarget.noSJ !== '-') ? finishedTarget.noSJ : '#SJ';
+        if (confStore) confStore.innerText = (finishedTarget && finishedTarget.destination) ? finishedTarget.destination : 'Tujuan';
+        if (confAddr) confAddr.innerText = (finishedTarget && finishedTarget.address) ? finishedTarget.address : '-';
+
+        // 3. Tampilkan card sukses menarik (Parcel Confirmed)
         setTimeout(() => {
-            shareDeliveryViaWhatsApp(finishedTripId);
-            if (waGroupConfig.autoSendOnComplete !== false) {
-                setTimeout(() => {
-                    executeSendWaReceipt(true);
-                }, 400);
+            const confirmedModalEl = document.getElementById('parcelConfirmedModal');
+            if (confirmedModalEl) {
+                const confirmedModal = bootstrap.Modal.getOrCreateInstance(confirmedModalEl);
+                confirmedModal.show();
             }
-        }, 250);
+        }, 150);
+    }
+
+    function triggerWaFromConfirmedModal() {
+        const confirmedModalEl = document.getElementById('parcelConfirmedModal');
+        if (confirmedModalEl) {
+            const confirmedModal = bootstrap.Modal.getInstance(confirmedModalEl);
+            if (confirmedModal) confirmedModal.hide();
+        }
+        shareDeliveryViaWhatsApp(currentUploadTripId);
+    }
+
+    function closeConfirmedModalAndGoShipments() {
+        const confirmedModalEl = document.getElementById('parcelConfirmedModal');
+        if (confirmedModalEl) {
+            const confirmedModal = bootstrap.Modal.getInstance(confirmedModalEl);
+            if (confirmedModal) confirmedModal.hide();
+        }
+        navigateToScreen('shipments');
     }
 
     function closeConfirmedModalAndGoHome() {
         const confirmedModalEl = document.getElementById('parcelConfirmedModal');
-        const confirmedModal = bootstrap.Modal.getInstance(confirmedModalEl);
-        if (confirmedModal) confirmedModal.hide();
+        if (confirmedModalEl) {
+            const confirmedModal = bootstrap.Modal.getInstance(confirmedModalEl);
+            if (confirmedModal) confirmedModal.hide();
+        }
 
         navigateToScreen('home');
         showToast("✅ Pengantaran berhasil diselesaikan!");
