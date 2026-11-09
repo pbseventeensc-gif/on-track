@@ -3936,6 +3936,17 @@ async function reactivateCourierAllTrips(courierId, courierName) {
     if (!confirm(`Kembalikan / Aktifkan SEMUA tugas milik "${courierName}" ke status AKTIF (In Progress)?\nTugas akan kembali muncul di aplikasi kurir/driver.`)) return;
 
     try {
+        const activeAuth = getAuth();
+        if (!activeAuth || !activeAuth.currentUser) {
+            alert("Perhatian: Anda belum login dengan akun Firebase Admin resmi.\n\nDalam mode demo/offline, browser tidak memiliki izin (write permission) untuk mengubah database Firestore.\n\nSilakan Logout dan login menggunakan Email & Password Admin Anda.");
+            const loginScreen = document.getElementById('login-screen');
+            const mainWrapper = document.getElementById('main-wrapper');
+            window.isDemoMode = false;
+            if (loginScreen) loginScreen.style.setProperty('display', 'flex', 'important');
+            if (mainWrapper) mainWrapper.style.setProperty('display', 'none', 'important');
+            return;
+        }
+
         const activeDb = getDb();
         if (!activeDb) throw new Error("Database belum siap.");
 
@@ -3986,7 +3997,11 @@ async function reactivateCourierAllTrips(courierId, courierName) {
         renderRecentShipments();
     } catch(e) {
         console.error("Reactivate error:", e);
-        alert("Gagal mengaktifkan kembali tugas: " + e.message);
+        if (e.code === 'permission-denied' || (e.message && e.message.includes('insufficient permissions'))) {
+            alert("Izin Ditolak (Missing or insufficient permissions):\nAkun Anda belum terautentikasi atau tidak memiliki hak akses tulis ke Firestore.\n\nSilakan Logout dan login kembali menggunakan akun Admin resmi.");
+        } else {
+            alert("Gagal mengaktifkan kembali tugas: " + e.message);
+        }
     }
 }
 window.reactivateCourierAllTrips = reactivateCourierAllTrips;
@@ -3994,6 +4009,17 @@ window.reactivateCourierAllTrips = reactivateCourierAllTrips;
 async function reactivateTripToActive(tripId) {
     if (!confirm(`Kembalikan status pengiriman ini ke AKTIF (In Progress)?\nTugas akan kembali muncul di aplikasi kurir/driver.`)) return;
     try {
+        const activeAuth = getAuth();
+        if (!activeAuth || !activeAuth.currentUser) {
+            alert("Perhatian: Anda belum login dengan akun Firebase Admin resmi.\n\nDalam mode demo/offline, browser tidak memiliki izin (write permission) untuk mengubah database Firestore.\n\nSilakan Logout dan login menggunakan Email & Password Admin Anda.");
+            const loginScreen = document.getElementById('login-screen');
+            const mainWrapper = document.getElementById('main-wrapper');
+            window.isDemoMode = false;
+            if (loginScreen) loginScreen.style.setProperty('display', 'flex', 'important');
+            if (mainWrapper) mainWrapper.style.setProperty('display', 'none', 'important');
+            return;
+        }
+
         const activeDb = getDb();
         if (!activeDb) throw new Error("Firestore belum siap.");
         const tripRef = activeDb.collection('trips').doc(tripId);
@@ -4030,7 +4056,11 @@ async function reactivateTripToActive(tripId) {
         renderRecentShipments();
     } catch(e) {
         console.error("Reactivate trip error:", e);
-        alert("Gagal mengaktifkan kembali: " + e.message);
+        if (e.code === 'permission-denied' || (e.message && e.message.includes('insufficient permissions'))) {
+            alert("Izin Ditolak (Missing or insufficient permissions):\nAkun Anda belum terautentikasi atau tidak memiliki hak akses tulis ke Firestore.\n\nSilakan Logout dan login kembali menggunakan akun Admin resmi.");
+        } else {
+            alert("Gagal mengaktifkan kembali: " + e.message);
+        }
     }
 }
 window.reactivateTripToActive = reactivateTripToActive;
@@ -5922,6 +5952,11 @@ initAuthListener();
 
 function handleLogout() {
     if (confirm("Sign out dari dashboard?")) {
+        window.isDemoMode = false;
+        const loginScreen = document.getElementById('login-screen');
+        const mainWrapper = document.getElementById('main-wrapper');
+        if (loginScreen) loginScreen.style.setProperty('display', 'flex', 'important');
+        if (mainWrapper) mainWrapper.style.setProperty('display', 'none', 'important');
         const firebaseAuth = getAuth();
         if (firebaseAuth) {
             firebaseAuth.signOut().then(() => {

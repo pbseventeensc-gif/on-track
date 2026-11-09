@@ -321,13 +321,9 @@
             if (aStart && !aStart.value) aStart.value = todayStr;
             if (aEnd && !aEnd.value) aEnd.value = todayStr;
 
-            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-                setTimeout(function() {
-                    if (typeof loginAsLocalDemoAdmin === 'function') {
-                        loginAsLocalDemoAdmin();
-                    }
-                }, 100);
-            }
+            // Jangan auto-bypass login di localhost agar pengguna dapat login resmi ke Firebase Auth
+            // sehingga memiliki izin tulis (write permissions) ke Firestore.
+            // Pengguna tetap dapat mengklik "Masuk Mode Demo" jika hanya ingin melihat tampilan.
         });
     </script>
 
