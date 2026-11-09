@@ -4406,6 +4406,20 @@ function executeRenderRecentShipments(filter = "") {
 
                     const realSJ = getRealSJNumber(d, t);
                     const itemDisplayId = realSJ ? `#${realSJ}-${stopIdx}` : uniqueShipmentId;
+
+                    // Hindari duplikasi jika ada multiple entri trip dengan No. SJ yang sama
+                    if (realSJ && realSJ !== '-') {
+                        const dupRowIdx = shipmentRows.findIndex(r => r.noSJ === realSJ && r.stopIndex === stopIdx);
+                        if (dupRowIdx >= 0) {
+                            if (status === 'completed' && shipmentRows[dupRowIdx].status !== 'completed') {
+                                shipmentRows[dupRowIdx].status = status;
+                                shipmentRows[dupRowIdx].statusClass = statusClass;
+                                shipmentRows[dupRowIdx].proofUrl = d.proofPhotoUrl || photos.sjUrl || photos.itemUrl || '';
+                            }
+                            return;
+                        }
+                    }
+
                     shipmentRows.push({
                         tripId: t.id,
                         displayId: itemDisplayId,

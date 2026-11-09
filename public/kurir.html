@@ -2264,6 +2264,17 @@
                         const dateIso = t.date?.toDate ? t.date.toDate().toISOString() : (t.date?.seconds ? new Date(t.date.seconds * 1000).toISOString() : (t.date || t.createdAt || new Date().toISOString()));
                         const isKurirMotor = !currentCourier.role || currentCourier.role.includes('Motor') || currentCourier.vehicleType === 'motor';
 
+                        // Hindari duplikasi jika ada multiple dokumen dengan No. SJ yang sama
+                        if (formattedSJ && formattedSJ !== '-') {
+                            const dupIdx = freshList.findIndex(x => x.noSJ === formattedSJ && x.stopIndex === (dest.stopIndex || (idx + 1)));
+                            if (dupIdx >= 0) {
+                                if (isDone && freshList[dupIdx].status !== 'delivered') {
+                                    freshList[dupIdx].status = 'delivered';
+                                }
+                                return;
+                            }
+                        }
+
                         freshList.push({
                             id: subId,
                             rootTripId: t.id,
@@ -2320,7 +2331,7 @@
                     const formattedSJ = candidateSJ ? (String(candidateSJ).startsWith('#') ? String(candidateSJ) : ('#' + String(candidateSJ))) : '-';
                     if (isDummyOrDeletedShipment({ id: subId, noSJ: formattedSJ }) || isDummyOrDeletedShipment({ id: t.id, noSJ: formattedSJ })) return;
 
-                    const existing = masterShipments.find(s => s.id === subId || (candidateSJ && s.noSJ === formattedSJ));
+                    const existing = masterShipments.find(s => s.id === subId || (formattedSJ && formattedSJ !== '-' && (s.noSJ === formattedSJ || s.noSJ === candidateSJ)));
                     if (!existing) {
                         const isKurirMotor = !currentCourier.role || currentCourier.role.includes('Motor') || currentCourier.vehicleType === 'motor';
                         const isDone = (dest.status === 'done' || dest.status === 'completed' || t.status === 'completed' || t.status === 'done');
@@ -3844,7 +3855,11 @@
                     const cleanSJNumber = (foundTrip.noSJ || foundTrip.sjNumber || parsed.sjNumber || '').trim();
                     if (cleanSJNumber && cleanSJNumber !== foundDocId) {
                         try {
-                            await firestoreDb.collection('trips').doc(cleanSJNumber).set(updateData, { merge: true });
+                            // Hapus dokumen duplikat lama jika pernah terbuat dengan ID No. SJ
+                            const twinSnap = await firestoreDb.collection('trips').doc(cleanSJNumber).get();
+                            if (twinSnap.exists) {
+                                await firestoreDb.collection('trips').doc(cleanSJNumber).delete();
+                            }
                         } catch(e) {}
                     }
                 } catch(e) {
@@ -3858,7 +3873,7 @@
                 let localTrips = rawLocal ? JSON.parse(rawLocal) : [];
                 let foundInLocal = false;
                 localTrips = localTrips.map(lt => {
-                    if (lt.id === foundDocId || lt.tripId === foundDocId || (displaySJ && lt.noSJ === displaySJ)) {
+                    if (lt.id === foundDocId || lt.tripId === foundDocId || (displaySJ && (lt.noSJ === displaySJ || lt.noSJ === formattedSJ))) {
                         foundInLocal = true;
                         return { ...lt, ...updateData };
                     }
@@ -3873,7 +3888,7 @@
             // 3. Masukkan ke masterShipments Kurir sebagai In Transit
             const subId = foundDocId;
             const isKurirMotor = !currentCourier.role || currentCourier.role.includes('Motor') || currentCourier.vehicleType === 'motor';
-            const existingInMaster = masterShipments.find(s => s.id === subId || s.rootTripId === foundDocId || (displaySJ && s.noSJ === formattedSJ));
+            const existingInMaster = masterShipments.find(s => s.id === subId || s.rootTripId === foundDocId || (formattedSJ && formattedSJ !== '-' && (s.noSJ === formattedSJ || s.noSJ === displaySJ)));
 
             const cardObj = {
                 id: subId,
