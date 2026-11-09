@@ -2008,17 +2008,18 @@
         return 'Hari Ini';
     }
 
-    function doesTripBelongToCurrentCourier(t) {
-        if (!t || !currentCourier) return false;
+    function doesTripBelongToCurrentCourier(t, courierToCheck) {
+        const cProfile = courierToCheck || currentCourier;
+        if (!t || !cProfile) return false;
         const rawCid = String(t.courierId || t.courierUid || t.uid || '').trim();
         const rawCname = String(t.courierName || t.driver || t.assignedTo || t.driverName || '').trim();
         const rawPlate = String(t.vehiclePlate || t.assignedVehiclePlate || '').replace(/\s+/g, '').toLowerCase();
         const rawVehName = String(t.vehicleName || '').toLowerCase();
 
-        const myCanon = (currentCourier.canonicalId || '').toLowerCase();
-        const myUid = (currentCourier.uid || currentCourier.id || '').toLowerCase();
-        const myName = (currentCourier.name || '').toLowerCase();
-        const myEmail = (currentCourier.email || '').toLowerCase();
+        const myCanon = (cProfile.canonicalId || '').toLowerCase();
+        const myUid = (cProfile.uid || cProfile.id || '').toLowerCase();
+        const myName = (cProfile.name || '').toLowerCase();
+        const myEmail = (cProfile.email || '').toLowerCase();
         const myEmailPrefix = myEmail.split('@')[0];
 
         // 1. Direct UID match
@@ -2177,10 +2178,10 @@
                             return;
                         }
 
-                        const hasProof = hasRealProofPhoto(dest) || hasRealProofPhoto(t);
+                        const hasProof = hasRealProofPhoto(dest) || (dests.length === 1 && hasRealProofPhoto(t));
                         const isExplicitDone = dest.status === 'done' || dest.status === 'completed';
                         const isTripDone = (t.status === 'completed' || t.status === 'done');
-                        const isDone = (hasProof && (isExplicitDone || isTripDone)) || (isTripDone && isExplicitDone && !dest.pendingReason && (dest.completedTime || t.completedAt));
+                        const isDone = (hasProof && (isExplicitDone || isTripDone)) || (isTripDone && dests.length === 1 && !dest.pendingReason && (dest.completedTime || t.completedAt));
                         const pendingReasonVal = dest.pendingReason || t.pendingReason || '';
                         const pendingPhotoVal = dest.pendingProofPhotoUrl || t.pendingProofPhotoUrl || '';
                         const isPendingReported = !isDone && (dest.status === 'pending_approval' || dest.status === 'klien_tutup' || !!pendingReasonVal);
@@ -2650,7 +2651,18 @@
 
         const previewContainer = document.getElementById('home-shipments-preview-container');
         if (previewContainer) {
-            if (activeList.length > 0) {
+            if (activeList.length > 0 && deliveredList.length > 0) {
+                previewContainer.innerHTML = `
+                    <div class="px-3 mb-2 d-flex align-items-center justify-content-between">
+                        <span class="fw-bold text-dark extra-small text-uppercase tracking-wider">Tugas Aktif (${activeList.length} Titik)</span>
+                    </div>
+                    ${activeList.map(s => renderShipmentCardHtml(s)).join('')}
+                    <div class="px-3 mt-3 mb-2 d-flex align-items-center justify-content-between">
+                        <span class="fw-bold text-success extra-small text-uppercase tracking-wider"><i class="bi bi-check2-circle me-1"></i>Selesai Hari Ini (${deliveredCount} Titik)</span>
+                    </div>
+                    ${deliveredList.map(s => renderShipmentCardHtml(s)).join('')}
+                `;
+            } else if (activeList.length > 0) {
                 previewContainer.innerHTML = activeList.map(s => renderShipmentCardHtml(s)).join('');
             } else if (deliveredList.length > 0) {
                 previewContainer.innerHTML = `
@@ -3979,9 +3991,20 @@
                             }];
 
                             let allDone = true;
+                            let matchedTarget = false;
                             const updatedDests = dests.map((d, idx) => {
                                 const thisIndex = d.stopIndex || (idx + 1);
-                                const isCurrentTarget = (thisIndex === stopIdx) || (dests.length === 1) || (d.noSJ && d.noSJ === cleanSJ) || (d.sjNumber && d.sjNumber === cleanSJ);
+                                let isCurrentTarget = false;
+                                if (dests.length === 1) {
+                                    isCurrentTarget = true;
+                                } else if (!matchedTarget && (thisIndex === stopIdx)) {
+                                    isCurrentTarget = true;
+                                    matchedTarget = true;
+                                } else if (!matchedTarget && target && target.destination && d.locationName && d.locationName === target.destination) {
+                                    isCurrentTarget = true;
+                                    matchedTarget = true;
+                                }
+
                                 if (isCurrentTarget) {
                                     return {
                                         ...d,
@@ -3992,7 +4015,8 @@
                                         proofPhotoItems: [finalBarangPhoto]
                                     };
                                 }
-                                if (d.status !== 'done' && d.status !== 'completed' && !d.proofPhotoUrl && !d.proofPhotoSj) {
+                                const dDone = (d.status === 'done' || d.status === 'completed' || d.proofPhotoUrl || d.proofPhotoSj);
+                                if (!dDone) {
                                     allDone = false;
                                 }
                                 return d;

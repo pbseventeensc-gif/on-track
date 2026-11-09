@@ -2663,6 +2663,14 @@ function initTripsSnapshot() {
                 t.status = 'in_progress';
             }
 
+            if (t.courierId) {
+                const resolvedName = typeof getCourierDisplayName === 'function' ? getCourierDisplayName(t.courierId) : '';
+                if (resolvedName) {
+                    if (!t.courierName) t.courierName = resolvedName;
+                    if (!t.courier) t.courier = resolvedName;
+                }
+            }
+
             // Seluruh trip (bulan berjalan maupun bulan-bulan lalu) dimuat utuh tanpa filter hapus/skip
             trips.push(t);
         });
