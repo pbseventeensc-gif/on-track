@@ -238,13 +238,12 @@
         }
 
         function selectOption(opt) {
+            const hasChanged = selectEl.value !== opt.value;
             selectEl.value = opt.value;
             renderTriggerContent(triggerEl, selectEl);
 
-            selectEl.dispatchEvent(new Event('change', { bubbles: true }));
-            selectEl.dispatchEvent(new Event('input', { bubbles: true }));
-            if (typeof selectEl.onchange === 'function') {
-                selectEl.onchange();
+            if (hasChanged) {
+                selectEl.dispatchEvent(new Event('change', { bubbles: true }));
             }
             closeActiveDropdown();
         }
@@ -468,9 +467,14 @@
         }
         if (avatarUrl) {
             const cleanName = labelText.replace(/"/g, '&quot;');
-            textEl.innerHTML = `<span class="d-inline-flex align-items-center gap-2"><img src="${avatarUrl}" alt="" style="width:20px;height:20px;border-radius:50%;object-fit:cover;flex-shrink:0;border:1px solid #cbd5e1;" onerror="this.src='https://ui-avatars.com/api/?name='+encodeURIComponent('${cleanName}')+'&background=0F172A&color=fff'"><span>${labelText}</span></span>`;
+            const newHtml = `<span class="d-inline-flex align-items-center gap-2"><img src="${avatarUrl}" alt="" style="width:20px;height:20px;border-radius:50%;object-fit:cover;flex-shrink:0;border:1px solid #cbd5e1;" onerror="this.src='https://ui-avatars.com/api/?name='+encodeURIComponent('${cleanName}')+'&background=0F172A&color=fff'"><span>${labelText}</span></span>`;
+            if (textEl.innerHTML !== newHtml) {
+                textEl.innerHTML = newHtml;
+            }
         } else {
-            textEl.textContent = labelText;
+            if (textEl.textContent !== labelText) {
+                textEl.textContent = labelText;
+            }
         }
     }
 

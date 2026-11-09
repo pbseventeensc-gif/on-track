@@ -4211,10 +4211,28 @@ function getRealSJNumber(d, t) {
 }
 window.getRealSJNumber = getRealSJNumber;
 
-function renderRecentShipments(filter = "") {
+let renderRecentShipmentsTimer = null;
+function renderRecentShipments(filter = "", immediate = false) {
+    if (immediate) {
+        if (renderRecentShipmentsTimer) {
+            clearTimeout(renderRecentShipmentsTimer);
+            renderRecentShipmentsTimer = null;
+        }
+        executeRenderRecentShipments(filter);
+        return;
+    }
+    if (renderRecentShipmentsTimer) {
+        clearTimeout(renderRecentShipmentsTimer);
+    }
+    renderRecentShipmentsTimer = setTimeout(() => {
+        renderRecentShipmentsTimer = null;
+        executeRenderRecentShipments(filter);
+    }, 16);
+}
+
+function executeRenderRecentShipments(filter = "") {
     const table = document.getElementById('recent-shipments-table');
     if(!table) return;
-    table.innerHTML = '';
 
     const rawSearch = (typeof filter === 'string' ? filter : (document.getElementById('recent-shipment-search')?.value || "")).toLowerCase().trim();
     const selectedStatus = document.getElementById('recent-status-filter')?.value || "all";
@@ -4529,7 +4547,10 @@ function renderRecentShipments(filter = "") {
         </tr>`);
     });
 
-    table.innerHTML = rowsHtml.join('');
+    const finalHtml = rowsHtml.join('');
+    if (table.innerHTML !== finalHtml) {
+        table.innerHTML = finalHtml;
+    }
     updateGlobalStats();
 }
 
