@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wellen Print ERP - Roadmap Tahapan Eksekusi</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
+    
+    body {
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+      background: #ffffff;
+      color: #0f172a;
+      user-select: none;
+    }
+
+    .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .slide {
+      display: none;
+      opacity: 0;
+      transition: opacity 0.25s ease-in-out;
+    }
+
+    .slide.active {
+      display: flex;
+      opacity: 1;
+    }
+
+    .clean-card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.04);
+      transition: all 0.2s ease;
+    }
+
+    .clean-card:hover {
+      border-color: #cbd5e1;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    }
+
+    /* Print styling to export cleanly to multi-page PDF */
+    @media print {
+      body {
+        background: #ffffff !important;
+        color: #0f172a !important;
+      }
+      .no-print {
+        display: none !important;
+      }
+      .slide {
+        display: flex !important;
+        opacity: 1 !important;
+        page-break-after: always;
+        height: 100vh;
+        width: 100vw;
+        border: none !important;
+        background: #ffffff !important;
+      }
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between overflow-x-hidden antialiased bg-white">
+
+  <!-- TOP BAR / HEADER -->
+  <header class="w-full px-6 py-4 flex items-center justify-between border-b border-slate-200 bg-white/95 backdrop-blur-md z-30 no-print">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white font-bold text-sm shadow-sm shadow-blue-500/20">
+        W
+      </div>
+      <div>
+        <div class="text-sm font-bold tracking-tight text-slate-900 flex items-center gap-2">
+          <span>PT WELLEN PRINT</span>
+          <span class="text-[10px] font-mono uppercase bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full border border-slate-200">Executive Roadmap</span>
+        </div>
+        <div class="text-xs text-slate-500">Saran Roadmap Tahapan Eksekusi & Audit Kesiapan Sistem</div>
+      </div>
+    </div>
+
+    <!-- Slide Indicators & Controls -->
+    <div class="flex items-center gap-3">
+      <!-- Direct Download Button for PPTX File -->
+      <a href="Wellen_Print_Roadmap_ERP.pptx" download="Wellen_Print_Roadmap_ERP.pptx" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-bold text-white transition shadow-sm shadow-emerald-600/20">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        <span>Download PPT (.pptx)</span>
+      </a>
+
+      <button onclick="window.print()" class="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 transition border border-slate-200">
+        <svg class="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+        <span>Print / PDF</span>
+      </button>
+
+      <div class="text-xs font-mono text-slate-600 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
+        Slide <span id="current-slide-num" class="text-blue-600 font-bold">1</span> / <span id="total-slides-num">8</span>
+      </div>
+
+      <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
+        <button onclick="prevSlide()" class="p-1.5 rounded-lg hover:bg-white text-slate-600 hover:text-slate-900 transition" title="Slide Sebelumnya (Panah Kiri)">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        </button>
+        <button onclick="nextSlide()" class="p-1.5 rounded-lg hover:bg-white text-slate-600 hover:text-slate-900 transition" title="Slide Selanjutnya (Panah Kanan / Spasi)">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- SLIDES CONTAINER (ELEGANT WHITE) -->
+  <main class="flex-grow flex items-center justify-center p-4 md:p-8 max-w-7xl mx-auto w-full relative">
+
+    <!-- ========================================================
+         SLIDE 1: COVER (WHITE ELEGANCE)
+         ======================================================== -->
+    <section class="slide active w-full flex-col justify-center py-8">
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-semibold mb-6 w-fit">
+        <span class="w-2 h-2 rounded-full bg-blue-600"></span>
+        Wellen Print Manufacturing & Logistics ERP • Strategic Blueprint 2026/2027
+      </div>
+
+      <h1 class="text-3xl md:text-5xl font-extrabold tracking-tight text-slate-900 max-w-4xl leading-tight mb-4">
+        Saran Roadmap Tahapan Eksekusi<br>
+        <span class="text-blue-600">& Audit Kesiapan Sistem (Current Standing)</span>
+      </h1>
+
+      <p class="text-base text-slate-600 max-w-3xl leading-relaxed mb-8">
+        Strategi integrasi hulu-ke-hilir: menyambungkan alur <strong>Job Intake & Desk Print</strong>, antrean mesin <strong>Indoor & Outdoor</strong>, manajemen bahan & tinta, hingga <strong>Quality Control & Real-Time Logistics Tracking (Wtrack)</strong> tanpa mengganggu operasional pengiriman harian yang sedang berjalan.
+      </p>
+
+      <!-- Key Framework Grid -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 w-full">
+        <div class="clean-card p-4 rounded-xl border-l-4 border-l-emerald-600 bg-white">
+          <div class="text-[11px] font-mono font-bold text-emerald-700 uppercase">AUDIT SAAT INI</div>
+          <div class="text-sm font-bold text-slate-900 mt-1">Logistik 85% Matang</div>
+          <p class="text-xs text-slate-500 mt-1">Kurir Android, Live GPS, QR Code & Plan Shipment sudah aktif di lapangan.</p>
+        </div>
+
+        <div class="clean-card p-4 rounded-xl border-l-4 border-l-blue-600 bg-white">
+          <div class="text-[11px] font-mono font-bold text-blue-700 uppercase">STRATEGI UTAMA</div>
+          <div class="text-sm font-bold text-slate-900 mt-1">Reverse Pipeline</div>
+          <p class="text-xs text-slate-500 mt-1">Membangun dari hilir ke hulu untuk mengunci kesiapan barang fisik terlebih dahulu.</p>
+        </div>
+
+        <div class="clean-card p-4 rounded-xl border-l-4 border-l-purple-600 bg-white">
+          <div class="text-[11px] font-mono font-bold text-purple-700 uppercase">FASE EKSEKUSI</div>
+          <div class="text-sm font-bold text-slate-900 mt-1">4 Tahapan Bertahap</div>
+          <p class="text-xs text-slate-500 mt-1">Fase 1 (QC/Pack) ➔ Fase 2 (Mesin) ➔ Fase 3 (Sales/Gudang) ➔ Fase 4 (Analytics).</p>
+        </div>
+
+        <div class="clean-card p-4 rounded-xl border-l-4 border-l-amber-600 bg-white">
+          <div class="text-[11px] font-mono font-bold text-amber-700 uppercase">DOWNLOAD PPTX</div>
+          <div class="text-sm font-bold text-slate-900 mt-1">Format PowerPoint</div>
+          <p class="text-xs text-slate-500 mt-1">Berkas <span class="font-mono text-slate-800">.pptx</span> asli siap unduh di pojok kanan atas.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================
+         SLIDE 2: CURRENT STANDING (DI MANA POSISI KITA SEKARANG?)
+         ======================================================== -->
+    <section class="slide w-full flex-col justify-center py-6">
+      <div class="mb-5">
+        <div class="text-xs font-mono font-bold text-emerald-700 uppercase tracking-wider bg-emerald-50 px-2.5 py-1 rounded border border-emerald-200 w-fit">Audit Posisi Sistem</div>
+        <h2 class="text-2xl md:text-3xl font-extrabold text-slate-900 mt-2">Di Mana Posisi Kita Sekarang? (*Current Standing*)</h2>
+        <p class="text-sm text-slate-500 mt-1">Evaluasi kematangan 6 modul utama Wtrack untuk memetakan prioritas pengembangan.</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Progress Evaluation -->
+        <div class="clean-card p-5 rounded-2xl bg-white flex flex-col justify-between">
+          <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider mb-4 flex items-center justify-between">
+            <span>Tingkat Kematangan Modul (Maturity Index)</span>
+            <span class="text-xs font-mono text-blue-600 font-bold">Kesiapan ~45%</span>
+          </h3>
+
+          <div class="space-y-4">
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="font-bold text-emerald-700">5. QC & Shipping (Wtrack Logistik)</span>
+                <span class="font-mono text-emerald-700 font-bold">85% (Sangat Matang)</span>
+              </div>
+              <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200">
+                <div class="bg-emerald-600 h-2 rounded-full" style="width: 85%"></div>
+              </div>
+              <p class="text-[11px] text-slate-500 mt-0.5">Aplikasi Kurir Android, Live GPS armada, Plan Shipment, dan tombol Checker Belum Ready sudah jalan.</p>
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="font-bold text-sky-700">6. Analytics (Shipping & KPI Kurir)</span>
+                <span class="font-mono text-sky-700 font-bold">50% (Parsial)</span>
+              </div>
+              <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200">
+                <div class="bg-sky-600 h-2 rounded-full" style="width: 50%"></div>
+              </div>
+              <p class="text-[11px] text-slate-500 mt-0.5">Laporan pengiriman harian, rekap WhatsApp, dan KPI kurir aktif. Costing & Waste belum ada.</p>
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="font-bold text-purple-700">3. Production (SPK & Cabang)</span>
+                <span class="font-mono text-purple-700 font-bold">25% (Fondasi Awal)</span>
+              </div>
+              <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200">
+                <div class="bg-purple-600 h-2 rounded-full" style="width: 25%"></div>
+              </div>
+              <p class="text-[11px] text-slate-500 mt-0.5">Workstation Cikokol vs Pusat dan parser SPK Excel sudah ada, antrean mesin belum ada.</p>
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="font-bold text-amber-700">4. Inventory (Bahan & Tinta)</span>
+                <span class="font-mono text-amber-700 font-bold">15% (Hanya Armada)</span>
+              </div>
+              <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200">
+                <div class="bg-amber-500 h-2 rounded-full" style="width: 15%"></div>
+              </div>
+              <p class="text-[11px] text-slate-500 mt-0.5">Inventaris armada lengkap (STNK/KIR/Servis). Inventaris bahan percetakan belum dibuat.</p>
+            </div>
+
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span class="font-bold text-rose-700">1 & 2. Job Intake & Desk Print</span>
+                <span class="font-mono text-rose-700 font-bold">5% (Rencana)</span>
+              </div>
+              <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200">
+                <div class="bg-rose-500 h-2 rounded-full" style="width: 5%"></div>
+              </div>
+              <p class="text-[11px] text-slate-500 mt-0.5">Order saat ini masuk via import Excel SPK yang diproses manual di luar sistem.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Qualitative Findings -->
+        <div class="space-y-3 flex flex-col justify-between">
+          <div class="clean-card p-4 rounded-xl border-l-4 border-l-emerald-600 bg-white">
+            <div class="text-xs font-bold text-emerald-800 uppercase tracking-wide mb-1">Aset Kuat yang Sudah Berjalan Stabil</div>
+            <p class="text-xs text-slate-600 leading-relaxed">
+              Arsitektur database Firestore, aplikasi Android kurir, GPS real-time armada motor/mobil, pembagian wilayah Jabodetabek, dan Plan Shipment Surat Jalan sudah <strong>beroperasi stabil di lapangan</strong>.
+            </p>
+          </div>
+
+          <div class="clean-card p-4 rounded-xl border-l-4 border-l-amber-500 bg-white">
+            <div class="text-xs font-bold text-amber-800 uppercase tracking-wide mb-1">Pain Point Terbesar Saat Ini</div>
+            <p class="text-xs text-slate-600 leading-relaxed">
+              Bagian logistik menerima Surat Jalan tetapi <strong>barang fisik belum selesai di bagian finishing/produksi</strong> (itulah alasan kita menambahkan tombol Checker <em>"Belum Ready"</em> vs <em>"Siap Kirim"</em>).
+            </p>
+          </div>
+
+          <div class="clean-card p-4 rounded-xl border-l-4 border-l-blue-600 bg-blue-50/50">
+            <div class="text-xs font-bold text-blue-800 uppercase tracking-wide mb-1">Arah Solusi Strategis</div>
+            <p class="text-xs text-slate-700 leading-relaxed">
+              Membangun modul <strong>QC & Packaging</strong> terlebih dahulu agar barang yang selesai dicetak otomatis diverifikasi sebelum masuk ke Plan Shipment, kemudian menyambung ke antrean mesin di produksi.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================
+         SLIDE 3: SKEMA ALUR MAKRO HULU KE HILIR
+         ======================================================== -->
+    <section class="slide w-full flex-col justify-center py-6">
+      <div class="mb-4">
+        <div class="text-xs font-mono font-bold text-blue-700 uppercase tracking-wider bg-blue-50 px-2.5 py-1 rounded border border-blue-200 w-fit">Skema Arsitektur Alur Terpadu</div>
+        <h2 class="text-2xl md:text-3xl font-extrabold text-slate-900 mt-2">Alur Proses Pesanan: Dari CS sampai di Tangan Klien</h2>
+        <p class="text-xs text-slate-500 mt-1">Transformasi digital 6 pilar yang saling terhubung secara otomatis.</p>
+      </div>
+
+      <div class="clean-card p-5 rounded-2xl bg-white w-full">
+        <div class="grid grid-cols-1 md:grid-cols-6 gap-3">
+          <!-- 01 -->
+          <div class="p-3.5 rounded-xl border border-blue-200 bg-blue-50/40 flex flex-col justify-between">
+            <div>
+              <div class="w-6 h-6 rounded-md bg-blue-600 text-white flex items-center justify-center font-bold text-xs mb-2">01</div>
+              <div class="text-xs font-bold text-blue-900 uppercase">Job Intake</div>
+              <p class="text-[11px] text-slate-600 mt-1">Order Form CS/Sales, PO Klien, dan upload file desain grafis.</p>
+            </div>
+            <div class="mt-2 pt-2 border-t border-blue-200 text-[10px] text-blue-700 font-mono font-bold">SPK Digital ID</div>
+          </div>
+
+          <!-- 02 -->
+          <div class="p-3.5 rounded-xl border border-indigo-200 bg-indigo-50/40 flex flex-col justify-between">
+            <div>
+              <div class="w-6 h-6 rounded-md bg-indigo-600 text-white flex items-center justify-center font-bold text-xs mb-2">02</div>
+              <div class="text-xs font-bold text-indigo-900 uppercase">Desk Print</div>
+              <p class="text-[11px] text-slate-600 mt-1">Pre-flight resolusi/warna, bleed margin, dan nesting layout hemat bahan.</p>
+            </div>
+            <div class="mt-2 pt-2 border-t border-indigo-200 text-[10px] text-indigo-700 font-mono font-bold">Print-Ready File</div>
+          </div>
+
+          <!-- 03 -->
+          <div class="p-3.5 rounded-xl border border-purple-200 bg-purple-50/40 flex flex-col justify-between">
+            <div>
+              <div class="w-6 h-6 rounded-md bg-purple-600 text-white flex items-center justify-center font-bold text-xs mb-2">03</div>
+              <div class="text-xs font-bold text-purple-900 uppercase">Production</div>
+              <p class="text-[11px] text-slate-600 mt-1">Antrean mesin Indoor vs Outdoor, cetak fisik & meja finishing.</p>
+            </div>
+            <div class="mt-2 pt-2 border-t border-purple-200 text-[10px] text-purple-700 font-mono font-bold">Barang Cetak Fisik</div>
+          </div>
+
+          <!-- 04 -->
+          <div class="p-3.5 rounded-xl border border-amber-200 bg-amber-50/40 flex flex-col justify-between">
+            <div>
+              <div class="w-6 h-6 rounded-md bg-amber-600 text-white flex items-center justify-center font-bold text-xs mb-2">04</div>
+              <div class="text-xs font-bold text-amber-900 uppercase">Inventory</div>
+              <p class="text-[11px] text-slate-600 mt-1">Auto-potong stok rol (m²), tinta (ml), alert minimum stok.</p>
+            </div>
+            <div class="mt-2 pt-2 border-t border-amber-200 text-[10px] text-amber-700 font-mono font-bold">Auto-Stock Cut</div>
+          </div>
+
+          <!-- 05 -->
+          <div class="p-3.5 rounded-xl border border-emerald-300 bg-emerald-50/60 flex flex-col justify-between shadow-sm">
+            <div>
+              <div class="w-6 h-6 rounded-md bg-emerald-600 text-white flex items-center justify-center font-bold text-xs mb-2">05</div>
+              <div class="text-xs font-bold text-emerald-900 uppercase">QC & Packing</div>
+              <p class="text-[11px] text-slate-600 mt-1">Inspeksi warna/cacat, kemas rapi & scan label barcode kemasan.</p>
+            </div>
+            <div class="mt-2 pt-2 border-t border-emerald-200 text-[10px] text-emerald-700 font-mono font-bold">Siap Kirim (Wtrack)</div>
+          </div>
+
+          <!-- 06 -->
+          <div class="p-3.5 rounded-xl border border-teal-200 bg-teal-50/40 flex flex-col justify-between">
+            <div>
+              <div class="w-6 h-6 rounded-md bg-teal-600 text-white flex items-center justify-center font-bold text-xs mb-2">06</div>
+              <div class="text-xs font-bold text-teal-900 uppercase">Shipment Track</div>
+              <p class="text-[11px] text-slate-600 mt-1">Tugaskan kurir/driver, Live GPS, dan bukti foto PoD di klien.</p>
+            </div>
+            <div class="mt-2 pt-2 border-t border-teal-200 text-[10px] text-teal-700 font-mono font-bold">Delivered (Selesai)</div>
+          </div>
+        </div>
+
+        <div class="mt-3 p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-600 flex items-center justify-between">
+          <span><strong>Executive Intelligence:</strong> Seluruh riwayat transaksi otomatis dikompilasi menjadi OEE Efisiensi Mesin, Analisa Waste, HPP Presisi, dan KPI Kurir.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================
+         SLIDE 4: FASE 1 (BULAN 1)
+         ======================================================== -->
+    <section class="slide w-full flex-col justify-center py-6">
+      <div class="mb-5">
+        <div class="text-xs font-mono font-bold text-emerald-700 uppercase tracking-wider bg-emerald-50 px-2.5 py-1 rounded border border-emerald-200 w-fit">Tahapan Eksekusi • Fase 1</div>
+        <h2 class="text-2xl md:text-3xl font-extrabold text-slate-900 mt-2">Fase 1 (Bulan 1): Pemantapan QC & Packaging (Quick Wins)</h2>
+        <p class="text-sm text-slate-500 mt-1">Menghubungkan Lantai Produksi ke Plan Shipment Logistik Wtrack Tanpa Mengganggu Operasional.</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div class="clean-card p-5 rounded-2xl bg-white border-t-4 border-t-emerald-600">
+          <h3 class="text-xs font-bold text-emerald-800 uppercase tracking-wide mb-3 flex items-center gap-2">
+            <span>✓</span> 1. Form Inspeksi Quality Control (QC)
+          </h3>
+          <ul class="text-xs text-slate-600 space-y-2.5">
+            <li><strong>Kesesuaian Warna:</strong> Memastikan hasil cetak sesuai dengan sampel / proof warna klien.</li>
+            <li><strong>Bebas Cacat Head:</strong> Memastikan tidak ada garis (*banding*), noda tinta, atau titik putih.</li>
+            <li><strong>Presisi Ukuran:</strong> Dimensi cetak (misal 2.01 x 0.93m) dan cutting pola sesuai SPK.</li>
+            <li><strong>Finishing Sempurna:</strong> Pemasangan mata ayam kuat, kelim rapi, laminasi bebas gelembung.</li>
+          </ul>
+          <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+            <span class="text-slate-500">Aksi Tombol:</span>
+            <span class="font-mono font-bold text-emerald-700">[PASS QC] atau [REJECT REWORK]</span>
+          </div>
+        </div>
+
+        <div class="clean-card p-5 rounded-2xl bg-white border-t-4 border-t-blue-600">
+          <h3 class="text-xs font-bold text-blue-800 uppercase tracking-wide mb-3 flex items-center gap-2">
+            <span>📦</span> 2. Packaging & Integrasi ke Plan Shipment
+          </h3>
+          <ul class="text-xs text-slate-600 space-y-2.5">
+            <li><strong>Standar Kemasan:</strong> Dibungkus rapi (bubble wrap / kardus) sesuai jenis produk.</li>
+            <li><strong>Label Barcode SJ:</strong> Menempelkan label barcode No. Surat Jalan pada paket.</li>
+            <li><strong>Scan "Ready to Ship":</strong> Scan label kemasan otomatis memindahkan Surat Jalan di Plan Shipment ke tab <strong>"On Hand Siap Kirim"</strong>!</li>
+            <li><strong>Kepastian Dispatcher:</strong> Dispatcher tidak perlu bolak-balik bertanya ke pabrik; barang di tab Siap Kirim dipastikan sudah siap angkut.</li>
+          </ul>
+          <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+            <span class="text-slate-500">Hasil:</span>
+            <span class="font-mono font-bold text-blue-700">100% Kepastian Barang Ready</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="clean-card p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 flex items-center gap-2">
+        <span class="font-bold font-mono">Dampak Langsung:</span>
+        <span>Tombol Checker "Belum Ready" & "Siap Kirim" yang kemarin kita buat adalah langkah pertama dari Fase 1 ini.</span>
+      </div>
+    </section>
+
+    <!-- ========================================================
+         SLIDE 5: FASE 2 (BULAN 2)
+         ======================================================== -->
+    <section class="slide w-full flex-col justify-center py-6">
+      <div class="mb-4">
+        <div class="text-xs font-mono font-bold text-purple-700 uppercase tracking-wider bg-purple-50 px-2.5 py-1 rounded border border-purple-200 w-fit">Tahapan Eksekusi • Fase 2</div>
+        <h2 class="text-2xl md:text-3xl font-extrabold text-slate-900 mt-2">Fase 2 (Bulan 2): Production Scheduling & Antrean Mesin</h2>
+        <p class="text-xs text-slate-500 mt-1">Transparansi antrean mesin di lantai produksi dengan segregasi Indoor vs Outdoor.</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div class="clean-card p-4 rounded-xl bg-white border-l-4 border-l-purple-600">
+          <div class="text-xs font-bold text-purple-900 uppercase mb-1">1. Master Mesin & Segregasi Jalur</div>
+          <p class="text-xs text-slate-600 leading-relaxed">
+            Pencatatan profil setiap mesin di <strong>Pusat</strong> dan <strong>Cikokol</strong>: jenis tinta, lebar maksimal (1.6m / 3.2m), dan kecepatan m²/jam.
+          </p>
+          <div class="mt-2 space-y-1 text-xs text-slate-700">
+            <div>• <strong>Jalur Indoor:</strong> Mesin Eco-Solvent, UV Flatbed, Latex untuk stiker, display mall, akrilik.</div>
+            <div>• <strong>Jalur Outdoor:</strong> Mesin Solvent High-Speed untuk flexi banner, spanduk, baliho jalan.</div>
+          </div>
+        </div>
+
+        <div class="clean-card p-4 rounded-xl bg-white border-l-4 border-l-blue-600">
+          <div class="text-xs font-bold text-blue-900 uppercase mb-1">2. Alokasi SPK Otomatis (Machine Queue)</div>
+          <p class="text-xs text-slate-600 leading-relaxed">
+            Sistem merekomendasikan mesin paling optimal dan mengurutkan antrean bahan sejenis (misal seluruh pesanan Stiker digabung) agar operator tidak sering ganti rol bahan.
+          </p>
+          <div class="mt-2 text-xs text-slate-700">
+            <div>• <strong>Estimasi Selesai (ETA):</strong> Otomatis dihitung berdasarkan luas cetak (m²) / kecepatan mesin.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Kanban Scheme Box -->
+      <div class="clean-card p-4 rounded-xl bg-slate-50 border border-slate-200">
+        <div class="text-xs font-bold text-slate-900 uppercase mb-2 flex justify-between items-center">
+          <span>Konsep Tampilan Layar Operator Produksi (Live Kanban View):</span>
+          <span class="text-[10px] font-mono text-slate-500">Sentuh / Klik Operator</span>
+        </div>
+        <div class="grid grid-cols-4 gap-2 text-center text-xs">
+          <div class="bg-white p-2.5 rounded-lg border border-slate-200">
+            <div class="font-bold text-slate-700 text-[11px]">1. Antrean SPK</div>
+            <div class="text-[10px] text-slate-500 mt-1">Siap naik cetak</div>
+          </div>
+          <div class="bg-white p-2.5 rounded-lg border border-blue-300">
+            <div class="font-bold text-blue-700 text-[11px]">2. Sedang Cetak</div>
+            <div class="text-[10px] text-slate-500 mt-1">Timer berjalan</div>
+          </div>
+          <div class="bg-white p-2.5 rounded-lg border border-amber-300">
+            <div class="font-bold text-amber-700 text-[11px]">3. Finishing</div>
+            <div class="text-[10px] text-slate-500 mt-1">Potong & Kelim</div>
+          </div>
+          <div class="bg-white p-2.5 rounded-lg border border-emerald-300">
+            <div class="font-bold text-emerald-700 text-[11px]">4. Masuk ke QC</div>
+            <div class="text-[10px] text-slate-500 mt-1">Otomatis ke Fase 1</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================
+         SLIDE 6: FASE 3 (BULAN 3)
+         ======================================================== -->
+    <section class="slide w-full flex-col justify-center py-6">
+      <div class="mb-4">
+        <div class="text-xs font-mono font-bold text-blue-700 uppercase tracking-wider bg-blue-50 px-2.5 py-1 rounded border border-blue-200 w-fit">Tahapan Eksekusi • Fase 3</div>
+        <h2 class="text-2xl md:text-3xl font-extrabold text-slate-900 mt-2">Fase 3 (Bulan 3): Job Intake, Desk Print & Smart Inventory</h2>
+        <p class="text-xs text-slate-500 mt-1">Menghubungkan pintu masuk order CS ke gudang bahan baku secara otomatis.</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div class="clean-card p-4 rounded-xl bg-white border-t-4 border-t-blue-600">
+          <div class="text-xs font-bold text-blue-900 uppercase mb-2">1. Job Intake & Prepress Desk Print</div>
+          <ul class="text-xs text-slate-600 space-y-1.5">
+            <li>• <strong>Form Input Order:</strong> CS memasukkan data PO, customer, dan deadline.</li>
+            <li>• <strong>Cloud File Storage:</strong> Upload file resolusi tinggi (PDF/TIFF/AI) terhubung dengan SPK.</li>
+            <li>• <strong>Pre-flight Desk Print:</strong> Pengecekan otomatis DPI, warna CMYK, dan bleeding.</li>
+          </ul>
+        </div>
+
+        <div class="clean-card p-4 rounded-xl bg-white border-t-4 border-t-amber-500">
+          <div class="text-xs font-bold text-amber-900 uppercase mb-2">2. Inventory Bahan Baku & Tinta</div>
+          <ul class="text-xs text-slate-600 space-y-1.5">
+            <li>• <strong>Master Material Rol:</strong> Stok Flexi, Vinyl Stiker, Albatros, Akrilik lembaran.</li>
+            <li>• <strong>Master Tinta:</strong> Stok tinta botol/liter per warna (CMYK, LC, LM, White).</li>
+            <li>• <strong>Consumables:</strong> Stok Printhead, wiper, damper, mata pisau, lem seaming.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Auto Deduction Scheme -->
+      <div class="clean-card p-4 rounded-xl bg-amber-50/60 border border-amber-200">
+        <div class="text-xs font-bold text-amber-900 uppercase mb-1">Konsep Otomasi: Auto-Deduction Berbasis Luas Cetak (m²)</div>
+        <p class="text-xs text-slate-700 leading-relaxed">
+          Ketika SPK ukuran <strong>2.00 x 3.00 meter (6.00 m²)</strong> selesai dicetak di mesin Solvent, sistem otomatis memotong stok rol Flexi sebesar <strong>6.00 m² + 5% sisa potong</strong> dan mengurangi estimasi tinta <strong>~60 ml</strong>. Menghilangkan selisih stok gudang secara permanen.
+        </p>
+      </div>
+    </section>
+
+    <!-- ========================================================
+         SLIDE 7: FASE 4 (BULAN 4)
+         ======================================================== -->
+    <section class="slide w-full flex-col justify-center py-6">
+      <div class="mb-4">
+        <div class="text-xs font-mono font-bold text-sky-700 uppercase tracking-wider bg-sky-50 px-2.5 py-1 rounded border border-sky-200 w-fit">Tahapan Eksekusi • Fase 4</div>
+        <h2 class="text-2xl md:text-3xl font-extrabold text-slate-900 mt-2">Fase 4 (Bulan 4): Total Intelligence Analytics & Costing</h2>
+        <p class="text-xs text-slate-500 mt-1">Dashboard analitik strategis untuk menghitung profitabilitas nyata dan efisiensi pabrik.</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5 mb-4">
+        <div class="clean-card p-4 rounded-xl bg-white border-t-2 border-t-emerald-600">
+          <div class="text-xs font-bold text-emerald-900 uppercase">1. Efficiency Report (OEE Mesin)</div>
+          <p class="text-xs text-slate-600 mt-1">Menghitung rasio jam kerja mesin aktif mencetak vs waktu *idle*. Mengetahui produktivitas output m²/jam mesin di Pusat & Cikokol.</p>
+        </div>
+
+        <div class="clean-card p-4 rounded-xl bg-white border-t-2 border-t-rose-600">
+          <div class="text-xs font-bold text-rose-900 uppercase">2. Waste & Reject Analysis</div>
+          <p class="text-xs text-slate-600 mt-1">Menganalisis sisa bahan terbuang dan melacak cetakan gagal lolos QC untuk menemukan penyebab utama kesalahan.</p>
+        </div>
+
+        <div class="clean-card p-4 rounded-xl bg-white border-t-2 border-t-blue-600">
+          <div class="text-xs font-bold text-blue-900 uppercase">3. Real Cost Analysis (HPP Presisi)</div>
+          <p class="text-xs text-slate-600 mt-1">Kalkulasi modal riil per meter persegi (Bahan + Tinta + Listrik/Mesin + Ongkos Kurir) sebagai dasar penetapan harga tender.</p>
+        </div>
+
+        <div class="clean-card p-4 rounded-xl bg-white border-t-2 border-t-sky-600">
+          <div class="text-xs font-bold text-sky-900 uppercase">4. Shipping SLA & Delivery Report</div>
+          <p class="text-xs text-slate-600 mt-1">Rekap performa pengantaran harian/bulanan, rasio delivered on-time, analisa klien tutup, dan audit BBM armada (sudah aktif).</p>
+        </div>
+      </div>
+
+      <div class="clean-card p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-700 flex items-center justify-between">
+        <span><strong>Target Akhir:</strong> Owner & Manajemen memiliki Executive Dashboard untuk memantau laba kotor riil setiap order percetakan.</span>
+      </div>
+    </section>
+
+    <!-- ========================================================
+         SLIDE 8: MATRIKS PRIORITAS & KESIMPULAN
+         ======================================================== -->
+    <section class="slide w-full flex-col justify-center py-6">
+      <div class="mb-4">
+        <div class="text-xs font-mono font-bold text-blue-700 uppercase tracking-wider bg-blue-50 px-2.5 py-1 rounded border border-blue-200 w-fit">Panduan Eksekutif</div>
+        <h2 class="text-2xl md:text-3xl font-extrabold text-slate-900 mt-2">Matriks Prioritas & Checklist Tindakan Segera</h2>
+        <p class="text-xs text-slate-500 mt-1">Mengapa kita harus memulai dari Fase 1 terlebih dahulu?</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div class="clean-card p-4 rounded-xl bg-emerald-50/50 border border-emerald-200">
+          <div class="text-xs font-bold text-emerald-900 uppercase mb-2">Mengapa Fase 1 Didahulukan? (Quick Wins)</div>
+          <ul class="text-xs text-slate-700 space-y-2">
+            <li>• <strong>Menyelesaikan Masalah Terbesar:</strong> Surat Jalan di Plan Shipment tidak akan pernah lagi mendahului barang fisik.</li>
+            <li>• <strong>Nol Risiko:</strong> Tidak mengganggu pengiriman logistik yang sudah jalan, hanya menambahkan verifikasi QC.</li>
+            <li>• <strong>Fondasi Mesin:</strong> Setelah serah terima barang rapi, barulah lantai produksi fokus pada antrean mesin Fase 2.</li>
+          </ul>
+        </div>
+
+        <div class="clean-card p-4 rounded-xl bg-blue-50/50 border border-blue-200">
+          <div class="text-xs font-bold text-blue-900 uppercase mb-2">Checklist Tindakan Awal Minggu Ini</div>
+          <ul class="text-xs text-slate-700 space-y-1.5 font-mono text-[11px]">
+            <li class="text-emerald-700 font-bold">[✓] Filter SJ POOL di aplikasi kurir</li>
+            <li class="text-emerald-700 font-bold">[✓] Penyesuaian template import Surat Jalan (Admin SJ)</li>
+            <li class="text-emerald-700 font-bold">[✓] Tombol Checker 'Belum Ready' vs 'Siap Kirim'</li>
+            <li class="text-emerald-700 font-bold">[✓] Reset alert harian otomatis (by today only)</li>
+            <li class="text-blue-700 font-bold pt-1">[  ] Rencana Berikutnya: Form Checklist QC & Label Barcode Kemasan (Fase 1)</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="clean-card p-4 rounded-xl bg-white border border-slate-200 flex items-center justify-between">
+        <div>
+          <div class="text-xs font-bold text-slate-900">Unduh Presentasi Ini dalam Format PowerPoint (.pptx):</div>
+          <div class="text-xs text-slate-500 mt-0.5">Berkas slide sudah siap dibuka di Microsoft PowerPoint, Apple Keynote, atau Google Slides.</div>
+        </div>
+        <a href="Wellen_Print_Roadmap_ERP.pptx" download="Wellen_Print_Roadmap_ERP.pptx" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-bold text-white transition shadow-sm whitespace-nowrap">
+          Unduh File PPT (.pptx) ⇩
+        </a>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- BOTTOM BAR / FOOTER -->
+  <footer class="w-full px-6 py-3.5 border-t border-slate-200 bg-white/95 backdrop-blur-md flex items-center justify-between text-xs text-slate-500 no-print z-30">
+    <div class="flex items-center gap-2">
+      <span class="w-2 h-2 rounded-full bg-emerald-600"></span>
+      <span>PT Wellen Print • Phased Roadmap 2026/2027</span>
+    </div>
+
+    <!-- Dot Navigation -->
+    <div class="flex items-center gap-1.5" id="nav-dots">
+      <!-- Generated via JS -->
+    </div>
+
+    <div class="text-slate-400 text-[11px]">
+      Navigasi: <kbd class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 font-mono">◀</kbd> <kbd class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 font-mono">▶</kbd> atau <kbd class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 font-mono">Spasi</kbd>
+    </div>
+  </footer>
+
+  <script>
+    let currentSlide = 0;
+    const slides = document.querySelectorAll('.slide');
+    const totalSlides = slides.length;
+    const currentNumEl = document.getElementById('current-slide-num');
+    const totalNumEl = document.getElementById('total-slides-num');
+    const dotsContainer = document.getElementById('nav-dots');
+
+    totalNumEl.innerText = totalSlides;
+
+    // Generate Dots
+    slides.forEach((_, idx) => {
+      const dot = document.createElement('button');
+      dot.className = `w-2 h-2 rounded-full transition-all duration-200 ${idx === 0 ? 'bg-blue-600 w-6' : 'bg-slate-300 hover:bg-slate-400'}`;
+      dot.title = `Pindah ke Slide ${idx + 1}`;
+      dot.onclick = () => goToSlide(idx);
+      dotsContainer.appendChild(dot);
+    });
+
+    function updateSlideUI() {
+      slides.forEach((s, idx) => {
+        if (idx === currentSlide) {
+          s.classList.add('active');
+        } else {
+          s.classList.remove('active');
+        }
+      });
+
+      currentNumEl.innerText = currentSlide + 1;
+
+      // Update Dots
+      const dots = dotsContainer.querySelectorAll('button');
+      dots.forEach((d, idx) => {
+        if (idx === currentSlide) {
+          d.className = 'w-6 h-2 rounded-full bg-blue-600 transition-all duration-200';
+        } else {
+          d.className = 'w-2 h-2 rounded-full bg-slate-300 hover:bg-slate-400 transition-all duration-200';
+        }
+      });
+    }
+
+    function nextSlide() {
+      if (currentSlide < totalSlides - 1) {
+        currentSlide++;
+        updateSlideUI();
+      }
+    }
+
+    function prevSlide() {
+      if (currentSlide > 0) {
+        currentSlide--;
+        updateSlideUI();
+      }
+    }
+
+    function goToSlide(idx) {
+      if (idx >= 0 && idx < totalSlides) {
+        currentSlide = idx;
+        updateSlideUI();
+      }
+    }
+
+    // Keyboard Shortcuts
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
+        e.preventDefault();
+        nextSlide();
+      } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+        e.preventDefault();
+        prevSlide();
+      } else if (e.key === 'Home') {
+        e.preventDefault();
+        goToSlide(0);
+      } else if (e.key === 'End') {
+        e.preventDefault();
+        goToSlide(totalSlides - 1);
+      }
+    });
+  </script>
+</body>
+</html>

@@ -44,8 +44,7 @@ window.getCourierColor = function(id, optName = '') {
     if (checkStr.includes('pbseven') || checkStr.includes('up70')) return '#14B8A6'; // Light Teal
     if (checkStr.includes('erwin') || checkStr.includes('ncgw')) return '#0284C7'; // Sky Blue
 
-    // Driver (10 Personil)
-    if (checkStr.includes('altur')) return '#E11D48'; // Crimson
+    // Driver (9 Personil)
     if (checkStr.includes('rizki')) return '#7C3AED'; // Violet
     if (checkStr.includes('soleh')) return '#0891B2'; // Cyan
     if (checkStr.includes('romi')) return '#D946EF'; // Magenta
@@ -55,7 +54,6 @@ window.getCourierColor = function(id, optName = '') {
     if (checkStr.includes('iwan')) return '#65A30D'; // Lime
     if (checkStr.includes('agung')) return '#0369A1'; // Ocean Blue
     if (checkStr.includes('husen') || checkStr.includes('juhu')) return '#B45309'; // Warm Bronze
-    if (checkStr.includes('sobri') || checkStr.includes('kh6q')) return '#0D9488'; // Teal
 
     // High contrast deterministic palette fallback
     const fallbackPalette = [

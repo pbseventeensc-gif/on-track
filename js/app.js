@@ -202,8 +202,7 @@ const MASTER_COURIERS = [
     { canonicalId: 'pbseventeensc', displayName: 'pbseventeensc', role: 'kurir', vehicleType: 'motor', defaultUid: 'uP70R51x7CbR5ggHEyeXfsjSTfO2', matchTokens: ['pbseventeensc', 'pbseventensc', 'up70', 'pbseventeensc@gmail.com'] },
     { canonicalId: 'erwin', displayName: 'Erwin', role: 'kurir', vehicleType: 'motor', defaultUid: 'ncGwEckUAkQFkVKbTBtvAo3PdRG3', matchTokens: ['erwin', 'erwinmotor', 'ncgw'] },
 
-    // Driver (10 Personil)
-    { canonicalId: 'altur', displayName: 'Altur', role: 'driver', vehicleType: 'mobil', defaultUid: 'U7A5dYrb4iZaB7VaWMqorLeqqgg2', matchTokens: ['altur', 'alturdriver05', 'u7a5d'] },
+    // Driver (9 Personil)
     { canonicalId: 'rizki', displayName: 'Rizki', role: 'driver', vehicleType: 'mobil', defaultUid: 'gz9F6MqupoXEFTpOTJJ1aFjtSD52', matchTokens: ['rizki', 'rizky', 'rizkidriver07', 'gz9f6', 'vdyqr', 'vdyqrzlgiac', 'vdyqrzlgiacifietaeigotpp6fj2'] },
     { canonicalId: 'soleh', displayName: 'Soleh', role: 'driver', vehicleType: 'mobil', defaultUid: 'G1g9fwjcLSclVmg77ZfrVfT9dzY2', matchTokens: ['soleh', 'muhammadsoleh1', 'muhammadsoleh', 'g1g9f'] },
     { canonicalId: 'romi', displayName: 'Romi', role: 'driver', vehicleType: 'mobil', defaultUid: 'oC2EvdhruFMaKC10jmMUyYbmdtp1', matchTokens: ['romi', 'rommy', 'rommydriver19', 'oc2ev'] },
@@ -212,8 +211,7 @@ const MASTER_COURIERS = [
     { canonicalId: 'yakub', displayName: 'Yakub', role: 'driver', vehicleType: 'mobil', defaultUid: '17zXKPw8SFXDhW6Z6lc547R4TEE2', matchTokens: ['yakub', 'yakubdriver08', '17zxk'] },
     { canonicalId: 'iwan', displayName: 'Iwan', role: 'driver', vehicleType: 'mobil', defaultUid: 'J3wejohLG5dXbX0im5ozeGzpjzt2', matchTokens: ['iwan', 'iwandriver04', 'j3wej'] },
     { canonicalId: 'agung', displayName: 'Agung', role: 'driver', vehicleType: 'mobil', defaultUid: 'RLLeIifIbmVj1HHKALY40n1lKRr1', matchTokens: ['agung', 'agungdriver10', 'rllei'] },
-    { canonicalId: 'husen', displayName: 'Husen', role: 'driver', vehicleType: 'mobil', defaultUid: 'juHUuOWS4FOVpHxE59t4xf0ld1z1', matchTokens: ['husen', 'husensuka3', 'husensuka', 'juhu'] },
-    { canonicalId: 'sobri', displayName: 'Sobri', role: 'driver', vehicleType: 'mobil', defaultUid: 'Kh6qNGG8kEVjilS9tIHaGbCcAWh1', matchTokens: ['sobri', 'sobri2026', 'kh6q', 'kh6qn'] }
+    { canonicalId: 'husen', displayName: 'Husen', role: 'driver', vehicleType: 'mobil', defaultUid: 'juHUuOWS4FOVpHxE59t4xf0ld1z1', matchTokens: ['husen', 'husensuka3', 'husensuka', 'juhu'] }
 ];
 window.MASTER_COURIERS = MASTER_COURIERS;
 
@@ -233,7 +231,7 @@ const COMPANY_FLEET_VEHICLES = [
     { plate: "B 1004 BKP", name: "Granmax B 1004 BKP (Cadangan Gudang)", category: "Granmax", driverCanonical: "" },
     { plate: "B 9032 SCG", name: "Truk Box B 9032 SCG (Iwan)", category: "Truk Box", driverCanonical: "iwan" },
     { plate: "B 9177 SCH", name: "Truk Box B 9177 SCH (Husen)", category: "Truk Box", driverCanonical: "husen" },
-    { plate: "B 9842 NCC", name: "Truk Box B 9842 NCC (Altur)", category: "Truk Box", driverCanonical: "altur" },
+    { plate: "B 9842 NCC", name: "Truk Box B 9842 NCC (Cadangan Gudang)", category: "Truk Box", driverCanonical: "" },
     { plate: "B 9084 SCH", name: "Truk Box B 9084 SCH (Rizki)", category: "Truk Box", driverCanonical: "rizki" },
     { plate: "B 9463 SAJ", name: "Pick Up B 9463 SAJ (Pick Up Gudang)", category: "Pick Up", driverCanonical: "" },
     { plate: "B 9243 PCJ", name: "L300 B 9243 PCJ (L300 Gudang)", category: "L300", driverCanonical: "" }
@@ -266,12 +264,10 @@ const COURIER_PHOTO_MAP = {
     'umar': '/assets/couriers/Umar.jpeg',
     'pbseventeensc': 'https://ui-avatars.com/api/?name=PB&background=FF471D&color=fff&bold=true',
     'ferdi': 'https://ui-avatars.com/api/?name=Ferdi&background=059669&color=fff&bold=true',
-    'altur': 'https://ui-avatars.com/api/?name=Altur&background=E11D48&color=fff&bold=true',
     'soleh': 'https://ui-avatars.com/api/?name=Soleh&background=0891B2&color=fff&bold=true',
     'alan': 'https://ui-avatars.com/api/?name=Alan&background=475569&color=fff&bold=true',
     'yakub': 'https://ui-avatars.com/api/?name=Yakub&background=DC2626&color=fff&bold=true',
     'iwan': 'https://ui-avatars.com/api/?name=Iwan&background=65A30D&color=fff&bold=true',
-    'sobri': 'https://ui-avatars.com/api/?name=Sobri&background=0D9488&color=fff&bold=true',
     'erwin': 'https://ui-avatars.com/api/?name=Erwin&background=0284C7&color=fff&bold=true'
 };
 
@@ -736,7 +732,6 @@ function getCourierColor(id, optName = '') {
     if (checkStr.includes('ferdi')) return '#059669';
     if (checkStr.includes('jagat') || checkStr.includes('jagad')) return '#C026D3';
     if (checkStr.includes('erwin')) return '#0284C7';
-    if (checkStr.includes('altur')) return '#E11D48';
     if (checkStr.includes('rizki')) return '#7C3AED';
     if (checkStr.includes('soleh')) return '#0891B2';
     if (checkStr.includes('romi')) return '#D946EF';
@@ -746,7 +741,6 @@ function getCourierColor(id, optName = '') {
     if (checkStr.includes('iwan')) return '#65A30D';
     if (checkStr.includes('agung')) return '#0369A1';
     if (checkStr.includes('husen')) return '#B45309';
-    if (checkStr.includes('sobri')) return '#0D9488';
 
     const colors = ['#2563EB', '#0D9488', '#16A34A', '#D97706', '#9333EA', '#DB2777', '#0284C7', '#EA580C', '#4F46E5', '#059669', '#C026D3', '#E11D48', '#7C3AED', '#0891B2', '#D946EF', '#CA8A04', '#475569', '#DC2626', '#65A30D', '#0369A1', '#B45309'];
     let hash = 0;
@@ -2421,20 +2415,6 @@ function initUsersSnapshot() {
             };
         }
 
-        registeredUsers['Kh6qNGG8kEVjilS9tIHaGbCcAWh1'] = 'Sobri';
-        registeredUsers['sobri'] = 'Sobri';
-        registeredUsers['sobri2026'] = 'Sobri';
-        registeredUsers['sobri2026@gmail.com'] = 'Sobri';
-        if (!registeredUsersObjects['Kh6qNGG8kEVjilS9tIHaGbCcAWh1']) {
-            registeredUsersObjects['Kh6qNGG8kEVjilS9tIHaGbCcAWh1'] = {
-                name: 'Sobri',
-                email: 'sobri2026@gmail.com',
-                role: 'driver',
-                userId: 'Kh6qNGG8kEVjilS9tIHaGbCcAWh1',
-                courierId: 'sobri2026'
-            };
-        }
-
         registeredUsers['l6fLsN7ijQdq5m2tcUs2xpmMFv63'] = 'Beto';
         registeredUsers['beto'] = 'Beto';
         registeredUsers['betomotor99'] = 'Beto';
@@ -3343,7 +3323,7 @@ window.setMonitorCategoryTab = function(tab) {
 function getPersonilCategory(cId, cName) {
     const checkStr = (String(cName || '') + ' ' + String(cId || '')).toLowerCase();
     const kurirTokens = ['ahmad', 'beto', 'eri', 'irfan', 'baihaqi', 'baikaqi', 'bayhaqi', 'haris', 'umar', 'noval', 'jay', 'ferdi', 'jagat', 'jagad', 'pbseventeensc', 'erwin'];
-    const driverTokens = ['altur', 'rizki', 'soleh', 'romi', 'firdaus', 'alan', 'yakub', 'iwan', 'agung', 'husen', 'juhu', 'sobri'];
+    const driverTokens = ['rizki', 'soleh', 'romi', 'firdaus', 'alan', 'yakub', 'iwan', 'agung', 'husen', 'juhu'];
 
     if (driverTokens.some(d => checkStr.includes(d))) return 'driver';
     if (kurirTokens.some(k => checkStr.includes(k))) return 'kurir';

@@ -157,10 +157,10 @@
             plate_number: 'B 9842 NCC',
             vehicle_category: 'truck_box',
             vehicle_type: 'mobil',
-            assigned_person_id: 'altur',
-            assigned_person_name: 'Altur',
-            assigned_role: 'driver',
-            assigned_person_phone: '628123456701',
+            assigned_person_id: '',
+            assigned_person_name: 'Cadangan Gudang',
+            assigned_role: '',
+            assigned_person_phone: '',
             tax_due_date: '2027-01-22',
             kir_due_date: '2027-02-14',
             service_due_date: '2026-11-01', // H-2 (Warning H-7)
@@ -234,9 +234,7 @@
         { id: 'gudang', name: 'Gudang', role: 'driver', vehicleType: 'mobil' },
         { id: 'iwan', name: 'Iwan', role: 'driver', vehicleType: 'mobil' },
         { id: 'husen', name: 'Husen', role: 'driver', vehicleType: 'mobil' },
-        { id: 'altur', name: 'Altur', role: 'driver', vehicleType: 'mobil' },
-        { id: 'rizki', name: 'Rizki', role: 'driver', vehicleType: 'mobil' },
-        { id: 'sobri', name: 'Sobri', role: 'driver', vehicleType: 'mobil' }
+        { id: 'rizki', name: 'Rizki', role: 'driver', vehicleType: 'mobil' }
     ];
 
     // RBAC Guard helper

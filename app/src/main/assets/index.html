@@ -55,7 +55,6 @@
             if (checkStr.includes('ferdi')) return '#059669';
             if (checkStr.includes('jagat') || checkStr.includes('jagad')) return '#C026D3';
             if (checkStr.includes('erwin')) return '#0284C7';
-            if (checkStr.includes('altur')) return '#E11D48';
             if (checkStr.includes('rizki')) return '#7C3AED';
             if (checkStr.includes('soleh')) return '#0891B2';
             if (checkStr.includes('romi')) return '#D946EF';
@@ -65,7 +64,6 @@
             if (checkStr.includes('iwan')) return '#65A30D';
             if (checkStr.includes('agung')) return '#0369A1';
             if (checkStr.includes('husen')) return '#B45309';
-            if (checkStr.includes('sobri')) return '#0D9488';
 
             const colors = ['#2563EB', '#0D9488', '#16A34A', '#D97706', '#9333EA', '#DB2777', '#0284C7', '#EA580C', '#4F46E5', '#059669', '#C026D3', '#E11D48', '#7C3AED', '#0891B2', '#D946EF', '#CA8A04', '#475569', '#DC2626', '#65A30D', '#0369A1', '#B45309'];
             let hash = 0; for (let i = 0; i < id.length; i++) hash = id.charCodeAt(i) + ((hash << 5) - hash);
@@ -202,7 +200,6 @@
                 if (typeof renderMonitorUI === 'function') renderMonitorUI();
             } else if (viewId === 'dispatch') {
                 if (typeof renderCourierOptions === 'function') renderCourierOptions();
-                if (typeof loadClientsByRegion === 'function') loadClientsByRegion("");
             } else if (viewId === 'fleet') {
                 if (typeof renderKPIView === 'function') renderKPIView();
             } else if (viewId === 'chat') {
@@ -1055,7 +1052,7 @@
                         <i class="bi bi-box-seam sub-icon"></i> <span>Packaging</span>
                     </a>
                     <a href="javascript:void(0)" class="sub-nav-item" id="nav-monitor" onclick="switchTab('monitor', this)">
-                        <i class="bi bi-geo-alt sub-icon"></i> <span>Shipment Track</span>
+                        <i class="bi bi-geo-alt sub-icon"></i> <span>Live Tracking</span>
                     </a>
                     <a href="javascript:void(0)" class="sub-nav-item" id="nav-pool" onclick="switchTab('pool', this)">
                         <i class="bi bi-clipboard2-check sub-icon"></i> <span>Plan Shipment</span>
@@ -1186,6 +1183,9 @@
                         <option value="cikokol">Cikokol</option>
                     </select>
                 </div>
+                <button class="btn btn-light border text-success d-flex align-items-center gap-1.5 px-3 py-2 fw-bold me-1" style="border-radius: 10px; font-size: 0.82rem; background: #f0fdf4; border-color: #bbf7d0 !important;" onclick="openWaGroupConfigModal()" title="Pengaturan Auto-Grup WhatsApp Kurir Motor & Driver Mobil">
+                    <i class="bi bi-whatsapp"></i> <span>Grup WA Otomatis</span>
+                </button>
                 <button class="btn btn-light border text-danger d-flex align-items-center gap-1 px-3 py-2 fw-semibold" style="border-radius: 10px; font-size: 0.85rem;" onclick="handleLogout()" title="Logout">
                     <i class="bi bi-box-arrow-right"></i> <span>Logout</span>
                 </button>
@@ -1370,7 +1370,7 @@
                                     <optgroup label="Truk Box (4 Unit)">
                                         <option value="B 9032 SCG">Truk Box B 9032 SCG (Iwan)</option>
                                         <option value="B 9177 SCH">Truk Box B 9177 SCH (Husen)</option>
-                                        <option value="B 9842 NCC">Truk Box B 9842 NCC (Altur)</option>
+                                        <option value="B 9842 NCC">Truk Box B 9842 NCC (Cadangan Gudang)</option>
                                         <option value="B 9084 SCH">Truk Box B 9084 SCH (Rizki)</option>
                                     </optgroup>
                                     <optgroup label="Lainnya (2 Unit)">
@@ -1402,54 +1402,6 @@
                                     <button class="btn btn-dark px-3 fw-bold d-flex align-items-center gap-1" style="border-radius: 10px; font-size: 0.85rem;" onclick="addManualAddress()">
                                         <i class="bi bi-plus-lg"></i> <span>ADD</span>
                                     </button>
-                                </div>
-
-                                <div class="border rounded-3 p-3 bg-light shadow-sm">
-                                    <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
-                                        <div class="d-flex align-items-center">
-                                            <label class="extra-small fw-bold text-muted text-uppercase mb-0">Quick Pick by Region</label>
-                                            <span id="client-qty" class="badge bg-dark ms-2" style="font-size: 0.65rem; border-radius: 6px;">0</span>
-                                        </div>
-                                        <div class="d-flex align-items-center gap-2">
-                                            <div class="form-check p-0 m-0" style="min-height: auto;">
-                                                <input type="checkbox" class="form-check-input ms-0" id="select-all-clients" onchange="toggleAllClients(this.checked)" style="width: 14px; height: 14px; margin-top: 0;">
-                                                <label class="form-check-label extra-small fw-bold text-muted ms-1" for="select-all-clients">ALL</label>
-                                            </div>
-                                            <select id="region-filter" class="form-select form-select-sm w-auto border-0 bg-white shadow-sm fw-bold text-primary" onchange="loadClientsByRegion(this.value)">
-                                                <option value="">All Regions</option>
-                                                <option value="Auto-detected">Auto-detected</option>
-                                                <option value="Banten">Banten</option>
-                                                <option value="Bekasi">Bekasi</option>
-                                                <option value="Bogor">Bogor</option>
-                                                <option value="Cikarang">Cikarang</option>
-                                                <option value="Cilegon">Cilegon</option>
-                                                <option value="Depok">Depok</option>
-                                                <option value="Jakarta Barat">Jakarta Barat</option>
-                                                <option value="Jakarta Pusat">Jakarta Pusat</option>
-                                                <option value="Jakarta Selatan">Jakarta Selatan</option>
-                                                <option value="Jakarta Timur">Jakarta Timur</option>
-                                                <option value="Jakarta Utara">Jakarta Utara</option>
-                                                <option value="Karawang">Karawang</option>
-                                                <option value="Serang">Serang</option>
-                                                <option value="Tangerang">Tangerang</option>
-                                            </select>
-                                        </div>
-                                    </div>
-
-                                    <div class="position-relative mb-3">
-                                        <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" style="font-size: 0.8rem;"></i>
-                                        <input type="text" id="client-search-input" class="form-control form-control-sm ps-5 py-2" style="border-radius: 8px; font-size: 0.8rem;" placeholder="Cari Nama Toko, PT, atau Alamat..." oninput="filterClients(this.value)">
-                                    </div>
-
-                                    <div id="client-list-container" class="overflow-y-auto mb-3 pe-1" style="max-height: 200px;">
-                                        <p class="text-center py-3 text-muted extra-small">Loading clients...</p>
-                                    </div>
-                                    <div class="d-flex gap-2">
-                                        <button class="btn btn-sm btn-outline-dark flex-grow-1 fw-bold py-2" style="border-radius: 8px;" onclick="addSelectedClients()"><i class="bi bi-plus-circle me-1"></i> ADD SELECTED TO ROUTE</button>
-                                        <button class="btn btn-sm btn-outline-danger px-3 py-2" style="border-radius: 8px;" onclick="clearAllClients()" title="Hapus Semua Client dari Database">
-                                            <i class="bi bi-trash3-fill"></i>
-                                        </button>
-                                    </div>
                                 </div>
                             </div>
 
@@ -3009,7 +2961,7 @@
                         <optgroup label="Truk Box (4 Unit)">
                             <option value="B 9032 SCG">Truk Box B 9032 SCG (Iwan)</option>
                             <option value="B 9177 SCH">Truk Box B 9177 SCH (Husen)</option>
-                            <option value="B 9842 NCC">Truk Box B 9842 NCC (Altur)</option>
+                            <option value="B 9842 NCC">Truk Box B 9842 NCC (Cadangan Gudang)</option>
                             <option value="B 9084 SCH">Truk Box B 9084 SCH (Rizki)</option>
                         </optgroup>
                         <optgroup label="Lainnya (2 Unit)">
@@ -3223,6 +3175,188 @@
         </div>
     </div>
 </div>
+
+<!-- MODAL KONFIGURASI AUTO-GRUP WHATSAPP (KURIR MOTOR & DRIVER MOBIL) -->
+<div class="modal fade" id="waGroupConfigModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 540px;">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header border-bottom px-4 py-3" style="background: #f0fdf4;">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="rounded-3 d-flex align-items-center justify-content-center text-white" style="width: 38px; height: 38px; background: #25D366; font-size: 1.2rem;">
+                        <i class="bi bi-whatsapp"></i>
+                    </div>
+                    <div>
+                        <h6 class="fw-bold m-0 text-dark">Integrasi Auto-Grup WhatsApp (Motor &amp; Mobil)</h6>
+                        <small class="text-muted" style="font-size: 0.75rem;">Laporan Kartu Bukti Tiba otomatis terpisah sesuai role Kurir / Driver</small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="p-3 rounded-3 mb-3" style="background: #f8fafc; border: 1px solid #e2e8f0;">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="fw-bold small text-dark">🛵 Grup Kurir Motor</span>
+                        <span class="badge bg-success-subtle text-success extra-small">Aktif Terhubung</span>
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-5">
+                            <label class="extra-small text-muted fw-semibold">Nama Grup Motor</label>
+                            <input type="text" id="cfg-wa-motor-name" class="form-control form-control-sm ps-2 fw-bold" value="Kurir Wellen Print">
+                        </div>
+                        <div class="col-7">
+                            <label class="extra-small text-muted fw-semibold">ID Grup WhatsApp (@g.us)</label>
+                            <input type="text" id="cfg-wa-motor-id" class="form-control form-control-sm ps-2 font-monospace" value="6285351258810-1542885383@g.us">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-3 rounded-3 mb-3" style="background: #f8fafc; border: 1px solid #e2e8f0;">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="fw-bold small text-dark">🚚 Grup Driver Mobil</span>
+                        <span class="badge bg-primary-subtle text-primary extra-small">Aktif Terhubung</span>
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-5">
+                            <label class="extra-small text-muted fw-semibold">Nama Grup Mobil</label>
+                            <input type="text" id="cfg-wa-mobil-name" class="form-control form-control-sm ps-2 fw-bold" value="Wellen Print's Driver">
+                        </div>
+                        <div class="col-7">
+                            <label class="extra-small text-muted fw-semibold">ID Grup WhatsApp (@g.us)</label>
+                            <input type="text" id="cfg-wa-mobil-id" class="form-control form-control-sm ps-2 font-monospace" value="6285351258810-1545222253@g.us">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-3 rounded-3 mb-3" style="background: #fffbeb; border: 1px solid #fde68a;">
+                    <div class="form-check form-switch mb-2">
+                        <input class="form-check-input" type="checkbox" id="cfg-wa-cc-checker">
+                        <label class="form-check-label fw-bold small text-dark" for="cfg-wa-cc-checker">
+                            CC Otomatis ke Grup Checker (`TIM CHECKER &amp; LOGISTIK DM`)
+                        </label>
+                    </div>
+                    <input type="text" id="cfg-wa-checker-id" class="form-control form-control-sm ps-2 font-monospace" value="120363230482600014@g.us">
+                </div>
+
+                <div class="p-3 rounded-3" style="background: #f0fdf4; border: 1px solid #bbf7d0;">
+                    <label class="fw-bold small text-dark d-block mb-1">
+                        Token API WA Gateway (Fonnte) — Opsional untuk 100% Kirim Tanpa Klik
+                    </label>
+                    <small class="text-muted d-block mb-2" style="font-size: 0.73rem;">
+                        Jika diisi Token Fonnte, Kartu Bukti Tiba langsung terkirim otomatis ke grup di latar belakang begitu kurir klik Selesai. Jika dikosongkan, HP kurir otomatis membuka layar Share WA dengan Kartu sudah terlampir.
+                    </small>
+                    <div class="input-group input-group-sm">
+                        <input type="password" id="cfg-wa-api-token" class="form-control ps-2 font-monospace" placeholder="Masukkan Token Fonnte (opsional)...">
+                        <button class="btn btn-outline-secondary" type="button" onclick="const el=document.getElementById('cfg-wa-api-token'); el.type = el.type==='password'?'text':'password';">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-top px-4 py-3 bg-light d-flex justify-content-between">
+                <button type="button" class="btn btn-sm btn-light border px-3" data-bs-dismiss="modal">Tutup</button>
+                <button type="button" class="btn btn-sm text-white fw-bold px-4" style="background: #25D366;" onclick="saveWaGroupConfigFromAdmin()">
+                    <i class="bi bi-check2-circle me-1"></i> Simpan &amp; Sinkronkan ke Semua Kurir
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    window.adminWaGroupConfig = {
+        motorGroupName: "Kurir Wellen Print",
+        motorGroupId: "6285351258810-1542885383@g.us",
+        mobilGroupName: "Wellen Print's Driver",
+        mobilGroupId: "6285351258810-1545222253@g.us",
+        checkerGroupName: "TIM CHECKER & LOGISTIK DM",
+        checkerGroupId: "120363230482600014@g.us",
+        apiToken: "",
+        autoSendOnComplete: true,
+        ccCheckerGroup: false
+    };
+
+    (function initAdminWaGroupConfig() {
+        try {
+            const localRaw = localStorage.getItem('wtrack_wa_group_config');
+            if (localRaw) {
+                window.adminWaGroupConfig = { ...window.adminWaGroupConfig, ...JSON.parse(localRaw) };
+            }
+        } catch (e) {}
+
+        if (typeof firebase !== 'undefined' && firebase.database) {
+            try {
+                const ref = firebase.database().ref('settings/wa_group_config');
+                ref.on('value', (snap) => {
+                    if (snap.exists()) {
+                        window.adminWaGroupConfig = { ...window.adminWaGroupConfig, ...snap.val() };
+                        localStorage.setItem('wtrack_wa_group_config', JSON.stringify(window.adminWaGroupConfig));
+                    } else {
+                        // Simpan default ID grup resmi ke Firebase jika belum ada
+                        ref.set(window.adminWaGroupConfig);
+                    }
+                });
+            } catch (e) {}
+        }
+    })();
+
+    function openWaGroupConfigModal() {
+        const cfg = window.adminWaGroupConfig;
+        const mName = document.getElementById('cfg-wa-motor-name');
+        const mId = document.getElementById('cfg-wa-motor-id');
+        const cName = document.getElementById('cfg-wa-mobil-name');
+        const cId = document.getElementById('cfg-wa-mobil-id');
+        const chkCc = document.getElementById('cfg-wa-cc-checker');
+        const chkId = document.getElementById('cfg-wa-checker-id');
+        const tok = document.getElementById('cfg-wa-api-token');
+
+        if (mName) mName.value = cfg.motorGroupName || "Kurir Wellen Print";
+        if (mId) mId.value = cfg.motorGroupId || "6285351258810-1542885383@g.us";
+        if (cName) cName.value = cfg.mobilGroupName || "Wellen Print's Driver";
+        if (cId) cId.value = cfg.mobilGroupId || "6285351258810-1545222253@g.us";
+        if (chkCc) chkCc.checked = !!cfg.ccCheckerGroup;
+        if (chkId) chkId.value = cfg.checkerGroupId || "120363230482600014@g.us";
+        if (tok) tok.value = cfg.apiToken || "";
+
+        const modalEl = document.getElementById('waGroupConfigModal');
+        if (modalEl && typeof bootstrap !== 'undefined') {
+            bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        }
+    }
+
+    function saveWaGroupConfigFromAdmin() {
+        const updated = {
+            motorGroupName: document.getElementById('cfg-wa-motor-name')?.value.trim() || "Kurir Wellen Print",
+            motorGroupId: document.getElementById('cfg-wa-motor-id')?.value.trim() || "6285351258810-1542885383@g.us",
+            mobilGroupName: document.getElementById('cfg-wa-mobil-name')?.value.trim() || "Wellen Print's Driver",
+            mobilGroupId: document.getElementById('cfg-wa-mobil-id')?.value.trim() || "6285351258810-1545222253@g.us",
+            checkerGroupName: "TIM CHECKER & LOGISTIK DM",
+            checkerGroupId: document.getElementById('cfg-wa-checker-id')?.value.trim() || "120363230482600014@g.us",
+            ccCheckerGroup: !!document.getElementById('cfg-wa-cc-checker')?.checked,
+            apiToken: document.getElementById('cfg-wa-api-token')?.value.trim() || "",
+            autoSendOnComplete: true,
+            updatedAt: new Date().toISOString()
+        };
+
+        window.adminWaGroupConfig = updated;
+        try {
+            localStorage.setItem('wtrack_wa_group_config', JSON.stringify(updated));
+        } catch (e) {}
+
+        if (typeof firebase !== 'undefined' && firebase.database) {
+            try {
+                firebase.database().ref('settings/wa_group_config').set(updated);
+            } catch (e) {}
+        }
+
+        const modalEl = document.getElementById('waGroupConfigModal');
+        if (modalEl && typeof bootstrap !== 'undefined') {
+            bootstrap.Modal.getInstance(modalEl)?.hide();
+        }
+        if (typeof showToast === 'function') {
+            showToast("✅ Konfigurasi Grup WA Kurir Motor & Driver Mobil berhasil disinkronkan!");
+        }
+    }
+</script>
 
 <!-- HIDDEN FILE INPUTS UNTUK IMPORT EXCEL & WORD -->
 <input type="file" id="sj-excel-file-input" class="d-none" accept=".xlsx, .xls, .csv, .docx, .doc, .rtf, .docm, .dotx, .dot" onchange="window.sjImportEngine && window.sjImportEngine.handleExcelFileSelected(event)">
