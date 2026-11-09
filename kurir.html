@@ -2174,11 +2174,16 @@
         if (!sj) return true;
         const clean = String(sj).replace(/^#/, '').trim();
         if (!clean || clean === '-' || clean === 'null' || clean === 'undefined') return true;
-        if (tripId && tripId.length >= 5) {
+
+        // Real Wellen Print Surat Jalan format: SJ-MMYY-NNNNN (e.g. SJ-1126-01260) is ALWAYS REAL!
+        if (/^SJ-\d{2,4}-\d{4,6}$/i.test(clean)) return false;
+        if (clean === tripId && !String(tripId).startsWith('TRIP_')) return false;
+
+        if (tripId && String(tripId).startsWith('TRIP_') && tripId.length >= 5) {
             const suffix = tripId.substring(tripId.length - 5);
             if (clean === 'SJ-' + suffix || clean === suffix || clean === tripId || clean === 'SJ-' + tripId) return true;
         }
-        if (/^SJ-\d{4,6}$/i.test(clean) && tripId && tripId.includes(clean.replace(/SJ-/i, ''))) return true;
+        if (/^SJ-\d{4,6}$/i.test(clean) && tripId && String(tripId).startsWith('TRIP_') && tripId.includes(clean.replace(/SJ-/i, ''))) return true;
         return false;
     }
 
@@ -4122,6 +4127,19 @@
                     };
 
                     await tripRef.update(updatePayload);
+
+                    // Sinkronkan ke dokumen kembar jika ada (misal dokumen dengan ID Surat Jalan cleanSJ)
+                    if (cleanSJ && cleanSJ !== docId) {
+                        try {
+                            const sjRef = firestoreDb.collection('trips').doc(cleanSJ);
+                            const sjSnap = await sjRef.get();
+                            if (sjSnap.exists) {
+                                await sjRef.update(updatePayload);
+                            }
+                        } catch(err) {
+                            console.warn("Sync secondary SJ doc note:", err);
+                        }
+                    }
                 } else {
                     await tripRef.set({
                         tripId: docId,

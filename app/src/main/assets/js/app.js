@@ -4209,11 +4209,16 @@ function isDummyAutoSJ(sj, tripId) {
     if (!sj) return true;
     const clean = String(sj).replace(/^#/, '').trim();
     if (!clean || clean === '-' || clean === 'null' || clean === 'undefined') return true;
-    if (tripId && tripId.length >= 5) {
+
+    // Real Wellen Print Surat Jalan format: SJ-MMYY-NNNNN (e.g. SJ-1126-01260) is ALWAYS REAL!
+    if (/^SJ-\d{2,4}-\d{4,6}$/i.test(clean)) return false;
+    if (clean === tripId && !String(tripId).startsWith('TRIP_')) return false;
+
+    if (tripId && String(tripId).startsWith('TRIP_') && tripId.length >= 5) {
         const suffix = tripId.substring(tripId.length - 5);
         if (clean === 'SJ-' + suffix || clean === suffix || clean === tripId || clean === 'SJ-' + tripId) return true;
     }
-    if (/^SJ-\d{4,6}$/i.test(clean) && tripId && tripId.includes(clean.replace(/SJ-/i, ''))) return true;
+    if (/^SJ-\d{4,6}$/i.test(clean) && tripId && String(tripId).startsWith('TRIP_') && tripId.includes(clean.replace(/SJ-/i, ''))) return true;
     return false;
 }
 window.isDummyAutoSJ = isDummyAutoSJ;
@@ -4300,7 +4305,15 @@ function executeRenderRecentShipments(filter = "") {
         const courierIdStr = t.courierId || '';
         const cName = typeof getCourierDisplayName === 'function' ? getCourierDisplayName(courierIdStr) : (courierIdStr ? courierIdStr.substring(0, 8) : 'Unknown');
         const tripIdStr = String(t.id || t.tripId || '');
-        const tripIdShort = '#' + (tripIdStr.length > 6 ? tripIdStr.substring(tripIdStr.length - 6) : tripIdStr);
+        let tripIdShort = '';
+        if (tripIdStr.startsWith('SJ-')) {
+            tripIdShort = '#' + tripIdStr;
+        } else if (tripIdStr.startsWith('TRIP_')) {
+            const rawDigits = tripIdStr.replace('TRIP_', '').replace(/_[A-Z0-9]+$/, '');
+            tripIdShort = '#' + (rawDigits.length > 6 ? rawDigits.substring(rawDigits.length - 6) : rawDigits);
+        } else {
+            tripIdShort = '#' + (tripIdStr.length > 6 ? tripIdStr.substring(tripIdStr.length - 6) : tripIdStr);
+        }
         const rawTripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : (t.assignedAt ? new Date(t.assignedAt).getTime() : (tripIdStr ? parseInt(tripIdStr.replace('TRIP_', '')) || 0 : 0)));
         const tripMs = isNaN(rawTripMs) ? 0 : rawTripMs;
         const tripDateStr = tripMs ? new Date(tripMs).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '-';
@@ -4901,7 +4914,15 @@ async function exportRecentShipmentsToExcel() {
         const courierIdStr = t.courierId || '';
         const cName = typeof getCourierDisplayName === 'function' ? getCourierDisplayName(courierIdStr) : (courierIdStr ? courierIdStr.substring(0, 8) : 'Unknown');
         const tripIdStr = String(t.id || t.tripId || '');
-        const tripIdShort = '#' + (tripIdStr.length > 6 ? tripIdStr.substring(tripIdStr.length - 6) : tripIdStr);
+        let tripIdShort = '';
+        if (tripIdStr.startsWith('SJ-')) {
+            tripIdShort = '#' + tripIdStr;
+        } else if (tripIdStr.startsWith('TRIP_')) {
+            const rawDigits = tripIdStr.replace('TRIP_', '').replace(/_[A-Z0-9]+$/, '');
+            tripIdShort = '#' + (rawDigits.length > 6 ? rawDigits.substring(rawDigits.length - 6) : rawDigits);
+        } else {
+            tripIdShort = '#' + (tripIdStr.length > 6 ? tripIdStr.substring(tripIdStr.length - 6) : tripIdStr);
+        }
         const rawTripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : (t.assignedAt ? new Date(t.assignedAt).getTime() : (tripIdStr ? parseInt(tripIdStr.replace('TRIP_', '')) || 0 : 0)));
         const tripMs = isNaN(rawTripMs) ? 0 : rawTripMs;
         const tripDateStr = tripMs ? new Date(tripMs).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '-';
@@ -6422,7 +6443,15 @@ function collectPoDArchivePhotos() {
         const courierIdStr = t.courierId || '';
         const cName = typeof getCourierDisplayName === 'function' ? getCourierDisplayName(courierIdStr) : (courierIdStr ? courierIdStr.substring(0, 8) : 'Unknown');
         const tripIdStr = String(t.id || t.tripId || '');
-        const tripIdShort = '#' + (tripIdStr.length > 6 ? tripIdStr.substring(tripIdStr.length - 6) : tripIdStr);
+        let tripIdShort = '';
+        if (tripIdStr.startsWith('SJ-')) {
+            tripIdShort = '#' + tripIdStr;
+        } else if (tripIdStr.startsWith('TRIP_')) {
+            const rawDigits = tripIdStr.replace('TRIP_', '').replace(/_[A-Z0-9]+$/, '');
+            tripIdShort = '#' + (rawDigits.length > 6 ? rawDigits.substring(rawDigits.length - 6) : rawDigits);
+        } else {
+            tripIdShort = '#' + (tripIdStr.length > 6 ? tripIdStr.substring(tripIdStr.length - 6) : tripIdStr);
+        }
         const tripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : (tripIdStr.startsWith('TRIP_') ? parseInt(tripIdStr.replace('TRIP_', '')) || 0 : 0));
         const tripDateStr = tripMs ? new Date(tripMs).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '-';
 

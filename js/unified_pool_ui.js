@@ -938,6 +938,13 @@ window.UnifiedPoolUI = (function () {
         try {
           activeDb.collection('trips').doc(safeDocId).set(tripPayload, { merge: true })
             .catch(err => console.warn("Firestore sync error:", err));
+          
+          if (t.id && t.id !== safeDocId) {
+            activeDb.collection('trips').doc(t.id).delete()
+              .catch(err => console.warn("Delete pool trip duplicate error:", err));
+            const oldIdx = window.allCurrentTrips.findIndex(rt => rt.id === t.id);
+            if (oldIdx >= 0) window.allCurrentTrips.splice(oldIdx, 1);
+          }
         } catch (e) {
           console.warn("Firestore assignment exception:", e);
         }
