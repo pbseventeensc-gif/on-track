@@ -2412,6 +2412,20 @@ function initUsersSnapshot() {
             };
         }
 
+        registeredUsers['l6fLsN7ijQdq5m2tcUs2xpmMFv63'] = 'Beto';
+        registeredUsers['beto'] = 'Beto';
+        registeredUsers['betomotor99'] = 'Beto';
+        registeredUsers['betomotor99@gmail.com'] = 'Beto';
+        if (!registeredUsersObjects['l6fLsN7ijQdq5m2tcUs2xpmMFv63']) {
+            registeredUsersObjects['l6fLsN7ijQdq5m2tcUs2xpmMFv63'] = {
+                name: 'Beto',
+                email: 'betomotor99@gmail.com',
+                role: 'kurir',
+                userId: 'l6fLsN7ijQdq5m2tcUs2xpmMFv63',
+                courierId: 'beto'
+            };
+        }
+
         registeredUsers['ncGwEckUAkQFkVKbTBtvAo3PdRG3'] = 'Erwin';
         registeredUsers['erwin'] = 'Erwin';
         if (!registeredUsersObjects['ncGwEckUAkQFkVKbTBtvAo3PdRG3']) {
@@ -2425,6 +2439,20 @@ function initUsersSnapshot() {
         }
 
         if (activeDb) {
+            activeDb.collection('users').doc('l6fLsN7ijQdq5m2tcUs2xpmMFv63').get().then(doc => {
+                if (!doc.exists) {
+                    activeDb.collection('users').doc('l6fLsN7ijQdq5m2tcUs2xpmMFv63').set({
+                        name: 'Beto',
+                        email: 'betomotor99@gmail.com',
+                        role: 'kurir',
+                        vehicleType: 'motor',
+                        userId: 'l6fLsN7ijQdq5m2tcUs2xpmMFv63',
+                        courierId: 'beto',
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    }, { merge: true }).catch(() => {});
+                }
+            }).catch(() => {});
+
             activeDb.collection('users').doc('ncGwEckUAkQFkVKbTBtvAo3PdRG3').get().then(doc => {
                 if (!doc.exists) {
                     activeDb.collection('users').doc('ncGwEckUAkQFkVKbTBtvAo3PdRG3').set({

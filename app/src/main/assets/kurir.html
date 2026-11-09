@@ -1845,10 +1845,7 @@
         if (LEGACY_DUMMY_IDS.has(idStr) || LEGACY_DUMMY_IDS.has(sjStr) || LEGACY_DUMMY_IDS.has(sjStr.replace(/^#/, ''))) {
             return true;
         }
-        const deleted = getDeletedShipmentIds();
-        if (deleted.has(idStr) || (sjStr && deleted.has(sjStr)) || (sjStr && deleted.has(sjStr.replace(/^#/, '')))) {
-            return true;
-        }
+        // Jangan blokir tugas aktif dari Firestore karena cache lokal
         return false;
     }
 
@@ -1877,32 +1874,20 @@
 
     // Helper Validasi, Pembersihan SJ Pool & Filter Tanggal 4
     function isPendingTgl4(s) {
-        if (!s) return false;
-        const st = (s.status || '').toLowerCase();
-        if (st !== 'pending' && st !== 'in_pool' && st !== 'pool') return false;
-
-        const dateVal = s.date || s.createdAt || s.tanggal || s.deliveryDate || '';
-        if (dateVal) {
-            const str = String(dateVal).toLowerCase();
-            if (str.includes('-11-04') || str.includes('2026-11-04') || str.includes('2024-11-04') || 
-                str.includes('4 nov') || str.includes('04 nov') || str.includes('tgl 4') || str.includes('tanggal 4') ||
-                str.includes('/11/04') || str.includes('/04/11') || str.includes('-04-') || str.includes('-4-')) {
-                return true;
-            }
-            const d = new Date(dateVal);
-            if (!isNaN(d.getTime())) {
-                if (d.getDate() === 4) return true;
-            }
-        }
+        // Dinonaktifkan: Seluruh tugas aktif yang valid tidak boleh difilter oleh tanggal 4
         return false;
     }
 
     function isPoolShipment(s) {
         if (!s) return false;
+        const rawCid = String(s.courierId || s.assignedTo || '').trim();
         const st = (s.status || '').toLowerCase();
+        // Jika sudah ditugaskan ke kurir dan statusnya bukan pool/unassigned, ini adalah tugas kurir aktif
+        if (rawCid && st !== 'pool' && st !== 'in_pool' && st !== 'unassigned') return false;
+
         if (st === 'pool' || st === 'in_pool' || st === 'unassigned') return true;
-        if (s.isPool || s.isInPool || s.poolId) return true;
-        if (s.id && String(s.id).toLowerCase().includes('pool') && !s.courierId && !s.assignedTo) return true;
+        if ((s.isPool || s.isInPool || s.poolId) && !rawCid) return true;
+        if (s.id && String(s.id).toLowerCase().includes('pool') && !rawCid) return true;
         return false;
     }
 
@@ -1926,10 +1911,16 @@
     }
 
     function isShipmentExpired(s) {
+        // HANYA paket yang sudah terkirim / selesai (delivered) yang bisa expired (>3 hari).
+        // Paket yang masih aktif (belum selesai diantar) TIDAK BOLEH expired agar tidak hilang dari kurir!
+        if (s.status !== 'delivered' && s.status !== 'completed') return false;
         return getShipmentDayDiff(s) > 3;
     }
 
     function isShipmentHistory(s) {
+        // HANYA paket yang sudah selesai diantar yang masuk ke tab Riwayat (H-1 s/d H-3).
+        // Tugas aktif / pending yang belum selesai HARUS selalu tampil di layar tugas aktif kurir!
+        if (s.status !== 'delivered' && s.status !== 'completed') return false;
         const diff = getShipmentDayDiff(s);
         return diff >= 1 && diff <= 3;
     }
@@ -1952,19 +1943,36 @@
         const myCanon = (currentCourier.canonicalId || '').toLowerCase();
         const myUid = (currentCourier.uid || currentCourier.id || '').toLowerCase();
         const myName = (currentCourier.name || '').toLowerCase();
+        const myEmail = (currentCourier.email || '').toLowerCase();
+        const myEmailPrefix = myEmail.split('@')[0];
 
+        // 1. Direct Canonical / Profile match
         if (tripProfile.canonicalId && myCanon && tripProfile.canonicalId.toLowerCase() === myCanon) return true;
+
+        // 2. Direct UID match
         if (rawCid && myUid && rawCid.toLowerCase() === myUid) return true;
+
+        // 3. Direct Canonical string match on courierId
         if (rawCid && myCanon && rawCid.toLowerCase() === myCanon) return true;
-        if (rawCname && myName && rawCname.toLowerCase() === myName) return true;
-        if (rawCname && myCanon && rawCname.toLowerCase() === myCanon) return true;
+
+        // 4. Token / emailPrefix matching (e.g. betomotor99, beto)
+        const checkStr = (rawCid + ' ' + rawCname).toLowerCase();
+        if (myCanon && checkStr.includes(myCanon)) return true;
+        if (myEmailPrefix && myEmailPrefix.length >= 3 && checkStr.includes(myEmailPrefix)) return true;
+        if (myName && myName.length >= 3 && checkStr.includes(myName)) return true;
+
+        // 5. Check if courier has match tokens in MASTER_COURIERS_LIST
+        const myMaster = MASTER_COURIERS_LIST.find(m => m.canonicalId === myCanon || m.defaultUid === myUid);
+        if (myMaster && Array.isArray(myMaster.tokens)) {
+            if (myMaster.tokens.some(tok => checkStr.includes(tok.toLowerCase()))) return true;
+        }
+
         return false;
     }
 
     function getValidCourierShipments() {
         return masterShipments.filter(s => {
             if (isDummyOrDeletedShipment(s)) return false;
-            if (isPendingTgl4(s)) return false;
             if (isPoolShipment(s)) return false;
             if (isShipmentExpired(s)) return false;
             return true;
@@ -1992,7 +2000,12 @@
             if (firebase.auth) {
                 const authInst = firebase.auth();
                 authInst.onAuthStateChanged(user => {
-                    if (!user) {
+                    if (user && !user.isAnonymous) {
+                        const prof = resolveCourierProfile(user.email || user.displayName || user.uid, user.uid);
+                        if (prof && prof.canonicalId) {
+                            completeCourierLogin(prof, true);
+                        }
+                    } else if (!user) {
                         authInst.signInAnonymously().catch(() => {});
                     }
                 });
@@ -2045,7 +2058,6 @@
                 snap.forEach(doc => {
                     const t = { id: doc.id, ...doc.data() };
                     if (isPoolShipment(t)) return;
-                    if (isPendingTgl4(t)) return;
                     if (!doesTripBelongToCurrentCourier(t)) return;
 
                     const dests = (Array.isArray(t.destinations) && t.destinations.length > 0) ? t.destinations : [{}];
@@ -2109,7 +2121,6 @@
 
             stored.forEach(t => {
                 if (isPoolShipment(t)) return;
-                if (isPendingTgl4(t)) return;
                 if (!doesTripBelongToCurrentCourier(t)) return;
 
                 const noSJ = t.noSJ || t.sjNumber;
