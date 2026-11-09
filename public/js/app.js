@@ -200,6 +200,7 @@ const MASTER_COURIERS = [
     { canonicalId: 'ferdi', displayName: 'Ferdi', role: 'kurir', vehicleType: 'motor', defaultUid: 'BOMM2Wmk9LXs90qO3RWskGyIOk72', matchTokens: ['ferdi', 'fredisambo1', 'fredisambo', 'bomm2'] },
     { canonicalId: 'jagat', displayName: 'Jagatbaru', role: 'kurir', vehicleType: 'motor', defaultUid: 'kwpGbShXoog9kFiRmevZpwTgVxv2', matchTokens: ['jagat', 'jagad', 'jagatbaru', 'jagatbaru1', 'jagadbaru', 'jagadbaru1', '3lhr', 'kwpgb'] },
     { canonicalId: 'pbseventeensc', displayName: 'pbseventeensc', role: 'kurir', vehicleType: 'motor', defaultUid: 'uP70R51x7CbR5ggHEyeXfsjSTfO2', matchTokens: ['pbseventeensc', 'pbseventensc', 'up70', 'pbseventeensc@gmail.com'] },
+    { canonicalId: 'erwin', displayName: 'Erwin', role: 'kurir', vehicleType: 'motor', defaultUid: 'ncGwEckUAkQFkVKbTBtvAo3PdRG3', matchTokens: ['erwin', 'erwinmotor', 'ncgw'] },
 
     // Driver (10 Personil)
     { canonicalId: 'altur', displayName: 'Altur', role: 'driver', vehicleType: 'mobil', defaultUid: 'U7A5dYrb4iZaB7VaWMqorLeqqgg2', matchTokens: ['altur', 'alturdriver05', 'u7a5d'] },
@@ -270,7 +271,8 @@ const COURIER_PHOTO_MAP = {
     'alan': 'https://ui-avatars.com/api/?name=Alan&background=475569&color=fff&bold=true',
     'yakub': 'https://ui-avatars.com/api/?name=Yakub&background=DC2626&color=fff&bold=true',
     'iwan': 'https://ui-avatars.com/api/?name=Iwan&background=65A30D&color=fff&bold=true',
-    'sobri': 'https://ui-avatars.com/api/?name=Sobri&background=0D9488&color=fff&bold=true'
+    'sobri': 'https://ui-avatars.com/api/?name=Sobri&background=0D9488&color=fff&bold=true',
+    'erwin': 'https://ui-avatars.com/api/?name=Erwin&background=0284C7&color=fff&bold=true'
 };
 
 function isEvenPlate(plate) {
@@ -733,6 +735,7 @@ function getCourierColor(id, optName = '') {
     if (checkStr.includes('jay')) return '#4F46E5';
     if (checkStr.includes('ferdi')) return '#059669';
     if (checkStr.includes('jagat') || checkStr.includes('jagad')) return '#C026D3';
+    if (checkStr.includes('erwin')) return '#0284C7';
     if (checkStr.includes('altur')) return '#E11D48';
     if (checkStr.includes('rizki')) return '#7C3AED';
     if (checkStr.includes('soleh')) return '#0891B2';
@@ -2409,6 +2412,34 @@ function initUsersSnapshot() {
             };
         }
 
+        registeredUsers['ncGwEckUAkQFkVKbTBtvAo3PdRG3'] = 'Erwin';
+        registeredUsers['erwin'] = 'Erwin';
+        if (!registeredUsersObjects['ncGwEckUAkQFkVKbTBtvAo3PdRG3']) {
+            registeredUsersObjects['ncGwEckUAkQFkVKbTBtvAo3PdRG3'] = {
+                name: 'Erwin',
+                email: 'erwin@gmail.com',
+                role: 'kurir',
+                userId: 'ncGwEckUAkQFkVKbTBtvAo3PdRG3',
+                courierId: 'erwin'
+            };
+        }
+
+        if (activeDb) {
+            activeDb.collection('users').doc('ncGwEckUAkQFkVKbTBtvAo3PdRG3').get().then(doc => {
+                if (!doc.exists) {
+                    activeDb.collection('users').doc('ncGwEckUAkQFkVKbTBtvAo3PdRG3').set({
+                        name: 'Erwin',
+                        email: 'erwin@gmail.com',
+                        role: 'kurir',
+                        vehicleType: 'motor',
+                        userId: 'ncGwEckUAkQFkVKbTBtvAo3PdRG3',
+                        courierId: 'erwin',
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    }, { merge: true }).catch(() => {});
+                }
+            }).catch(() => {});
+        }
+
         // Save to cache
         try {
             localStorage.setItem('cached_couriers', JSON.stringify(registeredUsers));
@@ -3252,7 +3283,7 @@ window.setMonitorCategoryTab = function(tab) {
 
 function getPersonilCategory(cId, cName) {
     const checkStr = (String(cName || '') + ' ' + String(cId || '')).toLowerCase();
-    const kurirTokens = ['ahmad', 'beto', 'eri', 'irfan', 'baihaqi', 'baikaqi', 'bayhaqi', 'haris', 'umar', 'noval', 'jay', 'ferdi', 'jagat', 'jagad', 'pbseventeensc'];
+    const kurirTokens = ['ahmad', 'beto', 'eri', 'irfan', 'baihaqi', 'baikaqi', 'bayhaqi', 'haris', 'umar', 'noval', 'jay', 'ferdi', 'jagat', 'jagad', 'pbseventeensc', 'erwin'];
     const driverTokens = ['altur', 'rizki', 'soleh', 'romi', 'firdaus', 'alan', 'yakub', 'iwan', 'agung', 'husen', 'juhu', 'sobri'];
 
     if (driverTokens.some(d => checkStr.includes(d))) return 'driver';
