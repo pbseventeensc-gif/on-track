@@ -1760,6 +1760,21 @@
         { canonicalId: 'sobri', displayName: 'Sobri', role: 'Driver Mobil', vehicleType: 'mobil', defaultUid: 'Kh6qNGG8kEVjilS9tIHaGbCcAWh1', avatar: 'https://ui-avatars.com/api/?name=Sobri&background=0D9488&color=fff', tokens: ['sobri', 'sobri2026', 'kh6q'] }
     ];
 
+    const COMPANY_FLEET_VEHICLES = [
+        { plate: "B 9227 SCH", name: "Granmax B 9227 SCH (Agung)", category: "Granmax", driverCanonical: "agung" },
+        { plate: "B 9939 SCH", name: "Granmax B 9939 SCH (Soleh)", category: "Granmax", driverCanonical: "soleh" },
+        { plate: "B 9158 SCE", name: "Granmax B 9158 SCE (Romi)", category: "Granmax", driverCanonical: "romi" },
+        { plate: "B 9278 SCD", name: "Granmax B 9278 SCD (Alan)", category: "Granmax", driverCanonical: "alan" },
+        { plate: "B 9107 SCE", name: "Granmax B 9107 SCE (Yakub)", category: "Granmax", driverCanonical: "yakub" },
+        { plate: "B 1004 BKP", name: "Granmax B 1004 BKP (Cadangan Gudang)", category: "Granmax", driverCanonical: "" },
+        { plate: "B 9032 SCG", name: "Truk Box B 9032 SCG (Iwan)", category: "Truk Box", driverCanonical: "iwan" },
+        { plate: "B 9177 SCH", name: "Truk Box B 9177 SCH (Husen)", category: "Truk Box", driverCanonical: "husen" },
+        { plate: "B 9842 NCC", name: "Truk Box B 9842 NCC (Altur)", category: "Truk Box", driverCanonical: "altur" },
+        { plate: "B 9084 SCH", name: "Truk Box B 9084 SCH (Rizki)", category: "Truk Box", driverCanonical: "rizki" },
+        { plate: "B 9463 SAJ", name: "Pick Up B 9463 SAJ (Pick Up Gudang)", category: "Pick Up", driverCanonical: "" },
+        { plate: "B 9243 PCJ", name: "L300 B 9243 PCJ (L300 Gudang)", category: "L300", driverCanonical: "" }
+    ];
+
     function resolveCourierProfile(inputStr, uidStr = '') {
         const cleanInput = String(inputStr || '').trim().toLowerCase();
         const emailPrefix = cleanInput.split('@')[0];
@@ -1880,14 +1895,20 @@
 
     function isPoolShipment(s) {
         if (!s) return false;
-        const rawCid = String(s.courierId || s.assignedTo || '').trim();
-        const st = (s.status || '').toLowerCase();
-        // Jika sudah ditugaskan ke kurir dan statusnya bukan pool/unassigned, ini adalah tugas kurir aktif
-        if (rawCid && st !== 'pool' && st !== 'in_pool' && st !== 'unassigned') return false;
+        const rawCid = String(s.courierId || s.assignedTo || s.courierName || s.driver || '').trim();
+        // JIKA SUDAH ADA KURIR / DRIVER YANG DITUGASKAN, PASTI BUKAN POOL!
+        if (rawCid) return false;
 
+        // Cek juga armada kendaraan driver
+        if (s.vehiclePlate || s.assignedVehiclePlate) {
+            const hasFleet = (typeof COMPANY_FLEET_VEHICLES !== 'undefined' ? COMPANY_FLEET_VEHICLES : []).some(v => v.plate && (s.vehiclePlate || s.assignedVehiclePlate).includes(v.plate));
+            if (hasFleet) return false;
+        }
+
+        const st = (s.status || '').toLowerCase();
         if (st === 'pool' || st === 'in_pool' || st === 'unassigned') return true;
-        if ((s.isPool || s.isInPool || s.poolId) && !rawCid) return true;
-        if (s.id && String(s.id).toLowerCase().includes('pool') && !rawCid) return true;
+        if (s.isPool || s.isInPool || s.poolId) return true;
+        if (s.id && String(s.id).toLowerCase().includes('pool')) return true;
         return false;
     }
 
@@ -1935,36 +1956,62 @@
 
     function doesTripBelongToCurrentCourier(t) {
         if (!t) return false;
-        const rawCid = String(t.courierId || '').trim();
-        const rawCname = String(t.courierName || t.driver || t.assignedTo || '').trim();
-        if (!rawCid && !rawCname) return false;
+        const rawCid = String(t.courierId || t.courierUid || t.uid || '').trim();
+        const rawCname = String(t.courierName || t.driver || t.assignedTo || t.driverName || '').trim();
+        const rawPlate = String(t.vehiclePlate || t.assignedVehiclePlate || '').replace(/\s+/g, '').toLowerCase();
+        const rawVehName = String(t.vehicleName || '').toLowerCase();
 
-        const tripProfile = resolveCourierProfile(rawCname || rawCid, rawCid);
         const myCanon = (currentCourier.canonicalId || '').toLowerCase();
         const myUid = (currentCourier.uid || currentCourier.id || '').toLowerCase();
         const myName = (currentCourier.name || '').toLowerCase();
         const myEmail = (currentCourier.email || '').toLowerCase();
         const myEmailPrefix = myEmail.split('@')[0];
 
-        // 1. Direct Canonical / Profile match
-        if (tripProfile.canonicalId && myCanon && tripProfile.canonicalId.toLowerCase() === myCanon) return true;
-
-        // 2. Direct UID match
+        // 1. Direct UID match
         if (rawCid && myUid && rawCid.toLowerCase() === myUid) return true;
 
-        // 3. Direct Canonical string match on courierId
+        // 2. Direct Canonical string match on courierId
         if (rawCid && myCanon && rawCid.toLowerCase() === myCanon) return true;
 
-        // 4. Token / emailPrefix matching (e.g. betomotor99, beto)
-        const checkStr = (rawCid + ' ' + rawCname).toLowerCase();
+        // 3. Profile resolver match
+        if (rawCname || rawCid) {
+            const tripProfile = resolveCourierProfile(rawCname || rawCid, rawCid);
+            if (tripProfile.canonicalId && myCanon && tripProfile.canonicalId.toLowerCase() === myCanon) return true;
+        }
+
+        // 4. Token & string matching on combined info (e.g. betomotor99, ahmadmotor03, agungdriver10)
+        const checkStr = (rawCid + ' ' + rawCname + ' ' + rawVehName).toLowerCase();
         if (myCanon && checkStr.includes(myCanon)) return true;
         if (myEmailPrefix && myEmailPrefix.length >= 3 && checkStr.includes(myEmailPrefix)) return true;
         if (myName && myName.length >= 3 && checkStr.includes(myName)) return true;
 
-        // 5. Check if courier has match tokens in MASTER_COURIERS_LIST
+        // 5. Check match tokens in MASTER_COURIERS_LIST
         const myMaster = MASTER_COURIERS_LIST.find(m => m.canonicalId === myCanon || m.defaultUid === myUid);
         if (myMaster && Array.isArray(myMaster.tokens)) {
             if (myMaster.tokens.some(tok => checkStr.includes(tok.toLowerCase()))) return true;
+        }
+
+        // 6. Fleet Vehicle matching for Drivers (by plate or fleet vehicle name)
+        if (typeof COMPANY_FLEET_VEHICLES !== 'undefined') {
+            const myVehicle = COMPANY_FLEET_VEHICLES.find(v => v.driverCanonical === myCanon);
+            if (myVehicle) {
+                const myCleanPlate = myVehicle.plate.replace(/\s+/g, '').toLowerCase();
+                if (rawPlate && (rawPlate.includes(myCleanPlate) || myCleanPlate.includes(rawPlate))) return true;
+                if (rawVehName && rawVehName.includes(myCanon)) return true;
+            }
+        }
+
+        // 7. Check inside destinations array if destinations have courier info
+        if (Array.isArray(t.destinations)) {
+            for (const d of t.destinations) {
+                if (!d) continue;
+                const dCid = String(d.courierId || d.assignedTo || d.courierName || d.driver || '').trim().toLowerCase();
+                if (dCid) {
+                    if (myCanon && dCid.includes(myCanon)) return true;
+                    if (myUid && dCid === myUid) return true;
+                    if (myName && dCid.includes(myName)) return true;
+                }
+            }
         }
 
         return false;
@@ -2462,7 +2509,7 @@
 
         const previewContainer = document.getElementById('home-shipments-preview-container');
         if (previewContainer) {
-            const activeShipments = activeList.slice(0, 5);
+            const activeShipments = activeList;
             if (activeShipments.length === 0) {
                 previewContainer.innerHTML = `
                     <div class="text-center py-4 px-3 bg-white rounded-4 border mx-3 shadow-sm">
@@ -3763,31 +3810,76 @@
             if (firestoreDb) {
                 const docId = (target && target.rootTripId) ? target.rootTripId : currentUploadTripId;
                 const cleanSJ = target ? target.noSJ.replace(/^#/, '') : docId;
+                const stopIdx = (target && target.stopIndex) || 1;
                 try {
-                    firestoreDb.collection('trips').doc(docId).set({
-                        tripId: docId,
-                        noSJ: cleanSJ,
-                        sjNumber: cleanSJ,
-                        courierId: currentCourier.uid || currentCourier.id,
-                        courierName: currentCourier.name,
-                        vehicleType: currentCourier.vehicleType || 'motor',
-                        status: 'completed',
-                        deliveryStatus: 'completed',
-                        completedAt: nowIso,
-                        date: firebase.firestore.Timestamp.now(),
-                        destinations: [{
-                            stopIndex: (target && target.stopIndex) || 1,
-                            locationName: (target && target.destination) || 'Klien Wellen',
-                            address: (target && target.address) || '-',
-                            sjNumber: cleanSJ,
-                            noSJ: cleanSJ,
-                            status: 'done',
-                            completedTime: firebase.firestore.Timestamp.now(),
-                            proofPhotoUrl: finalBarangPhoto,
-                            proofPhotoSj: finalSJPhoto,
-                            proofPhotoItems: [finalBarangPhoto]
-                        }]
-                    }, { merge: true }).catch(e => console.warn("Firestore pod sync note:", e));
+                    const tripRef = firestoreDb.collection('trips').doc(docId);
+                    tripRef.get().then(snap => {
+                        if (snap.exists) {
+                            const tData = snap.data();
+                            const dests = Array.isArray(tData.destinations) && tData.destinations.length > 0 ? tData.destinations : [{
+                                stopIndex: stopIdx,
+                                locationName: (target && target.destination) || 'Klien Wellen',
+                                address: (target && target.address) || '-',
+                                sjNumber: cleanSJ,
+                                noSJ: cleanSJ
+                            }];
+
+                            let allDone = true;
+                            const updatedDests = dests.map((d, idx) => {
+                                const thisIndex = d.stopIndex || (idx + 1);
+                                const isCurrentTarget = (thisIndex === stopIdx) || (dests.length === 1) || (d.noSJ && d.noSJ === cleanSJ) || (d.sjNumber && d.sjNumber === cleanSJ);
+                                if (isCurrentTarget) {
+                                    return {
+                                        ...d,
+                                        status: 'done',
+                                        completedTime: firebase.firestore.Timestamp.now(),
+                                        proofPhotoUrl: finalBarangPhoto,
+                                        proofPhotoSj: finalSJPhoto,
+                                        proofPhotoItems: [finalBarangPhoto]
+                                    };
+                                }
+                                if (d.status !== 'done' && d.status !== 'completed' && !d.proofPhotoUrl && !d.proofPhotoSj) {
+                                    allDone = false;
+                                }
+                                return d;
+                            });
+
+                            const updatePayload = {
+                                destinations: updatedDests,
+                                status: allDone ? 'completed' : (tData.status || 'in_progress'),
+                                deliveryStatus: allDone ? 'completed' : (tData.deliveryStatus || 'in_progress'),
+                                completedAt: allDone ? nowIso : (tData.completedAt || null),
+                                lastDeliveredAt: nowIso
+                            };
+
+                            tripRef.update(updatePayload).catch(e => console.warn("Firestore pod sync note:", e));
+                        } else {
+                            tripRef.set({
+                                tripId: docId,
+                                noSJ: cleanSJ,
+                                sjNumber: cleanSJ,
+                                courierId: currentCourier.uid || currentCourier.id,
+                                courierName: currentCourier.name,
+                                vehicleType: currentCourier.vehicleType || 'motor',
+                                status: 'completed',
+                                deliveryStatus: 'completed',
+                                completedAt: nowIso,
+                                date: firebase.firestore.Timestamp.now(),
+                                destinations: [{
+                                    stopIndex: stopIdx,
+                                    locationName: (target && target.destination) || 'Klien Wellen',
+                                    address: (target && target.address) || '-',
+                                    sjNumber: cleanSJ,
+                                    noSJ: cleanSJ,
+                                    status: 'done',
+                                    completedTime: firebase.firestore.Timestamp.now(),
+                                    proofPhotoUrl: finalBarangPhoto,
+                                    proofPhotoSj: finalSJPhoto,
+                                    proofPhotoItems: [finalBarangPhoto]
+                                }]
+                            }, { merge: true }).catch(e => console.warn("Firestore pod fallback set note:", e));
+                        }
+                    }).catch(e => console.warn("tripRef get note:", e));
                 } catch(e) {}
             }
         }
