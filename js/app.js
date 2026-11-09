@@ -3933,7 +3933,12 @@ async function deleteCourierActiveTrips(courierId, courierName) {
 }
 
 async function reactivateCourierAllTrips(courierId, courierName) {
-    if (!confirm(`Kembalikan / Aktifkan SEMUA tugas milik "${courierName}" ke status AKTIF (In Progress)?\nTugas akan kembali muncul di aplikasi kurir/driver.`)) return;
+    const todayStr = getLocalTodayDateString();
+    const now = new Date();
+    const todayStartMs = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0).getTime();
+    const todayEndMs = todayStartMs + (24 * 60 * 60 * 1000) - 1;
+
+    if (!confirm(`Kembalikan / Aktifkan tugas HARI INI (${todayStr}) milik "${courierName}" ke status AKTIF (In Progress)?\n\n(Catatan: Tugas hari-hari sebelumnya akan diabaikan).`)) return;
 
     try {
         const activeAuth = getAuth();
@@ -3953,7 +3958,10 @@ async function reactivateCourierAllTrips(courierId, courierName) {
         const norm = typeof normalizeCourierIdentity === 'function' ? normalizeCourierIdentity(courierId, courierName) : { canonicalId: (courierId || '').toLowerCase() };
         const canon = norm.canonicalId;
 
+        // HANYA PULIHKAN TUGAS HARI INI SAJA (Abaikan hari sebelumnya)
         const matchingTrips = (allCurrentTrips || []).filter(t => {
+            if (!isTripInDateRange(t, todayStartMs, todayEndMs)) return false;
+
             const tCid = t.courierId || '';
             const tCname = registeredUsers[tCid] || (typeof getCourierDisplayName === 'function' ? getCourierDisplayName(tCid) : '');
             const tNorm = typeof normalizeCourierIdentity === 'function' ? normalizeCourierIdentity(tCid, tCname) : { canonicalId: tCid.toLowerCase() };
@@ -3961,7 +3969,7 @@ async function reactivateCourierAllTrips(courierId, courierName) {
         });
 
         if (matchingTrips.length === 0) {
-            alert(`Tidak ada trip yang ditemukan untuk ${courierName}.`);
+            alert(`Tidak ada tugas milik "${courierName}" untuk HARI INI (${todayStr}) yang perlu dipulihkan.\nTugas hari-hari sebelumnya diabaikan.`);
             return;
         }
 
@@ -3991,7 +3999,7 @@ async function reactivateCourierAllTrips(courierId, courierName) {
         });
 
         await batch.commit();
-        showToast(`✅ Seluruh tugas "${courierName}" (${matchingTrips.length} Trip) berhasil dikembalikan ke status AKTIF!`);
+        showToast(`✅ Seluruh tugas HARI INI milik "${courierName}" (${matchingTrips.length} Trip) berhasil dikembalikan ke status AKTIF!`);
         updateGlobalStats();
         renderMonitorUI();
         renderRecentShipments();
@@ -4007,7 +4015,12 @@ async function reactivateCourierAllTrips(courierId, courierName) {
 window.reactivateCourierAllTrips = reactivateCourierAllTrips;
 
 async function reactivateTripToActive(tripId) {
-    if (!confirm(`Kembalikan status pengiriman ini ke AKTIF (In Progress)?\nTugas akan kembali muncul di aplikasi kurir/driver.`)) return;
+    const todayStr = getLocalTodayDateString();
+    const now = new Date();
+    const todayStartMs = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0).getTime();
+    const todayEndMs = todayStartMs + (24 * 60 * 60 * 1000) - 1;
+
+    if (!confirm(`Kembalikan status pengiriman HARI INI ini ke AKTIF (In Progress)?\nTugas akan kembali muncul di aplikasi kurir/driver.`)) return;
     try {
         const activeAuth = getAuth();
         if (!activeAuth || !activeAuth.currentUser) {
@@ -4026,6 +4039,13 @@ async function reactivateTripToActive(tripId) {
         const snap = await tripRef.get();
         if (!snap.exists) throw new Error("Data pengiriman tidak ditemukan di Firestore.");
         const tData = snap.data();
+
+        // Validasi: HANYA HARI INI (Abaikan hari sebelumnya)
+        if (!isTripInDateRange(tData, todayStartMs, todayEndMs)) {
+            alert("Tombol pulihkan pengiriman HANYA berlaku untuk pengiriman HARI INI saja.\nPengiriman hari-hari sebelumnya diabaikan.");
+            return;
+        }
+
         const dests = Array.isArray(tData.destinations) ? tData.destinations : [];
         const resetDests = dests.map(d => ({
             ...d,
@@ -4177,6 +4197,27 @@ function sortRecentShipments(field) {
 }
 window.sortRecentShipments = sortRecentShipments;
 
+function isDummyAutoSJ(sj, tripId) {
+    if (!sj) return true;
+    const clean = String(sj).replace(/^#/, '').trim();
+    if (!clean || clean === '-' || clean === 'null' || clean === 'undefined') return true;
+    if (tripId && tripId.length >= 5) {
+        const suffix = tripId.substring(tripId.length - 5);
+        if (clean === 'SJ-' + suffix || clean === suffix || clean === tripId || clean === 'SJ-' + tripId) return true;
+    }
+    if (/^SJ-\d{4,6}$/i.test(clean) && tripId && tripId.includes(clean.replace(/SJ-/i, ''))) return true;
+    return false;
+}
+window.isDummyAutoSJ = isDummyAutoSJ;
+
+function getRealSJNumber(d, t) {
+    const candidate = (d && (d.sjNumber || d.noSJ)) || (t && (t.sjNumber || t.noSJ)) || '';
+    const tripId = String((t && t.id) || (t && t.tripId) || '');
+    if (isDummyAutoSJ(candidate, tripId)) return '';
+    return String(candidate).replace(/^#/, '').trim();
+}
+window.getRealSJNumber = getRealSJNumber;
+
 function renderRecentShipments(filter = "") {
     const table = document.getElementById('recent-shipments-table');
     if(!table) return;
@@ -4314,10 +4355,11 @@ function renderRecentShipments(filter = "") {
                 if (matchSearch && matchStatus) {
                     const photos = extractDestinationPhotos(d, t);
 
+                    const realSJ = getRealSJNumber(d, t);
                     shipmentRows.push({
                         tripId: t.id,
                         displayId: uniqueShipmentId,
-                        noSJ: d.sjNumber || d.noSJ || t.sjNumber || t.noSJ || '-',
+                        noSJ: realSJ || '-',
                         adminSJ: t.adminSJ || d.adminSJ || '',
                         dateStr: tripDateStr,
                         tripMs: tripMs,

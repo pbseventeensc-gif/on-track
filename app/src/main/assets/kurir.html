@@ -2155,6 +2155,18 @@
         }
     }
 
+    function isDummyAutoSJ(sj, tripId) {
+        if (!sj) return true;
+        const clean = String(sj).replace(/^#/, '').trim();
+        if (!clean || clean === '-' || clean === 'null' || clean === 'undefined') return true;
+        if (tripId && tripId.length >= 5) {
+            const suffix = tripId.substring(tripId.length - 5);
+            if (clean === 'SJ-' + suffix || clean === suffix || clean === tripId || clean === 'SJ-' + tripId) return true;
+        }
+        if (/^SJ-\d{4,6}$/i.test(clean) && tripId && tripId.includes(clean.replace(/SJ-/i, ''))) return true;
+        return false;
+    }
+
     function syncFirestoreTrips() {
         if (!firestoreDb) return;
         if (tripsUnsubscribe) {
@@ -2171,8 +2183,9 @@
                     const dests = (Array.isArray(t.destinations) && t.destinations.length > 0) ? t.destinations : [{}];
                     dests.forEach((dest, idx) => {
                         const subId = dests.length > 1 ? `${t.id}_STOP_${idx}` : t.id;
-                        const rawSJ = dest.sjNumber || dest.noSJ || t.noSJ || t.sjNumber || ('#SJ-' + t.id.substring(Math.max(0, t.id.length - 5)));
-                        const formattedSJ = String(rawSJ).startsWith('#') ? String(rawSJ) : ('#' + String(rawSJ));
+                        const candidateSJ = (dest.sjNumber || dest.noSJ || t.noSJ || t.sjNumber || '').trim();
+                        const isDummy = isDummyAutoSJ(candidateSJ, t.id);
+                        const formattedSJ = (!isDummy && candidateSJ) ? (String(candidateSJ).startsWith('#') ? String(candidateSJ) : ('#' + String(candidateSJ))) : '-';
 
                         if (isDummyOrDeletedShipment({ id: subId, noSJ: formattedSJ }) || isDummyOrDeletedShipment({ id: t.id, noSJ: formattedSJ })) {
                             return;
@@ -3975,19 +3988,22 @@
 
             if (firestoreDb) {
                 const docId = (target && target.rootTripId) ? target.rootTripId : currentUploadTripId;
-                const cleanSJ = target ? target.noSJ.replace(/^#/, '') : docId;
+                const targetSjRaw = (target && target.noSJ && target.noSJ !== '-') ? target.noSJ.replace(/^#/, '').trim() : '';
+                const cleanSJ = (targetSjRaw && !(typeof isDummyAutoSJ === 'function' && isDummyAutoSJ(targetSjRaw, docId))) ? targetSjRaw : '';
                 const stopIdx = (target && target.stopIndex) || 1;
                 try {
                     const tripRef = firestoreDb.collection('trips').doc(docId);
                     tripRef.get().then(snap => {
                         if (snap.exists) {
                             const tData = snap.data();
+                            const existingTripSj = (tData.noSJ || tData.sjNumber || '').trim();
+                            const finalTripSj = cleanSJ || (existingTripSj && !(typeof isDummyAutoSJ === 'function' && isDummyAutoSJ(existingTripSj, docId)) ? existingTripSj : '');
                             const dests = Array.isArray(tData.destinations) && tData.destinations.length > 0 ? tData.destinations : [{
                                 stopIndex: stopIdx,
                                 locationName: (target && target.destination) || 'Klien Wellen',
                                 address: (target && target.address) || '-',
-                                sjNumber: cleanSJ,
-                                noSJ: cleanSJ
+                                sjNumber: finalTripSj,
+                                noSJ: finalTripSj
                             }];
 
                             let allDone = true;
