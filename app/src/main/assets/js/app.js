@@ -827,35 +827,48 @@ function showToast(msg) {
     setTimeout(() => toast.remove(), 3000);
 }
 
+function safeSplitPhotoUrls(val) {
+    if (!val) return [];
+    if (Array.isArray(val)) {
+        const res = [];
+        val.forEach(u => {
+            safeSplitPhotoUrls(u).forEach(x => {
+                if (x && !res.includes(x)) res.push(x);
+            });
+        });
+        return res;
+    }
+    if (typeof val !== 'string') return [];
+    const trimmed = val.trim();
+    if (!trimmed) return [];
+    if (trimmed.startsWith('data:')) {
+        return [trimmed];
+    }
+    return trimmed.split(',').map(s => s.trim()).filter(Boolean);
+}
+window.safeSplitPhotoUrls = safeSplitPhotoUrls;
+
 function extractDestinationPhotos(d, t = null) {
     if (!d) d = {};
 
     let explicitSj = '';
     let explicitItems = [];
 
-    if (d.proofPhotoSj && typeof d.proofPhotoSj === 'string' && d.proofPhotoSj.trim().length > 0) {
-        explicitSj = d.proofPhotoSj.split(',')[0].trim();
+    if (d.proofPhotoSj) {
+        const sjList = safeSplitPhotoUrls(d.proofPhotoSj);
+        if (sjList.length > 0) explicitSj = sjList[0];
     }
 
     if (d.proofPhotoItems) {
-        if (Array.isArray(d.proofPhotoItems)) {
-            explicitItems = d.proofPhotoItems.map(u => String(u).trim()).filter(Boolean);
-        } else if (typeof d.proofPhotoItems === 'string' && d.proofPhotoItems.trim().length > 0) {
-            explicitItems = d.proofPhotoItems.split(',').map(u => u.trim()).filter(Boolean);
-        }
+        explicitItems = safeSplitPhotoUrls(d.proofPhotoItems);
     }
 
     const allUrls = [];
     const addUrl = (val) => {
-        if (!val) return;
-        if (Array.isArray(val)) {
-            val.forEach(u => addUrl(u));
-        } else if (typeof val === 'string') {
-            val.split(',').forEach(u => {
-                const clean = u.trim();
-                if (clean && !allUrls.includes(clean)) allUrls.push(clean);
-            });
-        }
+        const list = safeSplitPhotoUrls(val);
+        list.forEach(u => {
+            if (u && !allUrls.includes(u)) allUrls.push(u);
+        });
     };
 
     if (explicitSj) addUrl(explicitSj);
@@ -988,7 +1001,7 @@ window.isTripInDateRange = isTripInDateRange;
 
 function openPoDModal(url) {
     if (!url) return;
-    const urls = url.split(',').map(s => s.trim()).filter(Boolean);
+    const urls = safeSplitPhotoUrls(url);
     if (urls.length === 0) return;
 
     const img = document.getElementById('modalImg');
@@ -4440,7 +4453,7 @@ function renderRecentShipments(filter = "") {
             podIconsHtml += `<i class="bi bi-file-earmark-check-fill text-success ms-1 cursor-pointer fs-6" data-url="${s.proofSjUrl.replace(/"/g, '&quot;')}" onclick="openPoDModal(this.dataset.url)" title="Lihat Foto Surat Jalan (SJ)"></i>`;
         }
         if (s.proofItemUrl) {
-            const itemCount = s.proofItemUrl.split(',').length;
+            const itemCount = safeSplitPhotoUrls(s.proofItemUrl).length;
             const itemBadgeTitle = itemCount > 1 ? `Lihat Foto Fisik Barang (${itemCount} Foto)` : `Lihat Foto Fisik Barang`;
             podIconsHtml += `<i class="bi bi-box-seam-fill text-primary ms-1 cursor-pointer fs-6" data-url="${s.proofItemUrl.replace(/"/g, '&quot;')}" onclick="openPoDModal(this.dataset.url)" title="${itemBadgeTitle}"></i>`;
         }

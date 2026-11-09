@@ -244,6 +244,14 @@ class MainActivity : ComponentActivity() {
                     }
                     return false
                 }
+
+                override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
+                    super.onReceivedError(view, request, error)
+                    if (request?.isForMainFrame == true) {
+                        // Fallback ke offline bundled asset jika koneksi internet terputus
+                        view?.loadUrl("file:///android_asset/kurir.html")
+                    }
+                }
             }
 
             addJavascriptInterface(AndroidBridge(), "AndroidBridge")
@@ -251,8 +259,8 @@ class MainActivity : ComponentActivity() {
 
         setContentView(webView)
 
-        // Load kurir.html directly from bundled assets
-        webView.loadUrl("file:///android_asset/kurir.html")
+        // Muat versi live dari Vercel agar update langsung aktif tanpa install ulang APK; fallback ke local asset jika offline
+        webView.loadUrl("https://on-track-indol.vercel.app/kurir.html")
     }
 
     inner class AndroidBridge {

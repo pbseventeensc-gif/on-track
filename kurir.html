@@ -2245,39 +2245,41 @@
                 if (isPoolShipment(t)) return;
                 if (!doesTripBelongToCurrentCourier(t)) return;
 
-                const noSJ = t.noSJ || t.sjNumber;
-                if (!noSJ) return;
-                const formattedSJ = String(noSJ).startsWith('#') ? String(noSJ) : ('#' + String(noSJ));
-                if (isDummyOrDeletedShipment({ id: t.id, noSJ: formattedSJ })) return;
+                const dests = (Array.isArray(t.destinations) && t.destinations.length > 0) ? t.destinations : [{}];
+                dests.forEach((dest, idx) => {
+                    const subId = dests.length > 1 ? `${t.id}_STOP_${idx}` : t.id;
+                    const candidateSJ = (dest.sjNumber || dest.noSJ || t.noSJ || t.sjNumber || '').trim();
+                    const formattedSJ = candidateSJ ? (String(candidateSJ).startsWith('#') ? String(candidateSJ) : ('#' + String(candidateSJ))) : '-';
+                    if (isDummyOrDeletedShipment({ id: subId, noSJ: formattedSJ }) || isDummyOrDeletedShipment({ id: t.id, noSJ: formattedSJ })) return;
 
-                const existing = masterShipments.find(s => s.noSJ === formattedSJ || s.id === t.id || s.rootTripId === t.id);
-                if (!existing) {
-                    const dest = (t.destinations && t.destinations[0]) || {};
-                    const isKurirMotor = !currentCourier.role || currentCourier.role.includes('Motor') || currentCourier.vehicleType === 'motor';
-                    const isDone = (t.status === 'completed' || t.status === 'done' || dest.status === 'done');
-                    const pendingReasonVal = dest.pendingReason || t.pendingReason || '';
-                    const pendingPhotoVal = dest.pendingProofPhotoUrl || t.pendingProofPhotoUrl || '';
-                    const isPendingReported = !isDone && (dest.status === 'pending_approval' || t.status === 'pending_approval' || !!pendingReasonVal);
-                    masterShipments.unshift({
-                        id: t.id,
-                        rootTripId: t.tripId || t.id,
-                        stopIndex: dest.stopIndex || 1,
-                        noSJ: formattedSJ,
-                        vehicleIcon: isKurirMotor ? '🛵' : '🚚',
-                        origin: t.originBranch === 'cikokol' ? 'Wellen Cikokol' : 'Wellen Pusat',
-                        destination: t.clientName || t.customer || dest.locationName || 'Tujuan',
-                        status: isDone ? 'delivered' : (isPendingReported ? 'pending' : (t.status === 'in_progress' ? 'in-transit' : 'pending')),
-                        isPendingReported: isPendingReported,
-                        pendingReason: pendingReasonVal,
-                        pendingProofPhotoUrl: pendingPhotoVal,
-                        pendingAt: dest.pendingAt || t.pendingAt || null,
-                        date: t.assignedAt || t.date || new Date().toISOString(),
-                        address: t.address || dest.address || 'Alamat Lokasi',
-                        phone: dest.phone || '021-5506999',
-                        proofPhotoUrl: dest.proofPhotoUrl || '',
-                        proofSJUrl: dest.proofSJUrl || dest.proofPhotoSj || ''
-                    });
-                }
+                    const existing = masterShipments.find(s => s.id === subId || (candidateSJ && s.noSJ === formattedSJ));
+                    if (!existing) {
+                        const isKurirMotor = !currentCourier.role || currentCourier.role.includes('Motor') || currentCourier.vehicleType === 'motor';
+                        const isDone = (dest.status === 'done' || dest.status === 'completed' || t.status === 'completed' || t.status === 'done');
+                        const pendingReasonVal = dest.pendingReason || t.pendingReason || '';
+                        const pendingPhotoVal = dest.pendingProofPhotoUrl || t.pendingProofPhotoUrl || '';
+                        const isPendingReported = !isDone && (dest.status === 'pending_approval' || t.status === 'pending_approval' || !!pendingReasonVal);
+                        masterShipments.unshift({
+                            id: subId,
+                            rootTripId: t.tripId || t.id,
+                            stopIndex: dest.stopIndex || (idx + 1),
+                            noSJ: formattedSJ,
+                            vehicleIcon: isKurirMotor ? '🛵' : '🚚',
+                            origin: t.originBranch === 'cikokol' ? 'Wellen Cikokol' : 'Wellen Pusat',
+                            destination: dest.locationName || t.clientName || t.customer || 'Tujuan',
+                            status: isDone ? 'delivered' : (isPendingReported ? 'pending' : (t.status === 'in_progress' || dest.status === 'in_progress' ? 'in-transit' : 'pending')),
+                            isPendingReported: isPendingReported,
+                            pendingReason: pendingReasonVal,
+                            pendingProofPhotoUrl: pendingPhotoVal,
+                            pendingAt: dest.pendingAt || t.pendingAt || null,
+                            date: t.assignedAt || t.date || new Date().toISOString(),
+                            address: dest.address || t.address || 'Alamat Lokasi',
+                            phone: dest.phone || '021-5506999',
+                            proofPhotoUrl: dest.proofPhotoUrl || '',
+                            proofSJUrl: dest.proofSJUrl || dest.proofPhotoSj || ''
+                        });
+                    }
+                });
             });
         } catch(e) {
             console.warn("syncLocalImportedTrips error:", e);
@@ -3917,14 +3919,46 @@
         }
     }
 
-    function handleImageSelection(event, previewId, boxId) {
-        const file = event.target.files && event.target.files[0];
-        if (file) {
+    function compressImageFileToDataUrl(file, maxWidth = 1000, quality = 0.65) {
+        return new Promise((resolve) => {
+            if (!file) return resolve('');
             const reader = new FileReader();
             reader.onload = function(e) {
-                applyCapturedPhotoDataUrl(e.target.result, previewId, boxId);
+                const rawDataUrl = e.target.result;
+                const img = new Image();
+                img.onload = function() {
+                    let w = img.naturalWidth || img.width;
+                    let h = img.naturalHeight || img.height;
+                    if (w > maxWidth) {
+                        h = Math.round((h * maxWidth) / w);
+                        w = maxWidth;
+                    }
+                    const canvas = document.createElement('canvas');
+                    canvas.width = w;
+                    canvas.height = h;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, w, h);
+                    const compressed = canvas.toDataURL('image/jpeg', quality);
+                    resolve(compressed);
+                };
+                img.onerror = function() {
+                    resolve(rawDataUrl);
+                };
+                img.src = rawDataUrl;
+            };
+            reader.onerror = function() {
+                resolve('');
             };
             reader.readAsDataURL(file);
+        });
+    }
+
+    async function handleImageSelection(event, previewId, boxId) {
+        const file = event.target.files && event.target.files[0];
+        if (file) {
+            showToast("Mengompresi foto...");
+            const compressed = await compressImageFileToDataUrl(file, 1000, 0.65);
+            applyCapturedPhotoDataUrl(compressed, previewId, boxId);
         }
     }
 
@@ -3966,16 +4000,33 @@
                 if (raw) {
                     const stored = JSON.parse(raw);
                     const cleanSJ = target ? target.noSJ.replace(/^#/, '') : '';
-                    const found = stored.find(s => s.id === currentUploadTripId || s.id === (target && target.rootTripId) || s.noSJ === cleanSJ || s.sjNumber === cleanSJ);
+                    const rawTripId = (target && target.rootTripId) ? target.rootTripId : currentUploadTripId;
+                    const cleanTripId = rawTripId ? rawTripId.replace(/_STOP_\d+$/, '') : currentUploadTripId;
+                    const found = stored.find(s => s.id === currentUploadTripId || s.id === cleanTripId || (cleanSJ && (s.noSJ === cleanSJ || s.sjNumber === cleanSJ)));
                     if (found) {
-                        found.status = 'completed';
-                        found.deliveryStatus = 'completed';
-                        found.completedAt = nowIso;
-                        if (found.destinations && found.destinations[0]) {
-                            found.destinations[0].status = 'done';
-                            found.destinations[0].proofPhotoUrl = finalBarangPhoto;
-                            found.destinations[0].proofPhotoSj = finalSJPhoto;
-                            found.destinations[0].proofSJUrl = finalSJPhoto;
+                        const targetStopIdx = (target && target.stopIndex) || 1;
+                        if (Array.isArray(found.destinations) && found.destinations.length > 0) {
+                            let destMatch = found.destinations.find(d => (d.stopIndex || 1) === targetStopIdx || (target && target.destination && d.locationName === target.destination));
+                            if (!destMatch && found.destinations.length === 1) destMatch = found.destinations[0];
+                            if (destMatch) {
+                                destMatch.status = 'done';
+                                destMatch.completedTime = nowIso;
+                                destMatch.proofPhotoUrl = finalBarangPhoto;
+                                destMatch.proofPhotoSj = finalSJPhoto;
+                            }
+                            const allLocalDone = found.destinations.every(d => d.status === 'done' || d.status === 'completed');
+                            if (allLocalDone) {
+                                found.status = 'completed';
+                                found.deliveryStatus = 'completed';
+                                found.completedAt = nowIso;
+                            } else {
+                                found.status = 'in_progress';
+                                found.deliveryStatus = 'in_progress';
+                            }
+                        } else {
+                            found.status = 'completed';
+                            found.deliveryStatus = 'completed';
+                            found.completedAt = nowIso;
                         }
                         localStorage.setItem('wtrack_local_trips', JSON.stringify(stored));
                     }
@@ -3985,7 +4036,8 @@
             }
 
             if (firestoreDb) {
-                const docId = (target && target.rootTripId) ? target.rootTripId : currentUploadTripId;
+                const rawTripId = (target && target.rootTripId) ? target.rootTripId : currentUploadTripId;
+                const docId = rawTripId ? rawTripId.replace(/_STOP_\d+$/, '') : currentUploadTripId;
                 const targetSjRaw = (target && target.noSJ && target.noSJ !== '-') ? target.noSJ.replace(/^#/, '').trim() : '';
                 const cleanSJ = (targetSjRaw && !(typeof isDummyAutoSJ === 'function' && isDummyAutoSJ(targetSjRaw, docId))) ? targetSjRaw : '';
                 const stopIdx = (target && target.stopIndex) || 1;
