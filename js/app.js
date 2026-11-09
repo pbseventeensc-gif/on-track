@@ -2766,8 +2766,7 @@ function updateGlobalStats() {
                 }
             }
 
-            const isCompleted = (t.status === 'completed' || t.status === 'done' || t.deliveryStatus === 'completed');
-            if (isCompleted && filterStartMs > 0 && !isTripInDateRange(t, filterStartMs, filterEndMs)) {
+            if (filterStartMs > 0 && !isTripInDateRange(t, filterStartMs, filterEndMs)) {
                 return false;
             }
 
@@ -3361,8 +3360,12 @@ function renderMonitorUI(filter = "") {
     allCurrentTrips.forEach(t => {
         if (!t || t.status === 'pool') return;
         const isCompleted = (t.status === 'completed' || t.status === 'done' || t.deliveryStatus === 'completed');
-        // Clean H+1: Only filter out COMPLETED trips that are not today. Active unfinished trips ALWAYS show on Live Monitor!
-        if (isCompleted && !isTripInDateRange(t, todayDayMs, todayEndMs)) return;
+        if (isCompleted) {
+            if (!isTripInDateRange(t, todayDayMs, todayEndMs)) return;
+        } else {
+            const recentActiveStartMs = todayDayMs - 86400000;
+            if (!isTripInDateRange(t, recentActiveStartMs, todayEndMs + 86400000)) return;
+        }
         const cId = t.courierId;
         if (!cId) return;
         const cName = registeredUsers[cId] || (typeof getCourierDisplayName === 'function' ? getCourierDisplayName(cId) : '');
@@ -4208,9 +4211,8 @@ function renderRecentShipments(filter = "") {
             }
         }
 
-        // Check Date Filter: only completed trips are restricted by date; active trips always remain visible in queue
-        const isCompleted = (t.status === 'completed' || t.status === 'done' || t.deliveryStatus === 'completed');
-        if (isCompleted && filterStartMs > 0 && !isTripInDateRange(t, filterStartMs, filterEndMs)) {
+        // Check Date Filter using robust date range check
+        if (filterStartMs > 0 && !isTripInDateRange(t, filterStartMs, filterEndMs)) {
             return;
         }
 
@@ -4779,9 +4781,8 @@ async function exportRecentShipmentsToExcel() {
             }
         }
 
-        // Check Date Filter: only completed trips are strictly bound to date range; active trips remain visible
-        const isCompleted = (t.status === 'completed' || t.status === 'done' || t.deliveryStatus === 'completed');
-        if (isCompleted && filterStartMs > 0 && !isTripInDateRange(t, filterStartMs, filterEndMs)) {
+        // Check Date Filter using flexible range check
+        if (filterStartMs > 0 && !isTripInDateRange(t, filterStartMs, filterEndMs)) {
             return;
         }
 
