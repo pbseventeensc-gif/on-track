@@ -5993,7 +5993,7 @@ function loginAsLocalDemoAdmin() {
     if (loginScreen) loginScreen.style.setProperty('display', 'none', 'important');
     if (mainWrapper) mainWrapper.style.setProperty('display', 'flex', 'important');
     if (profileName) profileName.innerText = 'Super Admin';
-    if (profileRole) profileRole.innerHTML = `<span class="d-inline-block rounded-circle bg-success me-1" style="width: 7px; height: 7px;"></span>Super Admin`;
+    if (profileRole) profileRole.innerHTML = `<span class="d-inline-flex align-items-center gap-1" style="color: #10B981; font-weight: 500;"><span style="width: 5px; height: 5px; border-radius: 50%; background: #10B981; display: inline-block;"></span>Online</span>`;
 
     applyRoleAccessControl();
     if (typeof updateGlobalStats === 'function') updateGlobalStats();
@@ -6072,7 +6072,13 @@ function initAuthListener() {
                         }
 
                         if (profileName) profileName.innerText = nameText;
-                        if (profileRole) profileRole.innerHTML = `<span class="d-inline-block rounded-circle bg-success me-1" style="width: 7px; height: 7px;"></span>${roleDisplayName}`;
+                        if (profileRole) {
+                            if (nameText.toLowerCase().includes('admin') && roleDisplayName.toLowerCase().includes('admin')) {
+                                profileRole.innerHTML = `<span class="d-inline-flex align-items-center gap-1" style="color: #10B981; font-weight: 500;"><span style="width: 5px; height: 5px; border-radius: 50%; background: #10B981; display: inline-block;"></span>Online</span>`;
+                            } else {
+                                profileRole.innerHTML = `<span class="d-inline-flex align-items-center gap-1" style="color: #10B981; font-weight: 500;"><span style="width: 5px; height: 5px; border-radius: 50%; background: #10B981; display: inline-block;"></span>${roleDisplayName}</span>`;
+                            }
+                        }
 
                         if (!doc.exists || !doc.data().role) {
                             currentDb.collection('users').doc(user.uid).set({
