@@ -1110,6 +1110,15 @@
                 <input type="text" id="login-input-email" placeholder="Email atau Username" autocomplete="username">
             </div>
 
+            <!-- Live Courier Profile Preview Badge -->
+            <div id="login-courier-preview" class="d-none align-items-center gap-2 p-2 mb-3 rounded-3" style="background: #f8fafc; border: 1.5px solid #e2e8f0;">
+                <img id="login-preview-avatar" src="" alt="Avatar" style="width:38px;height:38px;border-radius:50%;object-fit:cover;border:1.5px solid #FF471D;flex-shrink:0;">
+                <div class="overflow-hidden">
+                    <div id="login-preview-name" class="fw-bold text-dark text-truncate" style="font-size:0.88rem;line-height:1.2;"></div>
+                    <div id="login-preview-role" class="text-muted extra-small text-truncate" style="font-size:0.75rem;"></div>
+                </div>
+            </div>
+
             <div class="form-floating-custom">
                 <i class="bi bi-lock"></i>
                 <input type="password" id="login-input-pass" placeholder="Password" autocomplete="current-password">
@@ -1149,10 +1158,10 @@
         <!-- Top Bar with Profile Photo -->
         <div class="home-top-bar">
             <div class="home-profile-wrap">
-                <img src="assets/couriers/Ahmad.jpeg" class="courier-avatar-img" id="home-courier-avatar" alt="Courier Photo" onerror="this.src='https://ui-avatars.com/api/?name=Ahmad&background=FF471D&color=fff'">
+                <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='44' height='44' fill='%23e2e8f0'%3E%3Ccircle cx='22' cy='22' r='22'/%3E%3C/svg%3E" class="courier-avatar-img" id="home-courier-avatar" alt="Courier Photo" onerror="this.src='https://ui-avatars.com/api/?name=Kurir&background=FF471D&color=fff'">
                 <div>
                     <div class="home-greeting-sub" id="home-greeting-text"><i class="bi bi-sun"></i> Good Morning</div>
-                    <div class="home-greeting-name" id="home-courier-name">Ahmad 👋</div>
+                    <div class="home-greeting-name" id="home-courier-name">Kurir 👋</div>
                 </div>
             </div>
             <div class="home-top-actions">
@@ -1793,14 +1802,14 @@
         { canonicalId: 'umar', displayName: 'Umar', role: 'Kurir Motor', vehicleType: 'motor', defaultUid: 'eRg9WzDaEgPPl6jcEzo0ERYNyI82', avatar: 'assets/couriers/Umar.jpeg', tokens: ['umar', 'umarmotor01', 'erg9w'] },
         { canonicalId: 'noval', displayName: 'Noval', role: 'Kurir Motor', vehicleType: 'motor', defaultUid: 'D9hmxHZ2SJa2BgZN8DO2cT6lgGh1', avatar: 'assets/couriers/Noval.jpeg', tokens: ['noval', 'novalempah2', 'novalganteng1', 'd9hmx'] },
         { canonicalId: 'jay', displayName: 'Jay', role: 'Kurir Motor', vehicleType: 'motor', defaultUid: 'XFAoplNpgjc0QzqE6gcTIa5OA0r2', avatar: 'assets/couriers/Jaya.jpeg', tokens: ['jay', 'jaya', 'andiwijaya', 'andiwijaya27', 'xfaop'] },
-        { canonicalId: 'ferdi', displayName: 'Ferdi', role: 'Kurir Motor', vehicleType: 'motor', defaultUid: 'BOMM2Wmk9LXs90qO3RWskGyIOk72', avatar: 'assets/couriers/Ferdi.jpeg', tokens: ['ferdi', 'fredisambo1', 'fredisambo', 'bomm2'] },
+        { canonicalId: 'ferdi', displayName: 'Ferdi', role: 'Kurir Motor', vehicleType: 'motor', defaultUid: 'BOMM2Wmk9LXs90qO3RWskGyIOk72', avatar: 'assets/couriers/Ferdi.jpeg', tokens: ['ferdi', 'fredi', 'fredisambo1', 'fredisambo', 'bomm2'] },
         { canonicalId: 'jagat', displayName: 'Jagatbaru', role: 'Kurir Motor', vehicleType: 'motor', defaultUid: 'kwpGbShXoog9kFiRmevZpwTgVxv2', avatar: 'assets/couriers/Jagat.jpeg', tokens: ['jagat', 'jagad', 'jagatbaru', 'jagatbaru1', 'kwpgb'] },
-        { canonicalId: 'pbseventeensc', displayName: 'pbseventeensc', role: 'Kurir Motor', vehicleType: 'motor', defaultUid: 'uP70R51x7CbR5ggHEyeXfsjSTfO2', avatar: 'assets/couriers/Pbseventeen.jpeg', tokens: ['pbseventeensc', 'pbseventensc', 'pbseventeen', 'up70', 'pbseventeensc@gmail.com'] },
+        { canonicalId: 'pbseventeensc', displayName: 'pbseventeensc', role: 'Kurir Motor', vehicleType: 'motor', defaultUid: 'uP70R51x7CbR5ggHEyeXfsjSTfO2', avatar: 'assets/couriers/Pbseventeen.jpeg', tokens: ['pbseventeensc', 'pbseventensc', 'pbseventeen', 'pb', 'up70', 'pbseventeensc@gmail.com'] },
         { canonicalId: 'erwin', displayName: 'Erwin', role: 'Kurir Motor', vehicleType: 'motor', defaultUid: 'ncGwEckUAkQFkVKbTBtvAo3PdRG3', avatar: 'https://ui-avatars.com/api/?name=Erwin&background=0284C7&color=fff', tokens: ['erwin', 'erwinmotor', 'ncgw'] },
 
         // Driver Mobil (9 Personil)
         { canonicalId: 'rizki', displayName: 'Rizki', role: 'Driver Mobil', vehicleType: 'mobil', defaultUid: 'gz9F6MqupoXEFTpOTJJ1aFjtSD52', avatar: 'assets/couriers/Rizki.jpeg', tokens: ['rizki', 'rizky', 'rizkidriver07', 'gz9f6', 'vdyqr'] },
-        { canonicalId: 'soleh', displayName: 'Soleh', role: 'Driver Mobil', vehicleType: 'mobil', defaultUid: 'G1g9fwjcLSclVmg77ZfrVfT9dzY2', avatar: 'assets/couriers/Soleh.jpeg', tokens: ['soleh', 'muhammadsoleh1', 'muhammadsoleh', 'g1g9f'] },
+        { canonicalId: 'soleh', displayName: 'Soleh', role: 'Driver Mobil', vehicleType: 'mobil', defaultUid: 'G1g9fwjcLSclVmg77ZfrVfT9dzY2', avatar: 'assets/couriers/Soleh.jpeg', tokens: ['soleh', 'muhammadsoleh1', 'muhammadsoleh', 'muhammad soleh', 'g1g9f'] },
         { canonicalId: 'romi', displayName: 'Romi', role: 'Driver Mobil', vehicleType: 'mobil', defaultUid: 'oC2EvdhruFMaKC10jmMUyYbmdtp1', avatar: 'assets/couriers/Romi.jpeg', tokens: ['romi', 'rommy', 'rommydriver19', 'oc2ev'] },
         { canonicalId: 'firdaus', displayName: 'Firdaus', role: 'Driver Mobil', vehicleType: 'mobil', defaultUid: 'KgKbQdpUHmcQzu2o8N6czx0N7EP2', avatar: 'assets/couriers/Firdaus.jpeg', tokens: ['firdaus', 'kgkbq'] },
         { canonicalId: 'alan', displayName: 'Alan', role: 'Driver Mobil', vehicleType: 'mobil', defaultUid: 'unNGSiqnOifJSXyQDRiiqlWd83q2', avatar: 'https://ui-avatars.com/api/?name=Alan&background=475569&color=fff', tokens: ['alan', 'alanpasming', 'alanpasming1', 'unngs'] },
@@ -1894,6 +1903,73 @@
             role: 'Kurir Motor',
             vehicleType: 'motor'
         };
+    }
+
+    function getNormalizedAvatarUrl(avatarPath, courierName = 'Kurir') {
+        if (!avatarPath) {
+            return `https://ui-avatars.com/api/?name=${encodeURIComponent(courierName)}&background=FF471D&color=fff`;
+        }
+        if (avatarPath.startsWith('http://') || avatarPath.startsWith('https://') || avatarPath.startsWith('data:')) {
+            return avatarPath;
+        }
+        const clean = avatarPath.replace(/^\.?\/+/, '');
+        if (typeof window !== 'undefined' && window.location && window.location.protocol === 'file:') {
+            return clean;
+        }
+        const base = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : '';
+        return base ? `${base}/${clean}` : clean;
+    }
+
+    function resolveOfficialAvatar(courierObj) {
+        if (!courierObj) return '';
+        const norm = resolveCourierProfile(
+            courierObj.email || courierObj.canonicalId || courierObj.name || courierObj.id,
+            courierObj.uid || courierObj.id
+        );
+        // Master list photo is the official source of truth
+        if (norm && norm.avatar && !norm.avatar.includes('ui-avatars.com')) {
+            return norm.avatar;
+        }
+        if (courierObj.avatar && !courierObj.avatar.includes('ui-avatars.com')) {
+            return courierObj.avatar;
+        }
+        return (norm && norm.avatar) || courierObj.avatar || '';
+    }
+
+    function updateLoginCourierPreview() {
+        const emailInput = document.getElementById('login-input-email');
+        const previewWrap = document.getElementById('login-courier-preview');
+        const previewAvatar = document.getElementById('login-preview-avatar');
+        const previewName = document.getElementById('login-preview-name');
+        const previewRole = document.getElementById('login-preview-role');
+        if (!emailInput || !previewWrap) return;
+
+        const val = emailInput.value.trim();
+        if (!val || val.length < 2) {
+            previewWrap.classList.add('d-none');
+            previewWrap.classList.remove('d-flex');
+            return;
+        }
+
+        const profile = resolveCourierProfile(val);
+        if (profile && profile.canonicalId && profile.canonicalId !== 'kurir') {
+            const officialAvatar = resolveOfficialAvatar(profile);
+            const avatarUrl = getNormalizedAvatarUrl(officialAvatar || profile.avatar, profile.name);
+            if (previewAvatar) {
+                previewAvatar.src = avatarUrl;
+                previewAvatar.onerror = function() {
+                    this.onerror = null;
+                    this.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name)}&background=FF471D&color=fff`;
+                };
+            }
+            if (previewName) previewName.innerText = profile.name;
+            if (previewRole) previewRole.innerText = `${profile.role || 'Kurir'} • Wellen Print`;
+            previewWrap.classList.remove('d-none');
+            previewWrap.classList.add('d-flex');
+        } else {
+            previewWrap.classList.add('d-none');
+            previewWrap.classList.remove('d-flex');
+        }
     }
 
     // State Kurir Aktif
@@ -2573,7 +2649,23 @@
                 const parsed = JSON.parse(raw);
                 if (parsed && (parsed.name || parsed.id || parsed.email || parsed.canonicalId)) {
                     const resolved = resolveCourierProfile(parsed.email || parsed.canonicalId || parsed.name || parsed.id, parsed.uid || parsed.id);
-                    currentCourier = { ...resolved, ...parsed, uid: resolved.uid, canonicalId: resolved.canonicalId, name: resolved.name, role: resolved.role, vehicleType: resolved.vehicleType };
+                    const officialAvatar = resolveOfficialAvatar(resolved || parsed);
+
+                    currentCourier = {
+                        ...parsed,
+                        ...resolved,
+                        uid: (resolved && resolved.uid) || parsed.uid || parsed.id,
+                        canonicalId: (resolved && resolved.canonicalId) || parsed.canonicalId,
+                        name: (resolved && resolved.name) || parsed.name,
+                        role: (resolved && resolved.role) || parsed.role,
+                        vehicleType: (resolved && resolved.vehicleType) || parsed.vehicleType,
+                        avatar: officialAvatar || (resolved && resolved.avatar) || parsed.avatar
+                    };
+
+                    // Persist updated profile & official photo so future loads immediately have the latest photo
+                    try {
+                        localStorage.setItem('wtrack_saved_courier', JSON.stringify(currentCourier));
+                    } catch (_) {}
                     return true;
                 }
             }
@@ -2582,6 +2674,10 @@
     }
 
     function completeCourierLogin(profile, keepSignedIn) {
+        const officialAvatar = resolveOfficialAvatar(profile);
+        if (officialAvatar) {
+            profile.avatar = officialAvatar;
+        }
         currentCourier = profile;
         if (keepSignedIn) {
             localStorage.setItem('wtrack_saved_courier', JSON.stringify(currentCourier));
@@ -2610,12 +2706,19 @@
         showToast("Memproses login...");
 
         const resolvedProfile = resolveCourierProfile(email);
+        const officialAvatar = resolveOfficialAvatar(resolvedProfile);
+        if (officialAvatar) resolvedProfile.avatar = officialAvatar;
 
         if (typeof firebase !== 'undefined' && firebase.auth && email.includes('@') && pass.length >= 6) {
             firebase.auth().signInWithEmailAndPassword(email, pass).then(cred => {
                 const u = cred.user;
                 const finalProfile = resolveCourierProfile(email, u.uid);
-                if (u.photoURL) finalProfile.avatar = u.photoURL;
+                const masterPhoto = resolveOfficialAvatar(finalProfile);
+                if (masterPhoto) {
+                    finalProfile.avatar = masterPhoto;
+                } else if (u.photoURL) {
+                    finalProfile.avatar = u.photoURL;
+                }
                 completeCourierLogin(finalProfile, keepSignedIn);
             }).catch(() => {
                 completeCourierLogin(resolvedProfile, keepSignedIn);
@@ -2633,7 +2736,12 @@
             firebase.auth().signInWithPopup(provider).then(res => {
                 const u = res.user;
                 const profile = resolveCourierProfile(u.email || u.displayName || 'Kurir', u.uid);
-                if (u.photoURL) profile.avatar = u.photoURL;
+                const masterPhoto = resolveOfficialAvatar(profile);
+                if (masterPhoto) {
+                    profile.avatar = masterPhoto;
+                } else if (u.photoURL) {
+                    profile.avatar = u.photoURL;
+                }
                 completeCourierLogin(profile, true);
             }).catch(() => {
                 completeCourierLogin(resolveCourierProfile('pbseventeensc@gmail.com'), true);
@@ -2647,7 +2755,8 @@
         const avatarEl = document.getElementById('logout-modal-avatar');
         const infoEl = document.getElementById('logout-modal-user-info');
         if (avatarEl && currentCourier) {
-            avatarEl.src = currentCourier.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentCourier.name || 'Kurir')}&background=FF471D&color=fff`;
+            const officialAvatar = resolveOfficialAvatar(currentCourier);
+            avatarEl.src = getNormalizedAvatarUrl(officialAvatar || currentCourier.avatar, currentCourier.name);
             avatarEl.onerror = () => {
                 avatarEl.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(currentCourier.name || 'Kurir')}&background=FF471D&color=fff`;
             };
@@ -2730,8 +2839,16 @@
         updateDynamicGreeting();
         const avatarEl = document.getElementById('home-courier-avatar');
         const nameEl = document.getElementById('home-courier-name');
+
+        const officialAvatar = resolveOfficialAvatar(currentCourier);
+        if (officialAvatar) {
+            currentCourier.avatar = officialAvatar;
+        }
+
+        const normalizedAvatar = getNormalizedAvatarUrl(currentCourier.avatar, currentCourier.name);
+
         if (avatarEl) {
-            avatarEl.src = currentCourier.avatar;
+            avatarEl.src = normalizedAvatar;
             avatarEl.onerror = () => {
                 avatarEl.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(currentCourier.name)}&background=FF471D&color=fff`;
             };
@@ -3088,7 +3205,8 @@
         const nameEl = document.getElementById('wa-card-courier-name');
         const roleEl = document.getElementById('wa-card-courier-role');
         if (avatarEl) {
-            avatarEl.src = currentCourier.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(cName)}&background=FF471D&color=fff`;
+            const officialAvatar = resolveOfficialAvatar(currentCourier);
+            avatarEl.src = getNormalizedAvatarUrl(officialAvatar || currentCourier.avatar, cName);
             avatarEl.onerror = () => {
                 avatarEl.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(cName)}&background=FF471D&color=fff`;
             };
@@ -4710,9 +4828,18 @@
         initAdminTrackingConfigListener();
         updateGpsUi();
 
+        const emailInput = document.getElementById('login-input-email');
+        if (emailInput) {
+            emailInput.addEventListener('input', updateLoginCourierPreview);
+            emailInput.addEventListener('change', updateLoginCourierPreview);
+        }
+
         const hasSession = loadSavedSession();
         if (!hasSession) {
             navigateToScreen('login');
+            if (emailInput && emailInput.value) {
+                updateLoginCourierPreview();
+            }
         } else {
             applyCourierProfile();
             syncLocalImportedTrips();
