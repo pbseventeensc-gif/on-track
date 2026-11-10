@@ -224,17 +224,7 @@
         }
 
         function renderTriggerContent(triggerBtn, sel) {
-            const textEl = triggerBtn.querySelector('.wtrack-select-text');
-            if (!textEl) return;
-            const selectedOpt = sel.options && sel.selectedIndex >= 0 ? sel.options[sel.selectedIndex] : null;
-            const labelText = getSelectedOptionText(sel);
-            const avatarUrl = resolveOptionAvatar(selectedOpt);
-            if (avatarUrl) {
-                const cleanName = labelText.replace(/"/g, '&quot;');
-                textEl.innerHTML = `<span class="d-inline-flex align-items-center gap-2"><img src="${avatarUrl}" alt="" style="width:20px;height:20px;border-radius:50%;object-fit:cover;flex-shrink:0;border:1px solid #cbd5e1;" onerror="this.src='https://ui-avatars.com/api/?name='+encodeURIComponent('${cleanName}')+'&background=0F172A&color=fff'"><span>${labelText}</span></span>`;
-            } else {
-                textEl.textContent = labelText;
-            }
+            updateTriggerTextWithAvatar(sel, triggerBtn);
         }
 
         function selectOption(opt) {
@@ -465,16 +455,53 @@
                 }
             }
         }
+
+        const curAvatar = textEl.dataset.wtrackAvatar || '';
+        const curLabel = textEl.dataset.wtrackLabel || '';
+        if (curAvatar === avatarUrl && curLabel === labelText) {
+            return; // Cache hit: prevents unnecessary DOM rebuild and eliminates image flicker
+        }
+
+        textEl.dataset.wtrackAvatar = avatarUrl;
+        textEl.dataset.wtrackLabel = labelText;
+
         if (avatarUrl) {
-            const cleanName = labelText.replace(/"/g, '&quot;');
-            const newHtml = `<span class="d-inline-flex align-items-center gap-2"><img src="${avatarUrl}" alt="" style="width:20px;height:20px;border-radius:50%;object-fit:cover;flex-shrink:0;border:1px solid #cbd5e1;" onerror="this.src='https://ui-avatars.com/api/?name='+encodeURIComponent('${cleanName}')+'&background=0F172A&color=fff'"><span>${labelText}</span></span>`;
-            if (textEl.innerHTML !== newHtml) {
-                textEl.innerHTML = newHtml;
+            let wrapper = textEl.querySelector('.wtrack-avatar-wrapper');
+            let img = textEl.querySelector('img.wtrack-avatar-img');
+            let span = textEl.querySelector('.wtrack-avatar-label');
+
+            if (!wrapper || !img || !span) {
+                textEl.innerHTML = '';
+                wrapper = document.createElement('span');
+                wrapper.className = 'wtrack-avatar-wrapper d-inline-flex align-items-center gap-2';
+
+                img = document.createElement('img');
+                img.className = 'wtrack-avatar-img';
+                img.alt = '';
+                img.style.cssText = 'width:20px;height:20px;border-radius:50%;object-fit:cover;flex-shrink:0;border:1px solid #cbd5e1;';
+
+                span = document.createElement('span');
+                span.className = 'wtrack-avatar-label';
+
+                wrapper.appendChild(img);
+                wrapper.appendChild(span);
+                textEl.appendChild(wrapper);
+            }
+
+            const cleanName = labelText.replace(/"/g, '');
+            img.onerror = function() {
+                this.onerror = null;
+                this.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(cleanName)}&background=0F172A&color=fff`;
+            };
+            if (img.getAttribute('src') !== avatarUrl) {
+                img.src = avatarUrl;
+            }
+            if (span.textContent !== labelText) {
+                span.textContent = labelText;
             }
         } else {
-            if (textEl.textContent !== labelText) {
-                textEl.textContent = labelText;
-            }
+            textEl.innerHTML = '';
+            textEl.textContent = labelText;
         }
     }
 
