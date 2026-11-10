@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="80" height="80">
+  <defs>
+    <linearGradient id="bgDm2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0284C7"/>
+      <stop offset="100%" stop-color="#0369A1"/>
+    </linearGradient>
+    <linearGradient id="badgeShield" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38BDF8"/>
+      <stop offset="100%" stop-color="#0284C7"/>
+    </linearGradient>
+  </defs>
+  <rect width="80" height="80" rx="40" fill="url(#bgDm2)"/>
+  <!-- User Head -->
+  <circle cx="40" cy="30" r="14" fill="#FFFFFF"/>
+  <!-- User Body / Shoulders -->
+  <path d="M16 66 C16 48 26 44 40 44 C54 44 64 48 64 66 Z" fill="#FFFFFF" opacity="0.95"/>
+  <!-- Traffic Shield / Fast Route Badge -->
+  <circle cx="56" cy="56" r="14" fill="#0F172A" stroke="#38BDF8" stroke-width="2"/>
+  <path d="M52 56 L55 59 L61 53" fill="none" stroke="#38BDF8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

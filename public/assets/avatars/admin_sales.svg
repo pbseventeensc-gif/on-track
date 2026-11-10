@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="80" height="80">
+  <defs>
+    <linearGradient id="bgSales" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8B5CF6"/>
+      <stop offset="100%" stop-color="#6D28D9"/>
+    </linearGradient>
+  </defs>
+  <rect width="80" height="80" rx="40" fill="url(#bgSales)"/>
+  <!-- User Head -->
+  <circle cx="40" cy="30" r="14" fill="#FFFFFF"/>
+  <!-- User Body / Shoulders -->
+  <path d="M16 66 C16 48 26 44 40 44 C54 44 64 48 64 66 Z" fill="#FFFFFF" opacity="0.95"/>
+  <!-- Sales / Chart Badge -->
+  <circle cx="56" cy="56" r="14" fill="#4C1D95" stroke="#A78BFA" stroke-width="2"/>
+  <path d="M49 60 L53 55 L57 58 L63 51" fill="none" stroke="#A78BFA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

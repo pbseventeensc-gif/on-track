@@ -1574,6 +1574,21 @@ function getRoleDisplayName(role) {
     return 'Super Admin';
 }
 
+function getRoleAvatarUrl(role, name) {
+    const r = (role || currentUserRole || '').toLowerCase();
+    if (r === 'admin_dm2' || r === 'dm2' || r === 'admintrafficdm2' || r === 'traffic_dm2' || r.includes('dm2') || r.includes('traffic')) {
+        return '/assets/avatars/admin_dm2.svg';
+    }
+    if (r === 'branch_admin' || r === 'branch' || r.includes('cikokol') || r.includes('cabang')) {
+        return '/assets/avatars/admin_branch.svg';
+    }
+    if (r === 'sales_admin' || r === 'sales') {
+        return '/assets/avatars/admin_sales.svg';
+    }
+    return '/assets/avatars/admin_super.svg';
+}
+window.getRoleAvatarUrl = getRoleAvatarUrl;
+
 function isTabAllowedForRole(role, viewId) {
     if (!role) return false;
     const r = String(role).toLowerCase();
@@ -5989,11 +6004,16 @@ function loginAsLocalDemoAdmin() {
     const mainWrapper = document.getElementById('main-wrapper');
     const profileName = document.getElementById('profile-name');
     const profileRole = document.getElementById('profile-role');
+    const profileAvatar = document.getElementById('profile-avatar');
 
     if (loginScreen) loginScreen.style.setProperty('display', 'none', 'important');
     if (mainWrapper) mainWrapper.style.setProperty('display', 'flex', 'important');
     if (profileName) profileName.innerText = 'Super Admin';
     if (profileRole) profileRole.innerHTML = `<span class="d-inline-flex align-items-center gap-1" style="color: #10B981; font-weight: 500;"><span style="width: 5px; height: 5px; border-radius: 50%; background: #10B981; display: inline-block;"></span>Online</span>`;
+    if (profileAvatar) {
+        profileAvatar.onerror = null;
+        profileAvatar.src = getRoleAvatarUrl('super_admin');
+    }
 
     applyRoleAccessControl();
     if (typeof updateGlobalStats === 'function') updateGlobalStats();
@@ -6064,6 +6084,7 @@ function initAuthListener() {
 
                         const profileName = document.getElementById('profile-name');
                         const profileRole = document.getElementById('profile-role');
+                        const profileAvatar = document.getElementById('profile-avatar');
 
                         const roleDisplayName = getRoleDisplayName(currentUserRole);
                         let nameText = uData.name;
@@ -6079,6 +6100,27 @@ function initAuthListener() {
                                 profileRole.innerHTML = `<span class="d-inline-flex align-items-center gap-1" style="color: #10B981; font-weight: 500;"><span style="width: 5px; height: 5px; border-radius: 50%; background: #10B981; display: inline-block;"></span>${roleDisplayName}</span>`;
                             }
                         }
+
+                        const targetAvatar = getRoleAvatarUrl(currentUserRole, nameText);
+                        if (profileAvatar) {
+                            profileAvatar.onerror = function() {
+                                this.onerror = null;
+                                this.src = '/assets/avatars/admin_super.svg';
+                            };
+                            if (profileAvatar.getAttribute('src') !== targetAvatar) {
+                                profileAvatar.src = targetAvatar;
+                            }
+                        }
+
+                        try {
+                            localStorage.setItem('wtrack_cached_user_profile', JSON.stringify({
+                                role: currentUserRole,
+                                branchId: currentUserBranchId,
+                                name: nameText,
+                                roleDisplayName: roleDisplayName,
+                                avatar: targetAvatar
+                            }));
+                        } catch(e) {}
 
                         if (!doc.exists || !doc.data().role) {
                             currentDb.collection('users').doc(user.uid).set({
@@ -6113,6 +6155,7 @@ initAuthListener();
 function handleLogout() {
     if (confirm("Sign out dari dashboard?")) {
         window.isDemoMode = false;
+        try { localStorage.removeItem('wtrack_cached_user_profile'); } catch(e) {}
         const loginScreen = document.getElementById('login-screen');
         const mainWrapper = document.getElementById('main-wrapper');
         if (loginScreen) loginScreen.style.setProperty('display', 'flex', 'important');

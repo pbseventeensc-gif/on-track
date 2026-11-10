@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="80" height="80">
+  <defs>
+    <linearGradient id="bgBranch" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10B981"/>
+      <stop offset="100%" stop-color="#047857"/>
+    </linearGradient>
+  </defs>
+  <rect width="80" height="80" rx="40" fill="url(#bgBranch)"/>
+  <!-- User Head -->
+  <circle cx="40" cy="30" r="14" fill="#FFFFFF"/>
+  <!-- User Body / Shoulders -->
+  <path d="M16 66 C16 48 26 44 40 44 C54 44 64 48 64 66 Z" fill="#FFFFFF" opacity="0.95"/>
+  <!-- Branch / Building Badge -->
+  <circle cx="56" cy="56" r="14" fill="#064E3B" stroke="#34D399" stroke-width="2"/>
+  <path d="M50 61 L50 51 L56 48 L62 51 L62 61 Z M53 54 L55 54 M57 54 L59 54 M53 57 L55 57 M57 57 L59 57" fill="none" stroke="#34D399" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
