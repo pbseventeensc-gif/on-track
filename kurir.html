@@ -26,6 +26,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 
     <style>
         :root {
@@ -2157,6 +2158,7 @@
     };
 
     let firestoreDb = null;
+    let firebaseStorage = null;
     let tripsUnsubscribe = null;
     try {
         if (typeof firebase !== 'undefined') {
@@ -2179,9 +2181,33 @@
             if (firebase.firestore) {
                 firestoreDb = firebase.firestore();
             }
+            if (firebase.storage) {
+                firebaseStorage = firebase.storage();
+            }
         }
     } catch(err) {
         console.warn("Firebase init note:", err);
+    }
+
+    async function uploadProofPhotoOnline(dataUrl, folder = 'proofs') {
+        if (!dataUrl) return '';
+        if (typeof dataUrl !== 'string') return '';
+        const clean = dataUrl.trim();
+        if (clean.startsWith('http://') || clean.startsWith('https://')) return clean;
+        if (clean.startsWith('data:image/svg+xml')) return clean;
+
+        if (firebaseStorage && clean.startsWith('data:image/')) {
+            try {
+                const fileName = `POD_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.jpg`;
+                const storageRef = firebaseStorage.ref().child(`${folder}/${fileName}`);
+                const snap = await storageRef.putString(clean, 'data_url');
+                const downloadUrl = await snap.ref.getDownloadURL();
+                if (downloadUrl) return downloadUrl;
+            } catch (err) {
+                console.warn("Firebase Storage upload fallback:", err);
+            }
+        }
+        return clean;
     }
 
     function initAdminTrackingConfigListener() {
@@ -2255,9 +2281,9 @@
                         }
 
                         const hasProof = hasRealProofPhoto(dest) || (dests.length === 1 && hasRealProofPhoto(t));
-                        const isExplicitDone = dest.status === 'done' || dest.status === 'completed';
+                        const isExplicitDone = dest.status === 'done' || dest.status === 'completed' || !!dest.completedTime;
                         const isTripDone = (t.status === 'completed' || t.status === 'done');
-                        const isDone = (hasProof && (isExplicitDone || isTripDone)) || (isTripDone && dests.length === 1 && !dest.pendingReason && (dest.completedTime || t.completedAt));
+                        const isDone = isExplicitDone || hasProof || (isTripDone && !dest.pendingReason);
                         const pendingReasonVal = dest.pendingReason || t.pendingReason || '';
                         const pendingPhotoVal = dest.pendingProofPhotoUrl || t.pendingProofPhotoUrl || '';
                         const isPendingReported = !isDone && (dest.status === 'pending_approval' || dest.status === 'klien_tutup' || !!pendingReasonVal);
@@ -4064,13 +4090,18 @@
         const canvas = document.getElementById('proof-camera-canvas');
         if (!video || !canvas) return;
 
-        const w = video.videoWidth || 800;
-        const h = video.videoHeight || 600;
+        const maxDim = 800;
+        let w = video.videoWidth || 800;
+        let h = video.videoHeight || 600;
+        if (w > maxDim) {
+            h = Math.round((h * maxDim) / w);
+            w = maxDim;
+        }
         canvas.width = w;
         canvas.height = h;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(video, 0, 0, w, h);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
 
         applyCapturedPhotoDataUrl(dataUrl, activeCameraTarget.previewId, activeCameraTarget.boxId);
         closeLiveCameraModal();
@@ -4294,7 +4325,7 @@
         }
     }
 
-    function compressImageFileToDataUrl(file, maxWidth = 1000, quality = 0.65) {
+    function compressImageFileToDataUrl(file, maxWidth = 800, quality = 0.6) {
         return new Promise((resolve) => {
             if (!file) return resolve('');
             const reader = new FileReader();
@@ -4366,15 +4397,28 @@
         const originalBtnHtml = btnSubmit ? btnSubmit.innerHTML : 'Konfirmasi Pengantaran';
         if (btnSubmit) {
             btnSubmit.disabled = true;
-            btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Menyimpan ke Admin...';
+            btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Menyimpan Bukti ke Cloud...';
+        }
+
+        let savedSJPhoto = finalSJPhoto;
+        let savedBarangPhoto = finalBarangPhoto;
+        try {
+            if (finalSJPhoto && !finalSJPhoto.startsWith('data:image/svg')) {
+                savedSJPhoto = await uploadProofPhotoOnline(finalSJPhoto, 'proofs_sj');
+            }
+            if (finalBarangPhoto && !finalBarangPhoto.startsWith('data:image/svg')) {
+                savedBarangPhoto = await uploadProofPhotoOnline(finalBarangPhoto, 'proofs_item');
+            }
+        } catch (uploadErr) {
+            console.warn("Storage upload err, fallback to inline photo:", uploadErr);
         }
 
         const target = masterShipments.find(s => s.id === currentUploadTripId);
         const nowIso = new Date().toISOString();
         if (target) {
             target.status = 'delivered';
-            target.proofSJUrl = finalSJPhoto;
-            target.proofPhotoUrl = finalBarangPhoto;
+            target.proofSJUrl = savedSJPhoto;
+            target.proofPhotoUrl = savedBarangPhoto;
             target.completedAt = nowIso;
         }
 
@@ -4394,8 +4438,8 @@
                         if (destMatch) {
                             destMatch.status = 'done';
                             destMatch.completedTime = nowIso;
-                            destMatch.proofPhotoUrl = finalBarangPhoto;
-                            destMatch.proofPhotoSj = finalSJPhoto;
+                            destMatch.proofPhotoUrl = savedBarangPhoto;
+                            destMatch.proofPhotoSj = savedSJPhoto;
                         }
                         const allLocalDone = found.destinations.every(d => d.status === 'done' || d.status === 'completed');
                         if (allLocalDone) {
@@ -4459,9 +4503,9 @@
                                 ...d,
                                 status: 'done',
                                 completedTime: firebase.firestore.Timestamp.now(),
-                                proofPhotoUrl: finalBarangPhoto,
-                                proofPhotoSj: finalSJPhoto,
-                                proofPhotoItems: [finalBarangPhoto]
+                                proofPhotoUrl: savedBarangPhoto,
+                                proofPhotoSj: savedSJPhoto,
+                                proofPhotoItems: [savedBarangPhoto]
                             };
                         }
                         const dDone = (d.status === 'done' || d.status === 'completed' || (Array.isArray(d.proofPhotoItems) && d.proofPhotoItems.length > 0) || d.proofPhotoUrl || d.proofPhotoSj);
@@ -4513,9 +4557,9 @@
                             noSJ: cleanSJ,
                             status: 'done',
                             completedTime: firebase.firestore.Timestamp.now(),
-                            proofPhotoUrl: finalBarangPhoto,
-                            proofPhotoSj: finalSJPhoto,
-                            proofPhotoItems: [finalBarangPhoto]
+                            proofPhotoUrl: savedBarangPhoto,
+                            proofPhotoSj: savedSJPhoto,
+                            proofPhotoItems: [savedBarangPhoto]
                         }]
                     }, { merge: true });
                 }
@@ -4571,6 +4615,15 @@
             const confirmedModal = bootstrap.Modal.getInstance(confirmedModalEl);
             if (confirmedModal) confirmedModal.hide();
         }
+        if (currentUploadTripId) {
+            const foundTarget = masterShipments.find(s => s.id === currentUploadTripId || s.rootTripId === currentUploadTripId);
+            if (foundTarget) {
+                foundTarget.status = 'delivered';
+                if (!foundTarget.completedAt) foundTarget.completedAt = new Date().toISOString();
+            }
+        }
+        renderHomeScreen();
+        renderShipmentsScreen();
         navigateToScreen('shipments');
     }
 
@@ -4580,7 +4633,15 @@
             const confirmedModal = bootstrap.Modal.getInstance(confirmedModalEl);
             if (confirmedModal) confirmedModal.hide();
         }
-
+        if (currentUploadTripId) {
+            const foundTarget = masterShipments.find(s => s.id === currentUploadTripId || s.rootTripId === currentUploadTripId);
+            if (foundTarget) {
+                foundTarget.status = 'delivered';
+                if (!foundTarget.completedAt) foundTarget.completedAt = new Date().toISOString();
+            }
+        }
+        renderHomeScreen();
+        renderShipmentsScreen();
         navigateToScreen('home');
         showToast("✅ Pengantaran berhasil diselesaikan!");
     }
