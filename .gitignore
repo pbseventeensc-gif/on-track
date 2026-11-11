@@ -16,3 +16,8 @@ local.properties
 .vercel
 scratch/
 venv_pptx/
+.artifacts/firebase-security-*/
+firebase-debug.log*
+database-debug.log*
+node_modules/
+.env*

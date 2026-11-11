@@ -42,7 +42,6 @@ window.getCourierColor = function(id, optName = '') {
     if (checkStr.includes('ferdi')) return '#059669'; // Emerald
     if (checkStr.includes('jagat') || checkStr.includes('jagad') || checkStr.includes('3lhr')) return '#C026D3'; // Fuchsia
     if (checkStr.includes('pbseven') || checkStr.includes('up70')) return '#14B8A6'; // Light Teal
-    if (checkStr.includes('erwin') || checkStr.includes('ncgw')) return '#0284C7'; // Sky Blue
 
     // Driver (9 Personil)
     if (checkStr.includes('rizki')) return '#7C3AED'; // Violet

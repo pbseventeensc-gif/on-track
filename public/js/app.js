@@ -200,7 +200,6 @@ const MASTER_COURIERS = [
     { canonicalId: 'ferdi', displayName: 'Ferdi', role: 'kurir', vehicleType: 'motor', defaultUid: 'BOMM2Wmk9LXs90qO3RWskGyIOk72', matchTokens: ['ferdi', 'fredisambo1', 'fredisambo', 'bomm2'] },
     { canonicalId: 'jagat', displayName: 'Jagatbaru', role: 'kurir', vehicleType: 'motor', defaultUid: 'kwpGbShXoog9kFiRmevZpwTgVxv2', matchTokens: ['jagat', 'jagad', 'jagatbaru', 'jagatbaru1', 'jagadbaru', 'jagadbaru1', '3lhr', 'kwpgb'] },
     { canonicalId: 'pbseventeensc', displayName: 'pbseventeensc', role: 'kurir', vehicleType: 'motor', defaultUid: 'uP70R51x7CbR5ggHEyeXfsjSTfO2', matchTokens: ['pbseventeensc', 'pbseventensc', 'up70', 'pbseventeensc@gmail.com'] },
-    { canonicalId: 'erwin', displayName: 'Erwin', role: 'kurir', vehicleType: 'motor', defaultUid: 'ncGwEckUAkQFkVKbTBtvAo3PdRG3', matchTokens: ['erwin', 'erwinmotor', 'ncgw'] },
 
     // Driver (9 Personil)
     { canonicalId: 'rizki', displayName: 'Rizki', role: 'driver', vehicleType: 'mobil', defaultUid: 'gz9F6MqupoXEFTpOTJJ1aFjtSD52', matchTokens: ['rizki', 'rizky', 'rizkidriver07', 'gz9f6', 'vdyqr', 'vdyqrzlgiac', 'vdyqrzlgiacifietaeigotpp6fj2'] },
@@ -214,6 +213,48 @@ const MASTER_COURIERS = [
     { canonicalId: 'husen', displayName: 'Husen', role: 'driver', vehicleType: 'mobil', defaultUid: 'juHUuOWS4FOVpHxE59t4xf0ld1z1', matchTokens: ['husen', 'husensuka3', 'husensuka', 'juhu'] }
 ];
 window.MASTER_COURIERS = MASTER_COURIERS;
+const deletedCourierUids = new Set();
+window.isCourierAccountDeleted = uid => deletedCourierUids.has(uid);
+let accountDeletionAllowed = false;
+let accountDeletionCheckedFor = null;
+
+async function checkAccountDeletionPermission() {
+    const user = getAuth()?.currentUser;
+    if (!user || accountDeletionCheckedFor === user.uid) return;
+    accountDeletionCheckedFor = user.uid;
+    accountDeletionAllowed = false;
+    try {
+        const response = await fetch('/api/delete-courier', {headers: {Authorization: `Bearer ${await user.getIdToken()}`}});
+        accountDeletionAllowed = getAuth()?.currentUser?.uid === user.uid && response.ok && (await response.json()).canDelete === true;
+    } catch (_) {}
+    renderManageCouriersList();
+}
+
+async function deleteCourierAccount(button) {
+    const id = button.dataset.id;
+    const name = button.dataset.name;
+    const confirmedName = prompt(`Hapus akun ${name} dari aplikasi dan Firebase? Akun tidak bisa login lagi. Riwayat pengiriman tetap disimpan.\n\nKetik nama "${name}" untuk mengonfirmasi:`);
+    if (confirmedName !== name) return;
+    button.disabled = true;
+    button.textContent = 'Menghapus…';
+    try {
+        const user = getAuth()?.currentUser;
+        if (!user) throw new Error('Silakan login kembali.');
+        const response = await fetch('/api/delete-courier', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', Authorization: `Bearer ${await user.getIdToken(true)}`},
+            body: JSON.stringify({uid: id, confirmName: confirmedName})
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || !result.deleted) throw new Error(result.error || 'Penghapusan belum berhasil. Silakan coba lagi.');
+        showToast(`Akun ${name} berhasil dihapus dari aplikasi dan Firebase.`);
+    } catch (error) {
+        alert(error.message);
+    } finally {
+        renderManageCouriersList();
+    }
+}
+window.deleteCourierAccount = deleteCourierAccount;
 
 const COURIER_FLEET_MAPPING = {
     mobil: MASTER_COURIERS.filter(m => m.vehicleType === 'mobil').map(m => m.canonicalId),
@@ -272,7 +313,6 @@ const COURIER_PHOTO_MAP = {
     'alan': 'https://ui-avatars.com/api/?name=Alan&background=475569&color=fff&bold=true',
     'yakub': 'https://ui-avatars.com/api/?name=Yakub&background=DC2626&color=fff&bold=true',
     'iwan': 'https://ui-avatars.com/api/?name=Iwan&background=65A30D&color=fff&bold=true',
-    'erwin': 'https://ui-avatars.com/api/?name=Erwin&background=0284C7&color=fff&bold=true'
 };
 
 function isEvenPlate(plate) {
@@ -735,7 +775,6 @@ function getCourierColor(id, optName = '') {
     if (checkStr.includes('jay')) return '#4F46E5';
     if (checkStr.includes('ferdi')) return '#059669';
     if (checkStr.includes('jagat') || checkStr.includes('jagad')) return '#C026D3';
-    if (checkStr.includes('erwin')) return '#0284C7';
     if (checkStr.includes('rizki')) return '#7C3AED';
     if (checkStr.includes('soleh')) return '#0891B2';
     if (checkStr.includes('romi')) return '#D946EF';
@@ -2396,6 +2435,31 @@ function initUsersSnapshot() {
         return;
     }
 
+    if (!window.courierDeletionListenerStarted) {
+        window.courierDeletionListenerStarted = true;
+        activeDb.collection('account_deletions').onSnapshot(snapshot => {
+            snapshot.forEach(doc => { if (doc.data().status === 'completed') deletedCourierUids.add(doc.id); });
+            for (let i = MASTER_COURIERS.length - 1; i >= 0; i--) {
+                if (deletedCourierUids.has(MASTER_COURIERS[i].defaultUid) || deletedCourierUids.has(MASTER_COURIERS[i].canonicalId)) MASTER_COURIERS.splice(i, 1);
+            }
+            for (const fleet of Object.values(COURIER_FLEET_MAPPING)) {
+                if (Array.isArray(fleet)) {
+                    for (let i = fleet.length - 1; i >= 0; i--) {
+                        const entry = fleet[i];
+                        if (deletedCourierUids.has(typeof entry === 'string' ? entry : entry.defaultUid)) fleet.splice(i, 1);
+                    }
+                }
+            }
+            for (const uid of deletedCourierUids) {
+                delete registeredUsers[uid];
+                delete registeredUsersObjects[uid];
+            }
+            renderCourierOptions();
+            renderManageCouriersList();
+            if (typeof refreshAllMonitorData === 'function') refreshAllMonitorData();
+        }, error => console.error('Gagal memuat daftar akun dihapus', error));
+    }
+
     // Load instantly from local cache if available
     try {
         const cached = localStorage.getItem('cached_couriers');
@@ -2410,6 +2474,7 @@ function initUsersSnapshot() {
         registeredUsers = {};
         registeredUsersObjects = {};
         snap.forEach(doc => {
+            if (deletedCourierUids.has(doc.id)) return;
             const u = doc.data() || {};
             const uid = doc.id;
             const displayName = u.name || u.email || uid.substring(0,8);
@@ -2441,6 +2506,7 @@ function initUsersSnapshot() {
         });
 
         // Ensure canonical mappings for legacy accounts (e.g. Rizki's previous UID VDyQRzlGiAcIfIetZeiGOtPP6fJ2)
+        if (!deletedCourierUids.has('rizki')) {
         registeredUsers['VDyQRzlGiAcIfIetZeiGOtPP6fJ2'] = 'Rizki';
         registeredUsers['gz9F6MqupoXEFTpOTJJ1aFjtSD52'] = 'Rizki';
         registeredUsers['rizki'] = 'Rizki';
@@ -2455,6 +2521,9 @@ function initUsersSnapshot() {
             };
         }
 
+        }
+
+        if (!deletedCourierUids.has('beto')) {
         registeredUsers['l6fLsN7ijQdq5m2tcUs2xpmMFv63'] = 'Beto';
         registeredUsers['beto'] = 'Beto';
         registeredUsers['betomotor99'] = 'Beto';
@@ -2469,46 +2538,6 @@ function initUsersSnapshot() {
             };
         }
 
-        registeredUsers['ncGwEckUAkQFkVKbTBtvAo3PdRG3'] = 'Erwin';
-        registeredUsers['erwin'] = 'Erwin';
-        if (!registeredUsersObjects['ncGwEckUAkQFkVKbTBtvAo3PdRG3']) {
-            registeredUsersObjects['ncGwEckUAkQFkVKbTBtvAo3PdRG3'] = {
-                name: 'Erwin',
-                email: 'erwin@gmail.com',
-                role: 'kurir',
-                userId: 'ncGwEckUAkQFkVKbTBtvAo3PdRG3',
-                courierId: 'erwin'
-            };
-        }
-
-        if (activeDb) {
-            activeDb.collection('users').doc('l6fLsN7ijQdq5m2tcUs2xpmMFv63').get().then(doc => {
-                if (!doc.exists) {
-                    activeDb.collection('users').doc('l6fLsN7ijQdq5m2tcUs2xpmMFv63').set({
-                        name: 'Beto',
-                        email: 'betomotor99@gmail.com',
-                        role: 'kurir',
-                        vehicleType: 'motor',
-                        userId: 'l6fLsN7ijQdq5m2tcUs2xpmMFv63',
-                        courierId: 'beto',
-                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                    }, { merge: true }).catch(() => {});
-                }
-            }).catch(() => {});
-
-            activeDb.collection('users').doc('ncGwEckUAkQFkVKbTBtvAo3PdRG3').get().then(doc => {
-                if (!doc.exists) {
-                    activeDb.collection('users').doc('ncGwEckUAkQFkVKbTBtvAo3PdRG3').set({
-                        name: 'Erwin',
-                        email: 'erwin@gmail.com',
-                        role: 'kurir',
-                        vehicleType: 'motor',
-                        userId: 'ncGwEckUAkQFkVKbTBtvAo3PdRG3',
-                        courierId: 'erwin',
-                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                    }, { merge: true }).catch(() => {});
-                }
-            }).catch(() => {});
         }
 
         // Save to cache
@@ -2529,6 +2558,7 @@ function renderManageCouriersList() {
     const container = document.getElementById('manage-couriers-container');
     if (!container) return;
     container.innerHTML = '';
+    checkAccountDeletionPermission();
 
     const sortedCouriers = [...MASTER_COURIERS].sort((a, b) => a.displayName.localeCompare(b.displayName, undefined, { sensitivity: 'base' }));
 
@@ -2548,9 +2578,14 @@ function renderManageCouriersList() {
                         <div class="extra-small text-muted" style="font-size:0.65rem;">ID: ${id.substring(0,8)}...</div>
                     </div>
                 </div>
+                <div class="d-flex gap-2">
                 <button class="btn btn-sm btn-outline-primary fw-semibold" data-id="${id}" data-name="${name.replace(/"/g, '&quot;')}" onclick="promptEditCourierName(this.dataset.id, this.dataset.name)">
                     <i class="bi bi-pencil me-1"></i> Edit Nama
                 </button>
+                <button class="btn btn-sm btn-outline-danger fw-semibold" data-id="${id}" data-name="${name.replace(/"/g, '&quot;')}" onclick="deleteCourierAccount(this)" ${accountDeletionAllowed ? '' : 'disabled'} title="${accountDeletionAllowed ? 'Hapus akun dari aplikasi dan Firebase' : 'Penghapusan akun belum tersedia untuk sesi ini'}">
+                    <i class="bi bi-trash me-1"></i> Hapus Akun
+                </button>
+                </div>
             </div>
         `;
     });
@@ -3369,7 +3404,7 @@ window.setMonitorCategoryTab = function(tab) {
 
 function getPersonilCategory(cId, cName) {
     const checkStr = (String(cName || '') + ' ' + String(cId || '')).toLowerCase();
-    const kurirTokens = ['ahmad', 'beto', 'eri', 'irfan', 'baihaqi', 'baikaqi', 'bayhaqi', 'haris', 'umar', 'noval', 'jay', 'ferdi', 'jagat', 'jagad', 'pbseventeensc', 'erwin'];
+    const kurirTokens = ['ahmad', 'beto', 'eri', 'irfan', 'baihaqi', 'baikaqi', 'bayhaqi', 'haris', 'umar', 'noval', 'jay', 'ferdi', 'jagat', 'jagad', 'pbseventeensc'];
     const driverTokens = ['rizki', 'soleh', 'romi', 'firdaus', 'alan', 'yakub', 'iwan', 'agung', 'husen', 'juhu'];
 
     if (driverTokens.some(d => checkStr.includes(d))) return 'driver';
@@ -6035,6 +6070,7 @@ function initAuthListener() {
             const mainWrapper = document.getElementById('main-wrapper');
 
             if (user) {
+                checkAccountDeletionPermission();
                 if (loginScreen) loginScreen.style.setProperty('display', 'none', 'important');
                 if (mainWrapper) mainWrapper.style.setProperty('display', 'flex', 'important');
 
@@ -6141,6 +6177,8 @@ function initAuthListener() {
                     if (typeof mapDispatch !== 'undefined' && mapDispatch && typeof mapDispatch.invalidateSize === 'function') mapDispatch.invalidateSize();
                 }, 300);
             } else {
+                accountDeletionAllowed = false;
+                accountDeletionCheckedFor = null;
                 if (loginScreen) loginScreen.style.setProperty('display', 'flex', 'important');
                 if (mainWrapper) mainWrapper.style.setProperty('display', 'none', 'important');
             }
