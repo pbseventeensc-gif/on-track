@@ -236,7 +236,8 @@ async function deleteCourierAccount(button) {
     const confirmedName = prompt(`Hapus akun ${name} dari aplikasi dan Firebase? Akun tidak bisa login lagi. Riwayat pengiriman tetap disimpan.\n\nKetik nama "${name}" untuk mengonfirmasi:`);
     if (confirmedName !== name) return;
     button.disabled = true;
-    button.textContent = 'Menghapus…';
+    button.innerHTML = '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span>';
+    button.setAttribute('aria-label', 'Menghapus akun');
     try {
         const user = getAuth()?.currentUser;
         if (!user) throw new Error('Silakan login kembali.');
@@ -2579,11 +2580,11 @@ function renderManageCouriersList() {
                     </div>
                 </div>
                 <div class="d-flex gap-2">
-                <button class="btn btn-sm btn-outline-primary fw-semibold" data-id="${id}" data-name="${name.replace(/"/g, '&quot;')}" onclick="promptEditCourierName(this.dataset.id, this.dataset.name)">
-                    <i class="bi bi-pencil me-1"></i> Edit Nama
+                <button class="btn btn-sm btn-outline-primary" data-id="${id}" data-name="${name.replace(/"/g, '&quot;')}" onclick="promptEditCourierName(this.dataset.id, this.dataset.name)" title="Edit nama" aria-label="Edit nama">
+                    <i class="bi bi-pencil" aria-hidden="true"></i>
                 </button>
-                <button class="btn btn-sm btn-outline-danger fw-semibold" data-id="${id}" data-name="${name.replace(/"/g, '&quot;')}" onclick="deleteCourierAccount(this)" ${accountDeletionAllowed ? '' : 'disabled'} title="${accountDeletionAllowed ? 'Hapus akun dari aplikasi dan Firebase' : 'Penghapusan akun belum tersedia untuk sesi ini'}">
-                    <i class="bi bi-trash me-1"></i> Hapus Akun
+                <button class="btn btn-sm btn-outline-danger" data-id="${id}" data-name="${name.replace(/"/g, '&quot;')}" onclick="deleteCourierAccount(this)" ${accountDeletionAllowed ? '' : 'disabled'} title="${accountDeletionAllowed ? 'Hapus akun dari aplikasi dan Firebase' : 'Penghapusan akun belum tersedia untuk sesi ini'}" aria-label="Hapus akun">
+                    <i class="bi bi-trash" aria-hidden="true"></i>
                 </button>
                 </div>
             </div>
