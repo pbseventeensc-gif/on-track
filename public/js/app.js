@@ -4968,6 +4968,64 @@ async function submitManualUploadPhoto() {
     }
 }
 
+function resolveDestinationRegion(destination = {}) {
+    const normalize = value => typeof value === 'string'
+        ? value.toLowerCase().replace(/[^a-z0-9\s,]/g, ' ').replace(/\s+/g, ' ').trim() : '';
+    const address = normalize(destination.address || destination.fullAddress || destination.formattedAddress);
+    const jakarta = [
+        ['Jakarta Pusat', /\b(?:(?:jakarta|jkt|jak)\s*(?:pusat|pst)|jakpus|central jakarta)\b/],
+        ['Jakarta Selatan', /\b(?:(?:jakarta|jkt|jak)\s*(?:selatan|sel)|jaksel|south jakarta)\b/],
+        ['Jakarta Barat', /\b(?:(?:jakarta|jkt|jak)\s*(?:barat|bar)|jakbar|west jakarta)\b/],
+        ['Jakarta Timur', /\b(?:(?:jakarta|jkt|jak)\s*(?:timur|tim)|jaktim|east jakarta)\b/],
+        ['Jakarta Utara', /\b(?:(?:jakarta|jkt|jak)\s*(?:utara|ut)|jakut|north jakarta)\b/]
+    ];
+    const cities = [
+        ...jakarta,
+        ['Bekasi', /\b(?:bekasi|bks)\b/], ['Tangerang', /\b(?:tangerang|tangsel)\b/],
+        ['Depok', /\bdepok\b/], ['Bogor', /\bbogor\b/], ['Karawang', /\bkarawang\b/],
+        ['Cilegon', /\bcilegon\b/], ['Serang', /\bserang\b/], ['Bandung', /\bbandung\b/],
+        ['Cikarang', /\b(?:cikarang|jababeka|deltamas)\b/]
+    ];
+    const find = text => cities.find(([, pattern]) => pattern.test(text))?.[0];
+    const operationalRegion = region => region === 'Bekasi' && /\b(?:cikarang|jababeka|deltamas)\b/.test(address)
+        ? 'Cikarang' : region;
+
+    // Prefer the destination municipality over city names inside street/shop names.
+    const municipalities = [...address.matchAll(/\b(?:kota(?: administrasi)?|kabupaten|kab)\s+([^,]+)/g)];
+    for (const match of municipalities.reverse()) {
+        const region = find(match[1]);
+        if (region) return operationalRegion(region);
+        // Other explicitly named Indonesian cities/regencies remain usable in reports.
+        const name = match[1].split(/\b(?:kec|kecamatan|jawa|banten|indonesia)\b|\d/)[0].trim();
+        if (name && name.split(' ').length <= 3) return name.replace(/\b\w/g, char => char.toUpperCase());
+    }
+    const explicitRegion = find(address);
+    if (explicitRegion) return operationalRegion(explicitRegion);
+
+    // Only qualified district names: 'Utara' or 'Barat' alone is not Jakarta.
+    const districts = [
+        ['Jakarta Pusat', /\b(?:gambir|menteng|senen|tanah abang|kemayoran|cempaka putih|johar baru|sawah besar)\b/],
+        ['Jakarta Selatan', /\b(?:kebayoran baru|kebayoran lama|cilandak|tebet|mampang prapatan|pasar minggu|pesanggrahan|jagakarsa|setiabudi|pancoran)\b/],
+        ['Jakarta Barat', /\b(?:cengkareng|grogol petamburan|kalideres|kebon jeruk|kembangan|palmerah|taman sari|tambora)\b/],
+        ['Jakarta Timur', /\b(?:cakung|ciracas|duren sawit|jatinegara|kramat jati|makasar|matraman|pasar rebo|pulo gadung|pulogadung)\b/],
+        ['Jakarta Utara', /\b(?:cilincing|kelapa gading|koja|pademangan|penjaringan|tanjung priok)\b/],
+        ['Bekasi', /\b(?:rawalumbu|rawa lumbu|medan satria|bantar gebang|bantargebang|jatiasih|mustika jaya|mustikajaya|tambun|cibitung|jatibening)\b/],
+        ['Cikarang', /\bcikarang\b/],
+        ['Tangerang', /\b(?:serpong|ciputat|pamulang|karawaci|cikokol|cipondoh|balaraja|cikupa|tigaraksa|pagedangan)\b/],
+        ['Bogor', /\b(?:cibinong|cileungsi|citeureup|gunung putri|dramaga|bojonggede)\b/],
+        ['Depok', /\b(?:pancoran mas|sukmajaya|cilodong|cimanggis|tapos|cinere)\b/]
+    ];
+    const district = address.match(/\b(?:kec|kecamatan)\s+([^,]+)/)?.[1];
+    const districtRegion = district && districts.find(([, pattern]) => pattern.test(district))?.[0];
+    if (districtRegion) return districtRegion;
+    const namedRegion = find(normalize(destination.locationName || destination.name));
+    if (namedRegion) return namedRegion;
+    // Never copy a trip-wide region to unrelated stops or guess from a province.
+    if (!address) return find(normalize(destination.region)) || 'Belum teridentifikasi';
+    return 'Belum teridentifikasi';
+}
+window.resolveDestinationRegion = resolveDestinationRegion;
+
 async function exportRecentShipmentsToExcel() {
     const rawSearch = (document.getElementById('recent-shipment-search')?.value || "").toLowerCase().trim();
     const selectedStatus = document.getElementById('recent-status-filter')?.value || "all";
@@ -5116,7 +5174,7 @@ async function exportRecentShipmentsToExcel() {
                         "Arrival Time": arrivalStr,
                         "Completed Time": completedStr,
                         "Pending Reason": d.pendingReason || '-',
-                        "Region": [d.region, t.region].find(value => typeof value === 'string' && value.trim())?.trim() || '-',
+                        "Region": resolveDestinationRegion(d),
                         "Proof Photo URL": photos.allUrls.length > 0 ? photos.allUrls.join(', ') : '-'
                     });
                 }
@@ -5467,7 +5525,7 @@ async function exportFullReportsToExcel() {
                     "Address": d.address || '-',
                     "Stop Status": d.status || 'pending',
                     "Trip Status": t.status || '-',
-                    "Region": [d.region, t.region].find(value => typeof value === 'string' && value.trim())?.trim() || '-',
+                    "Region": resolveDestinationRegion(d),
                     "Proof URL": d.proofPhotoUrl || d.proofPhotoSj || '-'
                 });
             });
