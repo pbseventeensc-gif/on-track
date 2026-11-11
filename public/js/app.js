@@ -5116,6 +5116,7 @@ async function exportRecentShipmentsToExcel() {
                         "Arrival Time": arrivalStr,
                         "Completed Time": completedStr,
                         "Pending Reason": d.pendingReason || '-',
+                        "Region": [d.region, t.region].find(value => typeof value === 'string' && value.trim())?.trim() || '-',
                         "Proof Photo URL": photos.allUrls.length > 0 ? photos.allUrls.join(', ') : '-'
                     });
                 }
@@ -5139,7 +5140,7 @@ async function exportRecentShipmentsToExcel() {
         });
 
         // 1. Title Row (Row 1)
-        sheet.mergeCells('A1:O1');
+        sheet.mergeCells('A1:P1');
         const titleCell = sheet.getCell('A1');
         titleCell.value = "LAPORAN HISTORIS PENGANTARAN LOGISTIK - WTRACK LOGISTICS";
         titleCell.font = { name: 'Calibri', size: 13, bold: true, color: { argb: 'FFFFFFFF' } };
@@ -5152,7 +5153,7 @@ async function exportRecentShipmentsToExcel() {
         sheet.getRow(1).height = 26;
 
         // 2. Subtitle Row (Row 2)
-        sheet.mergeCells('A2:O2');
+        sheet.mergeCells('A2:P2');
         const subCell = sheet.getCell('A2');
         subCell.value = `Periode: ${periodStr}  |  Kurir/Driver: ${carrierLabel}  |  Total Data: ${exportData.length} Titik Pengiriman`;
         subCell.font = { name: 'Calibri', size: 9.5, italic: true, bold: true, color: { argb: 'FF1F4E79' } };
@@ -5177,7 +5178,7 @@ async function exportRecentShipmentsToExcel() {
         const headers = [
             "No", "Tanggal", "Shipment ID", "Trip Full ID", "Kurir / Driver", "Tipe Armada", 
             "Plat Mobil", "Stop #", "Tujuan / Toko", "Alamat Lengkap", "Status", 
-            "Jam Sampai", "Jam Selesai", "Alasan Pending / Catatan", "Bukti Foto PoD"
+            "Jam Sampai", "Jam Selesai", "Alasan Pending / Catatan", "Bukti Foto PoD", "Region"
         ];
         headers.forEach((h, idx) => {
             const cell = headerRow.getCell(idx + 1);
@@ -5225,7 +5226,8 @@ async function exportRecentShipmentsToExcel() {
                 rowItem["Arrival Time"],
                 rowItem["Completed Time"],
                 rowItem["Pending Reason"],
-                rowItem["Proof Photo URL"]
+                rowItem["Proof Photo URL"],
+                rowItem.Region
             ];
 
             rowVals.forEach((val, cIdx) => {
@@ -5288,10 +5290,15 @@ async function exportRecentShipmentsToExcel() {
                         cell.font = { name: 'Calibri', size: 8.5, italic: true, color: { argb: 'FF94A3B8' } };
                     }
                     cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                } else if (cIdx === 15) {
+                    cell.value = val;
+                    cell.font = { name: 'Calibri', size: 9, color: { argb: 'FF334155' } };
+                    cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
                 }
             });
         });
 
+        sheet.autoFilter = { from: { row: 4, column: 1 }, to: { row: 4, column: headers.length } };
         sheet.columns = [
             { width: 6 },   // No
             { width: 14 },  // Tanggal
@@ -5307,7 +5314,8 @@ async function exportRecentShipmentsToExcel() {
             { width: 16 },  // Jam Sampai
             { width: 16 },  // Jam Selesai
             { width: 28 },  // Alasan Pending
-            { width: 20 }   // Bukti Foto PoD
+            { width: 20 },  // Bukti Foto PoD
+            { width: 22 }   // Region
         ];
 
         const buffer = await workbook.xlsx.writeBuffer();
@@ -5459,6 +5467,7 @@ async function exportFullReportsToExcel() {
                     "Address": d.address || '-',
                     "Stop Status": d.status || 'pending',
                     "Trip Status": t.status || '-',
+                    "Region": [d.region, t.region].find(value => typeof value === 'string' && value.trim())?.trim() || '-',
                     "Proof URL": d.proofPhotoUrl || d.proofPhotoSj || '-'
                 });
             });
@@ -5480,7 +5489,7 @@ async function exportFullReportsToExcel() {
         });
 
         // 1. Title Row
-        sheet.mergeCells('A1:K1');
+        sheet.mergeCells('A1:L1');
         const titleCell = sheet.getCell('A1');
         titleCell.value = "LAPORAN LENGKAP PENGIRIMAN LOGISTIK - WTRACK";
         titleCell.font = { name: 'Calibri', size: 13, bold: true, color: { argb: 'FFFFFFFF' } };
@@ -5493,7 +5502,7 @@ async function exportFullReportsToExcel() {
         sheet.getRow(1).height = 26;
 
         // 2. Subtitle Row
-        sheet.mergeCells('A2:K2');
+        sheet.mergeCells('A2:L2');
         const subCell = sheet.getCell('A2');
         subCell.value = `Total Pengiriman: ${exportData.length} Titik  |  Dihasilkan Otomatis dari Database Terintegrasi Wtrack`;
         subCell.font = { name: 'Calibri', size: 9.5, italic: true, bold: true, color: { argb: 'FF1F4E79' } };
@@ -5515,7 +5524,7 @@ async function exportFullReportsToExcel() {
         // Header Row (Row 4)
         const headerRow = sheet.getRow(4);
         headerRow.height = 26;
-        const headers = ["No", "Trip ID", "Kurir / Driver", "Armada", "Plat Mobil", "Tanggal", "Stop #", "Tujuan / Toko", "Alamat Lengkap", "Status Stop", "Bukti Foto PoD"];
+        const headers = ["No", "Trip ID", "Kurir / Driver", "Armada", "Plat Mobil", "Tanggal", "Stop #", "Tujuan / Toko", "Alamat Lengkap", "Status Stop", "Bukti Foto PoD", "Region"];
         headers.forEach((h, idx) => {
             const cell = headerRow.getCell(idx + 1);
             cell.value = h;
@@ -5558,7 +5567,8 @@ async function exportFullReportsToExcel() {
                 rowItem["Location Name"],
                 rowItem.Address,
                 rowItem["Stop Status"],
-                rowItem["Proof URL"]
+                rowItem["Proof URL"],
+                rowItem.Region
             ];
 
             rowVals.forEach((val, cIdx) => {
@@ -5617,10 +5627,15 @@ async function exportFullReportsToExcel() {
                         cell.font = { name: 'Calibri', size: 8.5, italic: true, color: { argb: 'FF94A3B8' } };
                     }
                     cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                } else if (cIdx === 11) {
+                    cell.value = val;
+                    cell.font = { name: 'Calibri', size: 9, color: { argb: 'FF334155' } };
+                    cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
                 }
             });
         });
 
+        sheet.autoFilter = { from: { row: 4, column: 1 }, to: { row: 4, column: headers.length } };
         sheet.columns = [
             { width: 6 },   // No
             { width: 22 },  // Trip ID
@@ -5632,7 +5647,8 @@ async function exportFullReportsToExcel() {
             { width: 28 },  // Tujuan
             { width: 36 },  // Alamat
             { width: 16 },  // Status
-            { width: 20 }   // Foto
+            { width: 20 },  // Foto
+            { width: 22 }   // Region
         ];
 
         const buffer = await workbook.xlsx.writeBuffer();
