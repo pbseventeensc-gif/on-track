@@ -4614,12 +4614,14 @@ function executeRenderRecentShipments(filter = "") {
         }
 
         if (allPhotosList.length > 0) {
-            const firstImg = allPhotosList[0];
             const allUrlsCombined = allPhotosList.join(',');
+            const photoThumbnails = allPhotosList.map((url, index) => `
+                <img src="${escapeCourierText(url)}" alt="Bukti foto ${index + 1}" style="width:40px; height:40px; min-width:40px; flex-shrink:0; border-radius:6px; object-fit:cover; border:1px solid #cbd5e1; cursor:pointer;" onclick="openPoDModal(this.dataset.url)" data-url="${escapeCourierText(url)}" title="Klik untuk perbesar bukti foto ${index + 1}">
+            `).join('');
             const countLabel = allPhotosList.length > 1 ? `${allPhotosList.length} Foto` : 'Lihat Foto';
             podCellHtml = `
-                <div class="d-inline-flex align-items-center gap-1.5">
-                    <img src="${firstImg}" alt="PoD" style="width:28px; height:28px; border-radius:6px; object-fit:cover; border:1px solid #cbd5e1; cursor:pointer;" onclick="openPoDModal(this.dataset.url)" data-url="${allUrlsCombined.replace(/"/g, '&quot;')}" title="Klik untuk perbesar bukti foto">
+                <div class="d-inline-flex align-items-center gap-2">
+                    ${photoThumbnails}
                     <button type="button" class="btn btn-xs btn-outline-success fw-bold py-1 px-2 d-inline-flex align-items-center gap-1 shadow-2xs" style="font-size:0.72rem; border-radius:6px;" onclick="openPoDModal(this.dataset.url)" data-url="${allUrlsCombined.replace(/"/g, '&quot;')}" title="Lihat Foto Bukti Pengantaran">
                         <i class="bi bi-camera-fill"></i> ${countLabel}
                     </button>
