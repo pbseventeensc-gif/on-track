@@ -213,6 +213,22 @@ const MASTER_COURIERS = [
     { canonicalId: 'husen', displayName: 'Husen', role: 'driver', vehicleType: 'mobil', defaultUid: 'juHUuOWS4FOVpHxE59t4xf0ld1z1', matchTokens: ['husen', 'husensuka3', 'husensuka', 'juhu'] }
 ];
 window.MASTER_COURIERS = MASTER_COURIERS;
+MASTER_COURIERS.forEach(courier => { courier.accountName = courier.displayName; });
+
+function escapeCourierText(value) {
+    return String(value).replace(/[&<>"']/g, char => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[char]));
+}
+
+function syncCourierNames() {
+    for (const courier of MASTER_COURIERS) {
+        const profile = registeredUsersObjects[courier.defaultUid] || registeredUsersObjects[courier.canonicalId];
+        const name = profile?.name?.trim() || registeredUsers[courier.defaultUid];
+        if (!name) continue;
+        courier.displayName = name;
+        registeredUsers[courier.defaultUid] = name;
+        registeredUsers[courier.canonicalId] = name;
+    }
+}
 const deletedCourierUids = new Set();
 window.isCourierAccountDeleted = uid => deletedCourierUids.has(uid);
 let accountDeletionAllowed = false;
@@ -244,7 +260,7 @@ async function deleteCourierAccount(button) {
         const response = await fetch('/api/delete-courier', {
             method: 'POST',
             headers: {'Content-Type': 'application/json', Authorization: `Bearer ${await user.getIdToken(true)}`},
-            body: JSON.stringify({uid: id, confirmName: confirmedName})
+            body: JSON.stringify({uid: id, confirmName: button.dataset.accountName || confirmedName})
         });
         const result = await response.json().catch(() => ({}));
         if (!response.ok || !result.deleted) throw new Error(result.error || 'Penghapusan belum berhasil. Silakan coba lagi.');
@@ -2506,15 +2522,18 @@ function initUsersSnapshot() {
             }
         });
 
+        syncCourierNames();
+
         // Ensure canonical mappings for legacy accounts (e.g. Rizki's previous UID VDyQRzlGiAcIfIetZeiGOtPP6fJ2)
         if (!deletedCourierUids.has('rizki')) {
-        registeredUsers['VDyQRzlGiAcIfIetZeiGOtPP6fJ2'] = 'Rizki';
-        registeredUsers['gz9F6MqupoXEFTpOTJJ1aFjtSD52'] = 'Rizki';
-        registeredUsers['rizki'] = 'Rizki';
-        registeredUsers['rizkidriver07@gmail.com'] = 'Rizki';
+        const rizkiName = MASTER_COURIERS.find(c => c.canonicalId === 'rizki')?.displayName || 'Rizki';
+        registeredUsers['VDyQRzlGiAcIfIetZeiGOtPP6fJ2'] = rizkiName;
+        registeredUsers['gz9F6MqupoXEFTpOTJJ1aFjtSD52'] = rizkiName;
+        registeredUsers['rizki'] = rizkiName;
+        registeredUsers['rizkidriver07@gmail.com'] = rizkiName;
         if (!registeredUsersObjects['VDyQRzlGiAcIfIetZeiGOtPP6fJ2']) {
             registeredUsersObjects['VDyQRzlGiAcIfIetZeiGOtPP6fJ2'] = {
-                name: 'Rizki',
+                name: rizkiName,
                 email: 'rizkidriver07@gmail.com',
                 role: 'driver',
                 userId: 'VDyQRzlGiAcIfIetZeiGOtPP6fJ2',
@@ -2525,13 +2544,14 @@ function initUsersSnapshot() {
         }
 
         if (!deletedCourierUids.has('beto')) {
-        registeredUsers['l6fLsN7ijQdq5m2tcUs2xpmMFv63'] = 'Beto';
-        registeredUsers['beto'] = 'Beto';
-        registeredUsers['betomotor99'] = 'Beto';
-        registeredUsers['betomotor99@gmail.com'] = 'Beto';
+        const betoName = MASTER_COURIERS.find(c => c.canonicalId === 'beto')?.displayName || 'Beto';
+        registeredUsers['l6fLsN7ijQdq5m2tcUs2xpmMFv63'] = betoName;
+        registeredUsers['beto'] = betoName;
+        registeredUsers['betomotor99'] = betoName;
+        registeredUsers['betomotor99@gmail.com'] = betoName;
         if (!registeredUsersObjects['l6fLsN7ijQdq5m2tcUs2xpmMFv63']) {
             registeredUsersObjects['l6fLsN7ijQdq5m2tcUs2xpmMFv63'] = {
-                name: 'Beto',
+                name: betoName,
                 email: 'betomotor99@gmail.com',
                 role: 'kurir',
                 userId: 'l6fLsN7ijQdq5m2tcUs2xpmMFv63',
@@ -2575,15 +2595,15 @@ function renderManageCouriersList() {
                 <div class="d-flex align-items-center gap-2">
                     <img src="https://ui-avatars.com/api/?name=${encodeURIComponent(name)}" style="width:32px; border-radius:50%">
                     <div>
-                        <div class="fw-bold extra-small text-dark">${name} ${roleBadge}</div>
+                        <div class="fw-bold extra-small text-dark">${escapeCourierText(name)} ${roleBadge}</div>
                         <div class="extra-small text-muted" style="font-size:0.65rem;">ID: ${id.substring(0,8)}...</div>
                     </div>
                 </div>
                 <div class="d-flex gap-2">
-                <button class="btn btn-sm btn-outline-primary" data-id="${id}" data-name="${name.replace(/"/g, '&quot;')}" onclick="promptEditCourierName(this.dataset.id, this.dataset.name)" title="Edit nama" aria-label="Edit nama">
+                <button class="btn btn-sm btn-outline-primary" data-id="${id}" data-name="${escapeCourierText(name)}" onclick="promptEditCourierName(this.dataset.id, this.dataset.name)" title="Edit nama" aria-label="Edit nama">
                     <i class="bi bi-pencil" aria-hidden="true"></i>
                 </button>
-                <button class="btn btn-sm btn-outline-danger" data-id="${id}" data-name="${name.replace(/"/g, '&quot;')}" onclick="deleteCourierAccount(this)" ${accountDeletionAllowed ? '' : 'disabled'} title="${accountDeletionAllowed ? 'Hapus akun dari aplikasi dan Firebase' : 'Penghapusan akun belum tersedia untuk sesi ini'}" aria-label="Hapus akun">
+                <button class="btn btn-sm btn-outline-danger" data-id="${id}" data-name="${escapeCourierText(name)}" data-account-name="${escapeCourierText(c.accountName)}" onclick="deleteCourierAccount(this)" ${accountDeletionAllowed ? '' : 'disabled'} title="${accountDeletionAllowed ? 'Hapus akun dari aplikasi dan Firebase' : 'Penghapusan akun belum tersedia untuk sesi ini'}" aria-label="Hapus akun">
                     <i class="bi bi-trash" aria-hidden="true"></i>
                 </button>
                 </div>
@@ -2600,6 +2620,11 @@ async function promptEditCourierName(id, currentName) {
         const activeDb = getDb();
         if (!activeDb) return;
         await activeDb.collection('users').doc(id).update({ name: newName.trim() });
+        registeredUsersObjects[id] = {...registeredUsersObjects[id], name: newName.trim()};
+        registeredUsers[id] = newName.trim();
+        syncCourierNames();
+        renderCourierOptions();
+        renderManageCouriersList();
         showToast("Nama kurir berhasil diperbarui!");
     } catch(e) {
         alert("Gagal memperbarui nama kurir: " + e.message);
@@ -2619,7 +2644,7 @@ function buildCourierOptgroupHtml(placeholderText = '-- Pilih Kurir Pengantaran 
     kurirs.forEach(c => {
         const val = valueKey === 'canonicalId' ? c.canonicalId : (valueKey === 'displayName' ? c.displayName : c.defaultUid);
         const avatar = getCourierPhoto(c.canonicalId, c.displayName) || '';
-        options.push(`<option value="${val}" data-avatar="${avatar}">${c.displayName}</option>`);
+        options.push(`<option value="${escapeCourierText(val)}" data-avatar="${avatar}">${escapeCourierText(c.displayName)}</option>`);
     });
     options.push(`</optgroup>`);
 
@@ -2627,7 +2652,7 @@ function buildCourierOptgroupHtml(placeholderText = '-- Pilih Kurir Pengantaran 
     drivers.forEach(c => {
         const val = valueKey === 'canonicalId' ? c.canonicalId : (valueKey === 'displayName' ? c.displayName : c.defaultUid);
         const avatar = getCourierPhoto(c.canonicalId, c.displayName) || '';
-        options.push(`<option value="${val}" data-avatar="${avatar}">${c.displayName}</option>`);
+        options.push(`<option value="${escapeCourierText(val)}" data-avatar="${avatar}">${escapeCourierText(c.displayName)}</option>`);
     });
     options.push(`</optgroup>`);
 
