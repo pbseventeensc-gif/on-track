@@ -327,8 +327,8 @@ const COURIER_PHOTO_MAP = {
     'fredisambo': '/assets/couriers/Ferdi.jpeg',
     'soleh': '/assets/couriers/Soleh.jpeg',
     'muhammadsoleh': '/assets/couriers/Soleh.jpeg',
-    'alan': 'https://ui-avatars.com/api/?name=Alan&background=475569&color=fff&bold=true',
-    'yakub': 'https://ui-avatars.com/api/?name=Yakub&background=DC2626&color=fff&bold=true',
+    'alan': '/assets/couriers/Alan.jpeg',
+    'yakub': '/assets/couriers/Yakub.jpeg',
     'iwan': 'https://ui-avatars.com/api/?name=Iwan&background=65A30D&color=fff&bold=true',
 };
 
@@ -2593,7 +2593,7 @@ function renderManageCouriersList() {
         container.innerHTML += `
             <div class="d-flex align-items-center justify-content-between p-3 border rounded-3 mb-2 bg-light">
                 <div class="d-flex align-items-center gap-2">
-                    <img src="https://ui-avatars.com/api/?name=${encodeURIComponent(name)}" style="width:32px; border-radius:50%">
+                    <img src="${getCourierPhoto(id, name) || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}`}" style="width:32px; height:32px; object-fit:cover; border-radius:50%" alt="${escapeCourierText(name)}">
                     <div>
                         <div class="fw-bold extra-small text-dark">${escapeCourierText(name)} ${roleBadge}</div>
                         <div class="extra-small text-muted" style="font-size:0.65rem;">ID: ${id.substring(0,8)}...</div>
