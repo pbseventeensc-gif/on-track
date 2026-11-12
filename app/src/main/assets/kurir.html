@@ -1076,6 +1076,7 @@
             transform: scale(0.92);
         }
     </style>
+    <script src="js/delivery_identity.js?v=1"></script>
 </head>
 <body>
 
@@ -2340,7 +2341,7 @@
             tripsUnsubscribe = firestoreDb.collection('trips').onSnapshot(snap => {
                 const freshList = [];
                 snap.forEach(doc => {
-                    const t = { id: doc.id, ...doc.data() };
+                    const t = { ...doc.data(), id: doc.id };
                     if (isPoolShipment(t)) return;
                     if (!doesTripBelongToCurrentCourier(t)) return;
 
@@ -2359,27 +2360,18 @@
                         const isExplicitDone = dest.status === 'done' || dest.status === 'completed' || !!dest.completedTime;
                         const isTripDone = (t.status === 'completed' || t.status === 'done');
                         const isDone = isExplicitDone || hasProof || (isTripDone && !dest.pendingReason);
-                        const pendingReasonVal = dest.pendingReason || t.pendingReason || '';
-                        const pendingPhotoVal = dest.pendingProofPhotoUrl || t.pendingProofPhotoUrl || '';
+                        const pendingReasonVal = dest.pendingReason || (dests.length === 1 ? t.pendingReason : '') || '';
+                        const pendingPhotoVal = dest.pendingProofPhotoUrl || (dests.length === 1 ? t.pendingProofPhotoUrl : '') || '';
                         const isPendingReported = !isDone && (dest.status === 'pending_approval' || dest.status === 'klien_tutup' || !!pendingReasonVal);
                         const dateIso = t.date?.toDate ? t.date.toDate().toISOString() : (t.date?.seconds ? new Date(t.date.seconds * 1000).toISOString() : (t.date || t.createdAt || new Date().toISOString()));
                         const isKurirMotor = !currentCourier.role || currentCourier.role.includes('Motor') || currentCourier.vehicleType === 'motor';
-
-                        // Hindari duplikasi jika ada multiple dokumen dengan No. SJ yang sama
-                        if (formattedSJ && formattedSJ !== '-') {
-                            const dupIdx = freshList.findIndex(x => x.noSJ === formattedSJ && x.stopIndex === (dest.stopIndex || (idx + 1)));
-                            if (dupIdx >= 0) {
-                                if (isDone && freshList[dupIdx].status !== 'delivered') {
-                                    freshList[dupIdx].status = 'delivered';
-                                }
-                                return;
-                            }
-                        }
 
                         freshList.push({
                             id: subId,
                             rootTripId: t.id,
                             stopIndex: dest.stopIndex || (idx + 1),
+                            destinationIndex: idx,
+                            deliveryId: dest.deliveryId || '',
                             noSJ: formattedSJ,
                             vehicleIcon: isKurirMotor ? '🛵' : '🚚',
                             origin: t.originBranch === 'cikokol' ? 'Wellen Cikokol' : 'Wellen Pusat',
@@ -2396,8 +2388,8 @@
                             latitude: dest.latitude || t.latitude || null,
                             longitude: dest.longitude || t.longitude || null,
                             region: dest.region || t.region || '',
-                            proofPhotoUrl: dest.proofPhotoUrl || (dest.proofPhotoItems && dest.proofPhotoItems[0]) || t.proofPhotoUrl || '',
-                            proofSJUrl: dest.proofPhotoSj || dest.proofSJUrl || t.proofSJUrl || ''
+                            proofPhotoUrl: dest.proofPhotoUrl || (dest.proofPhotoItems && dest.proofPhotoItems[0]) || (dests.length === 1 ? t.proofPhotoUrl : '') || '',
+                            proofSJUrl: dest.proofPhotoSj || dest.proofSJUrl || (dests.length === 1 ? t.proofSJUrl : '') || ''
                         });
                     });
                 });
@@ -2432,17 +2424,19 @@
                     const formattedSJ = candidateSJ ? (String(candidateSJ).startsWith('#') ? String(candidateSJ) : ('#' + String(candidateSJ))) : '-';
                     if (isDummyOrDeletedShipment({ id: subId, noSJ: formattedSJ }) || isDummyOrDeletedShipment({ id: t.id, noSJ: formattedSJ })) return;
 
-                    const existing = masterShipments.find(s => s.id === subId || (formattedSJ && formattedSJ !== '-' && (s.noSJ === formattedSJ || s.noSJ === candidateSJ)));
+                    const existing = masterShipments.find(s => s.id === subId);
                     if (!existing) {
                         const isKurirMotor = !currentCourier.role || currentCourier.role.includes('Motor') || currentCourier.vehicleType === 'motor';
                         const isDone = (dest.status === 'done' || dest.status === 'completed' || t.status === 'completed' || t.status === 'done');
-                        const pendingReasonVal = dest.pendingReason || t.pendingReason || '';
-                        const pendingPhotoVal = dest.pendingProofPhotoUrl || t.pendingProofPhotoUrl || '';
+                        const pendingReasonVal = dest.pendingReason || (dests.length === 1 ? t.pendingReason : '') || '';
+                        const pendingPhotoVal = dest.pendingProofPhotoUrl || (dests.length === 1 ? t.pendingProofPhotoUrl : '') || '';
                         const isPendingReported = !isDone && (dest.status === 'pending_approval' || t.status === 'pending_approval' || !!pendingReasonVal);
                         masterShipments.unshift({
                             id: subId,
                             rootTripId: t.tripId || t.id,
                             stopIndex: dest.stopIndex || (idx + 1),
+                            destinationIndex: idx,
+                            deliveryId: dest.deliveryId || '',
                             noSJ: formattedSJ,
                             vehicleIcon: isKurirMotor ? '🛵' : '🚚',
                             origin: t.originBranch === 'cikokol' ? 'Wellen Cikokol' : 'Wellen Pusat',
@@ -2526,13 +2520,15 @@
                 let stored = JSON.parse(raw);
                 if (Array.isArray(stored)) {
                     const cleanSJ = target.noSJ.replace(/^#/, '');
-                    const found = stored.find(s => s.id === shipmentId || s.id === target.rootTripId || s.noSJ === cleanSJ || s.sjNumber === cleanSJ);
+                    const found = stored.find(s => s.id === shipmentId || s.id === target.rootTripId);
                     if (found) {
                         found.status = 'in_progress';
                         found.deliveryStatus = 'in_progress';
                         found.completedAt = null;
                         if (found.destinations) {
-                            found.destinations.forEach(d => {
+                            const selectedIndex = DeliveryIdentity.destinationIndex(found.destinations, target);
+                            found.destinations.forEach((d, index) => {
+                                if (index !== selectedIndex) return;
                                 d.status = 'in_progress';
                                 d.proofPhotoUrl = '';
                                 d.proofPhotoSj = '';
@@ -2555,9 +2551,10 @@
                 if (snap.exists) {
                     const tData = snap.data();
                     const dests = Array.isArray(tData.destinations) ? tData.destinations : [];
+                    const targetIndex = DeliveryIdentity.destinationIndex(dests, target);
+                    if (targetIndex < 0) throw new Error('Titik pengiriman tidak ditemukan.');
                     const updatedDests = dests.map((d, idx) => {
-                        const thisIdx = d.stopIndex || (idx + 1);
-                        if (thisIdx === stopIdx || dests.length === 1 || (d.noSJ && d.noSJ === cleanSJ) || (d.sjNumber && d.sjNumber === cleanSJ)) {
+                        if (idx === targetIndex) {
                             return {
                                 ...d,
                                 status: 'in_progress',
@@ -3995,16 +3992,6 @@
             if (firestoreDb && foundDocId) {
                 try {
                     await firestoreDb.collection('trips').doc(foundDocId).set(updateData, { merge: true });
-                    const cleanSJNumber = (foundTrip.noSJ || foundTrip.sjNumber || parsed.sjNumber || '').trim();
-                    if (cleanSJNumber && cleanSJNumber !== foundDocId) {
-                        try {
-                            // Hapus dokumen duplikat lama jika pernah terbuat dengan ID No. SJ
-                            const twinSnap = await firestoreDb.collection('trips').doc(cleanSJNumber).get();
-                            if (twinSnap.exists) {
-                                await firestoreDb.collection('trips').doc(cleanSJNumber).delete();
-                            }
-                        } catch(e) {}
-                    }
                 } catch(e) {
                     console.warn("Firestore claim error:", e);
                 }
@@ -4330,17 +4317,20 @@
             if (raw) {
                 const stored = JSON.parse(raw);
                 const cleanSJ = target ? target.noSJ.replace(/^#/, '') : '';
-                const found = stored.find(s => s.id === id || s.id === (target && target.rootTripId) || s.noSJ === cleanSJ || s.sjNumber === cleanSJ);
+                const found = stored.find(s => s.id === id || s.id === (target && target.rootTripId));
                 if (found) {
                     found.status = 'pending_approval';
                     found.pendingReason = reason;
                     found.pendingProofPhotoUrl = finalPendingPhoto;
                     found.pendingAt = nowIso;
-                    if (found.destinations && found.destinations[0]) {
-                        found.destinations[0].status = 'pending_approval';
-                        found.destinations[0].pendingReason = reason;
-                        found.destinations[0].pendingProofPhotoUrl = finalPendingPhoto;
-                        found.destinations[0].pendingAt = nowIso;
+                    if (found.destinations) {
+                        const selected = found.destinations[DeliveryIdentity.destinationIndex(found.destinations, target || {})];
+                        if (selected) {
+                            selected.status = 'pending_approval';
+                            selected.pendingReason = reason;
+                            selected.pendingProofPhotoUrl = finalPendingPhoto;
+                            selected.pendingAt = nowIso;
+                        }
                     }
                     localStorage.setItem('wtrack_local_trips', JSON.stringify(stored));
                 }
@@ -4365,8 +4355,10 @@
                         sjNumber: cleanSJ,
                         noSJ: cleanSJ
                     }];
+                    const targetIndex = DeliveryIdentity.destinationIndex(dests, target || {stopIndex: stopIdx});
+                    if (targetIndex < 0) throw new Error('Titik pengiriman tidak ditemukan.');
                     const updatedDests = dests.map((d, idx) => {
-                        if ((d.stopIndex || (idx + 1)) === stopIdx || dests.length === 1) {
+                        if (idx === targetIndex) {
                             return {
                                 ...d,
                                 status: 'pending_approval',
@@ -4546,12 +4538,12 @@
                 const cleanSJ = target ? target.noSJ.replace(/^#/, '') : '';
                 const rawTripId = (target && target.rootTripId) ? target.rootTripId : currentUploadTripId;
                 const cleanTripId = rawTripId ? rawTripId.replace(/_STOP_\d+$/, '') : currentUploadTripId;
-                const found = stored.find(s => s.id === currentUploadTripId || s.id === cleanTripId || (cleanSJ && (s.noSJ === cleanSJ || s.sjNumber === cleanSJ)));
+                const found = stored.find(s => s.id === currentUploadTripId || s.id === cleanTripId);
                 if (found) {
                     const targetStopIdx = (target && target.stopIndex) || 1;
                     if (Array.isArray(found.destinations) && found.destinations.length > 0) {
-                        let destMatch = found.destinations.find(d => (d.stopIndex || 1) === targetStopIdx || (target && target.destination && d.locationName === target.destination));
-                        if (!destMatch && found.destinations.length === 1) destMatch = found.destinations[0];
+                        const targetIndex = DeliveryIdentity.destinationIndex(found.destinations, target || {});
+                        const destMatch = found.destinations[targetIndex];
                         if (destMatch) {
                             destMatch.status = 'done';
                             destMatch.completedTime = nowIso;
@@ -4601,19 +4593,10 @@
                     }];
 
                     let allDone = true;
-                    let matchedTarget = false;
+                    const targetIndex = DeliveryIdentity.destinationIndex(dests, target || {});
+                    if (targetIndex < 0) throw new Error('Titik pengiriman berubah. Muat ulang daftar sebelum mengunggah foto.');
                     const updatedDests = dests.map((d, idx) => {
-                        const thisIndex = d.stopIndex || (idx + 1);
-                        let isCurrentTarget = false;
-                        if (dests.length === 1) {
-                            isCurrentTarget = true;
-                        } else if (!matchedTarget && (thisIndex === stopIdx)) {
-                            isCurrentTarget = true;
-                            matchedTarget = true;
-                        } else if (!matchedTarget && target && target.destination && d.locationName && d.locationName === target.destination) {
-                            isCurrentTarget = true;
-                            matchedTarget = true;
-                        }
+                        const isCurrentTarget = idx === targetIndex;
 
                         if (isCurrentTarget) {
                             return {
@@ -4642,18 +4625,6 @@
 
                     await tripRef.update(updatePayload);
 
-                    // Sinkronkan ke dokumen kembar jika ada (misal dokumen dengan ID Surat Jalan cleanSJ)
-                    if (cleanSJ && cleanSJ !== docId) {
-                        try {
-                            const sjRef = firestoreDb.collection('trips').doc(cleanSJ);
-                            const sjSnap = await sjRef.get();
-                            if (sjSnap.exists) {
-                                await sjRef.update(updatePayload);
-                            }
-                        } catch(err) {
-                            console.warn("Sync secondary SJ doc note:", err);
-                        }
-                    }
                 } else {
                     await tripRef.set({
                         tripId: docId,
@@ -4682,6 +4653,9 @@
                 }
             } catch(e) {
                 console.warn("tripRef save note:", e);
+                if (btnSubmit) { btnSubmit.disabled = false; btnSubmit.innerHTML = originalBtnHtml; }
+                showToast('Bukti belum tersimpan ke server. Muat ulang dan coba lagi.');
+                return;
             }
         }
 

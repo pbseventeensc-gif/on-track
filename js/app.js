@@ -2396,6 +2396,7 @@ function addSelectedClients() {
 
         if(name && address) {
             tripQueue.push({
+                deliveryId: DeliveryIdentity.newId(),
                 name: name + (pt ? " (" + pt + ")" : ""),
                 address,
                 lat,
@@ -3002,6 +3003,16 @@ function refreshAllMonitorData() {
     }, 100);
 }
 
+function addClientAtSameAddress(index) {
+    const source = tripQueue[index];
+    if (!source) return;
+    const name = prompt('Nama klien lain untuk alamat ini:');
+    if (!name || !name.trim()) return;
+    tripQueue.push({...source, name: name.trim(), clientId: '', deliveryId: DeliveryIdentity.newId()});
+    renderQueue();
+}
+window.addClientAtSameAddress = addClientAtSameAddress;
+
 function renderQueue() {
     const queueEl = document.getElementById('dispatch-queue');
     const badgeEl = document.getElementById('queue-count-badge');
@@ -3019,10 +3030,13 @@ function renderQueue() {
                     <div class="d-flex align-items-center gap-2 overflow-hidden flex-grow-1">
                         <span class="badge bg-primary text-white fw-bold rounded-circle flex-shrink-0" style="width:24px; height:24px; display:flex; align-items:center; justify-content:center; font-size:0.75rem;">${i+1}</span>
                         <div class="overflow-hidden">
-                            <div class="fw-bold text-dark text-truncate" style="font-size: 0.8rem;">${d.name}</div>
-                            ${d.address ? `<div class="text-muted extra-small text-truncate">${d.address}</div>` : ''}
+                            <div class="fw-bold text-dark text-truncate" style="font-size: 0.8rem;">${escapeCourierText(d.name)}</div>
+                            ${d.address ? `<div class="text-muted extra-small text-truncate">${escapeCourierText(d.address)}</div>` : ''}
                         </div>
                     </div>
+                    <button class="btn btn-sm btn-link text-primary p-1 ms-2 flex-shrink-0" onclick="addClientAtSameAddress(${i})" title="Tambah klien lain di alamat ini" aria-label="Tambah klien lain di alamat ini">
+                        <i class="bi bi-person-plus fs-6" aria-hidden="true"></i>
+                    </button>
                     <button class="btn btn-sm btn-link text-danger p-1 ms-2 flex-shrink-0" onclick="tripQueue.splice(${i},1);renderQueue()" title="Hapus dari Rute">
                         <i class="bi bi-x-circle fs-6"></i>
                     </button>
@@ -3292,6 +3306,7 @@ async function submitTrip() {
             adminBulkSjUrls: adminBulkSjUrls,
             branchId: getActiveBranchId(),
             destinations: tripQueue.map((d, i) => ({
+                deliveryId: d.deliveryId || DeliveryIdentity.newId(),
                 stopIndex: i + 1,
                 locationName: d.name || d.locationName || "Tujuan",
                 address: d.address || "",
@@ -4476,19 +4491,6 @@ function executeRenderRecentShipments(filter = "") {
                     const realSJ = getRealSJNumber(d, t);
                     const itemDisplayId = realSJ ? `#${realSJ}-${stopIdx}` : uniqueShipmentId;
 
-                    // Hindari duplikasi jika ada multiple entri trip dengan No. SJ yang sama
-                    if (realSJ && realSJ !== '-') {
-                        const dupRowIdx = shipmentRows.findIndex(r => r.noSJ === realSJ && r.stopIndex === stopIdx);
-                        if (dupRowIdx >= 0) {
-                            if (status === 'completed' && shipmentRows[dupRowIdx].status !== 'completed') {
-                                shipmentRows[dupRowIdx].status = status;
-                                shipmentRows[dupRowIdx].statusClass = statusClass;
-                                shipmentRows[dupRowIdx].proofUrl = d.proofPhotoUrl || photos.sjUrl || photos.itemUrl || '';
-                            }
-                            return;
-                        }
-                    }
-
                     shipmentRows.push({
                         tripId: t.id,
                         displayId: itemDisplayId,
@@ -4893,8 +4895,11 @@ async function submitManualUploadPhoto() {
             const tData = tripSnap.data();
             const targetLocName = document.getElementById('upload-modal-location-name')?.innerText || '';
 
-            const updatedDests = (tData.destinations || []).map(d => {
-                const isMatch = d.stopIndex === stopIndex || (d.stopIndex === undefined && d.locationName === targetLocName);
+            const destinations = tData.destinations || [];
+            const selectedIndex = DeliveryIdentity.destinationIndex(destinations, {stopIndex, destination: targetLocName});
+            if (selectedIndex < 0) throw new Error('Titik pengiriman tidak ditemukan. Muat ulang daftar.');
+            const updatedDests = destinations.map((d, index) => {
+                const isMatch = index === selectedIndex;
                 if (isMatch) {
                     let existingSj = d.proofPhotoSj || '';
                     let existingItems = Array.isArray(d.proofPhotoItems) ? [...d.proofPhotoItems] : (typeof d.proofPhotoItems === 'string' && d.proofPhotoItems ? safeSplitPhotoUrls(d.proofPhotoItems) : []);
