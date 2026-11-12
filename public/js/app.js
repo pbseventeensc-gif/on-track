@@ -4583,7 +4583,7 @@ function executeRenderRecentShipments(filter = "") {
         return 0;
     });
 
-    const sortFields = ['date', 'id', 'destination', 'status', 'carrier', 'eta'];
+    const sortFields = ['date', 'destination', 'status', 'carrier', 'eta'];
     sortFields.forEach(f => {
         const iconEl = document.getElementById(`sort-icon-${f}`);
         if (iconEl) {
@@ -4683,7 +4683,6 @@ function executeRenderRecentShipments(filter = "") {
 
         rowsHtml.push(`<tr ${trStyle}>
             <td class="fw-normal text-muted extra-small text-nowrap" style="white-space: nowrap;">${s.dateStr}</td>
-            <td class="fw-bold text-dark text-nowrap" style="white-space: nowrap;">${s.displayId}</td>
             <td class="fw-bold font-monospace text-dark text-nowrap" style="white-space: nowrap;">${s.noSJ && s.noSJ !== '-' ? s.noSJ : '<span class="text-muted">-</span>'}</td>
             <td class="text-muted extra-small text-nowrap" style="white-space: nowrap;">${s.adminSJ && s.adminSJ !== '-' ? s.adminSJ : '<span class="text-muted">-</span>'}</td>
             <td>
