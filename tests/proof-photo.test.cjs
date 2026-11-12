@@ -10,7 +10,7 @@ const photo = 'data:image/jpeg;base64,' + Buffer.alloc(180000,1).toString('base6
 
 test('Storage fallback saves an isolated photo document and returns a small URL, never inline base64', async () => {
     const records = [];
-    const c = vm.createContext({firebaseStorage:null,window:{location:{protocol:'https:',origin:'https://wtrack.test'}},
+    const c = vm.createContext({firebaseStorage:null,setTimeout,clearTimeout,window:{location:{protocol:'https:',origin:'https://wtrack.test'}},
         firestoreDb:{collection(name){assert.equal(name,'delivery_proofs');return {doc(){return {id:'abcdefghijklmnopqrst',async set(value){records.push(value);}};}};}},
         firebase:{firestore:{Timestamp:{now:()=>123}}}});
     const start=source.indexOf('    async function uploadProofPhotoOnline(');
@@ -25,6 +25,17 @@ test('Storage fallback saves an isolated photo document and returns a small URL,
     assert.equal(await c.uploadProofPhotoOnline('https://storage.test/photo.jpg'),'https://storage.test/photo.jpg');
     await assert.rejects(c.uploadProofPhotoOnline('data:image/jpeg;base64,'+'A'.repeat(900001)),/terlalu besar/);
     assert.equal(records.length,1);
+    let cancelled = false;
+    const hangingTask = new Promise(() => {});
+    hangingTask.cancel = () => {cancelled=true;};
+    c.firebaseStorage = {ref:()=>({child:()=>({putString:()=>hangingTask})})};
+    c.proofStorageFailed = false;
+    c.console = {warn(){}};
+    c.setTimeout = callback => setTimeout(callback,5);
+    const fallback = await c.uploadProofPhotoOnline(photo,'proofs_item',{stopIndex:2});
+    assert.match(fallback,/\/api\/proof-photo/);
+    assert.equal(cancelled,true);
+    assert.equal(c.proofStorageFailed,true);
     c.firestoreDb=null;
     await assert.rejects(c.uploadProofPhotoOnline(photo),/penyimpanan/);
 });
@@ -78,6 +89,9 @@ function completionContext(failCommit=false,failUpload=false) {
     });
     const start=source.indexOf('    async function submitParcelProof()');
     const end=source.indexOf('    function triggerWaFromConfirmedModal()',start);
+    const errorStart=source.indexOf('    function showProofSaveError(');
+    const errorEnd=source.indexOf('    function openUploadCompleteModal(',errorStart);
+    vm.runInContext(source.slice(errorStart,errorEnd),c);
     vm.runInContext(source.slice(start,end),c);
     return {c,trip,first,cards,button,toast};
 }
@@ -103,5 +117,20 @@ test('upload or commit failure never marks the second delivery completed', async
         assert.equal(cards[1].status,'in-transit');
         assert.equal(button.disabled,false);
         assert.match(toast.at(-1),/belum tersimpan/);
+    }
+});
+
+test('a manual stop can complete with one photo and no newly required SJ field', async () => {
+    for (const category of ['sj','item']) {
+        const {c,trip,cards}=completionContext();
+        c.currentSJPhoto=category==='sj'?photo:'';
+        c.currentBarangPhoto=category==='item'?photo:'';
+        c.document.getElementById=id=>id==='upload-modal-sj-badge'?{value:''}:{};
+        await c.submitParcelProof();
+        assert.equal(trip.destinations[1].status,'done',category);
+        assert.equal(cards[1].status,'delivered',category);
+        assert.equal(trip.destinations[1].sjNumber,undefined);
+        assert.equal(trip.destinations[0].proofPhotoSj,photo);
+        assert.equal(category==='sj'?trip.destinations[1].proofPhotoSj:trip.destinations[1].proofPhotoUrl,'https://proof.test/proofs_'+(category==='sj'?'sj':'item'));
     }
 });

@@ -1353,7 +1353,7 @@
                     <div class="p-3 bg-light rounded-3 border mb-3">
                         <div class="d-flex align-items-center justify-content-between">
                             <span class="extra-small fw-bold text-muted text-uppercase">No Surat Jalan:</span>
-                            <input type="text" class="form-control form-control-sm fw-bold text-dark" id="upload-modal-sj-badge" placeholder="Nomor SJ untuk pengiriman ini" maxlength="80" aria-label="Nomor surat jalan pengiriman ini" required>
+                            <input type="text" class="form-control form-control-sm fw-bold text-dark" id="upload-modal-sj-badge" placeholder="Nomor SJ untuk pengiriman ini (jika ada)" maxlength="80" aria-label="Nomor surat jalan pengiriman ini">
                         </div>
                         <div class="fw-bold text-dark mt-1" id="upload-modal-store-name">PT TOYS GAMES INDONESIA</div>
                     </div>
@@ -1398,6 +1398,7 @@
                         </div>
                     </div>
 
+                    <div id="proof-save-status" class="small mb-2" role="status" aria-live="polite"></div>
                     <button class="btn-brand-primary w-100" onclick="submitParcelProof()">
                         <i class="bi bi-check-circle"></i> Konfirmasi Pengantaran
                     </button>
@@ -2235,6 +2236,7 @@
 
     let firestoreDb = null;
     let firebaseStorage = null;
+    let proofStorageFailed = false;
     let tripsUnsubscribe = null;
     try {
         if (typeof firebase !== 'undefined') {
@@ -2272,14 +2274,28 @@
         if (clean.startsWith('http://') || clean.startsWith('https://')) return clean;
         if (clean.startsWith('data:image/svg+xml')) return clean;
 
-        if (firebaseStorage && clean.startsWith('data:image/')) {
+        async function bounded(operation, cancel, timeoutMs = 6000) {
+            let timer;
+            try {
+                return await Promise.race([operation, new Promise((_, reject) => {
+                    timer = setTimeout(() => {
+                        try { cancel?.(); } catch (_) {}
+                        reject(new Error('Batas waktu unggah foto tercapai.'));
+                    }, timeoutMs);
+                })]);
+            } finally { clearTimeout(timer); }
+        }
+
+        if (firebaseStorage && !proofStorageFailed && clean.startsWith('data:image/')) {
             try {
                 const fileName = `POD_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.jpg`;
                 const storageRef = firebaseStorage.ref().child(`${folder}/${fileName}`);
-                const snap = await storageRef.putString(clean, 'data_url');
-                const downloadUrl = await snap.ref.getDownloadURL();
+                const task = storageRef.putString(clean, 'data_url');
+                const snap = await bounded(task, () => task.cancel?.());
+                const downloadUrl = await bounded(snap.ref.getDownloadURL());
                 if (downloadUrl) return downloadUrl;
             } catch (err) {
+                proofStorageFailed = true;
                 console.warn("Firebase Storage upload fallback:", err);
             }
         }
@@ -2290,7 +2306,7 @@
         }
         if (!firestoreDb) throw new Error('Koneksi penyimpanan bukti belum tersedia.');
         const photoRef = firestoreDb.collection('delivery_proofs').doc();
-        await photoRef.set({
+        await bounded(photoRef.set({
             dataUrl: clean,
             category: folder,
             tripId: delivery.tripId || '',
@@ -2298,7 +2314,7 @@
             stopIndex: delivery.stopIndex || 1,
             sjNumber: delivery.sjNumber || '',
             createdAt: firebase.firestore.Timestamp.now()
-        });
+        }), null, 12000);
         const origin = window.location.protocol === 'file:' ? 'https://on-track-indol.vercel.app' : window.location.origin;
         return `${origin}/api/proof-photo?id=${encodeURIComponent(photoRef.id)}`;
     }
@@ -4248,8 +4264,15 @@
 
     // Modal Upload Photo & Selesaikan
     let currentUploadTripId = null;
+    function showProofSaveError(message) {
+        const status = document.getElementById('proof-save-status');
+        if (status) { status.textContent = message; status.className = 'small mb-2 text-danger fw-semibold'; }
+        showToast(message);
+    }
     function openUploadCompleteModal(id, noSJ, storeName) {
         currentUploadTripId = id;
+        const status = document.getElementById('proof-save-status');
+        if (status) status.textContent = '';
         document.getElementById('active-upload-sj-no').value = id;
         document.getElementById('upload-modal-sj-badge').value = noSJ && noSJ !== '-' ? noSJ.replace(/^#/, '') : '';
         document.getElementById('upload-modal-store-name').innerText = storeName;
@@ -4519,17 +4542,21 @@
         if (!currentUploadTripId) return;
         const uploadShipmentId = currentUploadTripId;
         const storedTarget = masterShipments.find(s => s.id === uploadShipmentId);
-        if (!storedTarget) { showToast('Titik pengiriman tidak ditemukan. Muat ulang daftar.'); return; }
-        if (!firestoreDb) { showToast('Koneksi server belum tersedia. Coba lagi saat online.'); return; }
-        const sjNumber = (document.getElementById('upload-modal-sj-badge')?.value || '').trim().replace(/^#/, '');
-        if (!/^[A-Za-z0-9][A-Za-z0-9. /_-]{0,79}$/.test(sjNumber)) {
-            showToast('Isi nomor SJ yang tertera pada surat jalan pengiriman ini.');
+        if (!storedTarget) { showProofSaveError('Titik pengiriman tidak ditemukan. Muat ulang daftar.'); return; }
+        if (!firestoreDb) { showProofSaveError('Koneksi server belum tersedia. Coba lagi saat online.'); return; }
+        const enteredSJ = (document.getElementById('upload-modal-sj-badge')?.value || '').trim().replace(/^#/, '');
+        const previousSJ = storedTarget.noSJ && storedTarget.noSJ !== '-' ? storedTarget.noSJ.replace(/^#/, '') : '';
+        const sjNumber = enteredSJ || previousSJ;
+        if (sjNumber && !/^[A-Za-z0-9][A-Za-z0-9. /_-]{0,79}$/.test(sjNumber)) {
+            showProofSaveError('Periksa penulisan nomor SJ pengiriman ini.');
             document.getElementById('upload-modal-sj-badge')?.focus();
             return;
         }
-        const target = {...storedTarget, noSJ: '#' + sjNumber};
-        if (!finalSJPhoto || !finalBarangPhoto) { showToast('Masukkan foto surat jalan dan foto barang untuk pengiriman ini.'); return; }
-        const delivery = {tripId: target.rootTripId || target.id, deliveryId: target.deliveryId || '', stopIndex: target.stopIndex || 1, sjNumber: (target.noSJ || '').replace(/^#/, '')};
+        const target = {...storedTarget, noSJ: sjNumber ? '#' + sjNumber : '-'};
+        if (!finalSJPhoto && !finalBarangPhoto) { showProofSaveError('Unggah minimal satu foto bukti untuk pengiriman ini.'); return; }
+        const delivery = {tripId: target.rootTripId || target.id, deliveryId: target.deliveryId || '', stopIndex: target.stopIndex || 1, sjNumber};
+        const status = document.getElementById('proof-save-status');
+        if (status) { status.textContent = 'Menyimpan foto dan status pengiriman…'; status.className = 'small mb-2 text-muted'; }
 
         const btnSubmit = document.querySelector('#uploadCompleteModal .btn-brand-primary');
         const originalBtnHtml = btnSubmit ? btnSubmit.innerHTML : 'Konfirmasi Pengantaran';
@@ -4538,8 +4565,8 @@
             btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Menyimpan Bukti ke Cloud...';
         }
 
-        let savedSJPhoto = finalSJPhoto;
-        let savedBarangPhoto = finalBarangPhoto;
+        let savedSJPhoto = target.proofSJUrl || '';
+        let savedBarangPhoto = target.proofPhotoUrl || '';
         try {
             if (finalSJPhoto && !finalSJPhoto.startsWith('data:image/svg')) {
                 savedSJPhoto = await uploadProofPhotoOnline(finalSJPhoto, 'proofs_sj', delivery);
@@ -4550,7 +4577,7 @@
         } catch (uploadErr) {
             console.warn("Bukti foto gagal disimpan:", uploadErr);
             if (btnSubmit) { btnSubmit.disabled = false; btnSubmit.innerHTML = originalBtnHtml; }
-            showToast('Foto belum tersimpan. Periksa koneksi lalu coba lagi.');
+            showProofSaveError('Foto belum tersimpan. Periksa koneksi lalu coba lagi.');
             return;
         }
 
@@ -4587,12 +4614,11 @@
                                 return {
                                     ...d,
                                     status: 'done',
-                                    sjNumber: delivery.sjNumber,
-                                    noSJ: delivery.sjNumber,
+                                    ...(delivery.sjNumber ? {sjNumber: delivery.sjNumber, noSJ: delivery.sjNumber} : {}),
                                     completedTime: firebase.firestore.Timestamp.now(),
-                                    proofPhotoUrl: savedBarangPhoto,
-                                    proofPhotoSj: savedSJPhoto,
-                                    proofPhotoItems: [savedBarangPhoto]
+                                    proofPhotoUrl: savedBarangPhoto || d.proofPhotoUrl || '',
+                                    proofPhotoSj: savedSJPhoto || d.proofPhotoSj || '',
+                                    proofPhotoItems: savedBarangPhoto ? [savedBarangPhoto] : (d.proofPhotoItems || [])
                                 };
                             }
                             const dDone = (d.status === 'done' || d.status === 'completed' || (Array.isArray(d.proofPhotoItems) && d.proofPhotoItems.length > 0) || d.proofPhotoUrl || d.proofPhotoSj);
@@ -4619,7 +4645,7 @@
             } catch(e) {
                 console.warn("tripRef save note:", e);
                 if (btnSubmit) { btnSubmit.disabled = false; btnSubmit.innerHTML = originalBtnHtml; }
-                showToast('Bukti belum tersimpan ke server. Muat ulang dan coba lagi.');
+                showProofSaveError('Bukti belum tersimpan ke server. Coba konfirmasi lagi; foto tetap tersedia.');
                 return;
             }
         }
@@ -4648,8 +4674,7 @@
                         const destMatch = found.destinations[targetIndex];
                         if (destMatch) {
                             destMatch.status = 'done';
-                            destMatch.sjNumber = delivery.sjNumber;
-                            destMatch.noSJ = delivery.sjNumber;
+                            if (delivery.sjNumber) { destMatch.sjNumber = delivery.sjNumber; destMatch.noSJ = delivery.sjNumber; }
                             destMatch.completedTime = nowIso;
                             destMatch.proofPhotoUrl = savedBarangPhoto;
                             destMatch.proofPhotoSj = savedSJPhoto;
