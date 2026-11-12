@@ -41,7 +41,7 @@ test('saving proof for client B leaves client A status and photos unchanged', ()
         {deliveryId:'b',locationName:'Klien B',address:'Gedung X',status:'pending'}
     ];
     const context = vm.createContext({dests:destinations,target:{deliveryId:'b'},DeliveryIdentity:identity,
-        savedBarangPhoto:'photo-b',savedSJPhoto:'sj-b',firebase:{firestore:{Timestamp:{now:()=>123}}}});
+        savedBarangPhoto:'photo-b',savedSJPhoto:'sj-b',delivery:{sjNumber:'SJ-B'},firebase:{firestore:{Timestamp:{now:()=>123}}}});
     const start = courierSource.indexOf('                    let allDone = true;',courierSource.indexOf('async function submitParcelProof'));
     const end = courierSource.indexOf('                    const updatePayload =',start);
     vm.runInContext(courierSource.slice(start,end)+'\nresult = updatedDests;',context);
@@ -50,6 +50,8 @@ test('saving proof for client B leaves client A status and photos unchanged', ()
     assert.equal(context.result[0].status,'pending');
     assert.equal(context.result[1].status,'done');
     assert.equal(context.result[1].proofPhotoUrl,'photo-b');
+    assert.equal(context.result[1].sjNumber,'SJ-B');
+    assert.equal(context.result[0].sjNumber,undefined);
 });
 
 test('courier list keeps same-address clients and repeated SJ across different trips separate', () => {
