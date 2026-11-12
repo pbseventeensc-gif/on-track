@@ -22,6 +22,16 @@ test('search reads stored client and destination shapes without combining differ
     assert.equal(results.find(item=>item.name===second.locationName).lat,-6.3);
 });
 
+test('hospital abbreviation does not match the suffix of Farmers in a nearby address', () => {
+    const candidates = [
+        {name:'Chatime - Farmers Buaran Jakarta',address:'Jl. Radin Inten II, Duren Sawit, Jakarta Timur',lat:-6.2,lng:106.9},
+        {name:'RS Duren Sawit - Poli VCT',address:'Pondok Bambu, Jakarta Timur',lat:-6.2,lng:106.9}
+    ];
+    const results = search.search('rs duren sa',candidates);
+    assert.equal(results.length,1);
+    assert.equal(results[0].name,'RS Duren Sawit - Poli VCT');
+});
+
 test('selecting a suggestion adds the actual saved name and coordinates to the route', () => {
     const source=fs.readFileSync(require('node:path').join(__dirname,'../js/maps.js'),'utf8');
     const input={value:'wh cka',dispatchEvent(){}};
