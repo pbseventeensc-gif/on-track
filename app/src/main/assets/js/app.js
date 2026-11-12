@@ -3440,28 +3440,51 @@ function getPersonilCategory(cId, cName) {
     return normalized.vehicleType === 'mobil' ? 'driver' : 'kurir';
 }
 
+function monitorDayKey(date = new Date()) {
+    return new Intl.DateTimeFormat('en-CA', {timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit'}).format(date);
+}
+
+function isMonitorTripToday(trip, now = new Date()) {
+    if (!trip) return false;
+    for (const value of [trip.date, trip.dateFolder, trip.assignedAt, trip.assignedTime, trip.acceptedTime]) {
+        if (value === null || value === undefined || value === '') continue;
+        if (typeof value === 'string') {
+            const day = value.trim();
+            if (/^\d{4}-\d{2}-\d{2}$/.test(day)) return day === monitorDayKey(now);
+            const localDate = day.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+            if (localDate) return `${localDate[3]}-${localDate[2]}-${localDate[1]}` === monitorDayKey(now);
+        }
+        const date = typeof value.toDate === 'function' ? value.toDate()
+            : new Date(value.seconds !== undefined ? value.seconds * 1000
+                : value._seconds !== undefined ? value._seconds * 1000 : value);
+        if (!Number.isNaN(date.getTime())) return monitorDayKey(date) === monitorDayKey(now);
+    }
+    return false;
+}
+
+// Remove yesterday's cards after midnight even when there are no fresh GPS events.
+if (!window._monitorDayRolloverInterval) {
+    let lastMonitorDay = monitorDayKey();
+    window._monitorDayRolloverInterval = setInterval(() => {
+        const day = monitorDayKey();
+        if (day !== lastMonitorDay) {
+            lastMonitorDay = day;
+            refreshAllMonitorData();
+        }
+    }, 60000);
+}
+
 function renderMonitorUI(filter = "") {
     const mList = document.getElementById('monitor-list');
     if(!mList) return;
     mList.innerHTML = '';
 
     const search = (typeof filter === 'string' ? filter : (document.getElementById('monitor-search')?.value || "")).toLowerCase().trim();
-    const now = new Date();
-    const todayDayMs = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-    const todayEndMs = todayDayMs + 86400000 - 1;
-
     const courierGroups = {};
 
-    // 1. Gather couriers with active or today's trips (Merged & Deduplicated by Canonical ID)
+    // Only today's deliveries; GPS/status updates must not revive old assignments.
     allCurrentTrips.forEach(t => {
-        if (!t || t.status === 'pool') return;
-        const isCompleted = (t.status === 'completed' || t.status === 'done' || t.deliveryStatus === 'completed');
-        if (isCompleted) {
-            if (!isTripInDateRange(t, todayDayMs, todayEndMs)) return;
-        } else {
-            const recentActiveStartMs = todayDayMs - 86400000;
-            if (!isTripInDateRange(t, recentActiveStartMs, todayEndMs + 86400000)) return;
-        }
+        if (!t || t.status === 'pool' || !isMonitorTripToday(t)) return;
         const cId = t.courierId;
         if (!cId) return;
         const cName = registeredUsers[cId] || (typeof getCourierDisplayName === 'function' ? getCourierDisplayName(cId) : '');
@@ -3497,43 +3520,9 @@ function renderMonitorUI(filter = "") {
         }
     });
 
-    // 2. Also include online couriers even if no trips assigned yet (ONLY RECOGNIZED COURIERS WHO ARE CURRENTLY ONLINE)
-    if (typeof currentOnlineCouriers !== 'undefined') {
-        for (const cId in currentOnlineCouriers) {
-            // ONLY include if actually online right now!
-            if (!isCourierOnline(cId)) continue;
-
-            const cName = (typeof registeredUsers !== 'undefined' && registeredUsers[cId]) ? registeredUsers[cId] : (typeof getCourierDisplayName === 'function' ? getCourierDisplayName(cId) : '');
-            
-            // HAPUS / HIDE NON-MASTER / ANONYMOUS "Carrier (...)"
-            if (typeof isRecognizedCourier === 'function' && !isRecognizedCourier(cId, cName)) continue;
-
-            const norm = (typeof normalizeCourierIdentity === 'function')
-                ? normalizeCourierIdentity(cId, cName)
-                : { canonicalId: cId.toLowerCase(), displayName: cName };
-            const key = norm.canonicalId || cId.toLowerCase();
-            const displayName = norm.displayName || cName || key;
-
-            if (!courierGroups[key]) {
-                if (!search || displayName.toLowerCase().includes(search) || cId.toLowerCase().includes(search) || key.includes(search)) {
-                    courierGroups[key] = { id: key, rawId: cId, name: displayName, trips: [], totalStops: 0, doneStops: 0 };
-                }
-            }
-        }
-    }
-
-    // 3. Filter out any inactive courier with 0 trips and offline (Hapus duplicate/kosong 0 shipment)
-    for (const key in courierGroups) {
-        const c = courierGroups[key];
-        const isOnline = isCourierOnline(c.rawId || c.id);
-        if (c.trips.length === 0 && !isOnline) {
-            delete courierGroups[key];
-        }
-    }
-
     const courierIds = Object.keys(courierGroups);
     if(courierIds.length === 0) {
-        mList.innerHTML = '<div class="col-12 text-center p-4 text-muted extra-small">Tidak ada personil armada yang cocok dengan filter.</div>';
+        mList.innerHTML = '<div class="col-12 text-center p-4 text-muted extra-small">Tidak ada pengantaran hari ini yang cocok dengan filter.</div>';
         return;
     }
 
