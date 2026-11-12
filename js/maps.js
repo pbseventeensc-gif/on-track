@@ -710,6 +710,20 @@ window.gm_authFailure = function() {
     pacContainers.forEach(c => c.remove());
 };
 
+function addSavedDestination(place) {
+    if (!isInsideJabodetabekArea(place.lat, place.lng)) {
+        alert('Lokasi ini berada di luar jangkauan operasional.');
+        return;
+    }
+    tripQueue.push({...place, deliveryId: window.DeliveryIdentity?.newId()});
+    window.DestinationSearch?.remember(place);
+    renderQueue();
+    const input = document.getElementById('places-search');
+    if (input) {input.value = ''; input.dispatchEvent(new Event('change'));}
+    if (typeof mapDispatch !== 'undefined' && mapDispatch) mapDispatch.flyTo([place.lat, place.lng], 16);
+    if (typeof showToast === 'function') showToast('Lokasi ditambahkan ke rute!');
+}
+
 async function initAutocomplete() {
     try {
         const input = document.getElementById('places-search');
@@ -721,6 +735,7 @@ async function initAutocomplete() {
         input.setAttribute('data-1p-ignore', 'true');
         input.style.backgroundImage = 'none';
         input.style.backgroundColor = '#ffffff';
+        window.DestinationSearch?.init(input, addSavedDestination);
 
         let autocomplete;
         const operationalLatLngBounds = (window.google && google.maps && google.maps.LatLngBounds)
@@ -765,10 +780,12 @@ async function initAutocomplete() {
                     }
 
                     if (typeof tripQueue !== 'undefined') {
+                        window.DestinationSearch?.remember({name, address, lat, lng});
                         tripQueue.push({ name, address, lat, lng });
                         if (typeof renderQueue === 'function') renderQueue();
                     }
                     input.value = "";
+                    input.dispatchEvent(new Event('change'));
                     if (typeof showToast === 'function') showToast("Lokasi ditambahkan ke rute!");
                     if (mapDispatch) mapDispatch.flyTo([lat, lng], 16);
                 } else if (input.value.trim().length > 0) {
@@ -786,6 +803,13 @@ async function addManualAddress() {
     if (!input) return;
     const addressText = input.value.trim();
     if (!addressText) return alert("Masukkan nama toko atau alamat lokasi terlebih dahulu!");
+    const saved = window.DestinationSearch?.search(addressText, window.DestinationSearch.candidates()) || [];
+    if (saved.length === 1) { addSavedDestination(saved[0]); return; }
+    if (saved.length > 1) {
+        input.focus();
+        if (typeof showToast === 'function') showToast('Pilih tujuan yang sesuai dari daftar saran.');
+        return;
+    }
 
     if (typeof showToast === 'function') showToast("Mencari koordinat lokasi...");
 

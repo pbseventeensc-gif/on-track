@@ -2217,6 +2217,13 @@ async function ensureMasterClientsSeeded() {
 }
 
 let cachedAllClients = null;
+window.getDestinationSearchCandidates = function() {
+    return [
+        ...(cachedAllClients || []),
+        ...tripQueue,
+        ...(allCurrentTrips || []).flatMap(trip => trip.destinations || [])
+    ];
+};
 
 async function loadClientsByRegion(region, forceRefresh = false) {
     const container = document.getElementById('client-list-container');
