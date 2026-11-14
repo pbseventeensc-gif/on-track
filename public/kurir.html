@@ -2420,6 +2420,7 @@
                             phone: dest.phone || t.phone || '021-5506999',
                             latitude: dest.latitude || t.latitude || null,
                             longitude: dest.longitude || t.longitude || null,
+                            adminSJ: dest.adminSJ || t.adminSJ || '',
                             region: dest.region || t.region || '',
                             proofPhotoUrl: dest.proofPhotoUrl || (dest.proofPhotoItems && dest.proofPhotoItems[0]) || (dests.length === 1 ? t.proofPhotoUrl : '') || '',
                             proofSJUrl: dest.proofPhotoSj || dest.proofSJUrl || (dests.length === 1 ? t.proofSJUrl : '') || ''
@@ -2484,6 +2485,7 @@
                             phone: dest.phone || '021-5506999',
                             latitude: dest.latitude || t.latitude || null,
                             longitude: dest.longitude || t.longitude || null,
+                            adminSJ: dest.adminSJ || t.adminSJ || '',
                             region: dest.region || t.region || '',
                             proofPhotoUrl: dest.proofPhotoUrl || '',
                             proofSJUrl: dest.proofSJUrl || dest.proofPhotoSj || ''
@@ -3090,6 +3092,14 @@
 
         const safeDest = (s.destination || '').replace(/'/g, "\\'");
         const safeSJ = (s.noSJ || '').replace(/'/g, "\\'");
+        const safeAdminSJ = String(s.adminSJ || '').replace(/[&<>"']/g,
+            char => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[char]));
+        const adminSJHtml = safeAdminSJ ? `
+            <div class="d-flex align-items-center gap-2 mt-2 mb-2 px-2 py-2 rounded-3 border" style="background:#eff6ff;border-color:#bfdbfe!important;">
+                <i class="bi bi-person-vcard-fill text-primary"></i>
+                <span class="extra-small text-secondary">Kontak Admin SJ:</span>
+                <strong class="extra-small text-dark">${safeAdminSJ}</strong>
+            </div>` : '';
 
         // Req 4: Hapus icon delete di kurir (baik di titik pengantaran aktif maupun riwayat)
         return `
@@ -3114,6 +3124,7 @@
                         <div class="fw-bold text-dark mb-1 fs-6"><i class="bi bi-building text-primary me-1.5"></i>${s.destination}</div>
                         <div class="text-secondary"><i class="bi bi-geo-alt-fill text-danger me-1.5"></i>${s.address}</div>
                     </div>
+                    ${adminSJHtml}
                     <div class="d-flex gap-2 mb-1 align-items-center">
                         <a href="${getGoogleMapsNavUrl(s)}" target="_blank" class="btn btn-sm btn-light border flex-1 fw-bold extra-small text-dark">
                             <i class="bi bi-compass text-primary me-1"></i> Navigasi Maps

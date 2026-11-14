@@ -1649,6 +1649,13 @@ function isTabAllowedForRole(role, viewId) {
     if (!role) return false;
     const r = String(role).toLowerCase();
 
+    if (viewId === 'customers' && (
+        r === 'admin_dm2' || r === 'dm2' || r === 'admintrafficdm2' || r === 'traffic_dm2' ||
+        r.includes('dm2') || r === 'branch_admin' || r === 'branch'
+    )) {
+        return true;
+    }
+
     // Izinkan modul ERP baru & Import SJ/SPK
     if (viewId && (
         viewId === 'import-sj' ||
@@ -1728,6 +1735,7 @@ function applyRoleAccessControl() {
     const navPodArchive = document.getElementById('nav-pod-archive');
     const navReports = document.getElementById('nav-reports');
     const navSettings = document.getElementById('nav-settings');
+    const navCustomers = document.getElementById('nav-customers');
     const navCourierAudit = document.getElementById('nav-courier-audit');
     const navFleetInventory = document.getElementById('nav-fleet-inventory');
 
@@ -1762,9 +1770,10 @@ function applyRoleAccessControl() {
     const navBranchWorkstation = document.getElementById('nav-branch-workstation');
     const navSpk = document.getElementById('nav-spk');
 
-    [navDashboard, navMonitor, navImportSpk, navImportSj, navBranchWorkstation, navSpk, navPool, navDispatch, navFleet, navChat, navPodArchive, navReports, navSettings].forEach(el => {
+    [navDashboard, navMonitor, navImportSpk, navImportSj, navBranchWorkstation, navSpk, navPool, navDispatch, navFleet, navChat, navPodArchive, navReports, navSettings, navCustomers].forEach(el => {
         if (el) el.style.display = '';
     });
+    if (navCustomers) navCustomers.style.display = isTabAllowedForRole(currentUserRole, 'customers') ? '' : 'none';
 
     if (r === 'sales_admin' || r === 'sales') {
         if (navImportSpk) navImportSpk.style.display = 'none';
@@ -1866,6 +1875,11 @@ function switchTab(viewId, el) {
         }
     } else if (viewId === 'courier-audit') {
         if (typeof renderCourierAuditView === 'function') renderCourierAuditView();
+    } else if (viewId === 'customers') {
+        if (typeof loadClientsByRegion === 'function') {
+            const region = document.getElementById('region-filter')?.value || '';
+            loadClientsByRegion(region, true);
+        }
     } else if (viewId === 'fleet-inventory') {
         if (window.fleetModule && typeof window.fleetModule.renderFleetInventoryView === 'function') {
             window.fleetModule.renderFleetInventoryView();
@@ -2217,6 +2231,47 @@ async function ensureMasterClientsSeeded() {
 }
 
 let cachedAllClients = null;
+function normalizeCustomerKey(value) {
+    return String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function escapeClientHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, char => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[char]));
+}
+
+function customerDocumentId(name) {
+    const key = normalizeCustomerKey(name);
+    return `CLIENT_${key.slice(0, 120) || 'UNKNOWN'}`;
+}
+
+window.getCustomerAdminSJLookup = async function() {
+    if (!cachedAllClients) {
+        if (window.WTRACK_LOCAL_SANDBOX) {
+            try {
+                const stored = JSON.parse(localStorage.getItem('wtrack_local_clients') || '[]');
+                cachedAllClients = Array.isArray(stored) ? stored : [];
+            } catch (error) {
+                throw new Error('Database customer lokal tidak dapat dibaca: ' + error.message);
+            }
+        } else {
+            const activeDb = getDb();
+            if (!activeDb) return new Map();
+            const snapshot = await activeDb.collection('clients').get();
+            cachedAllClients = snapshot.docs.map(doc => ({...doc.data(), id: doc.id}));
+        }
+    }
+
+    const lookup = new Map();
+    cachedAllClients.forEach(client => {
+        const key = normalizeCustomerKey(client.name);
+        const adminSJ = String(client.adminSJ || '').trim();
+        if (key && adminSJ) lookup.set(key, adminSJ);
+    });
+    return lookup;
+};
+
 window.getDestinationSearchCandidates = function() {
     return [
         ...(cachedAllClients || []),
@@ -2227,21 +2282,25 @@ window.getDestinationSearchCandidates = function() {
 
 async function loadClientsByRegion(region, forceRefresh = false) {
     const container = document.getElementById('client-list-container');
-    const activeDb = getDb();
-    if(!container || !activeDb) return;
+    const localSandbox = !!window.WTRACK_LOCAL_SANDBOX;
+    const activeDb = localSandbox ? null : getDb();
+    if (!container || (!localSandbox && !activeDb)) return;
     const sa = document.getElementById('select-all-clients');
     if(sa) sa.checked = false;
 
     if (!cachedAllClients || forceRefresh) {
         container.innerHTML = '<p class="text-center py-3 text-muted extra-small">Fetching clients...</p>';
         try {
-            const snap = await activeDb.collection('clients').get();
-            cachedAllClients = [];
-            snap.forEach(doc => {
-                const c = doc.data();
-                c.id = doc.id;
-                cachedAllClients.push(c);
-            });
+            if (localSandbox) {
+                const stored = JSON.parse(localStorage.getItem('wtrack_local_clients') || '[]');
+                cachedAllClients = Array.isArray(stored) ? stored : [];
+            } else {
+                const snap = await activeDb.collection('clients').get();
+                cachedAllClients = [];
+                snap.forEach(doc => {
+                    cachedAllClients.push({...doc.data(), id: doc.id});
+                });
+            }
         } catch (e) {
             console.error("Error loading clients:", e);
             container.innerHTML = '<p class="text-center py-3 text-danger extra-small">Gagal memuat daftar toko.</p>';
@@ -2276,12 +2335,16 @@ async function loadClientsByRegion(region, forceRefresh = false) {
         allClients.push(c);
 
         const addressParts = (c.address || '').split(',');
-        const storeName = addressParts[0].trim();
+        const storeName = addressParts[0].trim() || c.name || 'Customer';
         const remainingAddress = addressParts.slice(1).join(',').trim();
 
-        const escName = (c.name || '').replace(/"/g, '&quot;');
-        const escStore = storeName.replace(/"/g, '&quot;');
-        const escAddr = (c.address || '').replace(/"/g, '&quot;');
+        const escName = escapeClientHtml(c.name || '');
+        const escStore = escapeClientHtml(storeName);
+        const escAddr = escapeClientHtml(c.address || '');
+        const escRegion = escapeClientHtml(c.region || 'Belum diatur');
+        const escAdminSJ = escapeClientHtml(c.adminSJ || '');
+        const escAddress = escapeClientHtml(c.address || 'Alamat belum tersedia');
+        const escId = escapeClientHtml(c.id || '');
 
         htmlChunks.push(`
             <div class="d-flex align-items-center gap-2 mb-2 p-2 bg-white rounded border shadow-sm position-relative group-hover">
@@ -2292,11 +2355,12 @@ async function loadClientsByRegion(region, forceRefresh = false) {
                     data-lat="${c.latitude}"
                     data-lng="${c.longitude}">
                 <div class="overflow-hidden flex-grow-1">
-                    <div class="fw-bold text-dark" style="font-size: 0.75rem; line-height: 1.2;">${storeName}</div>
-                    <div class="text-muted mt-1" style="font-size: 0.65rem; font-weight: 600;">${c.name}</div>
-                    <div class="text-muted text-truncate" style="font-size: 0.6rem; max-width: 180px;">${remainingAddress || c.address}</div>
+                    <div class="fw-bold text-dark" style="font-size: 0.8rem; line-height: 1.2;">${escName}</div>
+                    <div class="text-muted mt-1" style="font-size: 0.7rem;">${escRegion}</div>
+                    <div class="text-muted text-truncate" style="font-size: 0.7rem;" title="${escAddress}">${escapeClientHtml(remainingAddress || c.address || 'Alamat belum tersedia')}</div>
+                    <div class="text-primary mt-1 fw-semibold" style="font-size: 0.72rem;">${escAdminSJ ? `Admin SJ: ${escAdminSJ}` : 'Admin SJ belum diatur'}</div>
                 </div>
-                <button class="btn btn-link text-danger p-1" data-id="${c.id}" data-store="${escStore}" onclick="deleteClient(this.dataset.id, this.dataset.store)">
+                <button class="btn btn-link text-danger p-1" data-id="${escId}" data-store="${escStore}" onclick="deleteClient(this.dataset.id, this.dataset.store)" title="Hapus customer">
                     <i class="bi bi-trash" style="font-size: 0.8rem;"></i>
                 </button>
             </div>
@@ -2314,7 +2378,7 @@ async function loadClientsByRegion(region, forceRefresh = false) {
 }
 
 function filterClients(query) {
-    const q = query.toLowerCase().trim();
+    const q = String(query || '').toLowerCase().trim();
     const items = document.querySelectorAll('#client-list-container > div');
     let visibleCount = 0;
 
@@ -2354,10 +2418,17 @@ function filterClients(query) {
 async function deleteClient(id, name) {
     if(!confirm(`Hapus client "${name}" dari database?`)) return;
     try {
-        const activeDb = getDb();
-        if (!activeDb) return;
-        await activeDb.collection('clients').doc(id).delete();
-        cachedAllClients = null;
+        if (window.WTRACK_LOCAL_SANDBOX) {
+            const stored = JSON.parse(localStorage.getItem('wtrack_local_clients') || '[]');
+            const updated = stored.filter(client => client.id !== id);
+            localStorage.setItem('wtrack_local_clients', JSON.stringify(updated));
+            cachedAllClients = updated;
+        } else {
+            const activeDb = getDb();
+            if (!activeDb) throw new Error('Database tidak terhubung.');
+            await activeDb.collection('clients').doc(id).delete();
+            cachedAllClients = null;
+        }
         showToast("Client berhasil dihapus.");
         const regEl = document.getElementById('region-filter');
         loadClientsByRegion(regEl ? regEl.value : "", true);
@@ -5755,89 +5826,139 @@ async function clearAllHistory() {
 
 async function importClientsFromExcel() {
     if (typeof XLSX === 'undefined') return alert("SheetJS library not loaded!");
-    const file = document.getElementById('client-excel-file').files[0];
-    if(!file) return alert("Please select an Excel file first!");
+    const fileInput = document.getElementById('client-excel-file');
+    const file = fileInput?.files?.[0];
+    if (!file) return alert("Please select an Excel file first!");
 
     const progress = document.getElementById('import-progress');
     const status = document.getElementById('import-status');
-    progress.classList.remove('d-none');
-    status.innerText = "Reading file...";
+    const progressBar = progress?.querySelector('.progress-bar');
+    progress?.classList.remove('d-none');
+    if (status) status.innerText = "Membaca file Excel...";
 
     const reader = new FileReader();
-    reader.onload = async (e) => {
-        const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, {type: 'array'});
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(sheet);
+    reader.onerror = () => {
+        const message = 'File Excel tidak dapat dibaca.';
+        if (status) status.innerText = message;
+        alert(message);
+    };
+    reader.onload = async event => {
+        try {
+            const workbook = XLSX.read(new Uint8Array(event.target.result), {type: 'array'});
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const rows = XLSX.utils.sheet_to_json(sheet, {defval: ''});
+            if (!rows.length) throw new Error('File Excel kosong.');
 
-        if(rows.length === 0) {
-            alert("Excel file is empty!");
-            progress.classList.add('d-none');
-            return;
-        }
-
-        status.innerText = `Processing ${rows.length} clients...`;
-        const activeDb = getDb();
-        if (!activeDb) return alert("Database tidak terhubung.");
-        const batch = activeDb.batch();
-        const geocoder = (typeof google !== 'undefined' && google.maps && google.maps.Geocoder) ? new google.maps.Geocoder() : null;
-
-        for (let i = 0; i < rows.length; i++) {
-            const row = rows[i];
-            const name = (row.Customer || row.Name || row.name || row.CUSTOMER || "").toString().trim();
-            let address = (row['Alamat SJ'] || row.Address || row.address || row.ALAMAT || "").toString().trim();
-            const region = (row.Region || row.region || row.REGION || "").toString().trim();
-
-            if(!name) continue;
-
-            const regionSuffix = region ? `, ${region}` : ", Jabodetabek";
-            const searchQuery = address ? `${address}${regionSuffix}, Indonesia` : `${name}${regionSuffix}, Indonesia`;
-
-            try {
-                let geoResult = null;
-                if (geocoder) {
-                    geoResult = await new Promise((resolve) => {
-                        geocoder.geocode({ address: searchQuery }, (results, s) => {
-                            if (s === 'OK' && results[0]) {
-                                resolve({
-                                    location: results[0].geometry.location,
-                                    fullAddress: results[0].formatted_address
-                                });
-                            } else {
-                                resolve(null);
-                            }
-                        });
-                    });
+            const importedByName = new Map();
+            const readValue = (row, aliases) => {
+                const normalized = new Map(Object.entries(row).map(([key, value]) => [
+                    String(key).toLowerCase().replace(/[^a-z0-9]/g, ''),
+                    value
+                ]));
+                for (const alias of aliases) {
+                    const value = normalized.get(alias.toLowerCase().replace(/[^a-z0-9]/g, ''));
+                    if (value !== undefined && String(value).trim()) return String(value).trim();
                 }
+                return '';
+            };
 
-                const finalAddress = (address.length < 5 && geoResult) ? geoResult.fullAddress : (address || (geoResult ? geoResult.fullAddress : "Alamat tidak ditemukan"));
-
-                const ref = activeDb.collection('clients').doc();
-                batch.set(ref, {
-                    name: name,
-                    region: region || (geoResult ? "Auto-detected" : "General"),
-                    address: finalAddress,
-                    latitude: geoResult ? geoResult.location.lat() : 0,
-                    longitude: geoResult ? geoResult.location.lng() : 0,
-                    createdAt: firebase.firestore.Timestamp.now()
+            rows.forEach(row => {
+                const name = readValue(row, ['Nama customer', 'Customer', 'Customer Name', 'Name', 'Nama']);
+                if (!name) return;
+                const key = normalizeCustomerKey(name);
+                if (!key) return;
+                const previous = importedByName.get(key) || {};
+                importedByName.set(key, {
+                    ...previous,
+                    name,
+                    adminSJ: readValue(row, ['Admin SJ', 'Admin Surat Jalan', 'Admin']) || previous.adminSJ || '',
+                    address: readValue(row, ['Alamat SJ', 'Alamat Kirim', 'Alamat', 'Address']) || previous.address || '',
+                    region: readValue(row, ['Region', 'Wilayah', 'Area']) || previous.region || ''
                 });
-
-            } catch (err) {
-                console.error("Critical error at row:", i, err);
+            });
+            if (!importedByName.size) {
+                throw new Error('Tidak ada nama customer yang valid. Pastikan kolom "Nama customer" tersedia.');
             }
 
-            const pct = Math.round(((i + 1) / rows.length) * 100);
-            progress.querySelector('.progress-bar').style.width = pct + '%';
-            status.innerText = `Importing: ${pct}% (${i+1}/${rows.length})`;
-        }
+            const localSandbox = !!window.WTRACK_LOCAL_SANDBOX;
+            const activeDb = localSandbox ? null : getDb();
+            if (!localSandbox && !activeDb) throw new Error('Database tidak terhubung.');
 
-        await batch.commit();
-        cachedAllClients = null;
-        status.innerHTML = `<span class="text-success">SUCCESS! ${rows.length} Clients synced to database.</span>`;
-        setTimeout(() => progress.classList.add('d-none'), 2000);
-        showToast("Clients Database Updated!");
-        const regEl = document.getElementById('region-filter');
-        loadClientsByRegion(regEl ? regEl.value : "", true);
+            let existingClients = [];
+            if (localSandbox) {
+                existingClients = JSON.parse(localStorage.getItem('wtrack_local_clients') || '[]');
+                if (!Array.isArray(existingClients)) throw new Error('Database customer lokal tidak valid.');
+            } else {
+                const snapshot = await activeDb.collection('clients').get();
+                snapshot.forEach(doc => existingClients.push({...doc.data(), id: doc.id}));
+            }
+            const existingByName = new Map();
+            existingClients.forEach(client => {
+                const key = normalizeCustomerKey(client.name);
+                if (key && !existingByName.has(key)) existingByName.set(key, client);
+            });
+
+            const records = [...importedByName.entries()].map(([key, imported]) => {
+                const existing = existingByName.get(key) || {};
+                return {
+                    id: existing.id || customerDocumentId(imported.name),
+                    name: imported.name,
+                    adminSJ: imported.adminSJ || existing.adminSJ || '',
+                    address: imported.address || existing.address || '',
+                    region: imported.region || existing.region || '',
+                    latitude: existing.latitude ?? 0,
+                    longitude: existing.longitude ?? 0,
+                    ...(existing.createdAt ? {createdAt: existing.createdAt} : {})
+                };
+            });
+            const mergedClients = new Map(existingClients.map(client => [
+                client.id || customerDocumentId(client.name),
+                {...client, id: client.id || customerDocumentId(client.name)}
+            ]));
+            records.forEach(record => mergedClients.set(record.id, record));
+            const refreshedClients = [...mergedClients.values()];
+
+            if (localSandbox) {
+                localStorage.setItem('wtrack_local_clients', JSON.stringify(refreshedClients));
+            } else {
+                const chunkSize = 450;
+                for (let start = 0; start < records.length; start += chunkSize) {
+                    const batch = activeDb.batch();
+                    records.slice(start, start + chunkSize).forEach(record => {
+                        const payload = {
+                            name: record.name,
+                            adminSJ: record.adminSJ,
+                            updatedAt: firebase.firestore.Timestamp.now()
+                        };
+                        if (record.address) payload.address = record.address;
+                        if (record.region) payload.region = record.region;
+                        if (record.latitude) payload.latitude = record.latitude;
+                        if (record.longitude) payload.longitude = record.longitude;
+                        if (!existingByName.has(normalizeCustomerKey(record.name))) {
+                            payload.createdAt = firebase.firestore.Timestamp.now();
+                        }
+                        batch.set(activeDb.collection('clients').doc(record.id), payload, {merge: true});
+                    });
+                    await batch.commit();
+                    const imported = Math.min(start + chunkSize, records.length);
+                    if (progressBar) progressBar.style.width = `${Math.round(imported / records.length * 100)}%`;
+                    if (status) status.innerText = `Menyimpan customer: ${imported}/${records.length}`;
+                }
+            }
+
+            cachedAllClients = refreshedClients;
+            if (progressBar) progressBar.style.width = '100%';
+            if (status) status.innerText = `Berhasil menyinkronkan ${records.length} customer.`;
+            fileInput.value = '';
+            showToast(`Database customer diperbarui: ${records.length} customer.`);
+            const regEl = document.getElementById('region-filter');
+            await loadClientsByRegion(regEl ? regEl.value : "", true);
+            setTimeout(() => progress?.classList.add('d-none'), 2000);
+        } catch (error) {
+            console.error('Gagal mengimpor database customer:', error);
+            if (status) status.innerText = `Gagal mengimpor: ${error.message}`;
+            alert(`Gagal mengimpor database customer: ${error.message}`);
+        }
     };
     reader.readAsArrayBuffer(file);
 }

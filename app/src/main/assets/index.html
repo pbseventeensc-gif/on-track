@@ -1211,6 +1211,21 @@
                 </div>
             </div>
 
+            <div class="sidebar-accordion-group open" data-group="master-data">
+                <div class="sidebar-group-header" onclick="toggleSidebarGroup('master-data')">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-database group-icon"></i>
+                        <span class="group-title">Master Data</span>
+                    </div>
+                    <i class="bi bi-chevron-down chevron-icon"></i>
+                </div>
+                <div class="sidebar-sub-items">
+                    <a href="javascript:void(0)" class="sub-nav-item" id="nav-customers" onclick="switchTab('customers', this)">
+                        <i class="bi bi-person-vcard sub-icon"></i> <span>Database Customer</span>
+                    </a>
+                </div>
+            </div>
+
             <!-- Settings -->
             <a href="javascript:void(0)" class="nav-link-custom mt-2" id="nav-settings" onclick="switchTab('settings', this)">
                 <i class="bi bi-gear"></i> <span>Settings</span>
@@ -2584,6 +2599,66 @@
                 </div>
             </div>
 
+            <!-- CUSTOMER MASTER DATABASE VIEW -->
+            <div id="view-customers" class="view-section" style="display: none;">
+                <div class="border rounded-4 p-4 bg-white shadow-sm">
+                    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+                        <div>
+                            <h5 class="fw-bold mb-1"><i class="bi bi-person-vcard me-2 text-primary"></i>Database Customer</h5>
+                            <p class="text-muted small mb-0">Kelola nama customer dan Admin SJ. Nama Admin SJ ini ditampilkan kepada kurir saat pengantaran.</p>
+                            <small class="text-muted">Kolom Excel minimal: <b>Nama customer</b> dan <b>ADMIN SJ</b>; Alamat SJ dan Region bersifat opsional.</small>
+                        </div>
+                        <div>
+                            <input type="file" id="client-excel-file" class="d-none" accept=".xlsx,.xls,.csv" onchange="importClientsFromExcel()">
+                            <button type="button" class="btn btn-primary fw-semibold" onclick="document.getElementById('client-excel-file').click()">
+                                <i class="bi bi-upload me-1"></i> Import Excel
+                            </button>
+                        </div>
+                    </div>
+                    <div id="import-progress" class="progress d-none mb-2" role="progressbar" aria-label="Progress import customer">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: 0%"></div>
+                    </div>
+                    <div id="import-status" class="small text-muted mb-3" aria-live="polite"></div>
+                    <div class="row g-2 align-items-end mb-3">
+                        <div class="col-md-5">
+                            <label for="client-search" class="form-label small fw-semibold">Cari customer atau Admin SJ</label>
+                            <input type="search" id="client-search" class="form-control" placeholder="Ketik nama customer, admin, atau alamat..." oninput="filterClients(this.value)">
+                        </div>
+                        <div class="col-md-3">
+                            <label for="region-filter" class="form-label small fw-semibold">Wilayah</label>
+                            <select id="region-filter" class="form-select" onchange="loadClientsByRegion(this.value, true)">
+                                <option value="">Semua wilayah</option>
+                                <option>Jakarta Pusat</option>
+                                <option>Jakarta Barat</option>
+                                <option>Jakarta Selatan</option>
+                                <option>Jakarta Timur</option>
+                                <option>Jakarta Utara</option>
+                                <option>Tangerang</option>
+                                <option>Bekasi</option>
+                                <option>Cikarang</option>
+                                <option>Depok</option>
+                                <option>Bogor</option>
+                                <option>Karawang</option>
+                                <option>Serang</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 d-flex align-items-center gap-2">
+                            <span class="badge bg-light text-dark border"><span id="client-qty">0</span> customer</span>
+                            <label class="form-check-label small text-muted ms-auto">
+                                <input type="checkbox" class="form-check-input me-1" id="select-all-clients" onchange="toggleAllClients(this.checked)">
+                                Pilih semua
+                            </label>
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addSelectedClients()">
+                                <i class="bi bi-plus-lg me-1"></i> Tambah ke rute
+                            </button>
+                        </div>
+                    </div>
+                    <div id="client-list-container" class="overflow-auto pe-1" style="max-height: 62vh; min-height: 180px;">
+                        <p class="text-center py-4 text-muted small">Memuat database customer...</p>
+                    </div>
+                </div>
+            </div>
+
             <!-- WORKSTATION CIKOKOL VIEW -->
             <div id="view-branch-workstation" class="view-section" style="display: none;">
                 <!-- Di-render oleh BranchWorkstation.renderBranchWorkstation() -->
@@ -3468,12 +3543,12 @@
 <script src="/js/maps.js?v=175.0"></script>
 <script src="/js/fleet_vehicles.js?v=1.4"></script>
 <script src="js/delivery_identity.js?v=1"></script>
-<script src="/js/app.js?v=177.0"></script>
+<script src="/js/app.js?v=180.0"></script>
 <script src="/js/kpi.js?v=174.0"></script>
 <script src="/js/courier_audit.js?v=175.0"></script>
 <script src="/js/custom_dropdown.js?v=2.0"></script>
 <script src="/js/qr_print_dispatch.js?v=2.2"></script>
-<script src="/js/sj_import_engine.js?v=2.2"></script>
+<script src="/js/sj_import_engine.js?v=2.3"></script>
 <script src="/js/branch_workstation.js?v=2.2"></script>
 <script src="/js/spk_manager.js?v=3.0"></script>
 <script src="/js/web_qr_scanner_sim.js?v=2.2"></script>

@@ -116,6 +116,12 @@
         // 3. NAMA BARANG / ITEM / PRODUK (HARUS LEBIH DULU daripada customer agar 'nama barang' tidak pernah masuk ke customer!)
         if (cleaned.includes('nama barang') || cleaned.includes('uraian barang') || cleaned.includes('nama produk') || cleaned.includes('nama item') || cleaned.includes('deskripsi barang') || cleaned.includes('deskripsi') || cleaned.includes('uraian') || cleaned.includes('barang') || cleaned.includes('item') || cleaned.includes('produk') || cleaned.includes('pekerjaan')) return 'itemsSummary';
 
+        // Store is the delivery destination, separate from the billing customer.
+        if (['store', 'nama store', 'store tujuan', 'nama toko', 'toko tujuan'].includes(cleaned)) return 'storeDestination';
+
+        // 4. Admin penanggung jawab Surat Jalan.
+        if (cleaned === 'admin' || (cleaned.includes('admin') && (cleaned.includes('sj') || cleaned.includes('surat jalan')))) return 'adminSJ';
+
         // 4. CUSTOMER / KLIEN (Hanya dicocokkan jika ada kata customer, klien, client, toko, pemesan, penerima, kepada, pemberi kerja, atau 'nama customer')
         if (cleaned.includes('customer') || cleaned.includes('klien') || cleaned.includes('client') || cleaned.includes('nama customer') || cleaned.includes('nama klien') || cleaned.includes('nama toko') || cleaned.includes('penerima') || cleaned.includes('kepada') || cleaned.includes('toko') || cleaned.includes('perusahaan') || cleaned.includes('pemesan') || cleaned.includes('pemberi kerja') || cleaned === 'nama' || cleaned === 'cust') return 'clientName';
 
@@ -177,7 +183,7 @@
         return foundSJHeader || foundKepadaYth;
     }
 
-    function parseWellenSuratJalanSheet(rows2D, sheetName = '', fileName = '') {
+    function parseWellenSuratJalanSheet(rows2D, sheetName = '', fileName = '', adminSJLookup = null) {
         let sjNumber = '';
         let customer = '';
         let storeDestination = '';
@@ -228,7 +234,7 @@
                 const cell = String(row[c] || '').trim();
                 if (!cell) continue;
                 if (/STORE\s+[A-Z0-9\s]+/i.test(cell) || (/TOKO|CABANG|MALL|GRAND|INDAH/i.test(cell) && cell.length > 8 && !cell.includes('Wellen') && !cell.includes('Pasar Minggu'))) {
-                    if (!storeDestination) storeDestination = cell;
+                    if (!storeDestination || (/^STORE\b/i.test(cell) && !/^STORE\b/i.test(storeDestination))) storeDestination = cell;
                 }
             }
 
@@ -309,10 +315,13 @@
         }
 
         const clientNameFinal = customer || 'PT TOYS GAMES INDONESIA';
-        const addressFinal = storeDestination || `Alamat Kirim ${clientNameFinal}`;
+        const addressFinal = storeDestination || '';
         const reg = detectRegion(addressFinal, clientNameFinal);
         const totalQtyNum = totalQty || (items.length > 0 ? items.reduce((s, it) => s + (parseFloat(it.qty) || 1), 0) + ' Pcs' : '1 Pcs');
         const itemsSummary = items.length > 0 ? `${items.length} Item Cetakan (${totalQtyNum})` : 'Barang Cetakan';
+
+        const adminKey = customer.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const adminSJ = adminSJLookup && typeof adminSJLookup.get === 'function' ? (adminSJLookup.get(adminKey) || '') : '';
 
         return {
             sjNumber: sjNumber || `SJ/${dateFolder.replace(/-/g, '')}/${Math.floor(1000 + Math.random()*9000)}`,
@@ -330,9 +339,14 @@
             items: items.length > 0 ? items : [{ nama: 'Barang Cetakan', qty: '1 Pcs' }],
             dateFolder: dateFolder,
             dibuatOleh: dibuatOleh || '',
-            adminSJ: '', // Sesuai permintaan user: sementara blank
+            adminSJ,
             readyStatus: 'ready'
         };
+    }
+
+    function getAdminSJForCustomer(customerName, lookup) {
+        const key = String(customerName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        return lookup && typeof lookup.get === 'function' ? (lookup.get(key) || '') : '';
     }
 
     // Baca dan parse file Excel (Mendukung format standar SJ dan Format SPK Wellen Print Gambar 1)
@@ -344,10 +358,13 @@
 
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
-            reader.onload = function(e) {
+            reader.onload = async function(e) {
                 try {
                     const data = new Uint8Array(e.target.result);
                     const workbook = XLSX.read(data, { type: 'array' });
+                    const adminSJLookup = typeof window.getCustomerAdminSJLookup === 'function'
+                        ? await window.getCustomerAdminSJLookup()
+                        : null;
 
                     // A. Periksa apakah ada sheet yang menggunakan Format Layout Resmi Surat Jalan Wellen
                     const wellenSjRows = [];
@@ -356,7 +373,7 @@
                         if (!sObj) continue;
                         const s2D = XLSX.utils.sheet_to_json(sObj, { header: 1, defval: '' });
                         if (isWellenSuratJalanLayout(s2D)) {
-                            const parsed = parseWellenSuratJalanSheet(s2D, sName, currentImportFileName);
+                            const parsed = parseWellenSuratJalanSheet(s2D, sName, currentImportFileName, adminSJLookup);
                             parsed.rowIndex = wellenSjRows.length + 1;
                             wellenSjRows.push(parsed);
                         }
@@ -469,8 +486,10 @@
                         descParts.push(`Qty: ${qtyFormatted}`);
                         const fullDescription = descParts.join(' | ');
 
-                        const address = getVal('address') || `Alamat Kirim ${client}`;
+                        const address = getVal('address') || '';
+                        const storeDestination = getVal('storeDestination');
                         const reg = getVal('region') || detectRegion(address, client);
+                        const adminSJ = getVal('adminSJ') || getAdminSJForCustomer(client, adminSJLookup);
                         const shortCode = generateUniqueCode();
                         const sjNumber = getVal('sjNumber') || `SJ/${todayDate.getFullYear()}/${String(todayDate.getMonth()+1).padStart(2,'0')}/${String(normalizedRows.length + 1).padStart(4, '0')}`;
 
@@ -483,7 +502,9 @@
                             shortCode: shortCode,
                             clientName: client,
                             customer: client,
+                            adminSJ,
                             address: address,
+                            storeDestination: storeDestination,
                             region: reg,
                             namaBarang: barangVal || 'Barang Cetakan',
                             ukuran: ukuranVal || '-',
@@ -1506,7 +1527,7 @@
                         <a class="aerotrack-id-link font-monospace">${r.sjNumber}</a>
                     </td>
                     <td style="width: 110px;">
-                        <input type="text" class="form-control form-control-sm preview-admin-input py-0 px-2" data-index="${dataIdx}" placeholder="-" value="${r.adminSJ || ''}" style="width: 100px; font-size: 0.78rem; height: 32px;" title="Admin Penanggung Jawab SJ (Sementara kosong)">
+                        <input type="text" class="form-control form-control-sm preview-admin-input py-0 px-2" data-index="${dataIdx}" placeholder="-" value="${r.adminSJ || ''}" style="width: 100px; font-size: 0.78rem; height: 32px;" title="Admin SJ dari Excel/database customer; dapat diedit">
                     </td>
                     <td style="width: 90px;">
                         <span class="aerotrack-badge font-monospace">${r.shortCode}</span>
@@ -1660,6 +1681,7 @@
                 customer: item.clientName,
                 clientName: item.clientName,
                 address: item.address || '',
+                storeDestination: item.storeDestination || '',
                 qrPayload: qrPayload,
                 batchId: batchId,
                 dateFolder: dateFolder,
@@ -1682,7 +1704,8 @@
                     adminSJ: finalAdminSJ,
                     shortCode: item.shortCode,
                     uniqueCode: item.shortCode,
-                    locationName: item.clientName,
+                    locationName: item.storeDestination || item.address || 'Tujuan Pengantaran',
+                    storeDestination: item.storeDestination || '',
                     customer: item.clientName,
                     address: item.address,
                     itemsSummary: item.itemsSummary || 'Item Cetakan',
