@@ -3122,6 +3122,9 @@ function refreshAllMonitorData() {
         if (typeof updateMapMarkers === 'function') updateMapMarkers(activeFilter);
         updateMonitorSuggestions();
         if (typeof renderKPIView === 'function') renderKPIView();
+        if (typeof VolumeComparison !== 'undefined' && typeof VolumeComparison.render === 'function') {
+            VolumeComparison.render();
+        }
     }, 100);
 }
 
