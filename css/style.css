@@ -792,7 +792,17 @@ body {
 }
 .stat-label { font-size: 11px; font-weight: 500; color: #667085; text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 6px; }
 .stat-value { font-size: 18px !important; font-weight: 600 !important; color: #101828 !important; margin-bottom: 2px; }
-.stat-trend { font-size: 0.75rem; font-weight: 700; display: flex; align-items: center; gap: 4px; }
+.stat-trend {
+    font-size: 0.75rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
 .trend-up { color: #10B981; }
 .trend-down { color: #EF4444; }
 
@@ -993,6 +1003,17 @@ body {
     transition: 0.2s;
 }
 .btn-close-custom:hover { transform: scale(1.1); background-color: #333 !important; }
+
+/* Image Preview Modal PoD */
+#modalImg {
+    width: 100% !important;
+    height: auto !important;
+    max-height: 75vh !important;
+    object-fit: contain !important;
+    display: block !important;
+    margin: 0 auto !important;
+    image-rendering: high-quality;
+}
 
 /* Hide Google Places Autocomplete Error Badges */
 input.pac-target-input,

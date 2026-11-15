@@ -22,7 +22,7 @@ test('courier proof card uses the original completion time and Jakarta calendar 
 });
 
 test('courier reload keeps each stop completion time and does not substitute assignment or route time', () => {
-    const trip={id:'route',date:'2026-11-13',status:'completed',completedAt:'2026-11-13T10:00:00Z',destinations:[
+    const trip={id:'route',date:'2026-11-13',assignedAt:'2026-11-16T01:00:00Z',status:'completed',completedAt:'2026-11-13T10:00:00Z',destinations:[
         {locationName:'A',status:'done',completedTime:{seconds:1794554400}},
         {locationName:'B',status:'done',completedTime:'2026-11-13T09:00:00Z'},
         {locationName:'C',status:'done'}
@@ -33,6 +33,7 @@ test('courier reload keeps each stop completion time and does not substitute ass
         firestoreDb:{collection:()=>({onSnapshot(callback){callback([{id:trip.id,data:()=>trip}]);return ()=>{};}})}});
     vm.runInContext(source.slice(source.indexOf('    function syncFirestoreTrips('),source.indexOf('    function syncLocalImportedTrips()')),c);
     c.syncFirestoreTrips();
+    assert.equal(c.masterShipments[0].date,trip.assignedAt);
     assert.equal(c.masterShipments[0].completedAt,trip.destinations[0].completedTime);
     assert.equal(c.masterShipments[1].completedAt,trip.destinations[1].completedTime);
     assert.equal(c.masterShipments[2].completedAt,null);

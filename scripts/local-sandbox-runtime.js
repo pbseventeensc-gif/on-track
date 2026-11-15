@@ -146,32 +146,6 @@
     window.syncAllCurrentTrips(active);
     window.renderCourierOptions();
     window.loginAsLocalDemoAdmin();
-    // Persist the complete assignment before changing the UI. Quota failures leave
-    // the previous data untouched, and every item/destination survives a refresh.
-    window.UnifiedPoolUI.assignSelectedToCourier = async () => {
-      const courierId = document.getElementById('pool-bulk-courier')?.value;
-      const courier = window.MASTER_COURIERS.find(c => c.defaultUid === courierId);
-      const checked = new Set(Array.from(document.querySelectorAll('.pool-checkbox:checked'), cb => cb.value));
-      if (!courier || !checked.size) return alert('Pilih kurir dan minimal satu Surat Jalan terlebih dahulu.');
-      const matches = t => [t.id, t.tripId, t.noSJ, t.sjNumber].some(id => checked.has(id));
-      let list;
-      try {
-        list = JSON.parse(localStorage.getItem('wtrack_local_trips') || '[]');
-        if (!list.some(matches)) return alert('Surat Jalan terpilih tidak ditemukan di penyimpanan lokal.');
-        if (list.some(t => matches(t) && t.pickupStatus === 'waiting')) throw new Error('SJ menunggu Pickup by Customer; batalkan pickup sebelum menugaskan kurir.');
-        list = list.map(t => !matches(t) ? t : {...t, courierId, courierName:courier.displayName,
-          assignedTo:courier.displayName, assignedAt:new Date().toISOString(), status:'in_progress', deliveryStatus:'in_progress',
-          isPendingRollover:false, isFailed:false, failedReason:null,
-          destinations:(t.destinations || []).map(d => ({...d, status:'in_progress'}))});
-        await window.persistLocalSandboxTrips(list);
-      } catch (error) { return alert(error.message || 'Penugasan belum disimpan. Periksa penyimpanan / koneksi lokal.'); }
-      window.allPoolTrips = (window.allPoolTrips || []).filter(t => !matches(t));
-      window.syncAllCurrentTrips(list.filter(t => t.courierId || t.pickupStatus === 'collected'));
-      window.UnifiedPoolUI.renderUnifiedPoolView();
-      window.renderRecentShipments();
-      window.updateGlobalStats();
-      window.showToast(`Penugasan lokal ke ${courier.displayName} tersimpan. Tidak dikirim ke Firebase.`);
-    };
     const banner = document.createElement('div');
     banner.id = 'local-sandbox-banner';
     banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:99999;padding:10px 16px;background:#fef3c7;color:#78350f;font:13px sans-serif;border-top:2px solid #d97706;display:flex;align-items:center;gap:12px;justify-content:space-between';

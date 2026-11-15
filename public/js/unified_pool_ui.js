@@ -93,15 +93,18 @@ window.UnifiedPoolUI = (function () {
 
     function addTrip(t) {
       if (!t) return;
-      if (window.WTRACK_LOCAL_SANDBOX && t.courierId && t.destinations?.length > 1) return;
+      if (t.courierId && t.destinations?.length > 1) return;
       const tid = String(t.noSJ || t.sjNumber || t.id || t.tripId);
       if (!tid || seenIds.has(tid) || deletedSet.has(tid)) return;
 
       // Filter out demo/dummy trip IDs if any linger in cache
       if (tid.startsWith('SJ-DEMO-') || tid.startsWith('SJ-821457') || tid.startsWith('SJ-200008') || tid.startsWith('SJ-209914') || tid.startsWith('SJ-796379')) return;
 
-      const todayStr = new Date().toISOString().split('T')[0];
-      const dDate = t.date || t.dateFolder || todayStr;
+      const todayStr = new Date(Date.now() + 7 * 3600000).toISOString().slice(0,10);
+      const rawDate = t.dateFolder || t.date;
+      const dateMs = rawDate?.toMillis?.() || (rawDate?.seconds ? rawDate.seconds * 1000 : Date.parse(rawDate));
+      const dDate = typeof rawDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(rawDate) ? rawDate :
+        Number.isFinite(dateMs) ? new Date(dateMs + 7 * 3600000).toISOString().slice(0,10) : todayStr;
       const isOld = (dDate < todayStr);
       const dStatus = (t.deliveryStatus || t.status || 'pending').toLowerCase();
       const pendingDestination=(t.destinations||[]).some(d=>['pending_approval','klien_tutup','failed','returned'].includes(d.status)||(d.status==='pending'&&!!d.pendingReason));
@@ -127,6 +130,8 @@ window.UnifiedPoolUI = (function () {
       const normalized = {
         id: tid,
         tripId: t.tripId || t.id || tid,
+        courierId: t.courierId || '',
+        assignedTo: t.assignedTo || '',
         noSJ: cleanSJ,
         sjNumber: cleanSJ,
         adminSJ: (t.destinations && t.destinations[0]?.adminSJ) || t.adminSJ || window.CustomerMaster?.resolveName(t.customer || t.clientName) || '',
@@ -149,6 +154,7 @@ window.UnifiedPoolUI = (function () {
         pickupStatus: t.pickupStatus || '',
         deliveryMethod: t.deliveryMethod || 'courier',
         pendingNote: window.DispatchWorkflow?.pendingInfo(t,t.destinations?.[0]||{}).note || t.pendingNote || t.pendingReason || '',
+        pendingAt: t.pendingAt || t.destinations?.[0]?.pendingAt || '',
         pendingReason: t.pendingReason || (t.destinations && t.destinations[0]?.pendingReason) || '',
         isRolloverFromYesterday: !!(isOld && !isFailed),
         items: t.items || [{
@@ -166,7 +172,7 @@ window.UnifiedPoolUI = (function () {
 
     // 2. Dari LocalStorage (wtrack_local_trips hasil import user)
     try {
-      const rawStored = localStorage.getItem('wtrack_local_trips');
+      const rawStored = window.WTRACK_LOCAL_SANDBOX ? localStorage.getItem('wtrack_local_trips') : null;
       if (rawStored) {
         const storedTrips = JSON.parse(rawStored);
         if (Array.isArray(storedTrips)) {
@@ -198,7 +204,7 @@ window.UnifiedPoolUI = (function () {
             const hasPendingReason = !!(d.pendingReason && String(d.pendingReason).trim().length > 0);
             const isDestPending = (rawStatus === 'pending' && hasPendingReason) || rawStatus === 'pending_approval' || rawStatus === 'klien_tutup' || rawStatus === 'failed' || rawStatus === 'returned';
 
-            if (isDestPending || isTripFailed) {
+            if (isDestPending || (isTripFailed && t.destinations.length === 1)) {
               const tid = validSJ;
               if (!seenIds.has(tid) && !deletedSet.has(tid)) {
                 seenIds.add(tid);
@@ -211,6 +217,8 @@ window.UnifiedPoolUI = (function () {
                   id: tid,
                   tripId: t.id,
                   originalTripId: t.id,
+                  courierId: t.courierId || '',
+                  assignedTo: t.assignedTo || '',
                   stopIndex: d.stopIndex || (idx + 1),
                   noSJ: validSJ,
                   sjNumber: validSJ,
@@ -230,6 +238,7 @@ window.UnifiedPoolUI = (function () {
                   isPendingRollover: true,
                   isFailed: true,
                   isPendingFromCourier: true,
+                  pendingAt: d.pendingAt || t.pendingAt || '',
                   pendingReason: reason,
                   pendingNote: window.DispatchWorkflow?.pendingInfo(t,d).note || d.pendingNote || t.pendingNote || reason,
                   workflowRef: window.DispatchWorkflow?.reference(t,idx),
@@ -319,7 +328,7 @@ window.UnifiedPoolUI = (function () {
 
       // Filter sub-tab Status: Siap Kirim (ALL), Belum Siap Kirim (NOT_READY), atau Gagal/Pending Kirim (FAILED)
       if (activeDeliveryStatusFilter === 'ALL') {
-        if (t.readyStatus === 'not_ready') return false;
+        if (t.readyStatus === 'not_ready' && !t.isFailed) return false;
       } else if (activeDeliveryStatusFilter === 'NOT_READY') {
         if (t.readyStatus !== 'not_ready') return false;
       } else if (activeDeliveryStatusFilter === 'FAILED' || activeDeliveryStatusFilter === 'PENDING_FAILED') {
@@ -332,7 +341,7 @@ window.UnifiedPoolUI = (function () {
         if(t.pickupStatus!=='waiting') return false;
       }
 
-      if (activeDateFolder !== 'ALL') {
+      if (activeDateFolder !== 'ALL' && !t.isFailed) {
         const d = t.date || (t.createdAt ? t.createdAt.split('T')[0] : '');
         if (d !== activeDateFolder) return false;
       }
@@ -355,10 +364,14 @@ window.UnifiedPoolUI = (function () {
 
     // 4. SORTING: Surat Jalan Gagal Kirim & Rollover H-1 selalu MUNCUL PALING ATAS!
     filtered.sort((a, b) => {
-      if(a.priority==='urgent'&&b.priority!=='urgent') return -1;
-      if(b.priority==='urgent'&&a.priority!=='urgent') return 1;
       if (a.isFailed && !b.isFailed) return -1;
       if (!a.isFailed && b.isFailed) return 1;
+      if (a.isFailed && b.isFailed) {
+        const pendingOrder = String(a.pendingAt || a.date || '').localeCompare(String(b.pendingAt || b.date || ''));
+        if (pendingOrder) return pendingOrder;
+      }
+      if(a.priority==='urgent'&&b.priority!=='urgent') return -1;
+      if(b.priority==='urgent'&&a.priority!=='urgent') return 1;
       if (a.isRolloverFromYesterday && !b.isRolloverFromYesterday) return -1;
       if (!a.isRolloverFromYesterday && b.isRolloverFromYesterday) return 1;
       return (b.date || '').localeCompare(a.date || '');
@@ -425,6 +438,14 @@ window.UnifiedPoolUI = (function () {
             <button class="btn btn-sm bg-white border text-muted d-inline-flex align-items-center justify-content-center" style="height: 32px; width: 32px; border-radius: 8px; border-color: #D0D5DD !important;" onclick="UnifiedPoolUI.refresh()" title="Muat Ulang">
               <i class="bi bi-arrow-clockwise"></i>
             </button>
+          </div>
+        </div>
+
+        <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap px-3 py-2 border-bottom" style="background:#F9FAFB">
+          <div style="font-size:12px"><strong>Tugaskan per region</strong><div class="text-muted">Pilih region di filter. SJ Ready mengikuti tanggal dan branch yang dipilih.</div></div>
+          <div class="d-flex align-items-center gap-2 flex-wrap">
+            <select id="quick-dispatch-courier" class="form-select form-select-sm" aria-label="Kurir untuk region" style="width:220px">${UnifiedPoolUI.buildCourierOptionsHtml()}</select>
+            <button id="pool-region-assign" type="button" class="btn btn-sm btn-wellen-action" onclick="UnifiedPoolUI.executeQuickDispatch()" ${activeRegionFilter === 'ALL' ? 'disabled' : ''}>Tugaskan ${activeRegionFilter === 'ALL' ? 'Region' : displayPoolText(activeRegionFilter)}</button>
           </div>
         </div>
 
@@ -676,55 +697,58 @@ window.UnifiedPoolUI = (function () {
     }
   }
 
-  function executeQuickDispatch() {
-    const region = document.getElementById('quick-dispatch-region')?.value;
-    const courierSelect = document.getElementById('quick-dispatch-courier');
-    const courierVal = courierSelect?.value;
-    const courierName = courierSelect?.options[courierSelect.selectedIndex]?.text;
-    const vehicle = document.getElementById('quick-dispatch-vehicle')?.value;
-
-    if (!region) {
-      alert("Pilih Region terlebih dahulu!");
-      return;
-    }
-    if (!courierVal) {
-      alert("Pilih Kurir atau Driver penerima tugas!");
-      return;
-    }
-
-    const trips = getTripsSource();
-    const targetTrips = trips.filter(t => t.status !== 'completed' && t.region === region);
-
-    if (targetTrips.length === 0) {
-      alert(`Tidak ada Surat Jalan di penampungan untuk wilayah ${region}.`);
-      return;
-    }
-
-    const confirmMsg = `Tugaskan SEMUA (${targetTrips.length}) Surat Jalan di Region "${region}" kepada:\n` +
-      `👤 ${courierName}` + (vehicle ? `\n🚚 Armada: ${vehicle}` : '') + `\n\nLanjutkan?`;
-
-    if (!confirm(confirmMsg)) return;
-
-    // Eksekusi penugasan
-    targetTrips.forEach(t => {
-      t.status = 'in_progress';
-      t.assignedTo = courierName;
-      t.courierId = courierVal;
-      if (vehicle) t.vehiclePlate = vehicle;
-      t.assignedAt = new Date().toISOString();
-    });
-
+  let assignmentBusy = false;
+  async function saveAssignments(targets, courierSelect, options = {}) {
+    if (assignmentBusy) return;
+    assignmentBusy = true;
     try {
-      localStorage.setItem('wtrack_local_trips', JSON.stringify(window.WTRACK_LOCAL_SANDBOX ? trips : trips.slice(0, 500)));
-    } catch(e) {}
+      const option = courierSelect.options[courierSelect.selectedIndex];
+      const courier = {id:courierSelect.value, name:option.text.replace(/^[^\wA-Za-z]+/, '').trim(),
+        vehicleType:option.getAttribute?.('data-type') || ''};
+      const ids = [...new Set(targets.map(t => t.workflowRef?.tripId || t.originalTripId || t.tripId || t.id))];
+      let assigned;
+      if (window.WTRACK_LOCAL_SANDBOX) {
+        const stored = JSON.parse(localStorage.getItem('wtrack_local_trips') || '[]');
+        const now = new Date().toISOString();
+        assigned = ids.map(id => {
+          const source = stored.find(t => (t.id || t.tripId) === id);
+          if (!source) throw Error('SJ tidak ditemukan. Muat ulang.');
+          return window.SJAssignment.assignTrip(source,courier,options,now);
+        });
+        const replacements = new Map(assigned.map(t => [t.id || t.tripId,t]));
+        const next = stored.map(t => replacements.get(t.id || t.tripId) || t);
+        if (window.persistLocalSandboxTrips) await window.persistLocalSandboxTrips(next);
+        else localStorage.setItem('wtrack_local_trips',JSON.stringify(next));
+      } else {
+        const db = typeof getDb === 'function' ? getDb() : window.getDb?.();
+        assigned = await window.SJAssignment.assign(db,ids,courier,options);
+      }
+      // Update displays only after the entire server transaction succeeds.
+      const updates = new Map(assigned.map(t => [t.id,t]));
+      window.allPoolTrips = (window.allPoolTrips || []).filter(t => !updates.has(t.id || t.tripId));
+      const current = (window.allCurrentTrips || []).filter(t => !updates.has(t.id || t.tripId));
+      window.syncAllCurrentTrips?.([...current,...assigned]);
+      window.showToast?.(`Berhasil menugaskan ${assigned.length} Surat Jalan ke ${courier.name}.`);
+      renderUnifiedPoolView();
+      window.renderRecentShipments?.();
+      window.updateGlobalStats?.();
+      return assigned;
+    } catch (error) {
+      alert('Penugasan belum disimpan: ' + error.message);
+    } finally { assignmentBusy = false; }
+  }
 
-    if (window.showToast) {
-      window.showToast(`Berhasil menugaskan ${targetTrips.length} Surat Jalan di wilayah ${region} ke ${courierName}!`, 'success');
-    } else {
-      alert(`Berhasil menugaskan ${targetTrips.length} Surat Jalan di wilayah ${region}!`);
-    }
-
-    renderUnifiedPoolView();
+  async function executeQuickDispatch() {
+    const region = document.getElementById('quick-dispatch-region')?.value || (activeRegionFilter !== 'ALL' ? activeRegionFilter : '');
+    const select = document.getElementById('quick-dispatch-courier');
+    if (!region || !select?.value) { alert('Pilih region dan kurir terlebih dahulu.'); return; }
+    const targets = getTripsSource().filter(t => t.region === region && !t.courierId && !t.assignedTo &&
+      t.readyStatus !== 'not_ready' && !t.pickupStatus && t.deliveryMethod !== 'customer_pickup' &&
+      (activeDateFolder === 'ALL' || t.date === activeDateFolder) &&
+      (activePrintLocationFilter === 'ALL' || t.printLocation === activePrintLocationFilter));
+    if (!targets.length) { alert('Tidak ada SJ di region dan filter yang dipilih.'); return; }
+    if (!confirm(`Tugaskan ${targets.length} SJ region ${region} ke ${select.options[select.selectedIndex].text}?`)) return;
+    return saveAssignments(targets,select,{region,vehiclePlate:document.getElementById('quick-dispatch-vehicle')?.value || ''});
   }
 
   function setDateFolder(date) {
@@ -804,163 +828,13 @@ window.UnifiedPoolUI = (function () {
     return candidates.some(c => checkedList.includes(c));
   }
 
-  function assignSelectedToCourier() {
-    const courierSelect = document.getElementById('pool-bulk-courier');
-    const courierVal = courierSelect?.value;
-    const rawCourierText = courierSelect?.options[courierSelect.selectedIndex]?.text || "Kurir Lapangan";
-    const courierName = rawCourierText.replace(/^[^\wA-Za-z]+/, '').trim();
-
-    if (!courierVal) {
-      alert("Silakan pilih Kurir Motor atau Driver terlebih dahulu!");
-      return;
-    }
-
+  async function assignSelectedToCourier() {
+    const select = document.getElementById('pool-bulk-courier');
+    if (!select?.value) { alert('Pilih kurir terlebih dahulu.'); return; }
     const checked = Array.from(document.querySelectorAll('.pool-checkbox:checked')).map(cb => String(cb.value).trim());
-    if (checked.length === 0) {
-      alert("Pilih minimal 1 Surat Jalan dengan mencentang kotak centang (checkbox) untuk ditugaskan!");
-      return;
-    }
-
-    const trips = getTripsSource();
-    const targetTrips = trips.filter(t => matchesTripIdentifier(t, checked));
-
-    if (targetTrips.length === 0) {
-      alert("Surat Jalan terpilih tidak ditemukan.");
-      return;
-    }
-
-    const nowIso = new Date().toISOString();
-
-    targetTrips.forEach(t => {
-      t.status = 'in_progress';
-      t.deliveryStatus = 'in_progress';
-      t.assignedTo = courierName;
-      t.courierName = courierName;
-      t.courierId = courierVal;
-      t.assignedAt = nowIso;
-      t.isPendingRollover = false;
-      t.isFailed = false;
-    });
-
-    // Req 10: Hapus SJ yang sudah berhasil ditugaskan dari window.allPoolTrips agar langsung hilang dari tabel Plan Shipment
-    if (Array.isArray(window.allPoolTrips)) {
-      window.allPoolTrips = window.allPoolTrips.filter(pt => !matchesTripIdentifier(pt, checked));
-    }
-
-    // Update juga di localStorage wtrack_local_trips agar statusnya menjadi in_progress (bukan pending di pool lagi)
-    try {
-      let storedList = [];
-      const rawStored = localStorage.getItem('wtrack_local_trips');
-      if (rawStored) {
-        const parsed = JSON.parse(rawStored);
-        if (Array.isArray(parsed)) storedList = parsed;
-      }
-      storedList.forEach(st => {
-        if (matchesTripIdentifier(st, checked)) {
-          st.status = 'in_progress';
-          st.deliveryStatus = 'in_progress';
-          st.assignedTo = courierName;
-          st.courierName = courierName;
-          st.courierId = courierVal;
-          st.assignedAt = nowIso;
-          st.isPendingRollover = false;
-          st.isFailed = false;
-        }
-      });
-      targetTrips.forEach(tt => {
-        const exists = storedList.some(st => matchesTripIdentifier(st, [tt.id, tt.noSJ, tt.sjNumber]));
-        if (!exists) {
-          storedList.unshift(tt);
-        }
-      });
-      localStorage.setItem('wtrack_local_trips', JSON.stringify(window.WTRACK_LOCAL_SANDBOX ? storedList : storedList.slice(0, 500)));
-    } catch(e) {}
-
-    // Req 12 & 13: Sinkronisasi langsung ke window.allCurrentTrips & Firestore agar Dashboard Admin dan Aplikasi Kurir sinkron real-time!
-    const activeDb = (typeof getDb === 'function' ? getDb() : window.db);
-    if (!Array.isArray(window.allCurrentTrips)) {
-      window.allCurrentTrips = [];
-    }
-
-    targetTrips.forEach(t => {
-      const cleanSJ = String(t.noSJ || t.sjNumber || t.id).trim();
-      const safeDocId = cleanSJ.replace(/[\/\\]/g, '-');
-      const firestoreTs = (typeof firebase !== 'undefined' && firebase.firestore && firebase.firestore.Timestamp)
-        ? firebase.firestore.Timestamp.now()
-        : new Date();
-
-      const tripPayload = {
-        id: safeDocId,
-        tripId: safeDocId,
-        noSJ: cleanSJ,
-        sjNumber: cleanSJ,
-        adminSJ: t.adminSJ || '',
-        shortCode: t.shortCode || t.uniqueCode || 'WK-AUTO',
-        uniqueCode: t.uniqueCode || t.shortCode || 'WK-AUTO',
-        courierId: courierVal,
-        courierName: courierName,
-        customer: t.customer || t.clientName || 'Klien Wellen',
-        clientName: t.clientName || t.customer || 'Klien Wellen',
-        address: t.address || '-',
-        region: t.region || 'Jakarta Pusat',
-        originBranch: t.originBranch || t.printLocation || 'pusat',
-        branchId: t.originBranch || t.printLocation || 'pusat',
-        status: 'in_progress',
-        deliveryStatus: 'in_progress',
-        date: firestoreTs,
-        acceptedTime: firestoreTs,
-        assignedAt: nowIso,
-        destinations: [{
-          stopIndex: 1,
-          locationName: t.customer || t.clientName || 'Klien Wellen',
-          address: t.address || '-',
-          status: 'in_progress',
-          sjNumber: cleanSJ,
-          noSJ: cleanSJ,
-          adminSJ: t.adminSJ || '',
-          shortCode: t.shortCode || t.uniqueCode || 'WK-AUTO',
-          itemsSummary: t.items && t.items[0] ? t.items[0].nama : 'Item Cetakan',
-          qty: t.items && t.items[0] ? String(t.items[0].qty) : '1'
-        }]
-      };
-
-      const existingIdx = window.allCurrentTrips.findIndex(rt => rt.id === safeDocId || rt.noSJ === cleanSJ || rt.sjNumber === cleanSJ);
-      if (existingIdx >= 0) {
-        window.allCurrentTrips[existingIdx] = { ...window.allCurrentTrips[existingIdx], ...tripPayload };
-      } else {
-        window.allCurrentTrips.unshift(tripPayload);
-      }
-
-      if (typeof window.syncAllCurrentTrips === 'function') {
-        window.syncAllCurrentTrips(window.allCurrentTrips);
-      }
-
-      if (activeDb) {
-        try {
-          activeDb.collection('trips').doc(safeDocId).set(tripPayload, { merge: true })
-            .catch(err => console.warn("Firestore sync error:", err));
-          
-          if (t.id && t.id !== safeDocId) {
-            activeDb.collection('trips').doc(t.id).delete()
-              .catch(err => console.warn("Delete pool trip duplicate error:", err));
-            const oldIdx = window.allCurrentTrips.findIndex(rt => rt.id === t.id);
-            if (oldIdx >= 0) window.allCurrentTrips.splice(oldIdx, 1);
-          }
-        } catch (e) {
-          console.warn("Firestore assignment exception:", e);
-        }
-      }
-    });
-
-    if (window.showToast) {
-      window.showToast(`Berhasil menugaskan ${targetTrips.length} Surat Jalan ke ${courierName}! Surat Jalan berpindah ke Pengantaran Aktif.`, 'success');
-    } else {
-      alert(`Berhasil menugaskan ${targetTrips.length} Surat Jalan ke ${courierName}!`);
-    }
-
-    renderUnifiedPoolView();
-    if (typeof window.renderRecentShipments === 'function') window.renderRecentShipments();
-    if (typeof window.updateGlobalStats === 'function') window.updateGlobalStats();
+    const targets = getTripsSource().filter(t => matchesTripIdentifier(t,checked));
+    if (!targets.length) { alert('Pilih minimal satu SJ.'); return; }
+    return saveAssignments(targets,select);
   }
 
   function printSelectedSuratJalan() {
@@ -1153,89 +1027,42 @@ window.UnifiedPoolUI = (function () {
            String(item.sjNumber || '').toLowerCase() === sId;
   }
 
-  function toggleReadyStatus(tripId, isReady) {
-    const newStatus = isReady ? 'ready' : 'not_ready';
-
-    // 1. Update di window.allPoolTrips
-    if (Array.isArray(window.allPoolTrips)) {
-      const found = window.allPoolTrips.find(x => matchesTripId(x, tripId));
-      if (found) found.readyStatus = newStatus;
-    }
-
-    // 2. Update di LocalStorage
+  async function saveReadyStatuses(targets, isReady) {
+    if (assignmentBusy) return;
+    assignmentBusy = true;
     try {
-      const rawStored = localStorage.getItem('wtrack_local_trips');
-      if (rawStored) {
-        const stored = JSON.parse(rawStored);
-        const item = stored.find(x => matchesTripId(x, tripId));
-        if (item) {
-          item.readyStatus = newStatus;
-          localStorage.setItem('wtrack_local_trips', JSON.stringify(stored));
-        }
+      const ids = [...new Set(targets.map(t => t.workflowRef?.tripId || t.originalTripId || t.tripId || t.id))];
+      if (!ids.length) throw Error('Pilih minimal satu SJ.');
+      let updates;
+      if (window.WTRACK_LOCAL_SANDBOX) {
+        const stored = JSON.parse(localStorage.getItem('wtrack_local_trips') || '[]');
+        updates = ids.map(id => {
+          const trip = stored.find(t => (t.id || t.tripId) === id);
+          if (!trip || trip.courierId || ['completed','done','delivered'].includes(trip.status)) throw Error('SJ tidak tersedia atau sudah ditugaskan.');
+          return {...trip,readyStatus:isReady ? 'ready' : 'not_ready'};
+        });
+        const map = new Map(updates.map(t => [t.id || t.tripId,t]));
+        const next = stored.map(t => map.get(t.id || t.tripId) || t);
+        if (window.persistLocalSandboxTrips) await window.persistLocalSandboxTrips(next);
+        else localStorage.setItem('wtrack_local_trips',JSON.stringify(next));
+      } else {
+        updates = await window.SJAssignment.setReady(window.getDb?.(),ids,isReady);
       }
-    } catch (e) {}
-
-    // 3. Update di window.allCurrentTrips
-    if (Array.isArray(window.allCurrentTrips)) {
-      const found = window.allCurrentTrips.find(x => matchesTripId(x, tripId));
-      if (found) found.readyStatus = newStatus;
-    }
-
-    // 4. Update di Firestore jika ada
-    const activeDb = (typeof window.getDb === 'function') ? window.getDb() : (window.firebase && window.firebase.firestore ? window.firebase.firestore() : null);
-    if (activeDb) {
-      activeDb.collection('trips').doc(tripId).update({ readyStatus: newStatus }).catch(() => {});
-    }
-
-    if (typeof window.showToast === 'function') {
-      window.showToast(isReady ? "✅ Barang SUDAH READY & dipindahkan ke Siap Kirim." : "⏳ Barang BELUM READY & dipindahkan ke tab Belum Siap Kirim.");
-    }
-    renderUnifiedPoolView();
+      const map = new Map(updates.map(t => [t.id,t]));
+      window.allPoolTrips = (window.allPoolTrips || []).map(t => map.get(t.id || t.tripId) || t);
+      window.showToast?.(`${updates.length} SJ ditandai ${isReady ? 'Ready' : 'Belum Ready'}.`);
+      renderUnifiedPoolView();
+    } catch(error) { alert('Status Ready belum disimpan: ' + error.message); }
+    finally { assignmentBusy = false; }
   }
 
-  function bulkSetReadyStatus(isReady) {
+  async function toggleReadyStatus(tripId, isReady) {
+    return saveReadyStatuses(getTripsSource().filter(t => matchesTripId(t,tripId)),isReady);
+  }
+
+  async function bulkSetReadyStatus(isReady) {
     const checked = Array.from(document.querySelectorAll('.pool-checkbox:checked')).map(cb => cb.value);
-    if (checked.length === 0) {
-      alert(`Pilih minimal 1 Surat Jalan untuk ditandai ${isReady ? 'Siap Kirim' : 'Belum Ready'}!`);
-      return;
-    }
-
-    const newStatus = isReady ? 'ready' : 'not_ready';
-
-    if (Array.isArray(window.allPoolTrips)) {
-      window.allPoolTrips.forEach(pt => {
-        if (checked.some(cId => matchesTripId(pt, cId))) pt.readyStatus = newStatus;
-      });
-    }
-
-    try {
-      const rawStored = localStorage.getItem('wtrack_local_trips');
-      if (rawStored) {
-        const stored = JSON.parse(rawStored);
-        stored.forEach(item => {
-          if (checked.some(cId => matchesTripId(item, cId))) item.readyStatus = newStatus;
-        });
-        localStorage.setItem('wtrack_local_trips', JSON.stringify(stored));
-      }
-    } catch (e) {}
-
-    if (Array.isArray(window.allCurrentTrips)) {
-      window.allCurrentTrips.forEach(rt => {
-        if (checked.some(cId => matchesTripId(rt, cId))) rt.readyStatus = newStatus;
-      });
-    }
-
-    const activeDb = (typeof window.getDb === 'function') ? window.getDb() : (window.firebase && window.firebase.firestore ? window.firebase.firestore() : null);
-    if (activeDb) {
-      checked.forEach(id => {
-        activeDb.collection('trips').doc(id).update({ readyStatus: newStatus }).catch(() => {});
-      });
-    }
-
-    if (typeof window.showToast === 'function') {
-      window.showToast(`Berhasil menandai ${checked.length} Surat Jalan sebagai ${isReady ? 'SIAP KIRIM' : 'BELUM READY'}.`);
-    }
-    renderUnifiedPoolView();
+    return saveReadyStatuses(getTripsSource().filter(t => checked.some(id => matchesTripId(t,id))),isReady);
   }
 
   function setDeliveryStatusFilter(filter) {

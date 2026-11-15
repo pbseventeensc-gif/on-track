@@ -32,6 +32,7 @@
     let currentRegion = 'all'; // 'all' or specific region string
     let currentAdmin = 'all'; // 'all' or specific Admin SJ
     let currentCourier = 'all'; // 'all' or specific courier
+    let currentVehicle = 'all'; // 'all', 'mobil', 'motor'
     let startDate = '';
     let endDate = '';
     let breakdownDim = 'customer'; // 'customer' (Klien) or 'region' (Region)
@@ -39,810 +40,7 @@
     let sortField = 'total'; // 'total', 'delivered', 'share', 'name'
     let sortDir = 'desc'; // 'desc' or 'asc'
     let hoveredDayIdx = null;
-
-    // Realistic, comprehensive weekly delivery baseline dataset spanning Senin - Minggu
-    // Reflects Wellen Print real daily operational volume of 150+ titik pengantaran per weekday
-    // Distributed among 20 active couriers/drivers and real clients (1-2 points per delivery, max <= 15-20 points per client across week)
-    const RAW_BASELINE_TUPLES = [
-        ['SJ-11SE-0001', 'Senin', '2026-11-09', 'PT Aspirasi Hidup Indonesia Tbk', 'Jakarta Barat', 2, 2, 'Delivered', 'Ahmad', 'Dewi', 0],
-        ['SJ-11SE-0002', 'Senin', '2026-11-09', 'PT Foods Beverages Indonesia', 'Jakarta Selatan', 1, 1, 'Delivered', 'Ahmad', 'Budi', 0],
-        ['SJ-11SE-0003', 'Senin', '2026-11-09', 'PT Tri Sakti Purwosari Makmur', 'Jakarta Barat', 1, 1, 'Delivered', 'Ahmad', 'Nova', 0],
-        ['SJ-11SE-0004', 'Senin', '2026-11-09', 'PT Home Center Indonesia Retail', 'Bekasi', 1, 1, 'Delivered', 'Ahmad', 'Dewi', 0],
-        ['SJ-11SE-0005', 'Senin', '2026-11-09', 'PT Toys Games Indonesia', 'Tangerang', 1, 0, 'On Delivery', 'Ahmad', 'Budi', 0],
-        ['SJ-11SE-0006', 'Senin', '2026-11-09', 'PT BQuik Otomotif Indonesia', 'Jakarta Barat', 1, 1, 'Delivered', 'Ahmad', 'Nova', 0],
-        ['SJ-11SE-0007', 'Senin', '2026-11-09', 'PT Benfood Dinamika Sentosa', 'Jakarta Selatan', 1, 0, 'On Delivery', 'Ahmad', 'Dewi', 0],
-        ['SJ-11SE-0008', 'Senin', '2026-11-09', 'PT Astra International', 'Jakarta Pusat', 1, 1, 'Delivered', 'Ahmad', 'Budi', 0],
-        ['SJ-11SE-0009', 'Senin', '2026-11-09', 'PT Indofood CBP Sukses Makmur', 'Tangerang', 1, 1, 'Delivered', 'Beto', 'Nova', 0],
-        ['SJ-11SE-0010', 'Senin', '2026-11-09', 'PT Sumber Alfaria Trijaya', 'Bekasi', 2, 2, 'Delivered', 'Beto', 'Dewi', 0],
-        ['SJ-11SE-0011', 'Senin', '2026-11-09', 'PT Mayora Indah', 'Tangerang', 1, 1, 'Delivered', 'Beto', 'Budi', 0],
-        ['SJ-11SE-0012', 'Senin', '2026-11-09', 'PT Beverindo Indah Abadi', 'Jakarta Pusat', 1, 1, 'Delivered', 'Beto', 'Nova', 0],
-        ['SJ-11SE-0013', 'Senin', '2026-11-09', 'PT Jasmine Journey Indonesia', 'Jakarta Pusat', 1, 1, 'Delivered', 'Beto', 'Dewi', 0],
-        ['SJ-11SE-0014', 'Senin', '2026-11-09', 'PT Wook Global Technology', 'Jakarta Utara', 1, 1, 'Delivered', 'Beto', 'Budi', 0],
-        ['SJ-11SE-0015', 'Senin', '2026-11-09', 'PT Kalbe Farma', 'Jakarta Timur', 1, 1, 'Delivered', 'Beto', 'Nova', 0],
-        ['SJ-11SE-0016', 'Senin', '2026-11-09', 'PT Makmur Jaya', 'Jakarta Selatan', 1, 1, 'Delivered', 'Beto', 'Dewi', 0],
-        ['SJ-11SE-0017', 'Senin', '2026-11-09', 'PT Intitirta Sarimakmur', 'Jakarta Utara', 2, 2, 'Delivered', 'Eri', 'Budi', 0],
-        ['SJ-11SE-0018', 'Senin', '2026-11-09', 'PT Perindustrian Bapak Djenggot', 'Jakarta Barat', 1, 1, 'Delivered', 'Eri', 'Nova', 0],
-        ['SJ-11SE-0019', 'Senin', '2026-11-09', 'Panorama JTB (Head Office)', 'Jakarta Pusat', 1, 1, 'Delivered', 'Eri', 'Dewi', 0],
-        ['SJ-11SE-0020', 'Senin', '2026-11-09', 'Pixel Group Indonesia', 'Jakarta Selatan', 2, 2, 'Delivered', 'Eri', 'Budi', 0],
-        ['SJ-11SE-0021', 'Senin', '2026-11-09', 'Premier Village', 'Tangerang', 2, 2, 'Delivered', 'Eri', 'Nova', 0],
-        ['SJ-11SE-0022', 'Senin', '2026-11-09', 'REX Kiriman Express', 'Jakarta Barat', 1, 1, 'Delivered', 'Eri', 'Dewi', 0],
-        ['SJ-11SE-0023', 'Senin', '2026-11-09', 'Kawan Lama Sejahtera', 'Jakarta Barat', 1, 1, 'Delivered', 'Irfan', 'Budi', 0],
-        ['SJ-11SE-0024', 'Senin', '2026-11-09', 'Wisma KEIAI', 'Jakarta Pusat', 1, 1, 'Delivered', 'Irfan', 'Nova', 0],
-        ['SJ-11SE-0025', 'Senin', '2026-11-09', 'Kacamatamoo Rawasari', 'Jakarta Pusat', 1, 1, 'Delivered', 'Irfan', 'Dewi', 0],
-        ['SJ-11SE-0026', 'Senin', '2026-11-09', 'GrandLucky - SCBD', 'Jakarta Selatan', 2, 2, 'Delivered', 'Irfan', 'Budi', 0],
-        ['SJ-11SE-0027', 'Senin', '2026-11-09', 'GrandLucky BSD City', 'Tangerang', 1, 1, 'Delivered', 'Irfan', 'Nova', 0],
-        ['SJ-11SE-0028', 'Senin', '2026-11-09', 'Eraprima Industrial Park', 'Tangerang', 2, 2, 'Delivered', 'Irfan', 'Dewi', 0],
-        ['SJ-11SE-0029', 'Senin', '2026-11-09', 'Mandiri University Wijaya Kusuma', 'Jakarta Barat', 1, 1, 'Delivered', 'Irfan', 'Budi', 0],
-        ['SJ-11SE-0030', 'Senin', '2026-11-09', 'Pacific Place Mall', 'Jakarta Selatan', 1, 1, 'Delivered', 'Baihaqi', 'Nova', 0],
-        ['SJ-11SE-0031', 'Senin', '2026-11-09', 'INFORMA - Living World Kota Wisata', 'Bekasi', 1, 1, 'Delivered', 'Baihaqi', 'Dewi', 0],
-        ['SJ-11SE-0032', 'Senin', '2026-11-09', 'Living World Alam Sutera', 'Tangerang', 2, 2, 'Delivered', 'Baihaqi', 'Budi', 0],
-        ['SJ-11SE-0033', 'Senin', '2026-11-09', 'Mall Senayan City', 'Jakarta Pusat', 1, 1, 'Delivered', 'Baihaqi', 'Nova', 0],
-        ['SJ-11SE-0034', 'Senin', '2026-11-09', 'Grand Indonesia', 'Jakarta Pusat', 1, 1, 'Delivered', 'Baihaqi', 'Dewi', 0],
-        ['SJ-11SE-0035', 'Senin', '2026-11-09', 'Central Park Mall', 'Jakarta Barat', 2, 2, 'Delivered', 'Baihaqi', 'Budi', 0],
-        ['SJ-11SE-0036', 'Senin', '2026-11-09', 'Gandaria City', 'Jakarta Selatan', 1, 1, 'Delivered', 'Baihaqi', 'Nova', 0],
-        ['SJ-11SE-0037', 'Senin', '2026-11-09', 'AEON Mall BSD City', 'Tangerang', 2, 2, 'Delivered', 'Haris', 'Dewi', 0],
-        ['SJ-11SE-0038', 'Senin', '2026-11-09', 'AEON Mall Jakarta Garden City', 'Jakarta Timur', 1, 1, 'Delivered', 'Haris', 'Budi', 0],
-        ['SJ-11SE-0039', 'Senin', '2026-11-09', 'AEON Mall Tanjung Barat', 'Jakarta Selatan', 2, 2, 'Delivered', 'Haris', 'Nova', 0],
-        ['SJ-11SE-0040', 'Senin', '2026-11-09', 'Anytime Fitness', 'Jakarta Selatan', 1, 1, 'Delivered', 'Haris', 'Dewi', 0],
-        ['SJ-11SE-0041', 'Senin', '2026-11-09', 'Ataru Living World', 'Tangerang', 1, 1, 'Delivered', 'Haris', 'Budi', 0],
-        ['SJ-11SE-0042', 'Senin', '2026-11-09', 'Chatime Metropolitan Mall 2', 'Bekasi', 1, 1, 'Delivered', 'Haris', 'Nova', 0],
-        ['SJ-11SE-0043', 'Senin', '2026-11-09', 'Chatime Gandaria City', 'Jakarta Selatan', 1, 1, 'Delivered', 'Haris', 'Dewi', 0],
-        ['SJ-11SE-0044', 'Senin', '2026-11-09', 'Chatime Central Park', 'Jakarta Barat', 1, 1, 'Delivered', 'Umar', 'Budi', 0],
-        ['SJ-11SE-0045', 'Senin', '2026-11-09', 'Toys Kingdom Palem Semi', 'Tangerang', 1, 1, 'Delivered', 'Umar', 'Nova', 0],
-        ['SJ-11SE-0046', 'Senin', '2026-11-09', 'Toys Kingdom Supermal Karawaci', 'Tangerang', 1, 1, 'Delivered', 'Umar', 'Dewi', 0],
-        ['SJ-11SE-0047', 'Senin', '2026-11-09', 'Toys Kingdom Grand Indonesia', 'Jakarta Pusat', 2, 2, 'Delivered', 'Umar', 'Budi', 0],
-        ['SJ-11SE-0048', 'Senin', '2026-11-09', 'Azko PIK Avenue', 'Jakarta Utara', 2, 2, 'Delivered', 'Umar', 'Nova', 0],
-        ['SJ-11SE-0049', 'Senin', '2026-11-09', 'Azko Green Terrace TMII', 'Jakarta Timur', 2, 2, 'Delivered', 'Umar', 'Dewi', 0],
-        ['SJ-11SE-0050', 'Senin', '2026-11-09', 'Azko Bogor Terasutra', 'Jakarta Selatan', 1, 1, 'Delivered', 'Noval', 'Budi', 0],
-        ['SJ-11SE-0051', 'Senin', '2026-11-09', 'Azko Citra 6', 'Jakarta Barat', 1, 1, 'Delivered', 'Noval', 'Nova', 0],
-        ['SJ-11SE-0052', 'Senin', '2026-11-09', 'Azko Kota Wisata Bogor', 'Bekasi', 2, 2, 'Delivered', 'Noval', 'Dewi', 0],
-        ['SJ-11SE-0053', 'Senin', '2026-11-09', 'Azko QBig BSD', 'Tangerang', 2, 2, 'Delivered', 'Noval', 'Budi', 0],
-        ['SJ-11SE-0054', 'Senin', '2026-11-09', 'Azko Metro Sunter', 'Jakarta Utara', 2, 2, 'Delivered', 'Noval', 'Nova', 0],
-        ['SJ-11SE-0055', 'Senin', '2026-11-09', 'Color Star (Linda)', 'Jakarta Barat', 1, 1, 'Delivered', 'Noval', 'Dewi', 0],
-        ['SJ-11SE-0056', 'Senin', '2026-11-09', 'Resto Sederhana', 'Jakarta Pusat', 2, 2, 'Delivered', 'Jay', 'Budi', 0],
-        ['SJ-11SE-0057', 'Senin', '2026-11-09', 'Lawson Station', 'Jakarta Selatan', 1, 1, 'Delivered', 'Jay', 'Nova', 0],
-        ['SJ-11SE-0058', 'Senin', '2026-11-09', 'Kopi Kenangan', 'Jakarta Selatan', 1, 1, 'Delivered', 'Jay', 'Dewi', 0],
-        ['SJ-11SE-0059', 'Senin', '2026-11-09', 'Fore Coffee', 'Jakarta Pusat', 1, 1, 'Delivered', 'Jay', 'Budi', 0],
-        ['SJ-11SE-0060', 'Senin', '2026-11-09', 'Janji Jiwa', 'Jakarta Barat', 1, 1, 'Delivered', 'Jay', 'Nova', 0],
-        ['SJ-11SE-0061', 'Senin', '2026-11-09', 'Holland Bakery', 'Jakarta Barat', 1, 1, 'Delivered', 'Jay', 'Dewi', 0],
-        ['SJ-11SE-0062', 'Senin', '2026-11-09', 'JCO Donuts & Coffee', 'Jakarta Selatan', 1, 1, 'Delivered', 'Jay', 'Budi', 0],
-        ['SJ-11SE-0063', 'Senin', '2026-11-09', 'BreadTalk', 'Jakarta Barat', 2, 2, 'Delivered', 'Ferdi', 'Nova', 0],
-        ['SJ-11SE-0064', 'Senin', '2026-11-09', 'Guardian Pharmacy', 'Jakarta Selatan', 1, 1, 'Delivered', 'Ferdi', 'Dewi', 0],
-        ['SJ-11SE-0065', 'Senin', '2026-11-09', 'Watsons', 'Jakarta Pusat', 1, 1, 'Delivered', 'Ferdi', 'Budi', 0],
-        ['SJ-11SE-0066', 'Senin', '2026-11-09', 'Century Healthcare', 'Jakarta Barat', 2, 2, 'Delivered', 'Ferdi', 'Nova', 0],
-        ['SJ-11SE-0067', 'Senin', '2026-11-09', 'Kimia Farma', 'Jakarta Timur', 1, 1, 'Delivered', 'Ferdi', 'Dewi', 0],
-        ['SJ-11SE-0068', 'Senin', '2026-11-09', 'Mitra 10', 'Tangerang', 1, 1, 'Delivered', 'Ferdi', 'Budi', 0],
-        ['SJ-11SE-0069', 'Senin', '2026-11-09', 'Depo Bangunan', 'Tangerang', 2, 2, 'Delivered', 'Jagatbaru', 'Nova', 0],
-        ['SJ-11SE-0070', 'Senin', '2026-11-09', 'Electronic City', 'Jakarta Selatan', 1, 1, 'Delivered', 'Jagatbaru', 'Dewi', 0],
-        ['SJ-11SE-0071', 'Senin', '2026-11-09', 'Erafone', 'Jakarta Pusat', 1, 1, 'Delivered', 'Jagatbaru', 'Budi', 0],
-        ['SJ-11SE-0072', 'Senin', '2026-11-09', 'iBox Central Park', 'Jakarta Barat', 1, 1, 'Delivered', 'Jagatbaru', 'Nova', 0],
-        ['SJ-11SE-0073', 'Senin', '2026-11-09', 'Gramedia Matraman', 'Jakarta Timur', 2, 2, 'Delivered', 'Jagatbaru', 'Dewi', 0],
-        ['SJ-11SE-0074', 'Senin', '2026-11-09', 'Ranch Market Pesanggrahan', 'Jakarta Barat', 1, 1, 'Delivered', 'Jagatbaru', 'Budi', 0],
-        ['SJ-11SE-0075', 'Senin', '2026-11-09', 'Farmers Market Kelapa Gading', 'Jakarta Utara', 1, 1, 'Delivered', 'pbseventeensc', 'Nova', 0],
-        ['SJ-11SE-0076', 'Senin', '2026-11-09', 'Papaya Fresh Gallery', 'Jakarta Selatan', 1, 1, 'Delivered', 'pbseventeensc', 'Dewi', 0],
-        ['SJ-11SE-0077', 'Senin', '2026-11-09', 'Kem Chicks Pacific Place', 'Jakarta Selatan', 1, 1, 'Delivered', 'pbseventeensc', 'Budi', 0],
-        ['SJ-11SE-0078', 'Senin', '2026-11-09', 'Lotte Mart Meruya', 'Jakarta Barat', 1, 1, 'Delivered', 'pbseventeensc', 'Nova', 0],
-        ['SJ-11SE-0079', 'Senin', '2026-11-09', 'Gold Coast Office', 'Jakarta Utara', 1, 1, 'Delivered', 'pbseventeensc', 'Dewi', 0],
-        ['SJ-11SE-0080', 'Senin', '2026-11-09', 'Mall Bassura Jatinegara', 'Jakarta Timur', 2, 2, 'Delivered', 'pbseventeensc', 'Budi', 0],
-        ['SJ-11SE-0081', 'Senin', '2026-11-09', 'Plaza Indonesia', 'Jakarta Pusat', 1, 1, 'Delivered', 'pbseventeensc', 'Nova', 0],
-        ['SJ-11SE-0082', 'Senin', '2026-11-09', 'Lippo Mall Puri', 'Jakarta Barat', 2, 2, 'Delivered', 'Soleh', 'Dewi', 0],
-        ['SJ-11SE-0083', 'Senin', '2026-11-09', 'Supermal Karawaci', 'Tangerang', 2, 2, 'Delivered', 'Soleh', 'Budi', 0],
-        ['SJ-11SE-0084', 'Senin', '2026-11-09', 'Summarecon Mall Serpong', 'Tangerang', 1, 1, 'Delivered', 'Soleh', 'Nova', 0],
-        ['SJ-11SE-0085', 'Senin', '2026-11-09', 'Summarecon Mall Kelapa Gading', 'Jakarta Utara', 2, 2, 'Delivered', 'Soleh', 'Dewi', 0],
-        ['SJ-11SE-0086', 'Senin', '2026-11-09', 'Puri Indah Mall', 'Jakarta Barat', 1, 1, 'Delivered', 'Soleh', 'Budi', 0],
-        ['SJ-11SE-0087', 'Senin', '2026-11-09', 'PT Aspirasi Hidup Indonesia Tbk', 'Jakarta Barat', 2, 2, 'Delivered', 'Romi', 'Nova', 0],
-        ['SJ-11SE-0088', 'Senin', '2026-11-09', 'PT Foods Beverages Indonesia', 'Jakarta Selatan', 1, 1, 'Delivered', 'Romi', 'Dewi', 0],
-        ['SJ-11SE-0089', 'Senin', '2026-11-09', 'PT Tri Sakti Purwosari Makmur', 'Jakarta Barat', 1, 1, 'Delivered', 'Romi', 'Budi', 0],
-        ['SJ-11SE-0090', 'Senin', '2026-11-09', 'PT Home Center Indonesia Retail', 'Bekasi', 1, 1, 'Delivered', 'Romi', 'Nova', 0],
-        ['SJ-11SE-0091', 'Senin', '2026-11-09', 'PT Toys Games Indonesia', 'Tangerang', 1, 1, 'Delivered', 'Romi', 'Dewi', 0],
-        ['SJ-11SE-0092', 'Senin', '2026-11-09', 'PT BQuik Otomotif Indonesia', 'Jakarta Barat', 1, 1, 'Delivered', 'Romi', 'Budi', 0],
-        ['SJ-11SE-0093', 'Senin', '2026-11-09', 'PT Benfood Dinamika Sentosa', 'Jakarta Selatan', 1, 1, 'Delivered', 'Romi', 'Nova', 0],
-        ['SJ-11SE-0094', 'Senin', '2026-11-09', 'PT Astra International', 'Jakarta Pusat', 1, 1, 'Delivered', 'Firdaus', 'Dewi', 0],
-        ['SJ-11SE-0095', 'Senin', '2026-11-09', 'PT Indofood CBP Sukses Makmur', 'Tangerang', 2, 2, 'Delivered', 'Firdaus', 'Budi', 0],
-        ['SJ-11SE-0096', 'Senin', '2026-11-09', 'PT Sumber Alfaria Trijaya', 'Bekasi', 2, 2, 'Delivered', 'Firdaus', 'Nova', 0],
-        ['SJ-11SE-0097', 'Senin', '2026-11-09', 'PT Mayora Indah', 'Tangerang', 2, 2, 'Delivered', 'Firdaus', 'Dewi', 0],
-        ['SJ-11SE-0098', 'Senin', '2026-11-09', 'PT Beverindo Indah Abadi', 'Jakarta Pusat', 1, 1, 'Delivered', 'Firdaus', 'Budi', 0],
-        ['SJ-11SE-0099', 'Senin', '2026-11-09', 'PT Jasmine Journey Indonesia', 'Jakarta Pusat', 1, 1, 'Delivered', 'Alan', 'Nova', 0],
-        ['SJ-11SE-0100', 'Senin', '2026-11-09', 'PT Wook Global Technology', 'Jakarta Utara', 1, 1, 'Delivered', 'Alan', 'Dewi', 0],
-        ['SJ-11SE-0101', 'Senin', '2026-11-09', 'PT Kalbe Farma', 'Jakarta Timur', 1, 1, 'Delivered', 'Alan', 'Budi', 0],
-        ['SJ-11SE-0102', 'Senin', '2026-11-09', 'PT Makmur Jaya', 'Jakarta Selatan', 1, 1, 'Delivered', 'Alan', 'Nova', 0],
-        ['SJ-11SE-0103', 'Senin', '2026-11-09', 'PT Intitirta Sarimakmur', 'Jakarta Utara', 1, 1, 'Delivered', 'Alan', 'Dewi', 0],
-        ['SJ-11SE-0104', 'Senin', '2026-11-09', 'PT Perindustrian Bapak Djenggot', 'Jakarta Barat', 1, 1, 'Delivered', 'Alan', 'Budi', 0],
-        ['SJ-11SE-0105', 'Senin', '2026-11-09', 'Panorama JTB (Head Office)', 'Jakarta Pusat', 1, 1, 'Delivered', 'Alan', 'Nova', 0],
-        ['SJ-11SE-0106', 'Senin', '2026-11-09', 'Pixel Group Indonesia', 'Jakarta Selatan', 1, 1, 'Delivered', 'Alan', 'Dewi', 0],
-        ['SJ-11SE-0107', 'Senin', '2026-11-09', 'Premier Village', 'Tangerang', 2, 2, 'Delivered', 'Yakub', 'Budi', 0],
-        ['SJ-11SE-0108', 'Senin', '2026-11-09', 'REX Kiriman Express', 'Jakarta Barat', 1, 1, 'Delivered', 'Yakub', 'Nova', 0],
-        ['SJ-11SE-0109', 'Senin', '2026-11-09', 'Kawan Lama Sejahtera', 'Jakarta Barat', 1, 1, 'Delivered', 'Yakub', 'Dewi', 0],
-        ['SJ-11SE-0110', 'Senin', '2026-11-09', 'Wisma KEIAI', 'Jakarta Pusat', 1, 1, 'Delivered', 'Yakub', 'Budi', 0],
-        ['SJ-11SE-0111', 'Senin', '2026-11-09', 'Kacamatamoo Rawasari', 'Jakarta Pusat', 2, 2, 'Delivered', 'Yakub', 'Nova', 0],
-        ['SJ-11SE-0112', 'Senin', '2026-11-09', 'GrandLucky - SCBD', 'Jakarta Selatan', 1, 1, 'Delivered', 'Yakub', 'Dewi', 0],
-        ['SJ-11SE-0113', 'Senin', '2026-11-09', 'GrandLucky BSD City', 'Tangerang', 2, 2, 'Delivered', 'Iwan', 'Budi', 0],
-        ['SJ-11SE-0114', 'Senin', '2026-11-09', 'Eraprima Industrial Park', 'Tangerang', 1, 1, 'Delivered', 'Iwan', 'Nova', 0],
-        ['SJ-11SE-0115', 'Senin', '2026-11-09', 'Mandiri University Wijaya Kusuma', 'Jakarta Barat', 2, 2, 'Delivered', 'Iwan', 'Dewi', 0],
-        ['SJ-11SE-0116', 'Senin', '2026-11-09', 'Pacific Place Mall', 'Jakarta Selatan', 2, 2, 'Delivered', 'Iwan', 'Budi', 0],
-        ['SJ-11SE-0117', 'Senin', '2026-11-09', 'INFORMA - Living World Kota Wisata', 'Bekasi', 1, 1, 'Delivered', 'Iwan', 'Nova', 0],
-        ['SJ-11SE-0118', 'Senin', '2026-11-09', 'Living World Alam Sutera', 'Tangerang', 1, 1, 'Delivered', 'Agung', 'Dewi', 0],
-        ['SJ-11SE-0119', 'Senin', '2026-11-09', 'Mall Senayan City', 'Jakarta Pusat', 2, 2, 'Delivered', 'Agung', 'Budi', 0],
-        ['SJ-11SE-0120', 'Senin', '2026-11-09', 'Grand Indonesia', 'Jakarta Pusat', 1, 1, 'Delivered', 'Agung', 'Nova', 0],
-        ['SJ-11SE-0121', 'Senin', '2026-11-09', 'Central Park Mall', 'Jakarta Barat', 1, 1, 'Delivered', 'Agung', 'Dewi', 0],
-        ['SJ-11SE-0122', 'Senin', '2026-11-09', 'Gandaria City', 'Jakarta Selatan', 1, 1, 'Delivered', 'Agung', 'Budi', 0],
-        ['SJ-11SE-0123', 'Senin', '2026-11-09', 'AEON Mall BSD City', 'Tangerang', 1, 1, 'Delivered', 'Agung', 'Nova', 0],
-        ['SJ-11SE-0124', 'Senin', '2026-11-09', 'AEON Mall Jakarta Garden City', 'Jakarta Timur', 1, 1, 'Delivered', 'Agung', 'Dewi', 0],
-        ['SJ-11SE-0125', 'Senin', '2026-11-09', 'AEON Mall Tanjung Barat', 'Jakarta Selatan', 1, 1, 'Delivered', 'Husen', 'Budi', 0],
-        ['SJ-11SE-0126', 'Senin', '2026-11-09', 'Anytime Fitness', 'Jakarta Selatan', 1, 1, 'Delivered', 'Husen', 'Nova', 0],
-        ['SJ-11SE-0127', 'Senin', '2026-11-09', 'Ataru Living World', 'Tangerang', 2, 2, 'Delivered', 'Husen', 'Dewi', 0],
-        ['SJ-11SE-0128', 'Senin', '2026-11-09', 'Chatime Metropolitan Mall 2', 'Bekasi', 1, 1, 'Delivered', 'Husen', 'Budi', 0],
-        ['SJ-11SE-0129', 'Senin', '2026-11-09', 'Chatime Gandaria City', 'Jakarta Selatan', 1, 1, 'Delivered', 'Husen', 'Nova', 0],
-        ['SJ-11SE-0130', 'Senin', '2026-11-09', 'Chatime Central Park', 'Jakarta Barat', 2, 2, 'Delivered', 'Husen', 'Dewi', 0],
-        ['SJ-11SE-0131', 'Selasa', '2026-11-10', 'Toys Kingdom Palem Semi', 'Tangerang', 1, 1, 'Delivered', 'Ahmad', 'Budi', 0],
-        ['SJ-11SE-0132', 'Selasa', '2026-11-10', 'Toys Kingdom Supermal Karawaci', 'Tangerang', 1, 1, 'Delivered', 'Ahmad', 'Nova', 0],
-        ['SJ-11SE-0133', 'Selasa', '2026-11-10', 'Toys Kingdom Grand Indonesia', 'Jakarta Pusat', 1, 0, 'On Delivery', 'Ahmad', 'Dewi', 0],
-        ['SJ-11SE-0134', 'Selasa', '2026-11-10', 'Azko PIK Avenue', 'Jakarta Utara', 2, 2, 'Delivered', 'Ahmad', 'Budi', 0],
-        ['SJ-11SE-0135', 'Selasa', '2026-11-10', 'Azko Green Terrace TMII', 'Jakarta Timur', 2, 2, 'Delivered', 'Ahmad', 'Nova', 0],
-        ['SJ-11SE-0136', 'Selasa', '2026-11-10', 'Azko Bogor Terasutra', 'Jakarta Selatan', 1, 0, 'On Delivery', 'Ahmad', 'Dewi', 0],
-        ['SJ-11SE-0137', 'Selasa', '2026-11-10', 'Azko Citra 6', 'Jakarta Barat', 1, 1, 'Delivered', 'Ahmad', 'Budi', 0],
-        ['SJ-11SE-0138', 'Selasa', '2026-11-10', 'Azko Kota Wisata Bogor', 'Bekasi', 1, 1, 'Delivered', 'Beto', 'Nova', 0],
-        ['SJ-11SE-0139', 'Selasa', '2026-11-10', 'Azko QBig BSD', 'Tangerang', 2, 2, 'Delivered', 'Beto', 'Dewi', 0],
-        ['SJ-11SE-0140', 'Selasa', '2026-11-10', 'Azko Metro Sunter', 'Jakarta Utara', 1, 1, 'Delivered', 'Beto', 'Budi', 0],
-        ['SJ-11SE-0141', 'Selasa', '2026-11-10', 'Color Star (Linda)', 'Jakarta Barat', 2, 2, 'Delivered', 'Beto', 'Nova', 0],
-        ['SJ-11SE-0142', 'Selasa', '2026-11-10', 'Resto Sederhana', 'Jakarta Pusat', 2, 2, 'Delivered', 'Beto', 'Dewi', 0],
-        ['SJ-11SE-0143', 'Selasa', '2026-11-10', 'Lawson Station', 'Jakarta Selatan', 1, 1, 'Delivered', 'Beto', 'Budi', 0],
-        ['SJ-11SE-0144', 'Selasa', '2026-11-10', 'Kopi Kenangan', 'Jakarta Selatan', 2, 2, 'Delivered', 'Eri', 'Nova', 0],
-        ['SJ-11SE-0145', 'Selasa', '2026-11-10', 'Fore Coffee', 'Jakarta Pusat', 1, 1, 'Delivered', 'Eri', 'Dewi', 0],
-        ['SJ-11SE-0146', 'Selasa', '2026-11-10', 'Janji Jiwa', 'Jakarta Barat', 1, 1, 'Delivered', 'Eri', 'Budi', 0],
-        ['SJ-11SE-0147', 'Selasa', '2026-11-10', 'Holland Bakery', 'Jakarta Barat', 1, 1, 'Delivered', 'Eri', 'Nova', 0],
-        ['SJ-11SE-0148', 'Selasa', '2026-11-10', 'JCO Donuts & Coffee', 'Jakarta Selatan', 2, 2, 'Delivered', 'Eri', 'Dewi', 0],
-        ['SJ-11SE-0149', 'Selasa', '2026-11-10', 'BreadTalk', 'Jakarta Barat', 1, 1, 'Delivered', 'Eri', 'Budi', 0],
-        ['SJ-11SE-0150', 'Selasa', '2026-11-10', 'Guardian Pharmacy', 'Jakarta Selatan', 1, 1, 'Delivered', 'Eri', 'Nova', 0],
-        ['SJ-11SE-0151', 'Selasa', '2026-11-10', 'Watsons', 'Jakarta Pusat', 1, 1, 'Delivered', 'Irfan', 'Dewi', 0],
-        ['SJ-11SE-0152', 'Selasa', '2026-11-10', 'Century Healthcare', 'Jakarta Barat', 1, 1, 'Delivered', 'Irfan', 'Budi', 0],
-        ['SJ-11SE-0153', 'Selasa', '2026-11-10', 'Kimia Farma', 'Jakarta Timur', 1, 1, 'Delivered', 'Irfan', 'Nova', 0],
-        ['SJ-11SE-0154', 'Selasa', '2026-11-10', 'Mitra 10', 'Tangerang', 2, 2, 'Delivered', 'Irfan', 'Dewi', 0],
-        ['SJ-11SE-0155', 'Selasa', '2026-11-10', 'Depo Bangunan', 'Tangerang', 2, 2, 'Delivered', 'Irfan', 'Budi', 0],
-        ['SJ-11SE-0156', 'Selasa', '2026-11-10', 'Electronic City', 'Jakarta Selatan', 1, 1, 'Delivered', 'Irfan', 'Nova', 0],
-        ['SJ-11SE-0157', 'Selasa', '2026-11-10', 'Erafone', 'Jakarta Pusat', 1, 1, 'Delivered', 'Irfan', 'Dewi', 0],
-        ['SJ-11SE-0158', 'Selasa', '2026-11-10', 'iBox Central Park', 'Jakarta Barat', 2, 2, 'Delivered', 'Baihaqi', 'Budi', 0],
-        ['SJ-11SE-0159', 'Selasa', '2026-11-10', 'Gramedia Matraman', 'Jakarta Timur', 1, 1, 'Delivered', 'Baihaqi', 'Nova', 0],
-        ['SJ-11SE-0160', 'Selasa', '2026-11-10', 'Ranch Market Pesanggrahan', 'Jakarta Barat', 1, 1, 'Delivered', 'Baihaqi', 'Dewi', 0],
-        ['SJ-11SE-0161', 'Selasa', '2026-11-10', 'Farmers Market Kelapa Gading', 'Jakarta Utara', 1, 1, 'Delivered', 'Baihaqi', 'Budi', 0],
-        ['SJ-11SE-0162', 'Selasa', '2026-11-10', 'Papaya Fresh Gallery', 'Jakarta Selatan', 1, 1, 'Delivered', 'Baihaqi', 'Nova', 0],
-        ['SJ-11SE-0163', 'Selasa', '2026-11-10', 'Kem Chicks Pacific Place', 'Jakarta Selatan', 1, 1, 'Delivered', 'Baihaqi', 'Dewi', 0],
-        ['SJ-11SE-0164', 'Selasa', '2026-11-10', 'Lotte Mart Meruya', 'Jakarta Barat', 2, 2, 'Delivered', 'Baihaqi', 'Budi', 0],
-        ['SJ-11SE-0165', 'Selasa', '2026-11-10', 'Gold Coast Office', 'Jakarta Utara', 1, 1, 'Delivered', 'Haris', 'Nova', 0],
-        ['SJ-11SE-0166', 'Selasa', '2026-11-10', 'Mall Bassura Jatinegara', 'Jakarta Timur', 2, 2, 'Delivered', 'Haris', 'Dewi', 0],
-        ['SJ-11SE-0167', 'Selasa', '2026-11-10', 'Plaza Indonesia', 'Jakarta Pusat', 1, 1, 'Delivered', 'Haris', 'Budi', 0],
-        ['SJ-11SE-0168', 'Selasa', '2026-11-10', 'Lippo Mall Puri', 'Jakarta Barat', 2, 2, 'Delivered', 'Haris', 'Nova', 0],
-        ['SJ-11SE-0169', 'Selasa', '2026-11-10', 'Supermal Karawaci', 'Tangerang', 1, 1, 'Delivered', 'Haris', 'Dewi', 0],
-        ['SJ-11SE-0170', 'Selasa', '2026-11-10', 'Summarecon Mall Serpong', 'Tangerang', 1, 1, 'Delivered', 'Haris', 'Budi', 0],
-        ['SJ-11SE-0171', 'Selasa', '2026-11-10', 'Summarecon Mall Kelapa Gading', 'Jakarta Utara', 1, 1, 'Delivered', 'Haris', 'Nova', 0],
-        ['SJ-11SE-0172', 'Selasa', '2026-11-10', 'Puri Indah Mall', 'Jakarta Barat', 1, 1, 'Delivered', 'Umar', 'Dewi', 0],
-        ['SJ-11SE-0173', 'Selasa', '2026-11-10', 'PT Aspirasi Hidup Indonesia Tbk', 'Jakarta Barat', 1, 1, 'Delivered', 'Umar', 'Budi', 0],
-        ['SJ-11SE-0174', 'Selasa', '2026-11-10', 'PT Foods Beverages Indonesia', 'Jakarta Selatan', 1, 1, 'Delivered', 'Umar', 'Nova', 0],
-        ['SJ-11SE-0175', 'Selasa', '2026-11-10', 'PT Tri Sakti Purwosari Makmur', 'Jakarta Barat', 1, 1, 'Delivered', 'Umar', 'Dewi', 0],
-        ['SJ-11SE-0176', 'Selasa', '2026-11-10', 'PT Home Center Indonesia Retail', 'Bekasi', 1, 1, 'Delivered', 'Umar', 'Budi', 0],
-        ['SJ-11SE-0177', 'Selasa', '2026-11-10', 'PT Toys Games Indonesia', 'Tangerang', 1, 1, 'Delivered', 'Umar', 'Nova', 0],
-        ['SJ-11SE-0178', 'Selasa', '2026-11-10', 'PT BQuik Otomotif Indonesia', 'Jakarta Barat', 1, 1, 'Delivered', 'Umar', 'Dewi', 0],
-        ['SJ-11SE-0179', 'Selasa', '2026-11-10', 'PT Benfood Dinamika Sentosa', 'Jakarta Selatan', 2, 2, 'Delivered', 'Umar', 'Budi', 0],
-        ['SJ-11SE-0180', 'Selasa', '2026-11-10', 'PT Astra International', 'Jakarta Pusat', 2, 2, 'Delivered', 'Noval', 'Nova', 0],
-        ['SJ-11SE-0181', 'Selasa', '2026-11-10', 'PT Indofood CBP Sukses Makmur', 'Tangerang', 2, 2, 'Delivered', 'Noval', 'Dewi', 0],
-        ['SJ-11SE-0182', 'Selasa', '2026-11-10', 'PT Sumber Alfaria Trijaya', 'Bekasi', 1, 1, 'Delivered', 'Noval', 'Budi', 0],
-        ['SJ-11SE-0183', 'Selasa', '2026-11-10', 'PT Mayora Indah', 'Tangerang', 2, 2, 'Delivered', 'Noval', 'Nova', 0],
-        ['SJ-11SE-0184', 'Selasa', '2026-11-10', 'PT Beverindo Indah Abadi', 'Jakarta Pusat', 1, 1, 'Delivered', 'Noval', 'Dewi', 0],
-        ['SJ-11SE-0185', 'Selasa', '2026-11-10', 'PT Jasmine Journey Indonesia', 'Jakarta Pusat', 1, 1, 'Delivered', 'Noval', 'Budi', 0],
-        ['SJ-11SE-0186', 'Selasa', '2026-11-10', 'PT Wook Global Technology', 'Jakarta Utara', 2, 2, 'Delivered', 'Jay', 'Nova', 0],
-        ['SJ-11SE-0187', 'Selasa', '2026-11-10', 'PT Kalbe Farma', 'Jakarta Timur', 2, 2, 'Delivered', 'Jay', 'Dewi', 0],
-        ['SJ-11SE-0188', 'Selasa', '2026-11-10', 'PT Makmur Jaya', 'Jakarta Selatan', 1, 1, 'Delivered', 'Jay', 'Budi', 0],
-        ['SJ-11SE-0189', 'Selasa', '2026-11-10', 'PT Intitirta Sarimakmur', 'Jakarta Utara', 1, 1, 'Delivered', 'Jay', 'Nova', 0],
-        ['SJ-11SE-0190', 'Selasa', '2026-11-10', 'PT Perindustrian Bapak Djenggot', 'Jakarta Barat', 2, 2, 'Delivered', 'Jay', 'Dewi', 0],
-        ['SJ-11SE-0191', 'Selasa', '2026-11-10', 'Panorama JTB (Head Office)', 'Jakarta Pusat', 1, 1, 'Delivered', 'Jay', 'Budi', 0],
-        ['SJ-11SE-0192', 'Selasa', '2026-11-10', 'Pixel Group Indonesia', 'Jakarta Selatan', 2, 2, 'Delivered', 'Ferdi', 'Nova', 0],
-        ['SJ-11SE-0193', 'Selasa', '2026-11-10', 'Premier Village', 'Tangerang', 2, 2, 'Delivered', 'Ferdi', 'Dewi', 0],
-        ['SJ-11SE-0194', 'Selasa', '2026-11-10', 'REX Kiriman Express', 'Jakarta Barat', 2, 2, 'Delivered', 'Ferdi', 'Budi', 0],
-        ['SJ-11SE-0195', 'Selasa', '2026-11-10', 'Kawan Lama Sejahtera', 'Jakarta Barat', 1, 1, 'Delivered', 'Ferdi', 'Nova', 0],
-        ['SJ-11SE-0196', 'Selasa', '2026-11-10', 'Wisma KEIAI', 'Jakarta Pusat', 1, 1, 'Delivered', 'Ferdi', 'Dewi', 0],
-        ['SJ-11SE-0197', 'Selasa', '2026-11-10', 'Kacamatamoo Rawasari', 'Jakarta Pusat', 1, 1, 'Delivered', 'Ferdi', 'Budi', 0],
-        ['SJ-11SE-0198', 'Selasa', '2026-11-10', 'GrandLucky - SCBD', 'Jakarta Selatan', 2, 2, 'Delivered', 'Jagatbaru', 'Nova', 0],
-        ['SJ-11SE-0199', 'Selasa', '2026-11-10', 'GrandLucky BSD City', 'Tangerang', 1, 1, 'Delivered', 'Jagatbaru', 'Dewi', 0],
-        ['SJ-11SE-0200', 'Selasa', '2026-11-10', 'Eraprima Industrial Park', 'Tangerang', 2, 2, 'Delivered', 'Jagatbaru', 'Budi', 0],
-        ['SJ-11SE-0201', 'Selasa', '2026-11-10', 'Mandiri University Wijaya Kusuma', 'Jakarta Barat', 2, 2, 'Delivered', 'Jagatbaru', 'Nova', 0],
-        ['SJ-11SE-0202', 'Selasa', '2026-11-10', 'Pacific Place Mall', 'Jakarta Selatan', 2, 2, 'Delivered', 'Jagatbaru', 'Dewi', 0],
-        ['SJ-11SE-0203', 'Selasa', '2026-11-10', 'INFORMA - Living World Kota Wisata', 'Bekasi', 1, 1, 'Delivered', 'pbseventeensc', 'Budi', 0],
-        ['SJ-11SE-0204', 'Selasa', '2026-11-10', 'Living World Alam Sutera', 'Tangerang', 2, 2, 'Delivered', 'pbseventeensc', 'Nova', 0],
-        ['SJ-11SE-0205', 'Selasa', '2026-11-10', 'Mall Senayan City', 'Jakarta Pusat', 2, 2, 'Delivered', 'pbseventeensc', 'Dewi', 0],
-        ['SJ-11SE-0206', 'Selasa', '2026-11-10', 'Grand Indonesia', 'Jakarta Pusat', 1, 1, 'Delivered', 'pbseventeensc', 'Budi', 0],
-        ['SJ-11SE-0207', 'Selasa', '2026-11-10', 'Central Park Mall', 'Jakarta Barat', 1, 1, 'Delivered', 'pbseventeensc', 'Nova', 0],
-        ['SJ-11SE-0208', 'Selasa', '2026-11-10', 'Gandaria City', 'Jakarta Selatan', 1, 1, 'Delivered', 'pbseventeensc', 'Dewi', 0],
-        ['SJ-11SE-0209', 'Selasa', '2026-11-10', 'AEON Mall BSD City', 'Tangerang', 1, 1, 'Delivered', 'pbseventeensc', 'Budi', 0],
-        ['SJ-11SE-0210', 'Selasa', '2026-11-10', 'AEON Mall Jakarta Garden City', 'Jakarta Timur', 2, 2, 'Delivered', 'Soleh', 'Nova', 0],
-        ['SJ-11SE-0211', 'Selasa', '2026-11-10', 'AEON Mall Tanjung Barat', 'Jakarta Selatan', 2, 2, 'Delivered', 'Soleh', 'Dewi', 0],
-        ['SJ-11SE-0212', 'Selasa', '2026-11-10', 'Anytime Fitness', 'Jakarta Selatan', 2, 2, 'Delivered', 'Soleh', 'Budi', 0],
-        ['SJ-11SE-0213', 'Selasa', '2026-11-10', 'Ataru Living World', 'Tangerang', 2, 2, 'Delivered', 'Soleh', 'Nova', 0],
-        ['SJ-11SE-0214', 'Selasa', '2026-11-10', 'Chatime Metropolitan Mall 2', 'Bekasi', 1, 1, 'Delivered', 'Soleh', 'Dewi', 0],
-        ['SJ-11SE-0215', 'Selasa', '2026-11-10', 'Chatime Gandaria City', 'Jakarta Selatan', 1, 1, 'Delivered', 'Romi', 'Budi', 0],
-        ['SJ-11SE-0216', 'Selasa', '2026-11-10', 'Chatime Central Park', 'Jakarta Barat', 1, 1, 'Delivered', 'Romi', 'Nova', 0],
-        ['SJ-11SE-0217', 'Selasa', '2026-11-10', 'Toys Kingdom Palem Semi', 'Tangerang', 1, 1, 'Delivered', 'Romi', 'Dewi', 0],
-        ['SJ-11SE-0218', 'Selasa', '2026-11-10', 'Toys Kingdom Supermal Karawaci', 'Tangerang', 1, 1, 'Delivered', 'Romi', 'Budi', 0],
-        ['SJ-11SE-0219', 'Selasa', '2026-11-10', 'Toys Kingdom Grand Indonesia', 'Jakarta Pusat', 2, 2, 'Delivered', 'Romi', 'Nova', 0],
-        ['SJ-11SE-0220', 'Selasa', '2026-11-10', 'Azko PIK Avenue', 'Jakarta Utara', 2, 2, 'Delivered', 'Romi', 'Dewi', 0],
-        ['SJ-11SE-0221', 'Selasa', '2026-11-10', 'Azko Green Terrace TMII', 'Jakarta Timur', 1, 1, 'Delivered', 'Romi', 'Budi', 0],
-        ['SJ-11SE-0222', 'Selasa', '2026-11-10', 'Azko Bogor Terasutra', 'Jakarta Selatan', 2, 2, 'Delivered', 'Firdaus', 'Nova', 0],
-        ['SJ-11SE-0223', 'Selasa', '2026-11-10', 'Azko Citra 6', 'Jakarta Barat', 2, 2, 'Delivered', 'Firdaus', 'Dewi', 0],
-        ['SJ-11SE-0224', 'Selasa', '2026-11-10', 'Azko Kota Wisata Bogor', 'Bekasi', 2, 2, 'Delivered', 'Firdaus', 'Budi', 0],
-        ['SJ-11SE-0225', 'Selasa', '2026-11-10', 'Azko QBig BSD', 'Tangerang', 1, 1, 'Delivered', 'Firdaus', 'Nova', 0],
-        ['SJ-11SE-0226', 'Selasa', '2026-11-10', 'Azko Metro Sunter', 'Jakarta Utara', 1, 1, 'Delivered', 'Firdaus', 'Dewi', 0],
-        ['SJ-11SE-0227', 'Selasa', '2026-11-10', 'Color Star (Linda)', 'Jakarta Barat', 1, 1, 'Delivered', 'Firdaus', 'Budi', 0],
-        ['SJ-11SE-0228', 'Selasa', '2026-11-10', 'Resto Sederhana', 'Jakarta Pusat', 2, 2, 'Delivered', 'Alan', 'Nova', 0],
-        ['SJ-11SE-0229', 'Selasa', '2026-11-10', 'Lawson Station', 'Jakarta Selatan', 1, 1, 'Delivered', 'Alan', 'Dewi', 0],
-        ['SJ-11SE-0230', 'Selasa', '2026-11-10', 'Kopi Kenangan', 'Jakarta Selatan', 2, 2, 'Delivered', 'Alan', 'Budi', 0],
-        ['SJ-11SE-0231', 'Selasa', '2026-11-10', 'Fore Coffee', 'Jakarta Pusat', 2, 2, 'Delivered', 'Alan', 'Nova', 0],
-        ['SJ-11SE-0232', 'Selasa', '2026-11-10', 'Janji Jiwa', 'Jakarta Barat', 2, 2, 'Delivered', 'Alan', 'Dewi', 0],
-        ['SJ-11SE-0233', 'Selasa', '2026-11-10', 'Holland Bakery', 'Jakarta Barat', 1, 1, 'Delivered', 'Yakub', 'Budi', 0],
-        ['SJ-11SE-0234', 'Selasa', '2026-11-10', 'JCO Donuts & Coffee', 'Jakarta Selatan', 1, 1, 'Delivered', 'Yakub', 'Nova', 0],
-        ['SJ-11SE-0235', 'Selasa', '2026-11-10', 'BreadTalk', 'Jakarta Barat', 1, 1, 'Delivered', 'Yakub', 'Dewi', 0],
-        ['SJ-11SE-0236', 'Selasa', '2026-11-10', 'Guardian Pharmacy', 'Jakarta Selatan', 1, 1, 'Delivered', 'Yakub', 'Budi', 0],
-        ['SJ-11SE-0237', 'Selasa', '2026-11-10', 'Watsons', 'Jakarta Pusat', 1, 1, 'Delivered', 'Yakub', 'Nova', 0],
-        ['SJ-11SE-0238', 'Selasa', '2026-11-10', 'Century Healthcare', 'Jakarta Barat', 1, 1, 'Delivered', 'Yakub', 'Dewi', 0],
-        ['SJ-11SE-0239', 'Selasa', '2026-11-10', 'Kimia Farma', 'Jakarta Timur', 1, 1, 'Delivered', 'Yakub', 'Budi', 0],
-        ['SJ-11SE-0240', 'Selasa', '2026-11-10', 'Mitra 10', 'Tangerang', 1, 1, 'Delivered', 'Yakub', 'Nova', 0],
-        ['SJ-11SE-0241', 'Selasa', '2026-11-10', 'Depo Bangunan', 'Tangerang', 1, 1, 'Delivered', 'Iwan', 'Dewi', 0],
-        ['SJ-11SE-0242', 'Selasa', '2026-11-10', 'Electronic City', 'Jakarta Selatan', 2, 2, 'Delivered', 'Iwan', 'Budi', 0],
-        ['SJ-11SE-0243', 'Selasa', '2026-11-10', 'Erafone', 'Jakarta Pusat', 1, 1, 'Delivered', 'Iwan', 'Nova', 0],
-        ['SJ-11SE-0244', 'Selasa', '2026-11-10', 'iBox Central Park', 'Jakarta Barat', 2, 2, 'Delivered', 'Iwan', 'Dewi', 0],
-        ['SJ-11SE-0245', 'Selasa', '2026-11-10', 'Gramedia Matraman', 'Jakarta Timur', 2, 2, 'Delivered', 'Iwan', 'Budi', 0],
-        ['SJ-11SE-0246', 'Selasa', '2026-11-10', 'Ranch Market Pesanggrahan', 'Jakarta Barat', 1, 1, 'Delivered', 'Agung', 'Nova', 0],
-        ['SJ-11SE-0247', 'Selasa', '2026-11-10', 'Farmers Market Kelapa Gading', 'Jakarta Utara', 2, 2, 'Delivered', 'Agung', 'Dewi', 0],
-        ['SJ-11SE-0248', 'Selasa', '2026-11-10', 'Papaya Fresh Gallery', 'Jakarta Selatan', 1, 1, 'Delivered', 'Agung', 'Budi', 0],
-        ['SJ-11SE-0249', 'Selasa', '2026-11-10', 'Kem Chicks Pacific Place', 'Jakarta Selatan', 1, 1, 'Delivered', 'Agung', 'Nova', 0],
-        ['SJ-11SE-0250', 'Selasa', '2026-11-10', 'Lotte Mart Meruya', 'Jakarta Barat', 1, 1, 'Delivered', 'Agung', 'Dewi', 0],
-        ['SJ-11SE-0251', 'Selasa', '2026-11-10', 'Gold Coast Office', 'Jakarta Utara', 2, 2, 'Delivered', 'Agung', 'Budi', 0],
-        ['SJ-11SE-0252', 'Selasa', '2026-11-10', 'Mall Bassura Jatinegara', 'Jakarta Timur', 1, 1, 'Delivered', 'Husen', 'Nova', 0],
-        ['SJ-11SE-0253', 'Selasa', '2026-11-10', 'Plaza Indonesia', 'Jakarta Pusat', 1, 1, 'Delivered', 'Husen', 'Dewi', 0],
-        ['SJ-11SE-0254', 'Selasa', '2026-11-10', 'Lippo Mall Puri', 'Jakarta Barat', 2, 2, 'Delivered', 'Husen', 'Budi', 0],
-        ['SJ-11SE-0255', 'Selasa', '2026-11-10', 'Supermal Karawaci', 'Tangerang', 1, 1, 'Delivered', 'Husen', 'Nova', 0],
-        ['SJ-11SE-0256', 'Selasa', '2026-11-10', 'Summarecon Mall Serpong', 'Tangerang', 1, 1, 'Delivered', 'Husen', 'Dewi', 0],
-        ['SJ-11SE-0257', 'Selasa', '2026-11-10', 'Summarecon Mall Kelapa Gading', 'Jakarta Utara', 2, 2, 'Delivered', 'Husen', 'Budi', 0],
-        ['SJ-11RA-0258', 'Rabu', '2026-11-11', 'Puri Indah Mall', 'Jakarta Barat', 1, 1, 'Delivered', 'Ahmad', 'Nova', 0],
-        ['SJ-11RA-0259', 'Rabu', '2026-11-11', 'PT Aspirasi Hidup Indonesia Tbk', 'Jakarta Barat', 1, 0, 'On Delivery', 'Ahmad', 'Dewi', 0],
-        ['SJ-11RA-0260', 'Rabu', '2026-11-11', 'PT Foods Beverages Indonesia', 'Jakarta Selatan', 2, 2, 'Delivered', 'Ahmad', 'Budi', 0],
-        ['SJ-11RA-0261', 'Rabu', '2026-11-11', 'PT Tri Sakti Purwosari Makmur', 'Jakarta Barat', 2, 2, 'Delivered', 'Ahmad', 'Nova', 0],
-        ['SJ-11RA-0262', 'Rabu', '2026-11-11', 'PT Home Center Indonesia Retail', 'Bekasi', 2, 2, 'Delivered', 'Ahmad', 'Dewi', 0],
-        ['SJ-11RA-0263', 'Rabu', '2026-11-11', 'PT Toys Games Indonesia', 'Tangerang', 1, 1, 'Delivered', 'Ahmad', 'Budi', 0],
-        ['SJ-11RA-0264', 'Rabu', '2026-11-11', 'PT BQuik Otomotif Indonesia', 'Jakarta Barat', 1, 1, 'Delivered', 'Ahmad', 'Nova', 0],
-        ['SJ-11RA-0265', 'Rabu', '2026-11-11', 'PT Benfood Dinamika Sentosa', 'Jakarta Selatan', 1, 1, 'Delivered', 'Beto', 'Dewi', 0],
-        ['SJ-11RA-0266', 'Rabu', '2026-11-11', 'PT Astra International', 'Jakarta Pusat', 2, 2, 'Delivered', 'Beto', 'Budi', 0],
-        ['SJ-11RA-0267', 'Rabu', '2026-11-11', 'PT Indofood CBP Sukses Makmur', 'Tangerang', 1, 1, 'Delivered', 'Beto', 'Nova', 0],
-        ['SJ-11RA-0268', 'Rabu', '2026-11-11', 'PT Sumber Alfaria Trijaya', 'Bekasi', 2, 2, 'Delivered', 'Beto', 'Dewi', 0],
-        ['SJ-11RA-0269', 'Rabu', '2026-11-11', 'PT Mayora Indah', 'Tangerang', 1, 1, 'Delivered', 'Beto', 'Budi', 0],
-        ['SJ-11RA-0270', 'Rabu', '2026-11-11', 'PT Beverindo Indah Abadi', 'Jakarta Pusat', 1, 1, 'Delivered', 'Beto', 'Nova', 0],
-        ['SJ-11RA-0271', 'Rabu', '2026-11-11', 'PT Jasmine Journey Indonesia', 'Jakarta Pusat', 1, 1, 'Delivered', 'Beto', 'Dewi', 0],
-        ['SJ-11RA-0272', 'Rabu', '2026-11-11', 'PT Wook Global Technology', 'Jakarta Utara', 1, 1, 'Delivered', 'Beto', 'Budi', 0],
-        ['SJ-11RA-0273', 'Rabu', '2026-11-11', 'PT Kalbe Farma', 'Jakarta Timur', 1, 1, 'Delivered', 'Eri', 'Nova', 0],
-        ['SJ-11RA-0274', 'Rabu', '2026-11-11', 'PT Makmur Jaya', 'Jakarta Selatan', 2, 2, 'Delivered', 'Eri', 'Dewi', 0],
-        ['SJ-11RA-0275', 'Rabu', '2026-11-11', 'PT Intitirta Sarimakmur', 'Jakarta Utara', 1, 1, 'Delivered', 'Eri', 'Budi', 0],
-        ['SJ-11RA-0276', 'Rabu', '2026-11-11', 'PT Perindustrian Bapak Djenggot', 'Jakarta Barat', 1, 1, 'Delivered', 'Eri', 'Nova', 0],
-        ['SJ-11RA-0277', 'Rabu', '2026-11-11', 'Panorama JTB (Head Office)', 'Jakarta Pusat', 1, 1, 'Delivered', 'Eri', 'Dewi', 0],
-        ['SJ-11RA-0278', 'Rabu', '2026-11-11', 'Pixel Group Indonesia', 'Jakarta Selatan', 2, 2, 'Delivered', 'Eri', 'Budi', 0],
-        ['SJ-11RA-0279', 'Rabu', '2026-11-11', 'Premier Village', 'Tangerang', 1, 1, 'Delivered', 'Eri', 'Nova', 0],
-        ['SJ-11RA-0280', 'Rabu', '2026-11-11', 'REX Kiriman Express', 'Jakarta Barat', 1, 1, 'Delivered', 'Eri', 'Dewi', 0],
-        ['SJ-11RA-0281', 'Rabu', '2026-11-11', 'Kawan Lama Sejahtera', 'Jakarta Barat', 1, 1, 'Delivered', 'Irfan', 'Budi', 0],
-        ['SJ-11RA-0282', 'Rabu', '2026-11-11', 'Wisma KEIAI', 'Jakarta Pusat', 1, 1, 'Delivered', 'Irfan', 'Nova', 0],
-        ['SJ-11RA-0283', 'Rabu', '2026-11-11', 'Kacamatamoo Rawasari', 'Jakarta Pusat', 1, 1, 'Delivered', 'Irfan', 'Dewi', 0],
-        ['SJ-11RA-0284', 'Rabu', '2026-11-11', 'GrandLucky - SCBD', 'Jakarta Selatan', 2, 2, 'Delivered', 'Irfan', 'Budi', 0],
-        ['SJ-11RA-0285', 'Rabu', '2026-11-11', 'GrandLucky BSD City', 'Tangerang', 2, 2, 'Delivered', 'Irfan', 'Nova', 0],
-        ['SJ-11RA-0286', 'Rabu', '2026-11-11', 'Eraprima Industrial Park', 'Tangerang', 1, 1, 'Delivered', 'Irfan', 'Dewi', 0],
-        ['SJ-11RA-0287', 'Rabu', '2026-11-11', 'Mandiri University Wijaya Kusuma', 'Jakarta Barat', 2, 2, 'Delivered', 'Irfan', 'Budi', 0],
-        ['SJ-11RA-0288', 'Rabu', '2026-11-11', 'Pacific Place Mall', 'Jakarta Selatan', 1, 1, 'Delivered', 'Baihaqi', 'Nova', 0],
-        ['SJ-11RA-0289', 'Rabu', '2026-11-11', 'INFORMA - Living World Kota Wisata', 'Bekasi', 1, 1, 'Delivered', 'Baihaqi', 'Dewi', 0],
-        ['SJ-11RA-0290', 'Rabu', '2026-11-11', 'Living World Alam Sutera', 'Tangerang', 2, 2, 'Delivered', 'Baihaqi', 'Budi', 0],
-        ['SJ-11RA-0291', 'Rabu', '2026-11-11', 'Mall Senayan City', 'Jakarta Pusat', 1, 1, 'Delivered', 'Baihaqi', 'Nova', 0],
-        ['SJ-11RA-0292', 'Rabu', '2026-11-11', 'Grand Indonesia', 'Jakarta Pusat', 2, 2, 'Delivered', 'Baihaqi', 'Dewi', 0],
-        ['SJ-11RA-0293', 'Rabu', '2026-11-11', 'Central Park Mall', 'Jakarta Barat', 2, 2, 'Delivered', 'Baihaqi', 'Budi', 0],
-        ['SJ-11RA-0294', 'Rabu', '2026-11-11', 'Gandaria City', 'Jakarta Selatan', 1, 1, 'Delivered', 'Haris', 'Nova', 0],
-        ['SJ-11RA-0295', 'Rabu', '2026-11-11', 'AEON Mall BSD City', 'Tangerang', 2, 2, 'Delivered', 'Haris', 'Dewi', 0],
-        ['SJ-11RA-0296', 'Rabu', '2026-11-11', 'AEON Mall Jakarta Garden City', 'Jakarta Timur', 2, 2, 'Delivered', 'Haris', 'Budi', 0],
-        ['SJ-11RA-0297', 'Rabu', '2026-11-11', 'AEON Mall Tanjung Barat', 'Jakarta Selatan', 1, 1, 'Delivered', 'Haris', 'Nova', 0],
-        ['SJ-11RA-0298', 'Rabu', '2026-11-11', 'Anytime Fitness', 'Jakarta Selatan', 1, 1, 'Delivered', 'Haris', 'Dewi', 0],
-        ['SJ-11RA-0299', 'Rabu', '2026-11-11', 'Ataru Living World', 'Tangerang', 2, 2, 'Delivered', 'Haris', 'Budi', 0],
-        ['SJ-11RA-0300', 'Rabu', '2026-11-11', 'Chatime Metropolitan Mall 2', 'Bekasi', 1, 1, 'Delivered', 'Umar', 'Nova', 0],
-        ['SJ-11RA-0301', 'Rabu', '2026-11-11', 'Chatime Gandaria City', 'Jakarta Selatan', 2, 2, 'Delivered', 'Umar', 'Dewi', 0],
-        ['SJ-11RA-0302', 'Rabu', '2026-11-11', 'Chatime Central Park', 'Jakarta Barat', 1, 1, 'Delivered', 'Umar', 'Budi', 0],
-        ['SJ-11RA-0303', 'Rabu', '2026-11-11', 'Toys Kingdom Palem Semi', 'Tangerang', 1, 1, 'Delivered', 'Umar', 'Nova', 0],
-        ['SJ-11RA-0304', 'Rabu', '2026-11-11', 'Toys Kingdom Supermal Karawaci', 'Tangerang', 1, 1, 'Delivered', 'Umar', 'Dewi', 0],
-        ['SJ-11RA-0305', 'Rabu', '2026-11-11', 'Toys Kingdom Grand Indonesia', 'Jakarta Pusat', 1, 1, 'Delivered', 'Umar', 'Budi', 0],
-        ['SJ-11RA-0306', 'Rabu', '2026-11-11', 'Azko PIK Avenue', 'Jakarta Utara', 1, 1, 'Delivered', 'Umar', 'Nova', 0],
-        ['SJ-11RA-0307', 'Rabu', '2026-11-11', 'Azko Green Terrace TMII', 'Jakarta Timur', 1, 1, 'Delivered', 'Umar', 'Dewi', 0],
-        ['SJ-11RA-0308', 'Rabu', '2026-11-11', 'Azko Bogor Terasutra', 'Jakarta Selatan', 2, 2, 'Delivered', 'Noval', 'Budi', 0],
-        ['SJ-11RA-0309', 'Rabu', '2026-11-11', 'Azko Citra 6', 'Jakarta Barat', 1, 1, 'Delivered', 'Noval', 'Nova', 0],
-        ['SJ-11RA-0310', 'Rabu', '2026-11-11', 'Azko Kota Wisata Bogor', 'Bekasi', 2, 2, 'Delivered', 'Noval', 'Dewi', 0],
-        ['SJ-11RA-0311', 'Rabu', '2026-11-11', 'Azko QBig BSD', 'Tangerang', 2, 2, 'Delivered', 'Noval', 'Budi', 0],
-        ['SJ-11RA-0312', 'Rabu', '2026-11-11', 'Azko Metro Sunter', 'Jakarta Utara', 1, 1, 'Delivered', 'Noval', 'Nova', 0],
-        ['SJ-11RA-0313', 'Rabu', '2026-11-11', 'Color Star (Linda)', 'Jakarta Barat', 1, 1, 'Delivered', 'Noval', 'Dewi', 0],
-        ['SJ-11RA-0314', 'Rabu', '2026-11-11', 'Resto Sederhana', 'Jakarta Pusat', 2, 2, 'Delivered', 'Jay', 'Budi', 0],
-        ['SJ-11RA-0315', 'Rabu', '2026-11-11', 'Lawson Station', 'Jakarta Selatan', 1, 1, 'Delivered', 'Jay', 'Nova', 0],
-        ['SJ-11RA-0316', 'Rabu', '2026-11-11', 'Kopi Kenangan', 'Jakarta Selatan', 1, 1, 'Delivered', 'Jay', 'Dewi', 0],
-        ['SJ-11RA-0317', 'Rabu', '2026-11-11', 'Fore Coffee', 'Jakarta Pusat', 1, 1, 'Delivered', 'Jay', 'Budi', 0],
-        ['SJ-11RA-0318', 'Rabu', '2026-11-11', 'Janji Jiwa', 'Jakarta Barat', 1, 1, 'Delivered', 'Jay', 'Nova', 0],
-        ['SJ-11RA-0319', 'Rabu', '2026-11-11', 'Holland Bakery', 'Jakarta Barat', 2, 2, 'Delivered', 'Jay', 'Dewi', 0],
-        ['SJ-11RA-0320', 'Rabu', '2026-11-11', 'JCO Donuts & Coffee', 'Jakarta Selatan', 1, 1, 'Delivered', 'Jay', 'Budi', 0],
-        ['SJ-11RA-0321', 'Rabu', '2026-11-11', 'BreadTalk', 'Jakarta Barat', 2, 2, 'Delivered', 'Ferdi', 'Nova', 0],
-        ['SJ-11RA-0322', 'Rabu', '2026-11-11', 'Guardian Pharmacy', 'Jakarta Selatan', 1, 1, 'Delivered', 'Ferdi', 'Dewi', 0],
-        ['SJ-11RA-0323', 'Rabu', '2026-11-11', 'Watsons', 'Jakarta Pusat', 1, 1, 'Delivered', 'Ferdi', 'Budi', 0],
-        ['SJ-11RA-0324', 'Rabu', '2026-11-11', 'Century Healthcare', 'Jakarta Barat', 1, 1, 'Delivered', 'Ferdi', 'Nova', 0],
-        ['SJ-11RA-0325', 'Rabu', '2026-11-11', 'Kimia Farma', 'Jakarta Timur', 1, 1, 'Delivered', 'Ferdi', 'Dewi', 0],
-        ['SJ-11RA-0326', 'Rabu', '2026-11-11', 'Mitra 10', 'Tangerang', 1, 1, 'Delivered', 'Ferdi', 'Budi', 0],
-        ['SJ-11RA-0327', 'Rabu', '2026-11-11', 'Depo Bangunan', 'Tangerang', 1, 1, 'Delivered', 'Ferdi', 'Nova', 0],
-        ['SJ-11RA-0328', 'Rabu', '2026-11-11', 'Electronic City', 'Jakarta Selatan', 1, 1, 'Delivered', 'Ferdi', 'Dewi', 0],
-        ['SJ-11RA-0329', 'Rabu', '2026-11-11', 'Erafone', 'Jakarta Pusat', 1, 1, 'Delivered', 'Jagatbaru', 'Budi', 0],
-        ['SJ-11RA-0330', 'Rabu', '2026-11-11', 'iBox Central Park', 'Jakarta Barat', 1, 1, 'Delivered', 'Jagatbaru', 'Nova', 0],
-        ['SJ-11RA-0331', 'Rabu', '2026-11-11', 'Gramedia Matraman', 'Jakarta Timur', 2, 2, 'Delivered', 'Jagatbaru', 'Dewi', 0],
-        ['SJ-11RA-0332', 'Rabu', '2026-11-11', 'Ranch Market Pesanggrahan', 'Jakarta Barat', 2, 2, 'Delivered', 'Jagatbaru', 'Budi', 0],
-        ['SJ-11RA-0333', 'Rabu', '2026-11-11', 'Farmers Market Kelapa Gading', 'Jakarta Utara', 2, 2, 'Delivered', 'Jagatbaru', 'Nova', 0],
-        ['SJ-11RA-0334', 'Rabu', '2026-11-11', 'Papaya Fresh Gallery', 'Jakarta Selatan', 1, 1, 'Delivered', 'Jagatbaru', 'Dewi', 0],
-        ['SJ-11RA-0335', 'Rabu', '2026-11-11', 'Kem Chicks Pacific Place', 'Jakarta Selatan', 1, 1, 'Delivered', 'pbseventeensc', 'Budi', 0],
-        ['SJ-11RA-0336', 'Rabu', '2026-11-11', 'Lotte Mart Meruya', 'Jakarta Barat', 2, 2, 'Delivered', 'pbseventeensc', 'Nova', 0],
-        ['SJ-11RA-0337', 'Rabu', '2026-11-11', 'Gold Coast Office', 'Jakarta Utara', 1, 1, 'Delivered', 'pbseventeensc', 'Dewi', 0],
-        ['SJ-11RA-0338', 'Rabu', '2026-11-11', 'Mall Bassura Jatinegara', 'Jakarta Timur', 2, 2, 'Delivered', 'pbseventeensc', 'Budi', 0],
-        ['SJ-11RA-0339', 'Rabu', '2026-11-11', 'Plaza Indonesia', 'Jakarta Pusat', 2, 2, 'Delivered', 'pbseventeensc', 'Nova', 0],
-        ['SJ-11RA-0340', 'Rabu', '2026-11-11', 'Lippo Mall Puri', 'Jakarta Barat', 1, 1, 'Delivered', 'pbseventeensc', 'Dewi', 0],
-        ['SJ-11RA-0341', 'Rabu', '2026-11-11', 'Supermal Karawaci', 'Tangerang', 1, 1, 'Delivered', 'Soleh', 'Budi', 0],
-        ['SJ-11RA-0342', 'Rabu', '2026-11-11', 'Summarecon Mall Serpong', 'Tangerang', 2, 2, 'Delivered', 'Soleh', 'Nova', 0],
-        ['SJ-11RA-0343', 'Rabu', '2026-11-11', 'Summarecon Mall Kelapa Gading', 'Jakarta Utara', 1, 1, 'Delivered', 'Soleh', 'Dewi', 0],
-        ['SJ-11RA-0344', 'Rabu', '2026-11-11', 'Puri Indah Mall', 'Jakarta Barat', 2, 2, 'Delivered', 'Soleh', 'Budi', 0],
-        ['SJ-11RA-0345', 'Rabu', '2026-11-11', 'PT Aspirasi Hidup Indonesia Tbk', 'Jakarta Barat', 1, 1, 'Delivered', 'Soleh', 'Nova', 0],
-        ['SJ-11RA-0346', 'Rabu', '2026-11-11', 'PT Foods Beverages Indonesia', 'Jakarta Selatan', 1, 1, 'Delivered', 'Soleh', 'Dewi', 0],
-        ['SJ-11RA-0347', 'Rabu', '2026-11-11', 'PT Tri Sakti Purwosari Makmur', 'Jakarta Barat', 1, 1, 'Delivered', 'Soleh', 'Budi', 0],
-        ['SJ-11RA-0348', 'Rabu', '2026-11-11', 'PT Home Center Indonesia Retail', 'Bekasi', 1, 1, 'Delivered', 'Romi', 'Nova', 0],
-        ['SJ-11RA-0349', 'Rabu', '2026-11-11', 'PT Toys Games Indonesia', 'Tangerang', 1, 1, 'Delivered', 'Romi', 'Dewi', 0],
-        ['SJ-11RA-0350', 'Rabu', '2026-11-11', 'PT BQuik Otomotif Indonesia', 'Jakarta Barat', 2, 2, 'Delivered', 'Romi', 'Budi', 0],
-        ['SJ-11RA-0351', 'Rabu', '2026-11-11', 'PT Benfood Dinamika Sentosa', 'Jakarta Selatan', 1, 1, 'Delivered', 'Romi', 'Nova', 0],
-        ['SJ-11RA-0352', 'Rabu', '2026-11-11', 'PT Astra International', 'Jakarta Pusat', 1, 1, 'Delivered', 'Romi', 'Dewi', 0],
-        ['SJ-11RA-0353', 'Rabu', '2026-11-11', 'PT Indofood CBP Sukses Makmur', 'Tangerang', 2, 2, 'Delivered', 'Romi', 'Budi', 0],
-        ['SJ-11RA-0354', 'Rabu', '2026-11-11', 'PT Sumber Alfaria Trijaya', 'Bekasi', 1, 1, 'Delivered', 'Romi', 'Nova', 0],
-        ['SJ-11RA-0355', 'Rabu', '2026-11-11', 'PT Mayora Indah', 'Tangerang', 1, 1, 'Delivered', 'Firdaus', 'Dewi', 0],
-        ['SJ-11RA-0356', 'Rabu', '2026-11-11', 'PT Beverindo Indah Abadi', 'Jakarta Pusat', 2, 2, 'Delivered', 'Firdaus', 'Budi', 0],
-        ['SJ-11RA-0357', 'Rabu', '2026-11-11', 'PT Jasmine Journey Indonesia', 'Jakarta Pusat', 2, 2, 'Delivered', 'Firdaus', 'Nova', 0],
-        ['SJ-11RA-0358', 'Rabu', '2026-11-11', 'PT Wook Global Technology', 'Jakarta Utara', 1, 1, 'Delivered', 'Firdaus', 'Dewi', 0],
-        ['SJ-11RA-0359', 'Rabu', '2026-11-11', 'PT Kalbe Farma', 'Jakarta Timur', 1, 1, 'Delivered', 'Firdaus', 'Budi', 0],
-        ['SJ-11RA-0360', 'Rabu', '2026-11-11', 'PT Makmur Jaya', 'Jakarta Selatan', 1, 1, 'Delivered', 'Firdaus', 'Nova', 0],
-        ['SJ-11RA-0361', 'Rabu', '2026-11-11', 'PT Intitirta Sarimakmur', 'Jakarta Utara', 1, 1, 'Delivered', 'Firdaus', 'Dewi', 0],
-        ['SJ-11RA-0362', 'Rabu', '2026-11-11', 'PT Perindustrian Bapak Djenggot', 'Jakarta Barat', 1, 1, 'Delivered', 'Alan', 'Budi', 0],
-        ['SJ-11RA-0363', 'Rabu', '2026-11-11', 'Panorama JTB (Head Office)', 'Jakarta Pusat', 2, 2, 'Delivered', 'Alan', 'Nova', 0],
-        ['SJ-11RA-0364', 'Rabu', '2026-11-11', 'Pixel Group Indonesia', 'Jakarta Selatan', 1, 1, 'Delivered', 'Alan', 'Dewi', 0],
-        ['SJ-11RA-0365', 'Rabu', '2026-11-11', 'Premier Village', 'Tangerang', 2, 2, 'Delivered', 'Alan', 'Budi', 0],
-        ['SJ-11RA-0366', 'Rabu', '2026-11-11', 'REX Kiriman Express', 'Jakarta Barat', 2, 2, 'Delivered', 'Alan', 'Nova', 0],
-        ['SJ-11RA-0367', 'Rabu', '2026-11-11', 'Kawan Lama Sejahtera', 'Jakarta Barat', 1, 1, 'Delivered', 'Alan', 'Dewi', 0],
-        ['SJ-11RA-0368', 'Rabu', '2026-11-11', 'Wisma KEIAI', 'Jakarta Pusat', 2, 2, 'Delivered', 'Yakub', 'Budi', 0],
-        ['SJ-11RA-0369', 'Rabu', '2026-11-11', 'Kacamatamoo Rawasari', 'Jakarta Pusat', 1, 1, 'Delivered', 'Yakub', 'Nova', 0],
-        ['SJ-11RA-0370', 'Rabu', '2026-11-11', 'GrandLucky - SCBD', 'Jakarta Selatan', 1, 1, 'Delivered', 'Yakub', 'Dewi', 0],
-        ['SJ-11RA-0371', 'Rabu', '2026-11-11', 'GrandLucky BSD City', 'Tangerang', 1, 1, 'Delivered', 'Yakub', 'Budi', 0],
-        ['SJ-11RA-0372', 'Rabu', '2026-11-11', 'Eraprima Industrial Park', 'Tangerang', 1, 1, 'Delivered', 'Yakub', 'Nova', 0],
-        ['SJ-11RA-0373', 'Rabu', '2026-11-11', 'Mandiri University Wijaya Kusuma', 'Jakarta Barat', 2, 2, 'Delivered', 'Yakub', 'Dewi', 0],
-        ['SJ-11RA-0374', 'Rabu', '2026-11-11', 'Pacific Place Mall', 'Jakarta Selatan', 1, 1, 'Delivered', 'Yakub', 'Budi', 0],
-        ['SJ-11RA-0375', 'Rabu', '2026-11-11', 'INFORMA - Living World Kota Wisata', 'Bekasi', 1, 1, 'Delivered', 'Iwan', 'Nova', 0],
-        ['SJ-11RA-0376', 'Rabu', '2026-11-11', 'Living World Alam Sutera', 'Tangerang', 1, 1, 'Delivered', 'Iwan', 'Dewi', 0],
-        ['SJ-11RA-0377', 'Rabu', '2026-11-11', 'Mall Senayan City', 'Jakarta Pusat', 1, 1, 'Delivered', 'Iwan', 'Budi', 0],
-        ['SJ-11RA-0378', 'Rabu', '2026-11-11', 'Grand Indonesia', 'Jakarta Pusat', 1, 1, 'Delivered', 'Iwan', 'Nova', 0],
-        ['SJ-11RA-0379', 'Rabu', '2026-11-11', 'Central Park Mall', 'Jakarta Barat', 1, 1, 'Delivered', 'Iwan', 'Dewi', 0],
-        ['SJ-11RA-0380', 'Rabu', '2026-11-11', 'Gandaria City', 'Jakarta Selatan', 1, 1, 'Delivered', 'Iwan', 'Budi', 0],
-        ['SJ-11RA-0381', 'Rabu', '2026-11-11', 'AEON Mall BSD City', 'Tangerang', 2, 2, 'Delivered', 'Iwan', 'Nova', 0],
-        ['SJ-11RA-0382', 'Rabu', '2026-11-11', 'AEON Mall Jakarta Garden City', 'Jakarta Timur', 1, 1, 'Delivered', 'Iwan', 'Dewi', 0],
-        ['SJ-11RA-0383', 'Rabu', '2026-11-11', 'AEON Mall Tanjung Barat', 'Jakarta Selatan', 2, 2, 'Delivered', 'Agung', 'Budi', 0],
-        ['SJ-11RA-0384', 'Rabu', '2026-11-11', 'Anytime Fitness', 'Jakarta Selatan', 1, 1, 'Delivered', 'Agung', 'Nova', 0],
-        ['SJ-11RA-0385', 'Rabu', '2026-11-11', 'Ataru Living World', 'Tangerang', 1, 1, 'Delivered', 'Agung', 'Dewi', 0],
-        ['SJ-11RA-0386', 'Rabu', '2026-11-11', 'Chatime Metropolitan Mall 2', 'Bekasi', 1, 1, 'Delivered', 'Agung', 'Budi', 0],
-        ['SJ-11RA-0387', 'Rabu', '2026-11-11', 'Chatime Gandaria City', 'Jakarta Selatan', 1, 1, 'Delivered', 'Agung', 'Nova', 0],
-        ['SJ-11RA-0388', 'Rabu', '2026-11-11', 'Chatime Central Park', 'Jakarta Barat', 2, 2, 'Delivered', 'Agung', 'Dewi', 0],
-        ['SJ-11RA-0389', 'Rabu', '2026-11-11', 'Toys Kingdom Palem Semi', 'Tangerang', 1, 1, 'Delivered', 'Agung', 'Budi', 0],
-        ['SJ-11RA-0390', 'Rabu', '2026-11-11', 'Toys Kingdom Supermal Karawaci', 'Tangerang', 1, 1, 'Delivered', 'Husen', 'Nova', 0],
-        ['SJ-11RA-0391', 'Rabu', '2026-11-11', 'Toys Kingdom Grand Indonesia', 'Jakarta Pusat', 2, 2, 'Delivered', 'Husen', 'Dewi', 0],
-        ['SJ-11RA-0392', 'Rabu', '2026-11-11', 'Azko PIK Avenue', 'Jakarta Utara', 1, 1, 'Delivered', 'Husen', 'Budi', 0],
-        ['SJ-11RA-0393', 'Rabu', '2026-11-11', 'Azko Green Terrace TMII', 'Jakarta Timur', 1, 1, 'Delivered', 'Husen', 'Nova', 0],
-        ['SJ-11RA-0394', 'Rabu', '2026-11-11', 'Azko Bogor Terasutra', 'Jakarta Selatan', 1, 1, 'Delivered', 'Husen', 'Dewi', 0],
-        ['SJ-11RA-0395', 'Rabu', '2026-11-11', 'Azko Citra 6', 'Jakarta Barat', 2, 2, 'Delivered', 'Husen', 'Budi', 0],
-        ['SJ-11RA-0396', 'Rabu', '2026-11-11', 'Azko Kota Wisata Bogor', 'Bekasi', 1, 1, 'Delivered', 'Husen', 'Nova', 0],
-        ['SJ-11KA-0397', 'Kamis', '2026-11-12', 'Azko QBig BSD', 'Tangerang', 2, 1, 'On Delivery', 'Ahmad', 'Dewi', 0],
-        ['SJ-11KA-0398', 'Kamis', '2026-11-12', 'Azko Metro Sunter', 'Jakarta Utara', 2, 1, 'On Delivery', 'Ahmad', 'Budi', 0],
-        ['SJ-11KA-0399', 'Kamis', '2026-11-12', 'Color Star (Linda)', 'Jakarta Barat', 1, 1, 'Delivered', 'Ahmad', 'Nova', 0],
-        ['SJ-11KA-0400', 'Kamis', '2026-11-12', 'Resto Sederhana', 'Jakarta Pusat', 1, 1, 'Delivered', 'Ahmad', 'Dewi', 0],
-        ['SJ-11KA-0401', 'Kamis', '2026-11-12', 'Lawson Station', 'Jakarta Selatan', 2, 2, 'Delivered', 'Ahmad', 'Budi', 0],
-        ['SJ-11KA-0402', 'Kamis', '2026-11-12', 'Kopi Kenangan', 'Jakarta Selatan', 2, 2, 'Delivered', 'Ahmad', 'Nova', 0],
-        ['SJ-11KA-0403', 'Kamis', '2026-11-12', 'Fore Coffee', 'Jakarta Pusat', 2, 1, 'On Delivery', 'Beto', 'Dewi', 0],
-        ['SJ-11KA-0404', 'Kamis', '2026-11-12', 'Janji Jiwa', 'Jakarta Barat', 2, 1, 'On Delivery', 'Beto', 'Budi', 0],
-        ['SJ-11KA-0405', 'Kamis', '2026-11-12', 'Holland Bakery', 'Jakarta Barat', 2, 2, 'Delivered', 'Beto', 'Nova', 0],
-        ['SJ-11KA-0406', 'Kamis', '2026-11-12', 'JCO Donuts & Coffee', 'Jakarta Selatan', 1, 1, 'Delivered', 'Beto', 'Dewi', 0],
-        ['SJ-11KA-0407', 'Kamis', '2026-11-12', 'BreadTalk', 'Jakarta Barat', 1, 0, 'On Delivery', 'Beto', 'Budi', 0],
-        ['SJ-11KA-0408', 'Kamis', '2026-11-12', 'Guardian Pharmacy', 'Jakarta Selatan', 1, 1, 'Delivered', 'Beto', 'Nova', 0],
-        ['SJ-11KA-0409', 'Kamis', '2026-11-12', 'Watsons', 'Jakarta Pusat', 1, 1, 'Delivered', 'Beto', 'Dewi', 0],
-        ['SJ-11KA-0410', 'Kamis', '2026-11-12', 'Century Healthcare', 'Jakarta Barat', 1, 0, 'On Delivery', 'Eri', 'Budi', 0],
-        ['SJ-11KA-0411', 'Kamis', '2026-11-12', 'Kimia Farma', 'Jakarta Timur', 1, 1, 'Delivered', 'Eri', 'Nova', 0],
-        ['SJ-11KA-0412', 'Kamis', '2026-11-12', 'Mitra 10', 'Tangerang', 1, 1, 'Delivered', 'Eri', 'Dewi', 0],
-        ['SJ-11KA-0413', 'Kamis', '2026-11-12', 'Depo Bangunan', 'Tangerang', 2, 2, 'Delivered', 'Eri', 'Budi', 0],
-        ['SJ-11KA-0414', 'Kamis', '2026-11-12', 'Electronic City', 'Jakarta Selatan', 2, 1, 'On Delivery', 'Eri', 'Nova', 0],
-        ['SJ-11KA-0415', 'Kamis', '2026-11-12', 'Erafone', 'Jakarta Pusat', 2, 2, 'Delivered', 'Eri', 'Dewi', 0],
-        ['SJ-11KA-0416', 'Kamis', '2026-11-12', 'iBox Central Park', 'Jakarta Barat', 1, 1, 'Delivered', 'Eri', 'Budi', 0],
-        ['SJ-11KA-0417', 'Kamis', '2026-11-12', 'Gramedia Matraman', 'Jakarta Timur', 1, 0, 'On Delivery', 'Irfan', 'Nova', 0],
-        ['SJ-11KA-0418', 'Kamis', '2026-11-12', 'Ranch Market Pesanggrahan', 'Jakarta Barat', 2, 2, 'Delivered', 'Irfan', 'Dewi', 0],
-        ['SJ-11KA-0419', 'Kamis', '2026-11-12', 'Farmers Market Kelapa Gading', 'Jakarta Utara', 1, 1, 'Delivered', 'Irfan', 'Budi', 0],
-        ['SJ-11KA-0420', 'Kamis', '2026-11-12', 'Papaya Fresh Gallery', 'Jakarta Selatan', 1, 0, 'On Delivery', 'Irfan', 'Nova', 0],
-        ['SJ-11KA-0421', 'Kamis', '2026-11-12', 'Kem Chicks Pacific Place', 'Jakarta Selatan', 2, 2, 'Delivered', 'Irfan', 'Dewi', 0],
-        ['SJ-11KA-0422', 'Kamis', '2026-11-12', 'Lotte Mart Meruya', 'Jakarta Barat', 1, 1, 'Delivered', 'Irfan', 'Budi', 0],
-        ['SJ-11KA-0423', 'Kamis', '2026-11-12', 'Gold Coast Office', 'Jakarta Utara', 1, 1, 'Delivered', 'Irfan', 'Nova', 0],
-        ['SJ-11KA-0424', 'Kamis', '2026-11-12', 'Mall Bassura Jatinegara', 'Jakarta Timur', 1, 1, 'Delivered', 'Irfan', 'Dewi', 0],
-        ['SJ-11KA-0425', 'Kamis', '2026-11-12', 'Plaza Indonesia', 'Jakarta Pusat', 2, 2, 'Delivered', 'Baihaqi', 'Budi', 0],
-        ['SJ-11KA-0426', 'Kamis', '2026-11-12', 'Lippo Mall Puri', 'Jakarta Barat', 1, 1, 'Delivered', 'Baihaqi', 'Nova', 0],
-        ['SJ-11KA-0427', 'Kamis', '2026-11-12', 'Supermal Karawaci', 'Tangerang', 2, 2, 'Delivered', 'Baihaqi', 'Dewi', 0],
-        ['SJ-11KA-0428', 'Kamis', '2026-11-12', 'Summarecon Mall Serpong', 'Tangerang', 1, 1, 'Delivered', 'Baihaqi', 'Budi', 0],
-        ['SJ-11KA-0429', 'Kamis', '2026-11-12', 'Summarecon Mall Kelapa Gading', 'Jakarta Utara', 1, 1, 'Delivered', 'Baihaqi', 'Nova', 0],
-        ['SJ-11KA-0430', 'Kamis', '2026-11-12', 'Puri Indah Mall', 'Jakarta Barat', 2, 2, 'Delivered', 'Baihaqi', 'Dewi', 0],
-        ['SJ-11KA-0431', 'Kamis', '2026-11-12', 'PT Aspirasi Hidup Indonesia Tbk', 'Jakarta Barat', 1, 1, 'Delivered', 'Baihaqi', 'Budi', 0],
-        ['SJ-11KA-0432', 'Kamis', '2026-11-12', 'PT Foods Beverages Indonesia', 'Jakarta Selatan', 1, 1, 'Delivered', 'Haris', 'Nova', 0],
-        ['SJ-11KA-0433', 'Kamis', '2026-11-12', 'PT Tri Sakti Purwosari Makmur', 'Jakarta Barat', 2, 2, 'Delivered', 'Haris', 'Dewi', 0],
-        ['SJ-11KA-0434', 'Kamis', '2026-11-12', 'PT Home Center Indonesia Retail', 'Bekasi', 2, 2, 'Delivered', 'Haris', 'Budi', 0],
-        ['SJ-11KA-0435', 'Kamis', '2026-11-12', 'PT Toys Games Indonesia', 'Tangerang', 1, 1, 'Delivered', 'Haris', 'Nova', 0],
-        ['SJ-11KA-0436', 'Kamis', '2026-11-12', 'PT BQuik Otomotif Indonesia', 'Jakarta Barat', 1, 1, 'Delivered', 'Haris', 'Dewi', 0],
-        ['SJ-11KA-0437', 'Kamis', '2026-11-12', 'PT Benfood Dinamika Sentosa', 'Jakarta Selatan', 2, 2, 'Delivered', 'Haris', 'Budi', 0],
-        ['SJ-11KA-0438', 'Kamis', '2026-11-12', 'PT Astra International', 'Jakarta Pusat', 1, 1, 'Delivered', 'Haris', 'Nova', 0],
-        ['SJ-11KA-0439', 'Kamis', '2026-11-12', 'PT Indofood CBP Sukses Makmur', 'Tangerang', 2, 2, 'Delivered', 'Umar', 'Dewi', 0],
-        ['SJ-11KA-0440', 'Kamis', '2026-11-12', 'PT Sumber Alfaria Trijaya', 'Bekasi', 1, 1, 'Delivered', 'Umar', 'Budi', 0],
-        ['SJ-11KA-0441', 'Kamis', '2026-11-12', 'PT Mayora Indah', 'Tangerang', 1, 1, 'Delivered', 'Umar', 'Nova', 0],
-        ['SJ-11KA-0442', 'Kamis', '2026-11-12', 'PT Beverindo Indah Abadi', 'Jakarta Pusat', 1, 1, 'Delivered', 'Umar', 'Dewi', 0],
-        ['SJ-11KA-0443', 'Kamis', '2026-11-12', 'PT Jasmine Journey Indonesia', 'Jakarta Pusat', 2, 2, 'Delivered', 'Umar', 'Budi', 0],
-        ['SJ-11KA-0444', 'Kamis', '2026-11-12', 'PT Wook Global Technology', 'Jakarta Utara', 1, 1, 'Delivered', 'Umar', 'Nova', 0],
-        ['SJ-11KA-0445', 'Kamis', '2026-11-12', 'PT Kalbe Farma', 'Jakarta Timur', 2, 2, 'Delivered', 'Umar', 'Dewi', 0],
-        ['SJ-11KA-0446', 'Kamis', '2026-11-12', 'PT Makmur Jaya', 'Jakarta Selatan', 2, 2, 'Delivered', 'Noval', 'Budi', 0],
-        ['SJ-11KA-0447', 'Kamis', '2026-11-12', 'PT Intitirta Sarimakmur', 'Jakarta Utara', 1, 1, 'Delivered', 'Noval', 'Nova', 0],
-        ['SJ-11KA-0448', 'Kamis', '2026-11-12', 'PT Perindustrian Bapak Djenggot', 'Jakarta Barat', 2, 2, 'Delivered', 'Noval', 'Dewi', 0],
-        ['SJ-11KA-0449', 'Kamis', '2026-11-12', 'Panorama JTB (Head Office)', 'Jakarta Pusat', 2, 2, 'Delivered', 'Noval', 'Budi', 0],
-        ['SJ-11KA-0450', 'Kamis', '2026-11-12', 'Pixel Group Indonesia', 'Jakarta Selatan', 1, 1, 'Delivered', 'Noval', 'Nova', 0],
-        ['SJ-11KA-0451', 'Kamis', '2026-11-12', 'Premier Village', 'Tangerang', 2, 2, 'Delivered', 'Noval', 'Dewi', 0],
-        ['SJ-11KA-0452', 'Kamis', '2026-11-12', 'REX Kiriman Express', 'Jakarta Barat', 1, 1, 'Delivered', 'Jay', 'Budi', 0],
-        ['SJ-11KA-0453', 'Kamis', '2026-11-12', 'Kawan Lama Sejahtera', 'Jakarta Barat', 2, 2, 'Delivered', 'Jay', 'Nova', 0],
-        ['SJ-11KA-0454', 'Kamis', '2026-11-12', 'Wisma KEIAI', 'Jakarta Pusat', 1, 1, 'Delivered', 'Jay', 'Dewi', 0],
-        ['SJ-11KA-0455', 'Kamis', '2026-11-12', 'Kacamatamoo Rawasari', 'Jakarta Pusat', 1, 1, 'Delivered', 'Jay', 'Budi', 0],
-        ['SJ-11KA-0456', 'Kamis', '2026-11-12', 'GrandLucky - SCBD', 'Jakarta Selatan', 1, 1, 'Delivered', 'Jay', 'Nova', 0],
-        ['SJ-11KA-0457', 'Kamis', '2026-11-12', 'GrandLucky BSD City', 'Tangerang', 1, 1, 'Delivered', 'Jay', 'Dewi', 0],
-        ['SJ-11KA-0458', 'Kamis', '2026-11-12', 'Eraprima Industrial Park', 'Tangerang', 2, 2, 'Delivered', 'Jay', 'Budi', 0],
-        ['SJ-11KA-0459', 'Kamis', '2026-11-12', 'Mandiri University Wijaya Kusuma', 'Jakarta Barat', 1, 1, 'Delivered', 'Jay', 'Nova', 0],
-        ['SJ-11KA-0460', 'Kamis', '2026-11-12', 'Pacific Place Mall', 'Jakarta Selatan', 1, 1, 'Delivered', 'Ferdi', 'Dewi', 0],
-        ['SJ-11KA-0461', 'Kamis', '2026-11-12', 'INFORMA - Living World Kota Wisata', 'Bekasi', 1, 1, 'Delivered', 'Ferdi', 'Budi', 0],
-        ['SJ-11KA-0462', 'Kamis', '2026-11-12', 'Living World Alam Sutera', 'Tangerang', 2, 2, 'Delivered', 'Ferdi', 'Nova', 0],
-        ['SJ-11KA-0463', 'Kamis', '2026-11-12', 'Mall Senayan City', 'Jakarta Pusat', 2, 2, 'Delivered', 'Ferdi', 'Dewi', 0],
-        ['SJ-11KA-0464', 'Kamis', '2026-11-12', 'Grand Indonesia', 'Jakarta Pusat', 1, 1, 'Delivered', 'Ferdi', 'Budi', 0],
-        ['SJ-11KA-0465', 'Kamis', '2026-11-12', 'Central Park Mall', 'Jakarta Barat', 1, 1, 'Delivered', 'Ferdi', 'Nova', 0],
-        ['SJ-11KA-0466', 'Kamis', '2026-11-12', 'Gandaria City', 'Jakarta Selatan', 2, 2, 'Delivered', 'Ferdi', 'Dewi', 0],
-        ['SJ-11KA-0467', 'Kamis', '2026-11-12', 'AEON Mall BSD City', 'Tangerang', 1, 1, 'Delivered', 'Jagatbaru', 'Budi', 0],
-        ['SJ-11KA-0468', 'Kamis', '2026-11-12', 'AEON Mall Jakarta Garden City', 'Jakarta Timur', 1, 1, 'Delivered', 'Jagatbaru', 'Nova', 0],
-        ['SJ-11KA-0469', 'Kamis', '2026-11-12', 'AEON Mall Tanjung Barat', 'Jakarta Selatan', 1, 1, 'Delivered', 'Jagatbaru', 'Dewi', 0],
-        ['SJ-11KA-0470', 'Kamis', '2026-11-12', 'Anytime Fitness', 'Jakarta Selatan', 1, 1, 'Delivered', 'Jagatbaru', 'Budi', 0],
-        ['SJ-11KA-0471', 'Kamis', '2026-11-12', 'Ataru Living World', 'Tangerang', 2, 2, 'Delivered', 'Jagatbaru', 'Nova', 0],
-        ['SJ-11KA-0472', 'Kamis', '2026-11-12', 'Chatime Metropolitan Mall 2', 'Bekasi', 2, 2, 'Delivered', 'Jagatbaru', 'Dewi', 0],
-        ['SJ-11KA-0473', 'Kamis', '2026-11-12', 'Chatime Gandaria City', 'Jakarta Selatan', 2, 2, 'Delivered', 'Jagatbaru', 'Budi', 0],
-        ['SJ-11KA-0474', 'Kamis', '2026-11-12', 'Chatime Central Park', 'Jakarta Barat', 1, 1, 'Delivered', 'pbseventeensc', 'Nova', 0],
-        ['SJ-11KA-0475', 'Kamis', '2026-11-12', 'Toys Kingdom Palem Semi', 'Tangerang', 2, 2, 'Delivered', 'pbseventeensc', 'Dewi', 0],
-        ['SJ-11KA-0476', 'Kamis', '2026-11-12', 'Toys Kingdom Supermal Karawaci', 'Tangerang', 1, 1, 'Delivered', 'pbseventeensc', 'Budi', 0],
-        ['SJ-11KA-0477', 'Kamis', '2026-11-12', 'Toys Kingdom Grand Indonesia', 'Jakarta Pusat', 2, 2, 'Delivered', 'pbseventeensc', 'Nova', 0],
-        ['SJ-11KA-0478', 'Kamis', '2026-11-12', 'Azko PIK Avenue', 'Jakarta Utara', 1, 1, 'Delivered', 'pbseventeensc', 'Dewi', 0],
-        ['SJ-11KA-0479', 'Kamis', '2026-11-12', 'Azko Green Terrace TMII', 'Jakarta Timur', 1, 1, 'Delivered', 'pbseventeensc', 'Budi', 0],
-        ['SJ-11KA-0480', 'Kamis', '2026-11-12', 'Azko Bogor Terasutra', 'Jakarta Selatan', 2, 2, 'Delivered', 'pbseventeensc', 'Nova', 0],
-        ['SJ-11KA-0481', 'Kamis', '2026-11-12', 'Azko Citra 6', 'Jakarta Barat', 1, 1, 'Delivered', 'Soleh', 'Dewi', 0],
-        ['SJ-11KA-0482', 'Kamis', '2026-11-12', 'Azko Kota Wisata Bogor', 'Bekasi', 1, 1, 'Delivered', 'Soleh', 'Budi', 0],
-        ['SJ-11KA-0483', 'Kamis', '2026-11-12', 'Azko QBig BSD', 'Tangerang', 1, 1, 'Delivered', 'Soleh', 'Nova', 0],
-        ['SJ-11KA-0484', 'Kamis', '2026-11-12', 'Azko Metro Sunter', 'Jakarta Utara', 1, 1, 'Delivered', 'Soleh', 'Dewi', 0],
-        ['SJ-11KA-0485', 'Kamis', '2026-11-12', 'Color Star (Linda)', 'Jakarta Barat', 1, 1, 'Delivered', 'Soleh', 'Budi', 0],
-        ['SJ-11KA-0486', 'Kamis', '2026-11-12', 'Resto Sederhana', 'Jakarta Pusat', 2, 2, 'Delivered', 'Soleh', 'Nova', 0],
-        ['SJ-11KA-0487', 'Kamis', '2026-11-12', 'Lawson Station', 'Jakarta Selatan', 1, 1, 'Delivered', 'Soleh', 'Dewi', 0],
-        ['SJ-11KA-0488', 'Kamis', '2026-11-12', 'Kopi Kenangan', 'Jakarta Selatan', 1, 1, 'Delivered', 'Soleh', 'Budi', 0],
-        ['SJ-11KA-0489', 'Kamis', '2026-11-12', 'Fore Coffee', 'Jakarta Pusat', 2, 2, 'Delivered', 'Romi', 'Nova', 0],
-        ['SJ-11KA-0490', 'Kamis', '2026-11-12', 'Janji Jiwa', 'Jakarta Barat', 2, 2, 'Delivered', 'Romi', 'Dewi', 0],
-        ['SJ-11KA-0491', 'Kamis', '2026-11-12', 'Holland Bakery', 'Jakarta Barat', 1, 1, 'Delivered', 'Romi', 'Budi', 0],
-        ['SJ-11KA-0492', 'Kamis', '2026-11-12', 'JCO Donuts & Coffee', 'Jakarta Selatan', 2, 2, 'Delivered', 'Romi', 'Nova', 0],
-        ['SJ-11KA-0493', 'Kamis', '2026-11-12', 'BreadTalk', 'Jakarta Barat', 1, 1, 'Delivered', 'Romi', 'Dewi', 0],
-        ['SJ-11KA-0494', 'Kamis', '2026-11-12', 'Guardian Pharmacy', 'Jakarta Selatan', 1, 1, 'Delivered', 'Romi', 'Budi', 0],
-        ['SJ-11KA-0495', 'Kamis', '2026-11-12', 'Watsons', 'Jakarta Pusat', 1, 1, 'Delivered', 'Firdaus', 'Nova', 0],
-        ['SJ-11KA-0496', 'Kamis', '2026-11-12', 'Century Healthcare', 'Jakarta Barat', 2, 2, 'Delivered', 'Firdaus', 'Dewi', 0],
-        ['SJ-11KA-0497', 'Kamis', '2026-11-12', 'Kimia Farma', 'Jakarta Timur', 2, 2, 'Delivered', 'Firdaus', 'Budi', 0],
-        ['SJ-11KA-0498', 'Kamis', '2026-11-12', 'Mitra 10', 'Tangerang', 1, 1, 'Delivered', 'Firdaus', 'Nova', 0],
-        ['SJ-11KA-0499', 'Kamis', '2026-11-12', 'Depo Bangunan', 'Tangerang', 2, 2, 'Delivered', 'Firdaus', 'Dewi', 0],
-        ['SJ-11KA-0500', 'Kamis', '2026-11-12', 'Electronic City', 'Jakarta Selatan', 1, 1, 'Delivered', 'Firdaus', 'Budi', 0],
-        ['SJ-11KA-0501', 'Kamis', '2026-11-12', 'Erafone', 'Jakarta Pusat', 1, 1, 'Delivered', 'Alan', 'Nova', 0],
-        ['SJ-11KA-0502', 'Kamis', '2026-11-12', 'iBox Central Park', 'Jakarta Barat', 2, 2, 'Delivered', 'Alan', 'Dewi', 0],
-        ['SJ-11KA-0503', 'Kamis', '2026-11-12', 'Gramedia Matraman', 'Jakarta Timur', 2, 2, 'Delivered', 'Alan', 'Budi', 0],
-        ['SJ-11KA-0504', 'Kamis', '2026-11-12', 'Ranch Market Pesanggrahan', 'Jakarta Barat', 1, 1, 'Delivered', 'Alan', 'Nova', 0],
-        ['SJ-11KA-0505', 'Kamis', '2026-11-12', 'Farmers Market Kelapa Gading', 'Jakarta Utara', 1, 1, 'Delivered', 'Alan', 'Dewi', 0],
-        ['SJ-11KA-0506', 'Kamis', '2026-11-12', 'Papaya Fresh Gallery', 'Jakarta Selatan', 1, 1, 'Delivered', 'Alan', 'Budi', 0],
-        ['SJ-11KA-0507', 'Kamis', '2026-11-12', 'Kem Chicks Pacific Place', 'Jakarta Selatan', 1, 1, 'Delivered', 'Alan', 'Nova', 0],
-        ['SJ-11KA-0508', 'Kamis', '2026-11-12', 'Lotte Mart Meruya', 'Jakarta Barat', 2, 2, 'Delivered', 'Yakub', 'Dewi', 0],
-        ['SJ-11KA-0509', 'Kamis', '2026-11-12', 'Gold Coast Office', 'Jakarta Utara', 1, 1, 'Delivered', 'Yakub', 'Budi', 0],
-        ['SJ-11KA-0510', 'Kamis', '2026-11-12', 'Mall Bassura Jatinegara', 'Jakarta Timur', 1, 1, 'Delivered', 'Yakub', 'Nova', 0],
-        ['SJ-11KA-0511', 'Kamis', '2026-11-12', 'Plaza Indonesia', 'Jakarta Pusat', 1, 1, 'Delivered', 'Yakub', 'Dewi', 0],
-        ['SJ-11KA-0512', 'Kamis', '2026-11-12', 'Lippo Mall Puri', 'Jakarta Barat', 1, 1, 'Delivered', 'Yakub', 'Budi', 0],
-        ['SJ-11KA-0513', 'Kamis', '2026-11-12', 'Supermal Karawaci', 'Tangerang', 1, 1, 'Delivered', 'Yakub', 'Nova', 0],
-        ['SJ-11KA-0514', 'Kamis', '2026-11-12', 'Summarecon Mall Serpong', 'Tangerang', 2, 2, 'Delivered', 'Yakub', 'Dewi', 0],
-        ['SJ-11KA-0515', 'Kamis', '2026-11-12', 'Summarecon Mall Kelapa Gading', 'Jakarta Utara', 2, 2, 'Delivered', 'Iwan', 'Budi', 0],
-        ['SJ-11KA-0516', 'Kamis', '2026-11-12', 'Puri Indah Mall', 'Jakarta Barat', 1, 1, 'Delivered', 'Iwan', 'Nova', 0],
-        ['SJ-11KA-0517', 'Kamis', '2026-11-12', 'PT Aspirasi Hidup Indonesia Tbk', 'Jakarta Barat', 1, 1, 'Delivered', 'Iwan', 'Dewi', 0],
-        ['SJ-11KA-0518', 'Kamis', '2026-11-12', 'PT Foods Beverages Indonesia', 'Jakarta Selatan', 2, 2, 'Delivered', 'Iwan', 'Budi', 0],
-        ['SJ-11KA-0519', 'Kamis', '2026-11-12', 'PT Tri Sakti Purwosari Makmur', 'Jakarta Barat', 2, 2, 'Delivered', 'Iwan', 'Nova', 0],
-        ['SJ-11KA-0520', 'Kamis', '2026-11-12', 'PT Home Center Indonesia Retail', 'Bekasi', 1, 1, 'Delivered', 'Iwan', 'Dewi', 0],
-        ['SJ-11KA-0521', 'Kamis', '2026-11-12', 'PT Toys Games Indonesia', 'Tangerang', 1, 1, 'Delivered', 'Agung', 'Budi', 0],
-        ['SJ-11KA-0522', 'Kamis', '2026-11-12', 'PT BQuik Otomotif Indonesia', 'Jakarta Barat', 2, 2, 'Delivered', 'Agung', 'Nova', 0],
-        ['SJ-11KA-0523', 'Kamis', '2026-11-12', 'PT Benfood Dinamika Sentosa', 'Jakarta Selatan', 2, 2, 'Delivered', 'Agung', 'Dewi', 0],
-        ['SJ-11KA-0524', 'Kamis', '2026-11-12', 'PT Astra International', 'Jakarta Pusat', 2, 2, 'Delivered', 'Agung', 'Budi', 0],
-        ['SJ-11KA-0525', 'Kamis', '2026-11-12', 'PT Indofood CBP Sukses Makmur', 'Tangerang', 1, 1, 'Delivered', 'Agung', 'Nova', 0],
-        ['SJ-11KA-0526', 'Kamis', '2026-11-12', 'PT Sumber Alfaria Trijaya', 'Bekasi', 1, 1, 'Delivered', 'Agung', 'Dewi', 0],
-        ['SJ-11KA-0527', 'Kamis', '2026-11-12', 'PT Mayora Indah', 'Tangerang', 1, 1, 'Delivered', 'Husen', 'Budi', 0],
-        ['SJ-11KA-0528', 'Kamis', '2026-11-12', 'PT Beverindo Indah Abadi', 'Jakarta Pusat', 1, 1, 'Delivered', 'Husen', 'Nova', 0],
-        ['SJ-11KA-0529', 'Kamis', '2026-11-12', 'PT Jasmine Journey Indonesia', 'Jakarta Pusat', 1, 1, 'Delivered', 'Husen', 'Dewi', 0],
-        ['SJ-11KA-0530', 'Kamis', '2026-11-12', 'PT Wook Global Technology', 'Jakarta Utara', 1, 1, 'Delivered', 'Husen', 'Budi', 0],
-        ['SJ-11KA-0531', 'Kamis', '2026-11-12', 'PT Kalbe Farma', 'Jakarta Timur', 2, 2, 'Delivered', 'Husen', 'Nova', 0],
-        ['SJ-11KA-0532', 'Kamis', '2026-11-12', 'PT Makmur Jaya', 'Jakarta Selatan', 1, 1, 'Delivered', 'Husen', 'Dewi', 0],
-        ['SJ-11KA-0533', 'Kamis', '2026-11-12', 'PT Intitirta Sarimakmur', 'Jakarta Utara', 2, 2, 'Delivered', 'Husen', 'Budi', 0],
-        ['SJ-11JU-0534', 'Jumat', '2026-11-13', 'PT Perindustrian Bapak Djenggot', 'Jakarta Barat', 1, 1, 'Delivered', 'Ahmad', 'Nova', 0],
-        ['SJ-11JU-0535', 'Jumat', '2026-11-13', 'Panorama JTB (Head Office)', 'Jakarta Pusat', 1, 1, 'Delivered', 'Ahmad', 'Dewi', 0],
-        ['SJ-11JU-0536', 'Jumat', '2026-11-13', 'Pixel Group Indonesia', 'Jakarta Selatan', 2, 2, 'Delivered', 'Ahmad', 'Budi', 0],
-        ['SJ-11JU-0537', 'Jumat', '2026-11-13', 'Premier Village', 'Tangerang', 1, 1, 'Delivered', 'Ahmad', 'Nova', 0],
-        ['SJ-11JU-0538', 'Jumat', '2026-11-13', 'REX Kiriman Express', 'Jakarta Barat', 2, 2, 'Delivered', 'Ahmad', 'Dewi', 0],
-        ['SJ-11JU-0539', 'Jumat', '2026-11-13', 'Kawan Lama Sejahtera', 'Jakarta Barat', 1, 1, 'Delivered', 'Ahmad', 'Budi', 0],
-        ['SJ-11JU-0540', 'Jumat', '2026-11-13', 'Wisma KEIAI', 'Jakarta Pusat', 1, 1, 'Delivered', 'Ahmad', 'Nova', 0],
-        ['SJ-11JU-0541', 'Jumat', '2026-11-13', 'Kacamatamoo Rawasari', 'Jakarta Pusat', 1, 1, 'Delivered', 'Beto', 'Dewi', 0],
-        ['SJ-11JU-0542', 'Jumat', '2026-11-13', 'GrandLucky - SCBD', 'Jakarta Selatan', 1, 1, 'Delivered', 'Beto', 'Budi', 0],
-        ['SJ-11JU-0543', 'Jumat', '2026-11-13', 'GrandLucky BSD City', 'Tangerang', 1, 1, 'Delivered', 'Beto', 'Nova', 0],
-        ['SJ-11JU-0544', 'Jumat', '2026-11-13', 'Eraprima Industrial Park', 'Tangerang', 2, 2, 'Delivered', 'Beto', 'Dewi', 0],
-        ['SJ-11JU-0545', 'Jumat', '2026-11-13', 'Mandiri University Wijaya Kusuma', 'Jakarta Barat', 1, 1, 'Delivered', 'Beto', 'Budi', 0],
-        ['SJ-11JU-0546', 'Jumat', '2026-11-13', 'Pacific Place Mall', 'Jakarta Selatan', 1, 1, 'Delivered', 'Beto', 'Nova', 0],
-        ['SJ-11JU-0547', 'Jumat', '2026-11-13', 'INFORMA - Living World Kota Wisata', 'Bekasi', 1, 1, 'Delivered', 'Beto', 'Dewi', 0],
-        ['SJ-11JU-0548', 'Jumat', '2026-11-13', 'Living World Alam Sutera', 'Tangerang', 1, 1, 'Delivered', 'Beto', 'Budi', 0],
-        ['SJ-11JU-0549', 'Jumat', '2026-11-13', 'Mall Senayan City', 'Jakarta Pusat', 2, 2, 'Delivered', 'Eri', 'Nova', 0],
-        ['SJ-11JU-0550', 'Jumat', '2026-11-13', 'Grand Indonesia', 'Jakarta Pusat', 2, 2, 'Delivered', 'Eri', 'Dewi', 0],
-        ['SJ-11JU-0551', 'Jumat', '2026-11-13', 'Central Park Mall', 'Jakarta Barat', 1, 1, 'Delivered', 'Eri', 'Budi', 0],
-        ['SJ-11JU-0552', 'Jumat', '2026-11-13', 'Gandaria City', 'Jakarta Selatan', 1, 1, 'Delivered', 'Eri', 'Nova', 0],
-        ['SJ-11JU-0553', 'Jumat', '2026-11-13', 'AEON Mall BSD City', 'Tangerang', 2, 2, 'Delivered', 'Eri', 'Dewi', 0],
-        ['SJ-11JU-0554', 'Jumat', '2026-11-13', 'AEON Mall Jakarta Garden City', 'Jakarta Timur', 1, 1, 'Delivered', 'Eri', 'Budi', 0],
-        ['SJ-11JU-0555', 'Jumat', '2026-11-13', 'AEON Mall Tanjung Barat', 'Jakarta Selatan', 2, 2, 'Delivered', 'Irfan', 'Nova', 0],
-        ['SJ-11JU-0556', 'Jumat', '2026-11-13', 'Anytime Fitness', 'Jakarta Selatan', 2, 2, 'Delivered', 'Irfan', 'Dewi', 0],
-        ['SJ-11JU-0557', 'Jumat', '2026-11-13', 'Ataru Living World', 'Tangerang', 2, 2, 'Delivered', 'Irfan', 'Budi', 0],
-        ['SJ-11JU-0558', 'Jumat', '2026-11-13', 'Chatime Metropolitan Mall 2', 'Bekasi', 1, 1, 'Delivered', 'Irfan', 'Nova', 0],
-        ['SJ-11JU-0559', 'Jumat', '2026-11-13', 'Chatime Gandaria City', 'Jakarta Selatan', 1, 1, 'Delivered', 'Irfan', 'Dewi', 0],
-        ['SJ-11JU-0560', 'Jumat', '2026-11-13', 'Chatime Central Park', 'Jakarta Barat', 1, 1, 'Delivered', 'Irfan', 'Budi', 0],
-        ['SJ-11JU-0561', 'Jumat', '2026-11-13', 'Toys Kingdom Palem Semi', 'Tangerang', 1, 1, 'Delivered', 'Baihaqi', 'Nova', 0],
-        ['SJ-11JU-0562', 'Jumat', '2026-11-13', 'Toys Kingdom Supermal Karawaci', 'Tangerang', 2, 2, 'Delivered', 'Baihaqi', 'Dewi', 0],
-        ['SJ-11JU-0563', 'Jumat', '2026-11-13', 'Toys Kingdom Grand Indonesia', 'Jakarta Pusat', 2, 2, 'Delivered', 'Baihaqi', 'Budi', 0],
-        ['SJ-11JU-0564', 'Jumat', '2026-11-13', 'Azko PIK Avenue', 'Jakarta Utara', 2, 2, 'Delivered', 'Baihaqi', 'Nova', 0],
-        ['SJ-11JU-0565', 'Jumat', '2026-11-13', 'Azko Green Terrace TMII', 'Jakarta Timur', 2, 2, 'Delivered', 'Baihaqi', 'Dewi', 0],
-        ['SJ-11JU-0566', 'Jumat', '2026-11-13', 'Azko Bogor Terasutra', 'Jakarta Selatan', 1, 1, 'Delivered', 'Haris', 'Budi', 0],
-        ['SJ-11JU-0567', 'Jumat', '2026-11-13', 'Azko Citra 6', 'Jakarta Barat', 1, 1, 'Delivered', 'Haris', 'Nova', 0],
-        ['SJ-11JU-0568', 'Jumat', '2026-11-13', 'Azko Kota Wisata Bogor', 'Bekasi', 1, 1, 'Delivered', 'Haris', 'Dewi', 0],
-        ['SJ-11JU-0569', 'Jumat', '2026-11-13', 'Azko QBig BSD', 'Tangerang', 2, 2, 'Delivered', 'Haris', 'Budi', 0],
-        ['SJ-11JU-0570', 'Jumat', '2026-11-13', 'Azko Metro Sunter', 'Jakarta Utara', 2, 2, 'Delivered', 'Haris', 'Nova', 0],
-        ['SJ-11JU-0571', 'Jumat', '2026-11-13', 'Color Star (Linda)', 'Jakarta Barat', 2, 2, 'Delivered', 'Haris', 'Dewi', 0],
-        ['SJ-11JU-0572', 'Jumat', '2026-11-13', 'Resto Sederhana', 'Jakarta Pusat', 2, 2, 'Delivered', 'Umar', 'Budi', 0],
-        ['SJ-11JU-0573', 'Jumat', '2026-11-13', 'Lawson Station', 'Jakarta Selatan', 2, 2, 'Delivered', 'Umar', 'Nova', 0],
-        ['SJ-11JU-0574', 'Jumat', '2026-11-13', 'Kopi Kenangan', 'Jakarta Selatan', 2, 2, 'Delivered', 'Umar', 'Dewi', 0],
-        ['SJ-11JU-0575', 'Jumat', '2026-11-13', 'Fore Coffee', 'Jakarta Pusat', 2, 2, 'Delivered', 'Umar', 'Budi', 0],
-        ['SJ-11JU-0576', 'Jumat', '2026-11-13', 'Janji Jiwa', 'Jakarta Barat', 1, 1, 'Delivered', 'Umar', 'Nova', 0],
-        ['SJ-11JU-0577', 'Jumat', '2026-11-13', 'Holland Bakery', 'Jakarta Barat', 1, 1, 'Delivered', 'Noval', 'Dewi', 0],
-        ['SJ-11JU-0578', 'Jumat', '2026-11-13', 'JCO Donuts & Coffee', 'Jakarta Selatan', 2, 2, 'Delivered', 'Noval', 'Budi', 0],
-        ['SJ-11JU-0579', 'Jumat', '2026-11-13', 'BreadTalk', 'Jakarta Barat', 1, 1, 'Delivered', 'Noval', 'Nova', 0],
-        ['SJ-11JU-0580', 'Jumat', '2026-11-13', 'Guardian Pharmacy', 'Jakarta Selatan', 1, 1, 'Delivered', 'Noval', 'Dewi', 0],
-        ['SJ-11JU-0581', 'Jumat', '2026-11-13', 'Watsons', 'Jakarta Pusat', 1, 1, 'Delivered', 'Noval', 'Budi', 0],
-        ['SJ-11JU-0582', 'Jumat', '2026-11-13', 'Century Healthcare', 'Jakarta Barat', 1, 1, 'Delivered', 'Noval', 'Nova', 0],
-        ['SJ-11JU-0583', 'Jumat', '2026-11-13', 'Kimia Farma', 'Jakarta Timur', 1, 1, 'Delivered', 'Noval', 'Dewi', 0],
-        ['SJ-11JU-0584', 'Jumat', '2026-11-13', 'Mitra 10', 'Tangerang', 1, 1, 'Delivered', 'Noval', 'Budi', 0],
-        ['SJ-11JU-0585', 'Jumat', '2026-11-13', 'Depo Bangunan', 'Tangerang', 1, 1, 'Delivered', 'Jay', 'Nova', 0],
-        ['SJ-11JU-0586', 'Jumat', '2026-11-13', 'Electronic City', 'Jakarta Selatan', 2, 2, 'Delivered', 'Jay', 'Dewi', 0],
-        ['SJ-11JU-0587', 'Jumat', '2026-11-13', 'Erafone', 'Jakarta Pusat', 1, 1, 'Delivered', 'Jay', 'Budi', 0],
-        ['SJ-11JU-0588', 'Jumat', '2026-11-13', 'iBox Central Park', 'Jakarta Barat', 2, 2, 'Delivered', 'Jay', 'Nova', 0],
-        ['SJ-11JU-0589', 'Jumat', '2026-11-13', 'Gramedia Matraman', 'Jakarta Timur', 2, 2, 'Delivered', 'Jay', 'Dewi', 0],
-        ['SJ-11JU-0590', 'Jumat', '2026-11-13', 'Ranch Market Pesanggrahan', 'Jakarta Barat', 1, 1, 'Delivered', 'Jay', 'Budi', 0],
-        ['SJ-11JU-0591', 'Jumat', '2026-11-13', 'Farmers Market Kelapa Gading', 'Jakarta Utara', 1, 1, 'Delivered', 'Ferdi', 'Nova', 0],
-        ['SJ-11JU-0592', 'Jumat', '2026-11-13', 'Papaya Fresh Gallery', 'Jakarta Selatan', 2, 2, 'Delivered', 'Ferdi', 'Dewi', 0],
-        ['SJ-11JU-0593', 'Jumat', '2026-11-13', 'Kem Chicks Pacific Place', 'Jakarta Selatan', 1, 1, 'Delivered', 'Ferdi', 'Budi', 0],
-        ['SJ-11JU-0594', 'Jumat', '2026-11-13', 'Lotte Mart Meruya', 'Jakarta Barat', 2, 2, 'Delivered', 'Ferdi', 'Nova', 0],
-        ['SJ-11JU-0595', 'Jumat', '2026-11-13', 'Gold Coast Office', 'Jakarta Utara', 2, 2, 'Delivered', 'Ferdi', 'Dewi', 0],
-        ['SJ-11JU-0596', 'Jumat', '2026-11-13', 'Mall Bassura Jatinegara', 'Jakarta Timur', 1, 1, 'Delivered', 'Ferdi', 'Budi', 0],
-        ['SJ-11JU-0597', 'Jumat', '2026-11-13', 'Plaza Indonesia', 'Jakarta Pusat', 1, 1, 'Delivered', 'Jagatbaru', 'Nova', 0],
-        ['SJ-11JU-0598', 'Jumat', '2026-11-13', 'Lippo Mall Puri', 'Jakarta Barat', 1, 1, 'Delivered', 'Jagatbaru', 'Dewi', 0],
-        ['SJ-11JU-0599', 'Jumat', '2026-11-13', 'Supermal Karawaci', 'Tangerang', 1, 1, 'Delivered', 'Jagatbaru', 'Budi', 0],
-        ['SJ-11JU-0600', 'Jumat', '2026-11-13', 'Summarecon Mall Serpong', 'Tangerang', 1, 1, 'Delivered', 'Jagatbaru', 'Nova', 0],
-        ['SJ-11JU-0601', 'Jumat', '2026-11-13', 'Summarecon Mall Kelapa Gading', 'Jakarta Utara', 1, 1, 'Delivered', 'Jagatbaru', 'Dewi', 0],
-        ['SJ-11JU-0602', 'Jumat', '2026-11-13', 'Puri Indah Mall', 'Jakarta Barat', 2, 2, 'Delivered', 'Jagatbaru', 'Budi', 0],
-        ['SJ-11JU-0603', 'Jumat', '2026-11-13', 'PT Aspirasi Hidup Indonesia Tbk', 'Jakarta Barat', 2, 2, 'Delivered', 'Jagatbaru', 'Nova', 0],
-        ['SJ-11JU-0604', 'Jumat', '2026-11-13', 'PT Foods Beverages Indonesia', 'Jakarta Selatan', 1, 1, 'Delivered', 'pbseventeensc', 'Dewi', 0],
-        ['SJ-11JU-0605', 'Jumat', '2026-11-13', 'PT Tri Sakti Purwosari Makmur', 'Jakarta Barat', 2, 2, 'Delivered', 'pbseventeensc', 'Budi', 0],
-        ['SJ-11JU-0606', 'Jumat', '2026-11-13', 'PT Home Center Indonesia Retail', 'Bekasi', 1, 1, 'Delivered', 'pbseventeensc', 'Nova', 0],
-        ['SJ-11JU-0607', 'Jumat', '2026-11-13', 'PT Toys Games Indonesia', 'Tangerang', 2, 2, 'Delivered', 'pbseventeensc', 'Dewi', 0],
-        ['SJ-11JU-0608', 'Jumat', '2026-11-13', 'PT BQuik Otomotif Indonesia', 'Jakarta Barat', 1, 1, 'Delivered', 'pbseventeensc', 'Budi', 0],
-        ['SJ-11JU-0609', 'Jumat', '2026-11-13', 'PT Benfood Dinamika Sentosa', 'Jakarta Selatan', 2, 2, 'Delivered', 'pbseventeensc', 'Nova', 0],
-        ['SJ-11JU-0610', 'Jumat', '2026-11-13', 'PT Astra International', 'Jakarta Pusat', 1, 1, 'Delivered', 'Soleh', 'Dewi', 0],
-        ['SJ-11JU-0611', 'Jumat', '2026-11-13', 'PT Indofood CBP Sukses Makmur', 'Tangerang', 1, 1, 'Delivered', 'Soleh', 'Budi', 0],
-        ['SJ-11JU-0612', 'Jumat', '2026-11-13', 'PT Sumber Alfaria Trijaya', 'Bekasi', 2, 2, 'Delivered', 'Soleh', 'Nova', 0],
-        ['SJ-11JU-0613', 'Jumat', '2026-11-13', 'PT Mayora Indah', 'Tangerang', 1, 1, 'Delivered', 'Soleh', 'Dewi', 0],
-        ['SJ-11JU-0614', 'Jumat', '2026-11-13', 'PT Beverindo Indah Abadi', 'Jakarta Pusat', 2, 2, 'Delivered', 'Soleh', 'Budi', 0],
-        ['SJ-11JU-0615', 'Jumat', '2026-11-13', 'PT Jasmine Journey Indonesia', 'Jakarta Pusat', 1, 1, 'Delivered', 'Soleh', 'Nova', 0],
-        ['SJ-11JU-0616', 'Jumat', '2026-11-13', 'PT Wook Global Technology', 'Jakarta Utara', 1, 1, 'Delivered', 'Soleh', 'Dewi', 0],
-        ['SJ-11JU-0617', 'Jumat', '2026-11-13', 'PT Kalbe Farma', 'Jakarta Timur', 2, 2, 'Delivered', 'Romi', 'Budi', 0],
-        ['SJ-11JU-0618', 'Jumat', '2026-11-13', 'PT Makmur Jaya', 'Jakarta Selatan', 1, 1, 'Delivered', 'Romi', 'Nova', 0],
-        ['SJ-11JU-0619', 'Jumat', '2026-11-13', 'PT Intitirta Sarimakmur', 'Jakarta Utara', 1, 1, 'Delivered', 'Romi', 'Dewi', 0],
-        ['SJ-11JU-0620', 'Jumat', '2026-11-13', 'PT Perindustrian Bapak Djenggot', 'Jakarta Barat', 1, 1, 'Delivered', 'Romi', 'Budi', 0],
-        ['SJ-11JU-0621', 'Jumat', '2026-11-13', 'Panorama JTB (Head Office)', 'Jakarta Pusat', 1, 1, 'Delivered', 'Romi', 'Nova', 0],
-        ['SJ-11JU-0622', 'Jumat', '2026-11-13', 'Pixel Group Indonesia', 'Jakarta Selatan', 2, 2, 'Delivered', 'Romi', 'Dewi', 0],
-        ['SJ-11JU-0623', 'Jumat', '2026-11-13', 'Premier Village', 'Tangerang', 1, 1, 'Delivered', 'Romi', 'Budi', 0],
-        ['SJ-11JU-0624', 'Jumat', '2026-11-13', 'REX Kiriman Express', 'Jakarta Barat', 2, 2, 'Delivered', 'Firdaus', 'Nova', 0],
-        ['SJ-11JU-0625', 'Jumat', '2026-11-13', 'Kawan Lama Sejahtera', 'Jakarta Barat', 1, 1, 'Delivered', 'Firdaus', 'Dewi', 0],
-        ['SJ-11JU-0626', 'Jumat', '2026-11-13', 'Wisma KEIAI', 'Jakarta Pusat', 1, 1, 'Delivered', 'Firdaus', 'Budi', 0],
-        ['SJ-11JU-0627', 'Jumat', '2026-11-13', 'Kacamatamoo Rawasari', 'Jakarta Pusat', 1, 1, 'Delivered', 'Firdaus', 'Nova', 0],
-        ['SJ-11JU-0628', 'Jumat', '2026-11-13', 'GrandLucky - SCBD', 'Jakarta Selatan', 2, 2, 'Delivered', 'Firdaus', 'Dewi', 0],
-        ['SJ-11JU-0629', 'Jumat', '2026-11-13', 'GrandLucky BSD City', 'Tangerang', 1, 1, 'Delivered', 'Firdaus', 'Budi', 0],
-        ['SJ-11JU-0630', 'Jumat', '2026-11-13', 'Eraprima Industrial Park', 'Tangerang', 1, 1, 'Delivered', 'Alan', 'Nova', 0],
-        ['SJ-11JU-0631', 'Jumat', '2026-11-13', 'Mandiri University Wijaya Kusuma', 'Jakarta Barat', 1, 1, 'Delivered', 'Alan', 'Dewi', 0],
-        ['SJ-11JU-0632', 'Jumat', '2026-11-13', 'Pacific Place Mall', 'Jakarta Selatan', 2, 2, 'Delivered', 'Alan', 'Budi', 0],
-        ['SJ-11JU-0633', 'Jumat', '2026-11-13', 'INFORMA - Living World Kota Wisata', 'Bekasi', 1, 1, 'Delivered', 'Alan', 'Nova', 0],
-        ['SJ-11JU-0634', 'Jumat', '2026-11-13', 'Living World Alam Sutera', 'Tangerang', 2, 2, 'Delivered', 'Alan', 'Dewi', 0],
-        ['SJ-11JU-0635', 'Jumat', '2026-11-13', 'Mall Senayan City', 'Jakarta Pusat', 1, 1, 'Delivered', 'Alan', 'Budi', 0],
-        ['SJ-11JU-0636', 'Jumat', '2026-11-13', 'Grand Indonesia', 'Jakarta Pusat', 1, 1, 'Delivered', 'Yakub', 'Nova', 0],
-        ['SJ-11JU-0637', 'Jumat', '2026-11-13', 'Central Park Mall', 'Jakarta Barat', 1, 1, 'Delivered', 'Yakub', 'Dewi', 0],
-        ['SJ-11JU-0638', 'Jumat', '2026-11-13', 'Gandaria City', 'Jakarta Selatan', 1, 1, 'Delivered', 'Yakub', 'Budi', 0],
-        ['SJ-11JU-0639', 'Jumat', '2026-11-13', 'AEON Mall BSD City', 'Tangerang', 1, 1, 'Delivered', 'Yakub', 'Nova', 0],
-        ['SJ-11JU-0640', 'Jumat', '2026-11-13', 'AEON Mall Jakarta Garden City', 'Jakarta Timur', 2, 2, 'Delivered', 'Yakub', 'Dewi', 0],
-        ['SJ-11JU-0641', 'Jumat', '2026-11-13', 'AEON Mall Tanjung Barat', 'Jakarta Selatan', 2, 2, 'Delivered', 'Yakub', 'Budi', 0],
-        ['SJ-11JU-0642', 'Jumat', '2026-11-13', 'Anytime Fitness', 'Jakarta Selatan', 2, 2, 'Delivered', 'Iwan', 'Nova', 0],
-        ['SJ-11JU-0643', 'Jumat', '2026-11-13', 'Ataru Living World', 'Tangerang', 1, 1, 'Delivered', 'Iwan', 'Dewi', 0],
-        ['SJ-11JU-0644', 'Jumat', '2026-11-13', 'Chatime Metropolitan Mall 2', 'Bekasi', 1, 1, 'Delivered', 'Iwan', 'Budi', 0],
-        ['SJ-11JU-0645', 'Jumat', '2026-11-13', 'Chatime Gandaria City', 'Jakarta Selatan', 2, 2, 'Delivered', 'Iwan', 'Nova', 0],
-        ['SJ-11JU-0646', 'Jumat', '2026-11-13', 'Chatime Central Park', 'Jakarta Barat', 1, 1, 'Delivered', 'Iwan', 'Dewi', 0],
-        ['SJ-11JU-0647', 'Jumat', '2026-11-13', 'Toys Kingdom Palem Semi', 'Tangerang', 1, 1, 'Delivered', 'Iwan', 'Budi', 0],
-        ['SJ-11JU-0648', 'Jumat', '2026-11-13', 'Toys Kingdom Supermal Karawaci', 'Tangerang', 1, 1, 'Delivered', 'Agung', 'Nova', 0],
-        ['SJ-11JU-0649', 'Jumat', '2026-11-13', 'Toys Kingdom Grand Indonesia', 'Jakarta Pusat', 2, 2, 'Delivered', 'Agung', 'Dewi', 0],
-        ['SJ-11JU-0650', 'Jumat', '2026-11-13', 'Azko PIK Avenue', 'Jakarta Utara', 1, 1, 'Delivered', 'Agung', 'Budi', 0],
-        ['SJ-11JU-0651', 'Jumat', '2026-11-13', 'Azko Green Terrace TMII', 'Jakarta Timur', 2, 2, 'Delivered', 'Agung', 'Nova', 0],
-        ['SJ-11JU-0652', 'Jumat', '2026-11-13', 'Azko Bogor Terasutra', 'Jakarta Selatan', 1, 1, 'Delivered', 'Agung', 'Dewi', 0],
-        ['SJ-11JU-0653', 'Jumat', '2026-11-13', 'Azko Citra 6', 'Jakarta Barat', 1, 1, 'Delivered', 'Agung', 'Budi', 0],
-        ['SJ-11JU-0654', 'Jumat', '2026-11-13', 'Azko Kota Wisata Bogor', 'Bekasi', 2, 2, 'Delivered', 'Husen', 'Nova', 0],
-        ['SJ-11JU-0655', 'Jumat', '2026-11-13', 'Azko QBig BSD', 'Tangerang', 1, 1, 'Delivered', 'Husen', 'Dewi', 0],
-        ['SJ-11JU-0656', 'Jumat', '2026-11-13', 'Azko Metro Sunter', 'Jakarta Utara', 1, 1, 'Delivered', 'Husen', 'Budi', 0],
-        ['SJ-11JU-0657', 'Jumat', '2026-11-13', 'Color Star (Linda)', 'Jakarta Barat', 2, 2, 'Delivered', 'Husen', 'Nova', 0],
-        ['SJ-11JU-0658', 'Jumat', '2026-11-13', 'Resto Sederhana', 'Jakarta Pusat', 2, 2, 'Delivered', 'Husen', 'Dewi', 0],
-        ['SJ-11SA-0659', 'Sabtu', '2026-11-14', 'Lawson Station', 'Jakarta Selatan', 2, 2, 'Delivered', 'Ahmad', 'Budi', 0],
-        ['SJ-11SA-0660', 'Sabtu', '2026-11-14', 'Kopi Kenangan', 'Jakarta Selatan', 2, 2, 'Delivered', 'Ahmad', 'Nova', 0],
-        ['SJ-11SA-0661', 'Sabtu', '2026-11-14', 'Fore Coffee', 'Jakarta Pusat', 2, 2, 'Delivered', 'Ahmad', 'Dewi', 0],
-        ['SJ-11SA-0662', 'Sabtu', '2026-11-14', 'Janji Jiwa', 'Jakarta Barat', 1, 1, 'Delivered', 'Ahmad', 'Budi', 0],
-        ['SJ-11SA-0663', 'Sabtu', '2026-11-14', 'Holland Bakery', 'Jakarta Barat', 1, 1, 'Delivered', 'Ahmad', 'Nova', 0],
-        ['SJ-11SA-0664', 'Sabtu', '2026-11-14', 'JCO Donuts & Coffee', 'Jakarta Selatan', 1, 1, 'Delivered', 'Beto', 'Dewi', 0],
-        ['SJ-11SA-0665', 'Sabtu', '2026-11-14', 'BreadTalk', 'Jakarta Barat', 1, 1, 'Delivered', 'Beto', 'Budi', 0],
-        ['SJ-11SA-0666', 'Sabtu', '2026-11-14', 'Guardian Pharmacy', 'Jakarta Selatan', 1, 1, 'Delivered', 'Beto', 'Nova', 0],
-        ['SJ-11SA-0667', 'Sabtu', '2026-11-14', 'Watsons', 'Jakarta Pusat', 1, 1, 'Delivered', 'Beto', 'Dewi', 0],
-        ['SJ-11SA-0668', 'Sabtu', '2026-11-14', 'Century Healthcare', 'Jakarta Barat', 1, 1, 'Delivered', 'Beto', 'Budi', 0],
-        ['SJ-11SA-0669', 'Sabtu', '2026-11-14', 'Kimia Farma', 'Jakarta Timur', 2, 2, 'Delivered', 'Beto', 'Nova', 0],
-        ['SJ-11SA-0670', 'Sabtu', '2026-11-14', 'Mitra 10', 'Tangerang', 1, 1, 'Delivered', 'Beto', 'Dewi', 0],
-        ['SJ-11SA-0671', 'Sabtu', '2026-11-14', 'Depo Bangunan', 'Tangerang', 2, 2, 'Delivered', 'Eri', 'Budi', 0],
-        ['SJ-11SA-0672', 'Sabtu', '2026-11-14', 'Electronic City', 'Jakarta Selatan', 1, 1, 'Delivered', 'Eri', 'Nova', 0],
-        ['SJ-11SA-0673', 'Sabtu', '2026-11-14', 'Erafone', 'Jakarta Pusat', 1, 1, 'Delivered', 'Eri', 'Dewi', 0],
-        ['SJ-11SA-0674', 'Sabtu', '2026-11-14', 'iBox Central Park', 'Jakarta Barat', 2, 2, 'Delivered', 'Eri', 'Budi', 0],
-        ['SJ-11SA-0675', 'Sabtu', '2026-11-14', 'Gramedia Matraman', 'Jakarta Timur', 1, 1, 'Delivered', 'Eri', 'Nova', 0],
-        ['SJ-11SA-0676', 'Sabtu', '2026-11-14', 'Ranch Market Pesanggrahan', 'Jakarta Barat', 1, 1, 'Delivered', 'Eri', 'Dewi', 0],
-        ['SJ-11SA-0677', 'Sabtu', '2026-11-14', 'Farmers Market Kelapa Gading', 'Jakarta Utara', 1, 1, 'Delivered', 'Irfan', 'Budi', 0],
-        ['SJ-11SA-0678', 'Sabtu', '2026-11-14', 'Papaya Fresh Gallery', 'Jakarta Selatan', 2, 2, 'Delivered', 'Irfan', 'Nova', 0],
-        ['SJ-11SA-0679', 'Sabtu', '2026-11-14', 'Kem Chicks Pacific Place', 'Jakarta Selatan', 1, 1, 'Delivered', 'Irfan', 'Dewi', 0],
-        ['SJ-11SA-0680', 'Sabtu', '2026-11-14', 'Lotte Mart Meruya', 'Jakarta Barat', 2, 2, 'Delivered', 'Irfan', 'Budi', 0],
-        ['SJ-11SA-0681', 'Sabtu', '2026-11-14', 'Gold Coast Office', 'Jakarta Utara', 1, 1, 'Delivered', 'Irfan', 'Nova', 0],
-        ['SJ-11SA-0682', 'Sabtu', '2026-11-14', 'Mall Bassura Jatinegara', 'Jakarta Timur', 1, 1, 'Delivered', 'Irfan', 'Dewi', 0],
-        ['SJ-11SA-0683', 'Sabtu', '2026-11-14', 'Plaza Indonesia', 'Jakarta Pusat', 1, 1, 'Delivered', 'Baihaqi', 'Budi', 0],
-        ['SJ-11SA-0684', 'Sabtu', '2026-11-14', 'Lippo Mall Puri', 'Jakarta Barat', 1, 1, 'Delivered', 'Baihaqi', 'Nova', 0],
-        ['SJ-11SA-0685', 'Sabtu', '2026-11-14', 'Supermal Karawaci', 'Tangerang', 2, 2, 'Delivered', 'Baihaqi', 'Dewi', 0],
-        ['SJ-11SA-0686', 'Sabtu', '2026-11-14', 'Summarecon Mall Serpong', 'Tangerang', 1, 1, 'Delivered', 'Baihaqi', 'Budi', 0],
-        ['SJ-11SA-0687', 'Sabtu', '2026-11-14', 'Summarecon Mall Kelapa Gading', 'Jakarta Utara', 1, 1, 'Delivered', 'Baihaqi', 'Nova', 0],
-        ['SJ-11SA-0688', 'Sabtu', '2026-11-14', 'Puri Indah Mall', 'Jakarta Barat', 1, 1, 'Delivered', 'Baihaqi', 'Dewi', 0],
-        ['SJ-11SA-0689', 'Sabtu', '2026-11-14', 'PT Aspirasi Hidup Indonesia Tbk', 'Jakarta Barat', 1, 1, 'Delivered', 'Baihaqi', 'Budi', 0],
-        ['SJ-11SA-0690', 'Sabtu', '2026-11-14', 'PT Foods Beverages Indonesia', 'Jakarta Selatan', 1, 1, 'Delivered', 'Haris', 'Nova', 0],
-        ['SJ-11SA-0691', 'Sabtu', '2026-11-14', 'PT Tri Sakti Purwosari Makmur', 'Jakarta Barat', 1, 1, 'Delivered', 'Haris', 'Dewi', 0],
-        ['SJ-11SA-0692', 'Sabtu', '2026-11-14', 'PT Home Center Indonesia Retail', 'Bekasi', 1, 1, 'Delivered', 'Haris', 'Budi', 0],
-        ['SJ-11SA-0693', 'Sabtu', '2026-11-14', 'PT Toys Games Indonesia', 'Tangerang', 1, 1, 'Delivered', 'Haris', 'Nova', 0],
-        ['SJ-11SA-0694', 'Sabtu', '2026-11-14', 'PT BQuik Otomotif Indonesia', 'Jakarta Barat', 1, 1, 'Delivered', 'Haris', 'Dewi', 0],
-        ['SJ-11SA-0695', 'Sabtu', '2026-11-14', 'PT Benfood Dinamika Sentosa', 'Jakarta Selatan', 1, 1, 'Delivered', 'Haris', 'Budi', 0],
-        ['SJ-11SA-0696', 'Sabtu', '2026-11-14', 'PT Astra International', 'Jakarta Pusat', 2, 2, 'Delivered', 'Haris', 'Nova', 0],
-        ['SJ-11SA-0697', 'Sabtu', '2026-11-14', 'PT Indofood CBP Sukses Makmur', 'Tangerang', 2, 2, 'Delivered', 'Umar', 'Dewi', 0],
-        ['SJ-11SA-0698', 'Sabtu', '2026-11-14', 'PT Sumber Alfaria Trijaya', 'Bekasi', 2, 2, 'Delivered', 'Umar', 'Budi', 0],
-        ['SJ-11SA-0699', 'Sabtu', '2026-11-14', 'PT Mayora Indah', 'Tangerang', 1, 1, 'Delivered', 'Umar', 'Nova', 0],
-        ['SJ-11SA-0700', 'Sabtu', '2026-11-14', 'PT Beverindo Indah Abadi', 'Jakarta Pusat', 1, 1, 'Delivered', 'Umar', 'Dewi', 0],
-        ['SJ-11SA-0701', 'Sabtu', '2026-11-14', 'PT Jasmine Journey Indonesia', 'Jakarta Pusat', 2, 2, 'Delivered', 'Umar', 'Budi', 0],
-        ['SJ-11SA-0702', 'Sabtu', '2026-11-14', 'PT Wook Global Technology', 'Jakarta Utara', 1, 1, 'Delivered', 'Noval', 'Nova', 0],
-        ['SJ-11SA-0703', 'Sabtu', '2026-11-14', 'PT Kalbe Farma', 'Jakarta Timur', 1, 1, 'Delivered', 'Noval', 'Dewi', 0],
-        ['SJ-11SA-0704', 'Sabtu', '2026-11-14', 'PT Makmur Jaya', 'Jakarta Selatan', 1, 1, 'Delivered', 'Noval', 'Budi', 0],
-        ['SJ-11SA-0705', 'Sabtu', '2026-11-14', 'PT Intitirta Sarimakmur', 'Jakarta Utara', 1, 1, 'Delivered', 'Noval', 'Nova', 0],
-        ['SJ-11SA-0706', 'Sabtu', '2026-11-14', 'PT Perindustrian Bapak Djenggot', 'Jakarta Barat', 1, 1, 'Delivered', 'Noval', 'Dewi', 0],
-        ['SJ-11SA-0707', 'Sabtu', '2026-11-14', 'Panorama JTB (Head Office)', 'Jakarta Pusat', 1, 1, 'Delivered', 'Noval', 'Budi', 0],
-        ['SJ-11SA-0708', 'Sabtu', '2026-11-14', 'Pixel Group Indonesia', 'Jakarta Selatan', 1, 1, 'Delivered', 'Noval', 'Nova', 0],
-        ['SJ-11SA-0709', 'Sabtu', '2026-11-14', 'Premier Village', 'Tangerang', 1, 1, 'Delivered', 'Noval', 'Dewi', 0],
-        ['SJ-11SA-0710', 'Sabtu', '2026-11-14', 'REX Kiriman Express', 'Jakarta Barat', 2, 2, 'Delivered', 'Soleh', 'Budi', 0],
-        ['SJ-11SA-0711', 'Sabtu', '2026-11-14', 'Kawan Lama Sejahtera', 'Jakarta Barat', 2, 2, 'Delivered', 'Soleh', 'Nova', 0],
-        ['SJ-11SA-0712', 'Sabtu', '2026-11-14', 'Wisma KEIAI', 'Jakarta Pusat', 2, 2, 'Delivered', 'Soleh', 'Dewi', 0],
-        ['SJ-11SA-0713', 'Sabtu', '2026-11-14', 'Kacamatamoo Rawasari', 'Jakarta Pusat', 1, 1, 'Delivered', 'Soleh', 'Budi', 0],
-        ['SJ-11SA-0714', 'Sabtu', '2026-11-14', 'GrandLucky - SCBD', 'Jakarta Selatan', 1, 1, 'Delivered', 'Soleh', 'Nova', 0],
-        ['SJ-11SA-0715', 'Sabtu', '2026-11-14', 'GrandLucky BSD City', 'Tangerang', 2, 2, 'Delivered', 'Romi', 'Dewi', 0],
-        ['SJ-11SA-0716', 'Sabtu', '2026-11-14', 'Eraprima Industrial Park', 'Tangerang', 1, 1, 'Delivered', 'Romi', 'Budi', 0],
-        ['SJ-11SA-0717', 'Sabtu', '2026-11-14', 'Mandiri University Wijaya Kusuma', 'Jakarta Barat', 1, 1, 'Delivered', 'Romi', 'Nova', 0],
-        ['SJ-11SA-0718', 'Sabtu', '2026-11-14', 'Pacific Place Mall', 'Jakarta Selatan', 2, 2, 'Delivered', 'Romi', 'Dewi', 0],
-        ['SJ-11SA-0719', 'Sabtu', '2026-11-14', 'INFORMA - Living World Kota Wisata', 'Bekasi', 1, 1, 'Delivered', 'Romi', 'Budi', 0],
-        ['SJ-11SA-0720', 'Sabtu', '2026-11-14', 'Living World Alam Sutera', 'Tangerang', 1, 1, 'Delivered', 'Romi', 'Nova', 0],
-        ['SJ-11SA-0721', 'Sabtu', '2026-11-14', 'Mall Senayan City', 'Jakarta Pusat', 1, 1, 'Delivered', 'Firdaus', 'Dewi', 0],
-        ['SJ-11SA-0722', 'Sabtu', '2026-11-14', 'Grand Indonesia', 'Jakarta Pusat', 1, 1, 'Delivered', 'Firdaus', 'Budi', 0],
-        ['SJ-11SA-0723', 'Sabtu', '2026-11-14', 'Central Park Mall', 'Jakarta Barat', 2, 2, 'Delivered', 'Firdaus', 'Nova', 0],
-        ['SJ-11SA-0724', 'Sabtu', '2026-11-14', 'Gandaria City', 'Jakarta Selatan', 2, 2, 'Delivered', 'Firdaus', 'Dewi', 0],
-        ['SJ-11SA-0725', 'Sabtu', '2026-11-14', 'AEON Mall BSD City', 'Tangerang', 1, 1, 'Delivered', 'Firdaus', 'Budi', 0],
-        ['SJ-11SA-0726', 'Sabtu', '2026-11-14', 'AEON Mall Jakarta Garden City', 'Jakarta Timur', 1, 1, 'Delivered', 'Firdaus', 'Nova', 0],
-        ['SJ-11SA-0727', 'Sabtu', '2026-11-14', 'AEON Mall Tanjung Barat', 'Jakarta Selatan', 2, 2, 'Delivered', 'Alan', 'Dewi', 0],
-        ['SJ-11SA-0728', 'Sabtu', '2026-11-14', 'Anytime Fitness', 'Jakarta Selatan', 2, 2, 'Delivered', 'Alan', 'Budi', 0],
-        ['SJ-11SA-0729', 'Sabtu', '2026-11-14', 'Ataru Living World', 'Tangerang', 2, 2, 'Delivered', 'Alan', 'Nova', 0],
-        ['SJ-11SA-0730', 'Sabtu', '2026-11-14', 'Chatime Metropolitan Mall 2', 'Bekasi', 2, 2, 'Delivered', 'Alan', 'Dewi', 0],
-        ['SJ-11SA-0731', 'Sabtu', '2026-11-14', 'Chatime Gandaria City', 'Jakarta Selatan', 1, 1, 'Delivered', 'Yakub', 'Budi', 0],
-        ['SJ-11SA-0732', 'Sabtu', '2026-11-14', 'Chatime Central Park', 'Jakarta Barat', 1, 1, 'Delivered', 'Yakub', 'Nova', 0],
-        ['SJ-11SA-0733', 'Sabtu', '2026-11-14', 'Toys Kingdom Palem Semi', 'Tangerang', 2, 2, 'Delivered', 'Yakub', 'Dewi', 0],
-        ['SJ-11SA-0734', 'Sabtu', '2026-11-14', 'Toys Kingdom Supermal Karawaci', 'Tangerang', 1, 1, 'Delivered', 'Yakub', 'Budi', 0],
-        ['SJ-11SA-0735', 'Sabtu', '2026-11-14', 'Toys Kingdom Grand Indonesia', 'Jakarta Pusat', 2, 2, 'Delivered', 'Yakub', 'Nova', 0],
-        ['SJ-11SA-0736', 'Sabtu', '2026-11-14', 'Azko PIK Avenue', 'Jakarta Utara', 1, 1, 'Delivered', 'Yakub', 'Dewi', 0],
-        ['SJ-11SA-0737', 'Sabtu', '2026-11-14', 'Azko Green Terrace TMII', 'Jakarta Timur', 2, 2, 'Delivered', 'Agung', 'Budi', 0],
-        ['SJ-11SA-0738', 'Sabtu', '2026-11-14', 'Azko Bogor Terasutra', 'Jakarta Selatan', 1, 1, 'Delivered', 'Agung', 'Nova', 0],
-        ['SJ-11SA-0739', 'Sabtu', '2026-11-14', 'Azko Citra 6', 'Jakarta Barat', 2, 2, 'Delivered', 'Agung', 'Dewi', 0],
-        ['SJ-11SA-0740', 'Sabtu', '2026-11-14', 'Azko Kota Wisata Bogor', 'Bekasi', 2, 2, 'Delivered', 'Agung', 'Budi', 0],
-        ['SJ-11SA-0741', 'Sabtu', '2026-11-14', 'Azko QBig BSD', 'Tangerang', 1, 1, 'Delivered', 'Agung', 'Nova', 0],
-        ['SJ-11MI-0742', 'Minggu', '2026-11-15', 'Azko Metro Sunter', 'Jakarta Utara', 2, 1, 'On Delivery', 'Ahmad', 'Dewi', 1],
-        ['SJ-11MI-0743', 'Minggu', '2026-11-15', 'Color Star (Linda)', 'Jakarta Barat', 1, 1, 'Delivered', 'Ahmad', 'Budi', 1],
-        ['SJ-11MI-0744', 'Minggu', '2026-11-15', 'Resto Sederhana', 'Jakarta Pusat', 2, 1, 'On Delivery', 'Ahmad', 'Nova', 1],
-        ['SJ-11MI-0745', 'Minggu', '2026-11-15', 'Lawson Station', 'Jakarta Selatan', 2, 1, 'On Delivery', 'Ahmad', 'Dewi', 1],
-        ['SJ-11MI-0746', 'Minggu', '2026-11-15', 'Kopi Kenangan', 'Jakarta Selatan', 1, 1, 'Delivered', 'Ahmad', 'Budi', 1],
-        ['SJ-11MI-0747', 'Minggu', '2026-11-15', 'Fore Coffee', 'Jakarta Pusat', 1, 1, 'Delivered', 'Beto', 'Nova', 1],
-        ['SJ-11MI-0748', 'Minggu', '2026-11-15', 'Janji Jiwa', 'Jakarta Barat', 1, 1, 'Delivered', 'Beto', 'Dewi', 1],
-        ['SJ-11MI-0749', 'Minggu', '2026-11-15', 'Holland Bakery', 'Jakarta Barat', 2, 2, 'Delivered', 'Beto', 'Budi', 1],
-        ['SJ-11MI-0750', 'Minggu', '2026-11-15', 'JCO Donuts & Coffee', 'Jakarta Selatan', 2, 1, 'On Delivery', 'Beto', 'Nova', 1],
-        ['SJ-11MI-0751', 'Minggu', '2026-11-15', 'BreadTalk', 'Jakarta Barat', 1, 0, 'On Delivery', 'Beto', 'Dewi', 1],
-        ['SJ-11MI-0752', 'Minggu', '2026-11-15', 'Guardian Pharmacy', 'Jakarta Selatan', 1, 1, 'Delivered', 'Beto', 'Budi', 1],
-        ['SJ-11MI-0753', 'Minggu', '2026-11-15', 'Watsons', 'Jakarta Pusat', 1, 1, 'Delivered', 'pbseventeensc', 'Nova', 1],
-        ['SJ-11MI-0754', 'Minggu', '2026-11-15', 'Century Healthcare', 'Jakarta Barat', 1, 0, 'On Delivery', 'pbseventeensc', 'Dewi', 1],
-        ['SJ-11MI-0755', 'Minggu', '2026-11-15', 'Kimia Farma', 'Jakarta Timur', 1, 0, 'On Delivery', 'pbseventeensc', 'Budi', 1],
-        ['SJ-11MI-0756', 'Minggu', '2026-11-15', 'Mitra 10', 'Tangerang', 1, 0, 'On Delivery', 'pbseventeensc', 'Nova', 1],
-        ['SJ-11MI-0757', 'Minggu', '2026-11-15', 'Depo Bangunan', 'Tangerang', 1, 0, 'On Delivery', 'pbseventeensc', 'Dewi', 1],
-        ['SJ-11MI-0758', 'Minggu', '2026-11-15', 'Electronic City', 'Jakarta Selatan', 1, 1, 'Delivered', 'pbseventeensc', 'Budi', 1],
-        ['SJ-11MI-0759', 'Minggu', '2026-11-15', 'Erafone', 'Jakarta Pusat', 1, 1, 'Delivered', 'pbseventeensc', 'Nova', 1],
-        ['SJ-11MI-0760', 'Minggu', '2026-11-15', 'iBox Central Park', 'Jakarta Barat', 2, 2, 'Delivered', 'Haris', 'Dewi', 1],
-        ['SJ-11MI-0761', 'Minggu', '2026-11-15', 'Gramedia Matraman', 'Jakarta Timur', 1, 1, 'Delivered', 'Haris', 'Budi', 1],
-        ['SJ-11MI-0762', 'Minggu', '2026-11-15', 'Ranch Market Pesanggrahan', 'Jakarta Barat', 2, 2, 'Delivered', 'Haris', 'Nova', 1],
-        ['SJ-11MI-0763', 'Minggu', '2026-11-15', 'Farmers Market Kelapa Gading', 'Jakarta Utara', 1, 1, 'Delivered', 'Haris', 'Dewi', 1],
-        ['SJ-11MI-0764', 'Minggu', '2026-11-15', 'Papaya Fresh Gallery', 'Jakarta Selatan', 1, 1, 'Delivered', 'Haris', 'Budi', 1],
-        ['SJ-11MI-0765', 'Minggu', '2026-11-15', 'Kem Chicks Pacific Place', 'Jakarta Selatan', 1, 1, 'Delivered', 'Ferdi', 'Nova', 1],
-        ['SJ-11MI-0766', 'Minggu', '2026-11-15', 'Lotte Mart Meruya', 'Jakarta Barat', 1, 1, 'Delivered', 'Ferdi', 'Dewi', 1],
-        ['SJ-11MI-0767', 'Minggu', '2026-11-15', 'Gold Coast Office', 'Jakarta Utara', 1, 1, 'Delivered', 'Ferdi', 'Budi', 1],
-        ['SJ-11MI-0768', 'Minggu', '2026-11-15', 'Mall Bassura Jatinegara', 'Jakarta Timur', 1, 1, 'Delivered', 'Ferdi', 'Nova', 1],
-        ['SJ-11MI-0769', 'Minggu', '2026-11-15', 'Plaza Indonesia', 'Jakarta Pusat', 2, 2, 'Delivered', 'Ferdi', 'Dewi', 1],
-        ['SJ-11MI-0770', 'Minggu', '2026-11-15', 'Lippo Mall Puri', 'Jakarta Barat', 1, 1, 'Delivered', 'Ferdi', 'Budi', 1],
-        ['SJ-11MI-0771', 'Minggu', '2026-11-15', 'Supermal Karawaci', 'Tangerang', 1, 1, 'Delivered', 'Jay', 'Nova', 1],
-        ['SJ-11MI-0772', 'Minggu', '2026-11-15', 'Summarecon Mall Serpong', 'Tangerang', 1, 1, 'Delivered', 'Jay', 'Dewi', 1],
-        ['SJ-11MI-0773', 'Minggu', '2026-11-15', 'Summarecon Mall Kelapa Gading', 'Jakarta Utara', 1, 1, 'Delivered', 'Jay', 'Budi', 1],
-        ['SJ-11MI-0774', 'Minggu', '2026-11-15', 'Puri Indah Mall', 'Jakarta Barat', 2, 2, 'Delivered', 'Jay', 'Nova', 1],
-        ['SJ-11MI-0775', 'Minggu', '2026-11-15', 'PT Aspirasi Hidup Indonesia Tbk', 'Jakarta Barat', 1, 1, 'Delivered', 'Jay', 'Dewi', 1],
-        ['SJ-11MI-0776', 'Minggu', '2026-11-15', 'PT Foods Beverages Indonesia', 'Jakarta Selatan', 1, 1, 'Delivered', 'Jay', 'Budi', 1],
-        ['SJ-11MI-0777', 'Minggu', '2026-11-15', 'PT Tri Sakti Purwosari Makmur', 'Jakarta Barat', 1, 1, 'Delivered', 'Soleh', 'Nova', 1],
-        ['SJ-11MI-0778', 'Minggu', '2026-11-15', 'PT Home Center Indonesia Retail', 'Bekasi', 1, 1, 'Delivered', 'Soleh', 'Dewi', 1],
-        ['SJ-11MI-0779', 'Minggu', '2026-11-15', 'PT Toys Games Indonesia', 'Tangerang', 2, 2, 'Delivered', 'Soleh', 'Budi', 1],
-        ['SJ-11MI-0780', 'Minggu', '2026-11-15', 'PT BQuik Otomotif Indonesia', 'Jakarta Barat', 1, 1, 'Delivered', 'Soleh', 'Nova', 1],
-        ['SJ-11MI-0781', 'Minggu', '2026-11-15', 'PT Benfood Dinamika Sentosa', 'Jakarta Selatan', 1, 1, 'Delivered', 'Soleh', 'Dewi', 1],
-        ['SJ-11MI-0782', 'Minggu', '2026-11-15', 'PT Astra International', 'Jakarta Pusat', 1, 1, 'Delivered', 'Soleh', 'Budi', 1],
-    ];
-
-    const WEEKLY_BASELINE = RAW_BASELINE_TUPLES.map(t => ({
-        id: t[0],
-        day: t[1],
-        date: t[2],
-        customer: t[3],
-        region: t[4],
-        destinations: t[5],
-        deliveredDestinations: t[6],
-        sjCount: 1,
-        deliveredSJ: t[7] === 'Delivered' ? 1 : 0,
-        status: t[7],
-        courier: t[8],
-        adminSJ: t[9],
-        isOvertime: t[10] === 1
-    }));
+    let shipmentSelection = null;
 
     function fmtNum(n) {
         return Number(n || 0).toLocaleString('id-ID');
@@ -857,108 +55,209 @@
             .replace(/"/g, '&quot;');
     }
 
-    function getDayOfWeekFromDate(dateStr) {
-        if (!dateStr) return 'Senin';
-        try {
-            const d = new Date(dateStr);
-            if (isNaN(d.getTime())) return 'Senin';
-            const dayNum = d.getDay(); // 0 is Sunday, 1 is Monday ... 6 is Saturday
-            const map = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-            return map[dayNum] || 'Senin';
-        } catch (_) {
-            return 'Senin';
+    const text = value => typeof value === 'string' ? value.trim() : '';
+    const normalize = value => text(value).normalize('NFKC').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const done = value => ['delivered', 'completed', 'done'].includes(text(value?.status).toLowerCase());
+
+    function dateKey(value) {
+        if (!value) return '';
+        if (typeof value === 'string') {
+            const trimmed = value.trim();
+            if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+            const dmy = trimmed.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+            if (dmy) {
+                const day = dmy[1].padStart(2, '0');
+                const mon = dmy[2].padStart(2, '0');
+                const year = dmy[3];
+                return `${year}-${mon}-${day}`;
+            }
         }
+        const ms = typeof value?.toMillis === 'function' ? value.toMillis() :
+            typeof value?.toDate === 'function' ? value.toDate().getTime() :
+            value?.seconds !== undefined ? Number(value.seconds) * 1000 :
+            value?._seconds !== undefined ? Number(value._seconds) * 1000 :
+            typeof value === 'number' ? value :
+            (typeof value === 'string' && value.startsWith('TRIP_') ? parseInt(value.replace('TRIP_', ''), 10) : Date.parse(value));
+        if (!Number.isFinite(ms) || ms <= 0) return '';
+        return new Date(ms + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    }
+
+    function currentWeek() {
+        const today = dateKey(Date.now());
+        const monday = new Date(today + 'T00:00:00Z');
+        monday.setUTCDate(monday.getUTCDate() - (monday.getUTCDay() + 6) % 7);
+        const sunday = new Date(monday);
+        sunday.setUTCDate(sunday.getUTCDate() + 6);
+        return [monday.toISOString().slice(0, 10), sunday.toISOString().slice(0, 10)];
+    }
+    [startDate, endDate] = currentWeek();
+
+    const MONTH_NAMES_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+
+    function formatShortDate(dateStr) {
+        if (!dateStr || typeof dateStr !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return '';
+        const parts = dateStr.split('-');
+        const day = parts[2];
+        const monthIdx = parseInt(parts[1], 10) - 1;
+        const month = MONTH_NAMES_SHORT[monthIdx] || '';
+        return `${day} ${month}`;
+    }
+
+    function formatIndoDate(dateStr, withDay = false) {
+        if (!dateStr || typeof dateStr !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr || '';
+        const parts = dateStr.split('-');
+        const dayNum = parseInt(parts[2], 10);
+        const monthIdx = parseInt(parts[1], 10) - 1;
+        const month = MONTH_NAMES_SHORT[monthIdx] || '';
+        const year = parts[0];
+        if (withDay) {
+            const dayName = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'][new Date(dateStr + 'T00:00:00Z').getUTCDay()];
+            return `${dayName}, ${dayNum} ${month} ${year}`;
+        }
+        return `${dayNum} ${month} ${year}`;
+    }
+
+    function formatIndoDateRange(startStr, endStr) {
+        if (!startStr && !endStr) return 'Semua';
+        if (!startStr) return `s/d ${formatIndoDate(endStr)}`;
+        if (!endStr) return `Mulai ${formatIndoDate(startStr)}`;
+        if (startStr === endStr) return formatIndoDate(startStr, true);
+        const p1 = startStr.split('-'), p2 = endStr.split('-');
+        if (p1.length === 3 && p2.length === 3) {
+            const d1 = parseInt(p1[2], 10), d2 = parseInt(p2[2], 10);
+            const m1 = MONTH_NAMES_SHORT[parseInt(p1[1], 10) - 1] || '';
+            const m2 = MONTH_NAMES_SHORT[parseInt(p2[1], 10) - 1] || '';
+            const y1 = p1[0], y2 = p2[0];
+            if (y1 === y2 && m1 === m2) {
+                return `${d1}–${d2} ${m1} ${y1}`;
+            }
+            if (y1 === y2) {
+                return `${d1} ${m1} – ${d2} ${m2} ${y1}`;
+            }
+            return `${d1} ${m1} ${y1} – ${d2} ${m2} ${y2}`;
+        }
+        return `${startStr} – ${endStr}`;
+    }
+
+    function resolveVehicleType(trip, stop, courier) {
+        const raw = text(stop?.vehicleType) || text(trip?.vehicleType);
+        if (raw) return raw.toLowerCase();
+        if (typeof root.getCourierVehicleType === 'function') {
+            const vt = root.getCourierVehicleType(trip?.courierId, courier);
+            if (vt) return String(vt).toLowerCase();
+        }
+        if (typeof root.normalizeCourierIdentity === 'function') {
+            const vt = root.normalizeCourierIdentity(trip?.courierId, courier)?.vehicleType;
+            if (vt) return String(vt).toLowerCase();
+        }
+        if (Array.isArray(root.MASTER_COURIERS)) {
+            const cStr = String(courier || trip?.courierName || trip?.courierId || '').toLowerCase().trim();
+            const found = root.MASTER_COURIERS.find(m => 
+                (m.canonicalId && cStr.includes(m.canonicalId.toLowerCase())) ||
+                (m.displayName && cStr.includes(m.displayName.toLowerCase())) ||
+                (Array.isArray(m.matchTokens) && m.matchTokens.some(tok => cStr.includes(tok.toLowerCase())))
+            );
+            if (found && found.vehicleType) return String(found.vehicleType).toLowerCase();
+        }
+        const cStr = String(courier || trip?.courierName || trip?.courierId || '').toLowerCase();
+        const mobilNames = ['soleh', 'romi', 'firdaus', 'alan', 'yakub', 'iwan', 'agung', 'husen', 'rizki'];
+        if (mobilNames.some(m => cStr.includes(m))) return 'mobil';
+        return 'motor';
     }
 
     function collectTripData() {
-        const pool = Array.isArray(root.allPoolTrips) ? root.allPoolTrips : [];
-        const current = Array.isArray(root.allCurrentTrips) ? root.allCurrentTrips : [];
-
-        let localTrips = [];
-        try {
-            const raw = root.localStorage?.getItem('wtrack_local_trips') || root.localStorage?.getItem('wtrack_trips');
-            if (raw) {
-                const parsed = JSON.parse(raw);
-                if (Array.isArray(parsed)) localTrips = parsed;
-            }
-        } catch (_) {}
-
-        const seenTripIds = new Set();
-        const combined = [];
-        [...current, ...pool, ...localTrips].forEach(t => {
-            if (!t) return;
-            const id = t.tripId || t.id || t.noSJ || t.sjNumber;
-            if (id && !seenTripIds.has(id)) {
-                seenTripIds.add(id);
-                combined.push(t);
-            }
+        // The trips snapshot is authoritative. Pool and browser caches are not assignments.
+        const trips = Array.isArray(root.allCurrentTrips) ? root.allCurrentTrips : [];
+        const clients = root.getCustomerMasterRows?.() || [];
+        const byAddress = new Map();
+        clients.forEach(client => {
+            const key = normalize(client.address);
+            if (!key || !text(client.name)) return;
+            if (!byAddress.has(key)) byAddress.set(key, []);
+            byAddress.get(key).push(client);
         });
-
-        const liveItems = [];
-        combined.forEach(t => {
-            const rawId = (t.noSJ || t.sjNumber || t.id || '').replace(/^TRIP_/i, '').trim();
-            if (!rawId) return;
-
-            const dayName = getDayOfWeekFromDate(t.date || t.createdAt);
-            const region = (t.region || 'Jakarta Barat').trim();
-            const customer = (t.customer || t.clientName || t.recipientName || 'Customer').trim();
-
-            let destCount = 1;
-            let delivDestCount = 0;
-
-            if (Array.isArray(t.destinations) && t.destinations.length > 0) {
-                destCount = t.destinations.length;
-                delivDestCount = t.destinations.filter(d => ['delivered', 'completed', 'done'].includes(String(d.status || '').toLowerCase())).length;
-            } else {
-                const isDelivered = ['delivered', 'completed', 'done'].includes(String(t.status || '').toLowerCase());
-                delivDestCount = isDelivered ? 1 : 0;
-            }
-
-            const isDone = ['delivered', 'completed', 'done'].includes(String(t.status || '').toLowerCase());
-            const sjCount = 1;
-            const deliveredSJ = isDone ? 1 : 0;
-            const adminSJ = (t.adminSJ || (typeof root.CourierAdminSJ?.resolve === 'function' ? root.CourierAdminSJ.resolve(t) : '') || 'Belum diatur').trim();
-            const courier = (t.courierName || t.courier || t.carrier || t.assignedTo || 'Unassigned').trim();
-
-            liveItems.push({
-                id: rawId,
-                day: dayName,
-                date: t.date || (t.createdAt ? String(t.createdAt).slice(0, 10) : ''),
-                customer,
-                region,
-                adminSJ: adminSJ || 'Belum diatur',
-                courier: courier || 'Unassigned',
-                destinations: destCount,
-                deliveredDestinations: delivDestCount,
-                sjCount,
-                deliveredSJ,
-                status: isDone ? 'Delivered' : (t.status === 'on_delivery' ? 'On Delivery' : 'In Warehouse'),
-                isOvertime: dayName === 'Minggu'
+        const seenTrips = new Set(), seenDeliveries = new Set(), items = [];
+        trips.forEach(trip => {
+            const tripId = text(trip.id) || text(trip.tripId);
+            if (!tripId || seenTrips.has(tripId) || trip.status === 'pool' || !text(trip.courierId) ||
+                trip.completionMethod === 'customer_pickup' || trip.deliveryMethod === 'customer_pickup') return;
+            if (typeof root.isTripInActiveBranch === 'function' && !root.isTripInActiveBranch(trip)) return;
+            seenTrips.add(tripId);
+            const stops = trip.destinations?.length ? trip.destinations : [trip];
+            stops.forEach((stop, index) => {
+                const deliveryKey = text(stop.deliveryId) || `${tripId}:${index}`;
+                if (seenDeliveries.has(deliveryKey)) return;
+                seenDeliveries.add(deliveryKey);
+                const address = text(stop.address) || text(trip.address);
+                const storedName = text(stop.customer) || text(stop.clientName) || text(stop.locationName) ||
+                    text(trip.customer) || text(trip.clientName);
+                const matches = byAddress.get(normalize(address)) || [];
+                const named = matches.find(client => normalize(client.name) === normalize(storedName));
+                const uniqueNames = new Set(matches.map(client => normalize(client.name)));
+                const client = named || (uniqueNames.size === 1 ? matches[0] : null);
+                const customer = text(client?.name) || address || storedName || 'Alamat belum tersedia';
+                const completed = done(stop) || (!text(stop.status) && done(trip));
+                let date = '';
+                if (typeof root.isTripInDateRange === 'function') {
+                    const now = new Date();
+                    const todayDayMs = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+                    const todayEndMs = todayDayMs + 86400000 - 1;
+                    if (root.isTripInDateRange(trip, todayDayMs, todayEndMs)) {
+                        const stopDoneTime = completed ? (stop.completedTime || stop.completedAt) : null;
+                        const stopDate = dateKey(stopDoneTime);
+                        if (stopDate && stopDate !== dateKey(todayDayMs)) {
+                            date = stopDate;
+                        } else {
+                            date = dateKey(todayDayMs);
+                        }
+                    }
+                }
+                if (!date && completed) {
+                    date = dateKey(stop.completedTime || stop.completedAt || trip.completedTime || trip.completedAt);
+                }
+                if (!date) {
+                    date = dateKey(stop.arrivalTime || trip.arrivalTime || stop.assignedAt || stop.date);
+                }
+                if (!date) {
+                    date = dateKey(
+                        trip.dateFolder ||
+                        trip.date ||
+                        trip.assignedAt ||
+                        trip.assignedTime ||
+                        trip.acceptedTime ||
+                        trip.updatedAt ||
+                        trip.createdAt ||
+                        (typeof trip.id === 'string' && trip.id.startsWith('TRIP_') ? trip.id : null)
+                    );
+                }
+                // A missing date cannot be assigned to an arbitrary weekday.
+                if (!date) return;
+                const day = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'][new Date(date + 'T00:00:00Z').getUTCDay()];
+                const sj = text(stop.noSJ) || text(stop.sjNumber) || text(trip.noSJ) || text(trip.sjNumber);
+                const courier = text(trip.courierName) || text(trip.courier) || text(root.getCourierDisplayName?.(trip.courierId)) || trip.courierId;
+                const adminSJ = text(stop.adminSJ) || text(trip.adminSJ) || text(client?.adminSJ) ||
+                    text(root.CourierAdminSJ?.resolve?.(trip, stop)) || 'Belum diatur';
+                const vehicleType = resolveVehicleType(trip, stop, courier);
+                items.push({id: deliveryKey, tripId, destinationIndex: index, sj, day, date, address, customer,
+                    region: text(stop.region) || text(client?.region) || text(trip.region) || 'Belum diatur',
+                    courier, courierId: trip.courierId, adminSJ, vehicleType, destinations: 1,
+                    deliveredDestinations: completed ? 1 : 0,
+                    returned: !completed && (['returned','failed','pending_approval','klien_tutup'].includes(text(stop.status).toLowerCase()) || !!stop.pendingReason),
+                    sjCount: sj ? 1 : 0, deliveredSJ: sj && completed ? 1 : 0,
+                    status: completed ? 'Delivered' : 'On Delivery', isOvertime: day === 'Minggu'});
             });
         });
+        return items;
+    }
 
-        // Group live count per day
-        const liveDaysCount = {};
-        liveItems.forEach(item => {
-            liveDaysCount[item.day] = (liveDaysCount[item.day] || 0) + (item.destinations || 1);
+    function countSJ(items) {
+        const groups = new Map();
+        items.forEach(item => {
+            if (!item.sj) return;
+            const key = normalize(item.sj);
+            groups.set(key, (groups.get(key) ?? true) && item.deliveredDestinations === item.destinations);
         });
-
-        // Combine live items and baseline:
-        // Any day with fewer than 100 live destinations is supplemented by baseline data
-        // so the full weekly chart consistently reflects Wellen Print daily 150+ operational scale!
-        const resultItems = [...liveItems];
-        WEEKLY_BASELINE.forEach(baseItem => {
-            const countForDay = liveDaysCount[baseItem.day] || 0;
-            if (countForDay < 100) {
-                // Hindari duplikasi jika kurir sudah memiliki live items di hari Minggu
-                if (baseItem.day === 'Minggu' && countForDay > 0 && liveItems.some(it => it.day === 'Minggu' && it.courier === baseItem.courier)) {
-                    return;
-                }
-                resultItems.push(baseItem);
-            }
-        });
-
-        return resultItems.length > 0 ? resultItems : WEEKLY_BASELINE;
+        return {total: groups.size, delivered: [...groups.values()].filter(Boolean).length};
     }
 
     function getAvailableRegions(data) {
@@ -976,7 +275,6 @@
         data.forEach(d => {
             if (d.adminSJ && d.adminSJ !== 'Belum diatur') adminsSet.add(d.adminSJ.trim());
         });
-        ['Nova', 'Budi', 'Dewi'].forEach(a => adminsSet.add(a));
         return Array.from(adminsSet).sort();
     }
 
@@ -1019,7 +317,7 @@
         `;
     }
 
-    function filterTripItems(data, regionFilter, adminFilter, courierFilter, startFilter, endFilter) {
+    function filterTripItems(data, regionFilter, adminFilter, courierFilter, startFilter, endFilter, vehicleFilter = 'all') {
         let filtered = data;
         if (regionFilter && regionFilter !== 'all') {
             filtered = filtered.filter(d => String(d.region || '').toLowerCase() === regionFilter.toLowerCase());
@@ -1031,23 +329,61 @@
             const cf = courierFilter.toLowerCase().trim();
             filtered = filtered.filter(d => {
                 const c = String(d.courier || '').toLowerCase().trim();
-                return c === cf || c.includes(cf) || cf.includes(c);
+                return c === cf || String(d.courierId || '').toLowerCase() === cf;
             });
         }
+        if (vehicleFilter && vehicleFilter !== 'all' && vehicleFilter !== '') {
+            const vf = vehicleFilter.toLowerCase().trim();
+            filtered = filtered.filter(d => (d.vehicleType || 'motor').toLowerCase() === vf);
+        }
         if (startFilter) {
-            filtered = filtered.filter(d => !d.date || d.date >= startFilter);
+            filtered = filtered.filter(d => d.date && d.date >= startFilter);
         }
         if (endFilter) {
-            filtered = filtered.filter(d => !d.date || d.date <= endFilter);
+            filtered = filtered.filter(d => d.date && d.date <= endFilter);
         }
         return filtered;
     }
 
-    function computeDailyBuckets(data, metric, regionFilter, adminFilter, courierFilter, startFilter, endFilter) {
-        const filtered = filterTripItems(data, regionFilter, adminFilter, courierFilter, startFilter, endFilter);
+    function computeDailyBuckets(data, metric, regionFilter, adminFilter, courierFilter, startFilter, endFilter, vehicleFilter = 'all') {
+        const filtered = filterTripItems(data, regionFilter, adminFilter, courierFilter, startFilter, endFilter, vehicleFilter);
 
-        return DAYS_ORDER.map(dayName => {
+        const effectiveStart = startFilter || startDate;
+        let baseMonday = '';
+        if (effectiveStart && /^\d{4}-\d{2}-\d{2}$/.test(effectiveStart)) {
+            const d = new Date(effectiveStart + 'T00:00:00Z');
+            const dayOfWeek = (d.getUTCDay() + 6) % 7;
+            const m = new Date(d);
+            m.setUTCDate(d.getUTCDate() - dayOfWeek);
+            baseMonday = m.toISOString().slice(0, 10);
+        } else {
+            const withDate = (filtered.find(d => d.date) || (Array.isArray(data) ? data.find(d => d.date) : null));
+            if (withDate && withDate.date && /^\d{4}-\d{2}-\d{2}$/.test(withDate.date)) {
+                const d = new Date(withDate.date + 'T00:00:00Z');
+                const dayOfWeek = (d.getUTCDay() + 6) % 7;
+                const m = new Date(d);
+                m.setUTCDate(d.getUTCDate() - dayOfWeek);
+                baseMonday = m.toISOString().slice(0, 10);
+            } else {
+                baseMonday = currentWeek()[0];
+            }
+        }
+
+        const todayStr = dateKey(Date.now());
+
+        return DAYS_ORDER.map((dayName, dayIndex) => {
             const dayItems = filtered.filter(d => d.day === dayName);
+
+            let bucketDate = '';
+            if (baseMonday) {
+                const target = new Date(baseMonday + 'T00:00:00Z');
+                target.setUTCDate(target.getUTCDate() + dayIndex);
+                bucketDate = target.toISOString().slice(0, 10);
+            } else if (dayItems.length > 0 && dayItems[0].date) {
+                bucketDate = dayItems[0].date;
+            }
+
+            const isToday = bucketDate === todayStr;
 
             let totalDest = 0;
             let delivDest = 0;
@@ -1061,32 +397,20 @@
                 delivSJ += item.deliveredSJ || 0;
             });
 
-            let total = metric === 'destinations' ? totalDest : totalSJ;
-            let delivered = metric === 'destinations' ? delivDest : delivSJ;
-
-            // Sinkronisasi otomatis hari ini (Minggu) dengan KPI Stat Cards di dashboard
-            if (dayName === 'Minggu' && (!courierFilter || courierFilter === 'all') && (!regionFilter || regionFilter === 'all') && (!adminFilter || adminFilter === 'all') && !startFilter && !endFilter) {
-                const statActiveEl = root.document ? root.document.getElementById('stat-active') : null;
-                const statCompletedEl = root.document ? root.document.getElementById('stat-completed') : null;
-                if (statActiveEl && statCompletedEl) {
-                    const parsedTotal = parseInt(statActiveEl.innerText.replace(/\D/g, ''), 10);
-                    const parsedCompleted = parseInt(statCompletedEl.innerText.replace(/\D/g, ''), 10);
-                    if (!isNaN(parsedTotal) && parsedTotal > 0) {
-                        totalDest = parsedTotal;
-                        delivDest = !isNaN(parsedCompleted) ? parsedCompleted : delivDest;
-                        if (metric === 'destinations') {
-                            total = parsedTotal;
-                            delivered = !isNaN(parsedCompleted) ? parsedCompleted : delivered;
-                        }
-                    }
-                }
-            }
+            const sjCounts = countSJ(dayItems);
+            totalSJ = sjCounts.total;
+            delivSJ = sjCounts.delivered;
+            const total = metric === 'destinations' ? totalDest : totalSJ;
+            const delivered = metric === 'destinations' ? delivDest : delivSJ;
 
             const isOvertime = dayName === 'Minggu' && total > 0;
 
             return {
                 day: dayName,
                 short: DAYS_META[dayName].short,
+                date: bucketDate,
+                dateFormatted: formatShortDate(bucketDate),
+                isToday,
                 total,
                 delivered,
                 totalDest,
@@ -1099,8 +423,8 @@
         });
     }
 
-    function computeBreakdownData(data, dim, regionFilter, adminFilter, courierFilter, startFilter, endFilter, searchQuery) {
-        let filtered = filterTripItems(data, regionFilter, adminFilter, courierFilter, startFilter, endFilter);
+    function computeBreakdownData(data, dim, regionFilter, adminFilter, courierFilter, startFilter, endFilter, searchQuery, vehicleFilter = 'all') {
+        let filtered = filterTripItems(data, regionFilter, adminFilter, courierFilter, startFilter, endFilter, vehicleFilter);
 
         if (searchQuery) {
             const q = searchQuery.toLowerCase().trim();
@@ -1126,17 +450,24 @@
                 deliveredSJ: 0,
                 totalDest: 0,
                 deliveredDest: 0,
-                count: 0
+                count: 0,
+                items: []
             };
 
             existing.customers.add(d.customer);
-            existing.totalSJ += d.sjCount || 1;
+            existing.items.push(d);
+            existing.totalSJ += d.sjCount || 0;
             existing.deliveredSJ += d.deliveredSJ || 0;
             existing.totalDest += d.destinations || 1;
             existing.deliveredDest += d.deliveredDestinations || 0;
             existing.count += 1;
 
             map.set(key, existing);
+        });
+
+        map.forEach(entry => {
+            const counts = countSJ(entry.items);
+            entry.totalSJ = counts.total; entry.deliveredSJ = counts.delivered;
         });
 
         // Compute overall totals for share calculation
@@ -1179,7 +510,10 @@
             return sortDir === 'asc' ? res : -res;
         });
 
-        return { list, grandTotal };
+        return { list, grandTotal,
+            totalSJAll: list.reduce((sum, row) => sum + row.totalSJ, 0),
+            totalDestAll: list.reduce((sum, row) => sum + row.totalDest, 0),
+            deliveredDestAll: list.reduce((sum, row) => sum + row.deliveredDest, 0) };
     }
 
     function renderSvgChart(buckets, metric, regionFilter) {
@@ -1194,7 +528,7 @@
         const roundedMax = Math.max(step * 4, metric === 'destinations' ? 20 : 10);
 
         const chartWidth = 840;
-        const chartHeight = 250;
+        const chartHeight = 255;
         const zeroY = 205;
         const topY = 28;
         const plotHeight = zeroY - topY;
@@ -1239,13 +573,13 @@
             const isSunday = b.day === 'Minggu';
 
             barsHtml += `
-                <g class="cursor-pointer chart-day-group" data-idx="${idx}"
+                <g class="cursor-pointer chart-day-group" data-idx="${idx}" role="button" tabindex="0" aria-label="Tampilkan pengiriman ${b.day}${b.dateFormatted ? ` (${b.dateFormatted})` : ''}" onclick="VolumeComparison.filterByDay(${idx}, event)" onkeydown="if(event.key === 'Enter' || event.key === ' '){event.preventDefault(); VolumeComparison.filterByDay(${idx}, event)}"
                    onmouseenter="VolumeComparison.showTooltip(${idx}, ${barPairCenter}, ${Math.min(totalY, deliveredY)})"
                    onmousemove="VolumeComparison.updateTooltipPos(event)"
                    onmouseleave="VolumeComparison.hideTooltip()">
                     
                     <!-- Hover hit area -->
-                    <rect x="${slotCenter - slotWidth / 2 + 2}" y="${topY - 8}" width="${slotWidth - 4}" height="${plotHeight + 42}" rx="6" fill="#F8F9FA" opacity="0" class="day-hover-bg"></rect>
+                    <rect x="${slotCenter - slotWidth / 2 + 2}" y="${topY - 8}" width="${slotWidth - 4}" height="${plotHeight + 54}" rx="6" fill="#F8F9FA" opacity="0" class="day-hover-bg"></rect>
                     
                     <!-- Orange Bar: Total (Titik Pengantaran / Surat Jalan) -->
                     ${b.total > 0 ? `
@@ -1258,20 +592,25 @@
                     <!-- Green Bar: Berhasil Diantar -->
                     ${b.delivered > 0 ? `
                         <rect x="${groupX + barWidth + barGap}" y="${deliveredY}" width="${barWidth}" height="${deliveredHeight}" rx="4" fill="#12B76A" class="chart-bar-delivered"></rect>
-                        <text x="${groupX + barWidth + barGap + barWidth / 2}" y="${deliveredY - 6}" text-anchor="middle" style="fill: #027A48; font-size: 11px; font-weight: 700; font-family: monospace;">${b.delivered}</text>
+                        <text class="chart-bar-delivered" x="${groupX + barWidth + barGap + barWidth / 2}" y="${deliveredY - 6}" text-anchor="middle" style="fill: #027A48; font-size: 11px; font-weight: 700; font-family: monospace;">${b.delivered}</text>
                     ` : (b.total > 0 ? `
                         <rect x="${groupX + barWidth + barGap}" y="${zeroY - 4}" width="${barWidth}" height="4" rx="2" fill="#D0D5DD"></rect>
                         <text x="${groupX + barWidth + barGap + barWidth / 2}" y="${zeroY - 6}" text-anchor="middle" style="fill: #98A2B3; font-size: 10px; font-weight: 500; font-family: monospace;">0</text>
                     ` : '')}
                     
-                    <!-- X-Axis Day Label -->
-                    <text x="${barPairCenter}" y="${zeroY + 18}" text-anchor="middle" style="fill: ${isSunday && b.isOvertime ? '#CC6100' : '#101828'}; font-size: 12px; font-weight: ${isSunday && b.isOvertime ? '700' : '600'}; font-family: inherit;">
+                    <!-- X-Axis Day & Date Label -->
+                    <text x="${barPairCenter}" y="${zeroY + 16}" text-anchor="middle" style="fill: ${isSunday && b.isOvertime ? '#CC6100' : (b.isToday ? '#CC6100' : '#101828')}; font-size: 12px; font-weight: ${isSunday && b.isOvertime ? '700' : (b.isToday ? '700' : '600')}; font-family: inherit;">
                         ${b.day}
                     </text>
+                    ${b.dateFormatted ? `
+                        <text x="${barPairCenter}" y="${zeroY + 30}" text-anchor="middle" style="fill: ${b.isToday ? '#CC6100' : '#667085'}; font-size: 10.5px; font-weight: ${b.isToday ? '700' : '500'}; font-family: inherit;">
+                            ${b.dateFormatted}
+                        </text>
+                    ` : ''}
                     ${isSunday && b.isOvertime ? `
-                        <text x="${barPairCenter}" y="${zeroY + 30}" text-anchor="middle" style="fill: #CC6100; font-size: 9.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;">(Lembur)</text>
+                        <text x="${barPairCenter}" y="${b.dateFormatted ? zeroY + 43 : zeroY + 30}" text-anchor="middle" style="fill: #CC6100; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;">(Lembur)</text>
                     ` : (isSunday && b.total === 0 ? `
-                        <text x="${barPairCenter}" y="${zeroY + 30}" text-anchor="middle" style="fill: #98A2B3; font-size: 9.5px; font-weight: 500;">(Libur)</text>
+                        <text x="${barPairCenter}" y="${b.dateFormatted ? zeroY + 43 : zeroY + 30}" text-anchor="middle" style="fill: #98A2B3; font-size: 9px; font-weight: 500;">(Libur)</text>
                     ` : '')}
                 </g>
             `;
@@ -1284,7 +623,7 @@
                 <!-- Floating Black Tooltip (Esse style) -->
                 <div id="esse-chart-tooltip" class="esse-dark-tooltip d-none" style="position: absolute;"></div>
 
-                <svg viewBox="0 0 ${chartWidth} ${chartHeight + 15}" preserveAspectRatio="xMidYMid meet" style="width: 100%; height: auto; max-height: 260px; display: block;" role="group" aria-label="Grafik perbandingan pengiriman ${metricTitle}">
+                <svg viewBox="0 0 ${chartWidth} ${chartHeight + 20}" preserveAspectRatio="xMidYMid meet" style="width: 100%; height: auto; max-height: 275px; display: block;" role="group" aria-label="Grafik perbandingan pengiriman ${metricTitle}">
                     ${gridHtml}
                     ${barsHtml}
                 </svg>
@@ -1316,6 +655,11 @@
             delivDestAll += item.deliveredDest;
         });
 
+        totalSJAll = countSJ(list.flatMap(item => item.items)).total;
+        const regionCount = new Set(list.flatMap(item => item.items.map(row => row.region))).size;
+        const clientCount = new Set(list.flatMap(item => item.items.map(row => row.customer))).size;
+        const headerCount = (key, value) => `<span class="vol-header-count" data-count="${key}" style="font-size:10px;font-weight:600;letter-spacing:0;text-transform:none;background:#EAECF0;color:#475467;border-radius:5px;padding:1px 5px;margin-left:4px">${fmtNum(value)}</span>`;
+
         const overallSuccessRate = totalDestAll > 0 ? Math.round((delivDestAll / totalDestAll) * 100) : 0;
 
         const rowsHtml = list.map((item, idx) => {
@@ -1323,12 +667,10 @@
             const rowDelivered = metric === 'destinations' ? item.deliveredDest : item.deliveredSJ;
             const rowPending = Math.max(0, rowTotal - rowDelivered);
             const rowRate = rowTotal > 0 ? Math.round((rowDelivered / rowTotal) * 100) : 0;
-            const nameParam = escapeHtml(item.name).replace(/'/g, "\\'");
-            const regionParam = escapeHtml(item.region || '').replace(/'/g, "\\'");
 
             return `
                 <tr class="cursor-pointer esse-table-row transition"
-                    onclick="VolumeComparison.filterByRow('${nameParam}')"
+                    tabindex="0" role="button" onclick="VolumeComparison.filterByRow(decodeURIComponent('${encodeURIComponent(item.name).replace(/'/g, '%27')}'))" onkeydown="if(event.key === 'Enter' || event.key === ' '){event.preventDefault(); this.click()}"
                     style="border-bottom: 1px solid #F2F4F7;">
                     <td class="py-2.5 px-3" style="min-width: 220px; max-width: 320px;">
                         <div class="fw-semibold text-dark text-truncate" style="font-size: 13px; line-height: 1.3;" title="${escapeHtml(item.name)}">
@@ -1382,28 +724,28 @@
                             <tr class="text-nowrap" style="height: 38px;">
                                 <th class="cursor-pointer select-none py-2 px-3 border-bottom" style="font-size: 11px; font-weight: 600; color: #475467; text-transform: uppercase; letter-spacing: 0.04em; background: #F9FAFB; border-color: #EAECF0;" onclick="VolumeComparison.setSort('name')">
                                     <div class="d-inline-flex align-items-center gap-1">
-                                        <span>${isDimCustomer ? 'KLIEN / CUSTOMER' : 'REGION'}</span>
+                                        <span>${isDimCustomer ? 'KLIEN / CUSTOMER' : 'REGION'}</span>${headerCount('groups',list.length)}
                                         <i class="bi bi-arrow-down-up text-muted opacity-50" style="font-size: 10px;"></i>
                                     </div>
                                 </th>
                                 <th class="py-2 px-3 border-bottom" style="font-size: 11px; font-weight: 600; color: #475467; text-transform: uppercase; letter-spacing: 0.04em; background: #F9FAFB; border-color: #EAECF0;">
-                                    ${isDimCustomer ? 'REGION' : 'TOTAL KLIEN'}
+                                    ${isDimCustomer ? 'REGION' : 'TOTAL KLIEN'}${headerCount(isDimCustomer ? 'regions' : 'clients',isDimCustomer ? regionCount : clientCount)}
                                 </th>
                                 <th class="cursor-pointer select-none py-2 px-3 border-bottom text-end" style="font-size: 11px; font-weight: 600; color: #475467; text-transform: uppercase; letter-spacing: 0.04em; background: #F9FAFB; border-color: #EAECF0;" onclick="VolumeComparison.setSort('total')">
                                     <div class="d-inline-flex align-items-center justify-content-end gap-1 w-100">
-                                        <span>SURAT JALAN</span>
+                                        <span>SURAT JALAN</span>${headerCount('sj',totalSJAll)}
                                         <i class="bi bi-arrow-down-up text-muted opacity-50" style="font-size: 10px;"></i>
                                     </div>
                                 </th>
                                 <th class="cursor-pointer select-none py-2 px-3 border-bottom text-end" style="font-size: 11px; font-weight: 600; color: #475467; text-transform: uppercase; letter-spacing: 0.04em; background: #F9FAFB; border-color: #EAECF0;" onclick="VolumeComparison.setSort('total')">
                                     <div class="d-inline-flex align-items-center justify-content-end gap-1 w-100">
-                                        <span>TOTAL TITIK</span>
+                                        <span>TOTAL TITIK</span>${headerCount('destinations',totalDestAll)}
                                         <i class="bi bi-arrow-down-up text-muted opacity-50" style="font-size: 10px;"></i>
                                     </div>
                                 </th>
                                 <th class="cursor-pointer select-none py-2 px-3 border-bottom text-end" style="font-size: 11px; font-weight: 600; color: #475467; text-transform: uppercase; letter-spacing: 0.04em; background: #F9FAFB; border-color: #EAECF0;" onclick="VolumeComparison.setSort('delivered')">
                                     <div class="d-inline-flex align-items-center justify-content-end gap-1 w-100">
-                                        <span>SUKSES</span>
+                                        <span>SUKSES</span>${headerCount('completed',delivDestAll)}
                                         <i class="bi bi-arrow-down-up text-muted opacity-50" style="font-size: 10px;"></i>
                                     </div>
                                 </th>
@@ -1447,8 +789,8 @@
         const availableRegions = getAvailableRegions(rawData);
         const availableAdmins = getAvailableAdmins(rawData);
         const availableCouriers = getAvailableCouriers(rawData);
-        const dailyBuckets = computeDailyBuckets(rawData, currentMetric, currentRegion, currentAdmin, currentCourier, startDate, endDate);
-        const breakdownData = computeBreakdownData(rawData, breakdownDim, currentRegion, currentAdmin, currentCourier, startDate, endDate, breakdownSearch);
+        const dailyBuckets = computeDailyBuckets(rawData, currentMetric, currentRegion, currentAdmin, currentCourier, startDate, endDate, currentVehicle);
+        const breakdownData = computeBreakdownData(rawData, breakdownDim, currentRegion, currentAdmin, currentCourier, startDate, endDate, breakdownSearch, currentVehicle);
 
         let totalWeeklyVolume = 0;
         let deliveredWeeklyVolume = 0;
@@ -1475,7 +817,7 @@
                             </button>
                         </div>
                         <p class="m-0 mt-0.5" style="font-size: 12px; color: #667085;">
-                            ${fmtNum(totalWeeklyVolume)} ${unitName} total jadwal vs ${fmtNum(deliveredWeeklyVolume)} ${unitName} sukses (7 Hari Operasional)
+                            ${fmtNum(totalWeeklyVolume)} ${unitName} total jadwal vs ${fmtNum(deliveredWeeklyVolume)} ${unitName} sukses ${currentVehicle !== 'all' ? `• Armada ${currentVehicle === 'mobil' ? 'Mobil' : 'Motor'} ` : ''}(${escapeHtml(startDate)} – ${escapeHtml(endDate)} WIB)
                         </p>
                     </div>
 
@@ -1493,6 +835,15 @@
                             <select id="vol-region-select" class="form-select form-select-sm" style="height: 32px; border-radius: 8px; border-color: #D0D5DD; font-size: 12px; font-weight: 500; color: #101828;" onchange="VolumeComparison.setRegion(this.value)">
                                 <option value="all" ${currentRegion === 'all' ? 'selected' : ''}>Region</option>
                                 ${availableRegions.map(reg => `<option value="${escapeHtml(reg)}" ${currentRegion.toLowerCase() === reg.toLowerCase() ? 'selected' : ''}>${escapeHtml(reg)}</option>`).join('')}
+                            </select>
+                        </div>
+
+                        <!-- Vehicle Filter (Mobil vs Motor) -->
+                        <div style="min-width: 100px;">
+                            <select id="vol-vehicle-select" class="form-select form-select-sm" style="height: 32px; border-radius: 8px; border-color: #D0D5DD; font-size: 12px; font-weight: 500; color: #101828;" onchange="VolumeComparison.setVehicle(this.value)">
+                                <option value="all" ${currentVehicle === 'all' ? 'selected' : ''}>Armada</option>
+                                <option value="mobil" ${currentVehicle === 'mobil' ? 'selected' : ''}>🚗 Mobil</option>
+                                <option value="motor" ${currentVehicle === 'motor' ? 'selected' : ''}>🛵 Motor</option>
                             </select>
                         </div>
 
@@ -1586,6 +937,8 @@
             if (metricSel) root.wtrackDropdown.enhance(metricSel);
             const regionSel = root.document.getElementById('vol-region-select');
             if (regionSel) root.wtrackDropdown.enhance(regionSel);
+            const vehicleSel = root.document.getElementById('vol-vehicle-select');
+            if (vehicleSel) root.wtrackDropdown.enhance(vehicleSel);
         }
     }
 
@@ -1596,20 +949,21 @@
         if (!tooltipEl || !container) return;
 
         const rawData = collectTripData();
-        const dailyBuckets = computeDailyBuckets(rawData, currentMetric, currentRegion, currentAdmin, currentCourier, startDate, endDate);
+        const dailyBuckets = computeDailyBuckets(rawData, currentMetric, currentRegion, currentAdmin, currentCourier, startDate, endDate, currentVehicle);
         const b = dailyBuckets[idx];
         if (!b) return;
 
         const isSunday = b.day === 'Minggu';
         const statusLabel = isSunday ? (b.total > 0 ? 'Lembur Operasional' : 'Libur Operasional') : 'Operasional Aktif';
         const regionLabel = currentRegion === 'all' ? 'Semua Region' : currentRegion;
+        const vehicleLabel = currentVehicle === 'all' ? '' : (currentVehicle === 'mobil' ? ' • 🚗 Mobil' : ' • 🛵 Motor');
         const successRate = b.total > 0 ? Math.round((b.delivered / b.total) * 100) : 0;
         const pending = Math.max(0, b.total - b.delivered);
         const unitName = currentMetric === 'destinations' ? 'Titik' : 'SJ';
 
         tooltipEl.innerHTML = `
             <div class="fw-bold border-bottom pb-1.5 mb-2" style="font-size: 12px; color: #101828; border-color: #F2F4F7 !important;">
-                <span>${b.day} • ${statusLabel}</span>
+                <span>${b.day}${b.dateFormatted ? `, ${b.dateFormatted}` : ''}${vehicleLabel} • ${statusLabel}</span>
                 <span class="d-block text-muted text-truncate mt-0.5" style="font-size: 10.5px; font-weight: 400;">
                     <i class="bi bi-geo-alt me-1 text-primary"></i>${escapeHtml(regionLabel)}
                 </span>
@@ -1696,6 +1050,11 @@
         render();
     }
 
+    function setVehicle(val) {
+        currentVehicle = (val === 'all' || !val) ? 'all' : val;
+        render();
+    }
+
     function setDateRange(start, end) {
         startDate = start || '';
         endDate = end || '';
@@ -1703,8 +1062,7 @@
     }
 
     function clearDateRange() {
-        startDate = '';
-        endDate = '';
+        [startDate, endDate] = currentWeek();
         render();
     }
 
@@ -1734,15 +1092,142 @@
         render();
     }
 
-    function filterByRow(name) {
-        if (!name) return;
-        const searchInput = root.document.getElementById('recent-shipment-search');
-        if (searchInput && root.renderRecentShipments) {
-            searchInput.value = name;
-            root.renderRecentShipments(name);
-            searchInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            if (root.showToast) root.showToast(`Memfilter pengiriman ke ${name}`);
+    function getShipmentSelection() {
+        if (!shipmentSelection) return null;
+        const choice = shipmentSelection;
+        let rows = filterTripItems(collectTripData(), choice.region, choice.admin, choice.courier, choice.start, choice.end, choice.vehicle);
+        rows = rows.filter(row => choice.kind === 'day' ? row.day === choice.value : row[choice.dim] === choice.value);
+        if (choice.deliveredOnly) rows = rows.filter(row => row.deliveredDestinations > 0);
+        return new Map(rows.map(row => [`${row.tripId}:${row.destinationIndex}`, row]));
+    }
+
+    function getSelectionSummary() {
+        const selection = getShipmentSelection();
+        if (!selection) return null;
+        const rows = [...selection.values()];
+        const total = rows.length;
+        const completed = rows.filter(row => row.deliveredDestinations > 0).length;
+        const returned = rows.filter(row => row.returned).length;
+        let distance = 0;
+        if (typeof root.calculateAccurateTripKM === 'function') {
+            const seen = new Set();
+            (root.allCurrentTrips || []).forEach(trip => {
+                const id = trip.id || trip.tripId;
+                if (seen.has(id)) return;
+                seen.add(id);
+                const stops = trip.destinations?.length ? trip.destinations : [trip];
+                const selected = stops.filter((stop,index) => selection.has(`${id}:${index}`));
+                if (selected.length) distance += root.calculateAccurateTripKM({...trip,destinations:selected}) || 0;
+            });
         }
+        const choice = shipmentSelection;
+        let label = '';
+        if (choice.kind === 'day') {
+            let dayDate = choice.date;
+            if (!dayDate) {
+                if (rows.length > 0 && rows[0].date) {
+                    dayDate = rows[0].date;
+                } else if (choice.start && /^\d{4}-\d{2}-\d{2}$/.test(choice.start)) {
+                    const dayIdx = typeof choice.dayIndex === 'number' ? choice.dayIndex : DAYS_ORDER.indexOf(choice.value);
+                    if (dayIdx >= 0) {
+                        const d = new Date(choice.start + 'T00:00:00Z');
+                        const dayOfWeek = (d.getUTCDay() + 6) % 7;
+                        const m = new Date(d);
+                        m.setUTCDate(d.getUTCDate() - dayOfWeek + dayIdx);
+                        dayDate = m.toISOString().slice(0, 10);
+                    }
+                }
+            }
+            const dateStr = dayDate ? formatIndoDate(dayDate, true) : choice.value;
+            label = `${dateStr}${choice.deliveredOnly ? ' • Selesai' : ''}`;
+        } else {
+            const rangeStr = formatIndoDateRange(choice.start, choice.end);
+            label = `${choice.value}${choice.deliveredOnly ? ' • Selesai' : ''} • ${rangeStr}`;
+        }
+
+        return {
+            total,
+            completed,
+            returned,
+            inProgress: total - completed - returned,
+            distance,
+            rate: total ? Math.round(completed / total * 100) : 0,
+            label
+        };
+    }
+
+    function applyStatCards() {
+        const summary = getSelectionSummary();
+        const card = root.document.getElementById('stat-active')?.closest?.('.stat-card');
+        const title = card?.querySelector?.('.stat-label');
+        if (title) title.textContent = summary ? 'Total Shipments' : 'Total Shipments Today';
+        const defaults = {'stat-active':'Hari Ini','stat-completed':'Hari Ini','stat-ontime':'Real-time',
+            'stat-delayed':'Ke Kantor','stat-total-km':'Real-time'};
+        Object.entries(defaults).forEach(([id,fallback]) => {
+            const trend = root.document.getElementById(id)?.closest?.('.stat-card')?.querySelector?.('.stat-trend');
+            if (trend) {
+                const textVal = summary ? summary.label + (id === 'stat-total-km' ? ' • Estimasi' : '') : fallback;
+                trend.textContent = textVal;
+                trend.setAttribute('title', textVal);
+            }
+        });
+        if (!summary) return;
+        const values = {'stat-active':summary.total,'stat-completed':summary.completed,'stat-delayed':summary.returned,
+            'stat-ontime':summary.rate + '%','stat-total-km':summary.distance.toFixed(1) + ' km',
+            'stat-active-tasks':summary.inProgress,'stat-transit-count':summary.inProgress};
+        Object.entries(values).forEach(([id,value]) => {
+            const element = root.document.getElementById(id);
+            if (element) element.innerText = value;
+        });
+        const percentages = {delivered:summary.rate,pending:summary.total ? Math.round(summary.inProgress/summary.total*100) : 0,
+            returned:summary.total ? Math.round(summary.returned/summary.total*100) : 0};
+        Object.entries(percentages).forEach(([key,value]) => {
+            const text = root.document.getElementById('pct-' + key), bar = root.document.getElementById('pbar-' + key);
+            if (text) text.innerText = value + '%';
+            if (bar) bar.style.width = value + '%';
+        });
+    }
+
+    function clearShipmentSelection(refresh = true) {
+        shipmentSelection = null;
+        const banner = root.document.getElementById('recent-volume-filter');
+        if (banner) { banner.hidden = true; banner.innerHTML = ''; }
+        if (refresh) root.renderRecentShipments?.();
+    }
+
+    function applyShipmentSelection(choice) {
+        shipmentSelection = {...choice, region: currentRegion, admin: currentAdmin,
+            courier: currentCourier, vehicle: currentVehicle, start: startDate, end: endDate};
+        const values = {'recent-shipment-search': '', 'recent-status-filter': 'all',
+            'recent-carrier-filter': 'all', 'recent-date-filter': 'all',
+            'recent-start-date': startDate, 'recent-end-date': endDate};
+        Object.entries(values).forEach(([id, value]) => {
+            const element = root.document.getElementById(id);
+            if (element) element.value = value;
+        });
+        const banner = root.document.getElementById('recent-volume-filter');
+        if (banner) {
+            banner.hidden = false;
+            const displayChoice = choice.kind === 'day' && choice.date ? formatIndoDate(choice.date, true) : choice.value;
+            banner.innerHTML = `<span>Pilihan grafik: ${escapeHtml(displayChoice)}${choice.deliveredOnly ? ' • Selesai' : ''}</span><button type="button" class="btn btn-sm btn-light border ms-2" onclick="VolumeComparison.clearShipmentSelection()">Hapus pilihan</button>`;
+        }
+        root.renderRecentShipments?.('', true);
+        root.document.getElementById('recent-shipments-total-badge')?.scrollIntoView?.({behavior:'smooth', block:'center'});
+    }
+
+    function filterByDay(index, event) {
+        const day = DAYS_ORDER[index];
+        if (!day) return;
+        const deliveredOnly = !!event?.target?.classList?.contains('chart-bar-delivered');
+        const rawData = collectTripData();
+        const buckets = computeDailyBuckets(rawData, currentMetric, currentRegion, currentAdmin, currentCourier, startDate, endDate, currentVehicle);
+        const bucket = buckets[index];
+        const date = bucket?.date || '';
+        applyShipmentSelection({kind:'day', value:day, deliveredOnly, date, dayIndex: index});
+    }
+
+    function filterByRow(name) {
+        if (name) applyShipmentSelection({kind:'row', value:name, dim:breakdownDim});
     }
 
     function toggleCollapse() {
@@ -1753,12 +1238,13 @@
 
     async function downloadReport() {
         const rawData = collectTripData();
-        const breakdownData = computeBreakdownData(rawData, breakdownDim, currentRegion, currentAdmin, currentCourier, startDate, endDate, breakdownSearch);
+        const breakdownData = computeBreakdownData(rawData, breakdownDim, currentRegion, currentAdmin, currentCourier, startDate, endDate, breakdownSearch, currentVehicle);
         const dateStr = new Date().toISOString().slice(0, 10);
         const periodStr = (startDate && endDate) ? `${startDate} s/d ${endDate}` : (startDate ? `Mulai ${startDate}` : (endDate ? `Sampai ${endDate}` : 'Semua Tanggal'));
         const regionLabel = currentRegion === 'all' ? 'Semua Region' : currentRegion;
         const adminLabel = currentAdmin === 'all' ? 'Semua Admin' : currentAdmin;
         const courierLabel = currentCourier === 'all' ? 'Semua Kurir' : currentCourier;
+        const vehicleLabel = currentVehicle === 'all' ? 'Semua Armada' : (currentVehicle === 'mobil' ? 'Mobil' : 'Motor');
         const metricLabel = currentMetric === 'destinations' ? 'Titik Pengantaran' : 'Surat Jalan';
         const dimLabel = breakdownDim === 'customer' ? 'Klien' : 'Region';
 
@@ -1787,7 +1273,7 @@
             // 2. Subtitle Banner (Row 2)
             sheet.mergeCells('A2:I2');
             const subCell = sheet.getCell('A2');
-            subCell.value = `Periode: ${periodStr}  |  Region: ${regionLabel}  |  Admin SJ: ${adminLabel}  |  Kurir: ${courierLabel}  |  Metrik: ${metricLabel}  |  Total: ${breakdownData.list.length} ${dimLabel}`;
+            subCell.value = `Periode: ${periodStr}  |  Region: ${regionLabel}  |  Armada: ${vehicleLabel}  |  Admin SJ: ${adminLabel}  |  Kurir: ${courierLabel}  |  Metrik: ${metricLabel}  |  Total: ${breakdownData.list.length} ${dimLabel}`;
             subCell.font = { name: 'Calibri', size: 9.5, italic: true, bold: true, color: { argb: 'FF1F4E79' } };
             subCell.fill = {
                 type: 'pattern',
@@ -1994,16 +1480,25 @@
 
     const api = {
         render,
+        collectTripData,
+        computeDailyBuckets,
+        computeBreakdownData,
         setMetric,
         setRegion,
         setAdmin,
         setCourier,
+        setVehicle,
         setDateRange,
         clearDateRange,
         setBreakdownDim,
         setSearch,
         setSort,
         filterByRow,
+        filterByDay,
+        getShipmentSelection,
+        clearShipmentSelection,
+        getSelectionSummary,
+        applyStatCards,
         toggleCollapse,
         downloadReport,
         showTooltip,

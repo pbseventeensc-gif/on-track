@@ -1976,7 +1976,7 @@ async function loadPoolTrips() {
 
         // Muat dari penyimpanan lokal (LocalStorage)
         try {
-            const rawStored = localStorage.getItem('wtrack_local_trips');
+            const rawStored = window.WTRACK_LOCAL_SANDBOX ? localStorage.getItem('wtrack_local_trips') : null;
             if (rawStored) {
                 const localTrips = JSON.parse(rawStored);
                 if (Array.isArray(localTrips)) {
@@ -1989,6 +1989,7 @@ async function loadPoolTrips() {
             }
         } catch (e) {}
 
+        window.allPoolTrips = allPoolTrips;
         const bulkSelect = document.getElementById('bulk-courier-select');
         if (bulkSelect && typeof buildCourierOptgroupHtml === 'function') {
             bulkSelect.innerHTML = buildCourierOptgroupHtml('Pilih Kurir Tujuan...', 'defaultUid');
@@ -2304,7 +2305,11 @@ function customerDocumentId(name) {
     return `CLIENT_${key.slice(0, 120) || 'UNKNOWN'}`;
 }
 
-window.setCustomerMasterCache = values => { cachedAllClients = values; };
+window.setCustomerMasterCache = values => {
+    cachedAllClients = values;
+    window.VolumeComparison?.render();
+};
+window.getCustomerMasterRows = () => cachedAllClients || [];
 window.getCustomerAdminSJLookup = async function() {
     if (window.CustomerMaster) return window.CustomerMaster.getLookup();
     if (!cachedAllClients) {
@@ -2858,11 +2863,12 @@ function initTripsSnapshot() {
 
     activeDb.collection('trips').onSnapshot(snap => {
         const trips = [];
+        const pool = [];
 
         snap.forEach(doc => {
             const t = doc.data();
             t.id = doc.id;
-            if (t.status === 'pool') return; // Pool items belong to SJ Pool until assigned
+            if (t.status === 'pool' || (!t.courierId && !['completed','done','delivered'].includes(t.status))) { pool.push(t); return; }
             if (t.status === 'assigned') {
                 t.status = 'in_progress';
             }
@@ -2878,8 +2884,11 @@ function initTripsSnapshot() {
             // Seluruh trip (bulan berjalan maupun bulan-bulan lalu) dimuat utuh tanpa filter hapus/skip
             trips.push(t);
         });
+        allPoolTrips = pool;
+        window.allPoolTrips = pool;
         allCurrentTrips = trips;
         window.allCurrentTrips = trips;
+        window.UnifiedPoolUI?.renderUnifiedPoolView();
         if (typeof initDefaultDateFilters === 'function') initDefaultDateFilters();
         updateGlobalStats();
         renderRecentShipments();
@@ -3105,6 +3114,7 @@ function updateGlobalStats() {
         const deliveryRate = displayTotal > 0 ? Math.round((displayDelivered / displayTotal) * 100) : 0;
         if(document.getElementById('stat-ontime')) document.getElementById('stat-ontime').innerText = deliveryRate + "%";
 
+        window.VolumeComparison?.applyStatCards?.();
         refreshAllMonitorData();
         updateDynamicAlerts();
         updateHeaderDate();
@@ -4391,6 +4401,13 @@ let recentSortField = 'date';
 let recentSortAsc = false;
 
 function filterTableByCard(cardType) {
+    if (window.VolumeComparison?.getShipmentSelection?.()) {
+        const status = document.getElementById('recent-status-filter');
+        if (status) status.value = cardType === 'completed' ? 'completed' :
+            ['returned','delayed'].includes(cardType) ? 'returned' : cardType === 'active_tasks' ? 'active_all' : 'all';
+        renderRecentShipments();
+        return;
+    }
     const sStatus = document.getElementById('recent-status-filter');
     const sStart = document.getElementById('recent-start-date');
     const sEnd = document.getElementById('recent-end-date');
@@ -4484,7 +4501,7 @@ function getRealSJNumber(d, t) {
 window.getRealSJNumber = getRealSJNumber;
 
 let renderRecentShipmentsTimer = null;
-function renderRecentShipments(filter = "", immediate = false) {
+function renderRecentShipments(filter = null, immediate = false) {
     if (immediate) {
         if (renderRecentShipmentsTimer) {
             clearTimeout(renderRecentShipmentsTimer);
@@ -4502,10 +4519,11 @@ function renderRecentShipments(filter = "", immediate = false) {
     }, 16);
 }
 
-function executeRenderRecentShipments(filter = "") {
+function executeRenderRecentShipments(filter = null) {
     const table = document.getElementById('recent-shipments-table');
     if(!table) return;
 
+    const volumeSelection = window.VolumeComparison?.getShipmentSelection?.();
     const rawSearch = (typeof filter === 'string' ? filter : (document.getElementById('recent-shipment-search')?.value || "")).toLowerCase().trim();
     const selectedStatus = document.getElementById('recent-status-filter')?.value || "all";
     const selectedCarrier = document.getElementById('recent-carrier-filter')?.value || "all";
@@ -4584,13 +4602,16 @@ function executeRenderRecentShipments(filter = "") {
         }
 
         // Check Date Filter using robust date range check
-        if (filterStartMs > 0 && !isTripInDateRange(t, filterStartMs, filterEndMs)) {
+        if (!volumeSelection && filterStartMs > 0 && !isTripInDateRange(t, filterStartMs, filterEndMs)) {
             return;
         }
 
-        if (t.destinations && t.destinations.length > 0) {
-            t.destinations.forEach((d, idx) => {
+        const tableDestinations = t.destinations?.length ? t.destinations : (volumeSelection ? [t] : []);
+        if (tableDestinations.length) {
+            tableDestinations.forEach((d, idx) => {
                 if (!d) return;
+                const selectedVolumeRow = volumeSelection?.get(`${t.id || t.tripId}:${idx}`);
+                if (volumeSelection && !selectedVolumeRow) return;
                 const customerName = d.customer || d.clientName || t.customer || t.clientName || '';
                 let locName = d.locationName || customerName || 'Destination';
                 if (locName === 'Tujuan Pengantaran' && customerName) {
@@ -4608,8 +4629,8 @@ function executeRenderRecentShipments(filter = "") {
                 const isKlienTutupApproved = (rawStatus === 'pending' && d.pendingReason && d.pendingReason.length > 0);
                 const isPendingApproval = (rawStatus === 'pending_approval');
 
-                const isDoneOrHasPhoto = (d.status === 'done' || d.status === 'completed' || hasAnyPhoto);
-                const status = isDoneOrHasPhoto ? 'completed' : (d.status === 'arrived' ? 'in_progress' : (isPendingApproval ? 'pending_approval' : (isKlienTutupApproved ? 'klien_tutup' : (t.status || 'pending'))));
+                const isDoneOrHasPhoto = selectedVolumeRow ? selectedVolumeRow.deliveredDestinations > 0 : (d.status === 'done' || d.status === 'completed' || d.status === 'delivered' || hasAnyPhoto);
+                const status = selectedVolumeRow && !isDoneOrHasPhoto ? (d.status === 'arrived' ? 'in_progress' : (d.status || 'in_progress')) : isDoneOrHasPhoto ? 'completed' : (d.status === 'arrived' ? 'in_progress' : (isPendingApproval ? 'pending_approval' : (isKlienTutupApproved ? 'klien_tutup' : (t.status || 'pending'))));
                 const statusClass = status === 'completed' ? 'delivered' : (status === 'assigned' ? 'pending' : (isKlienTutupApproved ? 'danger' : 'transit'));
 
                 const timeStr = shipmentStatusTime(d, t, status);
@@ -4681,7 +4702,7 @@ function executeRenderRecentShipments(filter = "") {
         }
     });
 
-    const isFiltered = !!(startDateVal || endDateVal || selectedStatus !== 'all' || selectedCarrier !== 'all' || rawSearch.length > 0 || (document.getElementById('recent-date-filter')?.value && document.getElementById('recent-date-filter')?.value !== 'today'));
+    const isFiltered = !!(volumeSelection || startDateVal || endDateVal || selectedStatus !== 'all' || selectedCarrier !== 'all' || rawSearch.length > 0 || (document.getElementById('recent-date-filter')?.value && document.getElementById('recent-date-filter')?.value !== 'today'));
     const rowsToRender = isFiltered ? shipmentRows : shipmentRows.slice(0, 500);
 
     if (window.BulkAssignment) BulkAssignment.sync(rowsToRender);
@@ -4897,6 +4918,7 @@ function toggleRecentAddressColumn(force) {
 window.toggleRecentAddressColumn = toggleRecentAddressColumn;
 
 function resetRecentFilters() {
+    window.VolumeComparison?.clearShipmentSelection?.(false);
     const sSearch = document.getElementById('recent-shipment-search');
     const sStatus = document.getElementById('recent-status-filter');
     const sCarrier = document.getElementById('recent-carrier-filter');
@@ -5210,6 +5232,7 @@ function resolveDestinationRegion(destination = {}) {
 window.resolveDestinationRegion = resolveDestinationRegion;
 
 async function exportRecentShipmentsToExcel() {
+    const volumeSelection = window.VolumeComparison?.getShipmentSelection?.();
     const rawSearch = (document.getElementById('recent-shipment-search')?.value || "").toLowerCase().trim();
     const selectedStatus = document.getElementById('recent-status-filter')?.value || "all";
     const selectedCarrier = document.getElementById('recent-carrier-filter')?.value || "all";
@@ -5289,13 +5312,16 @@ async function exportRecentShipmentsToExcel() {
         }
 
         // Check Date Filter using flexible range check
-        if (filterStartMs > 0 && !isTripInDateRange(t, filterStartMs, filterEndMs)) {
+        if (!volumeSelection && filterStartMs > 0 && !isTripInDateRange(t, filterStartMs, filterEndMs)) {
             return;
         }
 
-        if (t.destinations && t.destinations.length > 0) {
-            t.destinations.forEach((d, idx) => {
+        const tableDestinations = t.destinations?.length ? t.destinations : (volumeSelection ? [t] : []);
+        if (tableDestinations.length) {
+            tableDestinations.forEach((d, idx) => {
                 if (!d) return;
+                const selectedVolumeRow = volumeSelection?.get(`${t.id || t.tripId}:${idx}`);
+                if (volumeSelection && !selectedVolumeRow) return;
                 const locName = d.locationName || 'Destination';
                 const fullAddress = d.address || '-';
                 const stopIdx = d.stopIndex || (idx + 1);
@@ -5306,8 +5332,8 @@ async function exportRecentShipmentsToExcel() {
                 const rawStatus = d.status || 'pending';
                 const isKlienTutupApproved = (rawStatus === 'pending' && d.pendingReason && d.pendingReason.length > 0);
                 const isPendingApproval = (rawStatus === 'pending_approval');
-                const isDoneOrHasPhoto = (d.status === 'done' || d.status === 'completed' || hasAnyPhoto);
-                const status = isDoneOrHasPhoto ? 'completed' : (d.status === 'arrived' ? 'in_progress' : (isPendingApproval ? 'pending_approval' : (isKlienTutupApproved ? 'klien_tutup' : (t.status || 'pending'))));
+                const isDoneOrHasPhoto = selectedVolumeRow ? selectedVolumeRow.deliveredDestinations > 0 : (d.status === 'done' || d.status === 'completed' || d.status === 'delivered' || hasAnyPhoto);
+                const status = selectedVolumeRow && !isDoneOrHasPhoto ? (d.status === 'arrived' ? 'in_progress' : (d.status || 'in_progress')) : isDoneOrHasPhoto ? 'completed' : (d.status === 'arrived' ? 'in_progress' : (isPendingApproval ? 'pending_approval' : (isKlienTutupApproved ? 'klien_tutup' : (t.status || 'pending'))));
 
                 const searchableText = `${uniqueShipmentId} ${tripIdShort} ${tripIdStr} ${cName} ${locName} ${fullAddress} ${status} ${d.pendingReason || ''} ${tripDateStr}`.toLowerCase();
                 const terms = rawSearch.split(/\s+/).filter(x => x.length > 0);

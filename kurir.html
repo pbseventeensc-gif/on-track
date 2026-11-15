@@ -1116,7 +1116,7 @@
     <script src="js/delivery_identity.js?v=20261114.1"></script>
     <script src="js/maps_destination.js?v=20261114.1"></script>
     <script src="js/courier_admin.js?v=20261114.1"></script>
-    <script src="js/qr_claim.js?v=20261114.1"></script>
+    <script src="js/qr_claim.js?v=20261115.3"></script>
 </head>
 <body>
 
@@ -2197,8 +2197,8 @@
         if (s.status === 'delivered' || s.status === 'completed') {
             return diff > 3;
         }
-        // Tugas aktif / in_progress yang sangat lama (>7 hari) dianggap kadaluarsa agar tidak menumpuk
-        return diff > 7;
+        // An unfinished assignment remains visible until it is completed or unassigned.
+        return false;
     }
 
     function isShipmentHistory(s) {
@@ -2480,7 +2480,8 @@
                         const pendingReasonVal = dest.pendingReason || (dests.length === 1 ? t.pendingReason : '') || '';
                         const pendingPhotoVal = dest.pendingProofPhotoUrl || (dests.length === 1 ? t.pendingProofPhotoUrl : '') || '';
                         const isPendingReported = !isDone && (dest.status === 'pending_approval' || dest.status === 'klien_tutup' || !!pendingReasonVal);
-                        const dateIso = t.date?.toDate ? t.date.toDate().toISOString() : (t.date?.seconds ? new Date(t.date.seconds * 1000).toISOString() : (t.date || t.createdAt || new Date().toISOString()));
+                        const assignmentDate = t.assignedAt || t.date;
+                        const dateIso = assignmentDate?.toDate ? assignmentDate.toDate().toISOString() : (assignmentDate?.seconds ? new Date(assignmentDate.seconds * 1000).toISOString() : (assignmentDate || t.createdAt || new Date().toISOString()));
                         const isKurirMotor = !currentCourier.role || currentCourier.role.includes('Motor') || currentCourier.vehicleType === 'motor';
 
                         freshList.push({
@@ -4075,217 +4076,24 @@
                 else navigateToScreen('shipments');
                 return;
             }
-            let foundTrip = null;
-            let foundDocId = null;
-
-            // 1. Cari di Firestore trips
-            if (typeof firestoreDb !== 'undefined' && firestoreDb) {
-                // Cari langsung berdasarkan Doc ID
-                const docIdCandidates = [parsed.tripId, parsed.sjNumber, parsed.raw].filter(Boolean);
-                for (const cId of docIdCandidates) {
-                    try {
-                        const snap = await firestoreDb.collection('trips').doc(cId).get();
-                        if (snap.exists) {
-                            foundTrip = { id: snap.id, ...snap.data() };
-                            foundDocId = snap.id;
-                            break;
-                        }
-                    } catch(e) {}
-                }
-
-                // Query field lookups jika belum ketemu
-                if (!foundTrip) {
-                    const queryLookups = [];
-                    if (parsed.shortCode) {
-                        queryLookups.push(firestoreDb.collection('trips').where('shortCode', '==', parsed.shortCode).limit(1));
-                        queryLookups.push(firestoreDb.collection('trips').where('uniqueCode', '==', parsed.shortCode).limit(1));
-                    }
-                    if (parsed.sjNumber) {
-                        queryLookups.push(firestoreDb.collection('trips').where('noSJ', '==', parsed.sjNumber).limit(1));
-                        queryLookups.push(firestoreDb.collection('trips').where('sjNumber', '==', parsed.sjNumber).limit(1));
-                    }
-                    if (parsed.raw.startsWith('WTRACK|')) {
-                        queryLookups.push(firestoreDb.collection('trips').where('qrPayload', '==', parsed.raw).limit(1));
-                    }
-
-                    for (const q of queryLookups) {
-                        try {
-                            const qSnap = await q.get();
-                            if (!qSnap.empty) {
-                                const doc = qSnap.docs[0];
-                                foundTrip = { id: doc.id, ...doc.data() };
-                                foundDocId = doc.id;
-                                break;
-                            }
-                        } catch(e) {}
-                    }
-                }
-            }
-
-            // 2. Cari di cache lokal (wtrack_local_trips)
-            if (!foundTrip) {
-                try {
-                    const rawLocal = localStorage.getItem('wtrack_local_trips');
-                    if (rawLocal) {
-                        const localTrips = JSON.parse(rawLocal);
-                        if (Array.isArray(localTrips)) {
-                            foundTrip = localTrips.find(t => {
-                                const str = JSON.stringify(t);
-                                return parsed.searchKeys.some(k => str.includes(k));
-                            });
-                            if (foundTrip) foundDocId = foundTrip.id || foundTrip.tripId;
-                        }
-                    }
-                } catch(e) {}
-            }
-
-            // 3. Fallback jika sudah ada di masterShipments
-            if (!foundTrip) {
-                const inMaster = masterShipments.find(s => {
-                    const sStr = `${s.id} ${s.noSJ} ${s.rootTripId}`.toLowerCase();
-                    return parsed.searchKeys.some(k => sStr.includes(k.toLowerCase()));
-                });
-                if (inMaster) {
-                    foundTrip = {
-                        id: inMaster.rootTripId || inMaster.id,
-                        noSJ: inMaster.noSJ,
-                        status: inMaster.status === 'delivered' ? 'completed' : 'in_progress',
-                        destinations: [{
-                            locationName: inMaster.destination,
-                            address: inMaster.address,
-                            phone: inMaster.phone,
-                            status: inMaster.status === 'delivered' ? 'done' : 'in_progress',
-                            latitude: inMaster.latitude,
-                            longitude: inMaster.longitude,
-                            region: inMaster.region
-                        }]
-                    };
-                    foundDocId = inMaster.rootTripId || inMaster.id;
-                }
-            }
-
-            if (!foundTrip) {
-                showToast(`❌ Surat Jalan tidak ditemukan untuk barcode: ${parsed.raw}`);
-                navigateToScreen('home');
+            const result = await QRClaim.claimOnline(firestoreDb, parsed, currentCourier,
+                trip => doesTripBelongToCurrentCourier(trip));
+            // The realtime server snapshot owns the task list; no local success fallback.
+            syncFirestoreTrips();
+            if (result.alreadyAssigned) {
+                showToast('SJ sudah ada di tugas Anda.');
+                navigateToScreen('shipments');
                 return;
             }
-
-            // Cek apakah sudah delivered sebelumnya
-            const hasRealProof = foundTrip.proofPhotoUrl || (foundTrip.destinations && foundTrip.destinations.some(d => d.proofPhotoUrl));
-            const isAlreadyDone = foundTrip.status === 'completed' || foundTrip.status === 'done' || (hasRealProof && foundTrip.destinations && foundTrip.destinations.every(d => d.status === 'done'));
-
-            const displaySJ = foundTrip.noSJ || foundTrip.sjNumber || parsed.sjNumber || 'SJ';
-            const formattedSJ = String(displaySJ).startsWith('#') ? displaySJ : '#' + displaySJ;
-            const firstDest = (foundTrip.destinations && foundTrip.destinations[0]) || {};
-            const displayStore = firstDest.locationName || foundTrip.clientName || foundTrip.customer || 'Tujuan Pengantaran';
-            const displayAddr = firstDest.address || foundTrip.address || '-';
-
-            if (isAlreadyDone) {
-                showToast(`✓ Surat Jalan ${formattedSJ} sudah selesai diantar sebelumnya.`);
-                navigateToScreen('home');
-                return;
-            }
-
-            // =========================================================================
-            // AMBIL TUGAS (CLAIM AS IN-TRANSIT):
-            // Pindahkan dari Plan Shipment ke Dashboard Admin & Tugas Aktif Kurir
-            // =========================================================================
-            const nowIso = new Date().toISOString();
-            const cUid = (currentCourier && (currentCourier.uid || currentCourier.id)) || 'courier';
-            const cName = (currentCourier && currentCourier.name) || 'Kurir';
-
-            const updateData = {
-                status: 'in_progress',
-                deliveryStatus: 'in_progress',
-                courierId: cUid,
-                courierName: cName,
-                carrier: cName,
-                assignedAt: nowIso
-            };
-
-            if (typeof firebase !== 'undefined' && firebase.firestore && firebase.firestore.FieldValue) {
-                updateData.acceptedTime = firebase.firestore.FieldValue.serverTimestamp();
-            }
-
-            if (Array.isArray(foundTrip.destinations)) {
-                updateData.destinations = foundTrip.destinations.map(d => ({
-                    ...d,
-                    status: (d.status === 'done' || d.status === 'completed') ? d.status : 'in_progress'
-                }));
-            }
-
-            // 1. Simpan update ke Firestore
-            if (firestoreDb && foundDocId) {
-                try {
-                    await firestoreDb.collection('trips').doc(foundDocId).set(updateData, { merge: true });
-                } catch(e) {
-                    console.warn("Firestore claim error:", e);
-                }
-            }
-
-            // 2. Simpan update ke local storage
-            try {
-                const rawLocal = localStorage.getItem('wtrack_local_trips');
-                let localTrips = rawLocal ? JSON.parse(rawLocal) : [];
-                let foundInLocal = false;
-                localTrips = localTrips.map(lt => {
-                    if (lt.id === foundDocId || lt.tripId === foundDocId || (displaySJ && (lt.noSJ === displaySJ || lt.noSJ === formattedSJ))) {
-                        foundInLocal = true;
-                        return { ...lt, ...updateData };
-                    }
-                    return lt;
-                });
-                if (!foundInLocal) {
-                    localTrips.unshift({ ...foundTrip, ...updateData, id: foundDocId });
-                }
-                localStorage.setItem('wtrack_local_trips', JSON.stringify(localTrips));
-            } catch(e) {}
-
-            // 3. Masukkan ke masterShipments Kurir sebagai In Transit
-            const subId = foundDocId;
-            const isKurirMotor = !currentCourier.role || currentCourier.role.includes('Motor') || currentCourier.vehicleType === 'motor';
-            const existingInMaster = masterShipments.find(s => s.id === subId || s.rootTripId === foundDocId || (formattedSJ && formattedSJ !== '-' && (s.noSJ === formattedSJ || s.noSJ === displaySJ)));
-
-            const cardObj = {
-                id: subId,
-                rootTripId: foundDocId,
-                stopIndex: firstDest.stopIndex || 1,
-                noSJ: formattedSJ,
-                vehicleIcon: isKurirMotor ? '🛵' : '🚚',
-                origin: foundTrip.originBranch === 'cikokol' ? 'Wellen Cikokol' : 'Wellen Pusat',
-                destination: displayStore,
-                status: 'in-transit',
-                isPendingReported: false,
-                pendingReason: '',
-                pendingProofPhotoUrl: '',
-                pendingAt: null,
-                date: nowIso,
-                address: displayAddr,
-                phone: firstDest.phone || foundTrip.phone || '021-5506999',
-                latitude: firstDest.latitude ?? firstDest.lat ?? (foundTrip.destinations?.length > 1 ? null : foundTrip.latitude ?? foundTrip.lat ?? null),
-                longitude: firstDest.longitude ?? firstDest.lng ?? (foundTrip.destinations?.length > 1 ? null : foundTrip.longitude ?? foundTrip.lng ?? null),
-                storeName: firstDest.storeName || '',
-                storeDestination: firstDest.storeDestination || foundTrip.storeDestination || '',
-                customer: firstDest.customer || foundTrip.customer || '',
-                clientName: firstDest.clientName || foundTrip.clientName || '',
-                adminSJ: firstDest.adminSJ || foundTrip.adminSJ || '',
-                locationNeedsReview: !!firstDest.locationNeedsReview,
-                region: firstDest.region || foundTrip.region || '',
-                proofPhotoUrl: '',
-                proofSJUrl: ''
-            };
-
-            if (existingInMaster) {
-                Object.assign(existingInMaster, cardObj);
-            } else {
-                masterShipments.unshift(cardObj);
-            }
-
-            renderHomeScreen();
-            renderShipmentsScreen();
-
-            // 4. Tampilkan Modal Sukses Ambil Tugas (In Transit)
-            showTaskClaimedModal(cardObj);
+            const trip = result.trip, dest = trip.destinations?.[0] || {};
+            showTaskClaimedModal({
+                id:trip.id, rootTripId:trip.id, deliveryId:dest.deliveryId || '', destinationIndex:0,
+                noSJ:'#' + String(trip.noSJ || trip.sjNumber || '').replace(/^#/, ''),
+                destination:dest.locationName || trip.customer || '-', address:dest.address || trip.address || '-',
+                latitude:dest.latitude, longitude:dest.longitude, lat:dest.lat, lng:dest.lng,
+                locationNeedsReview:!!dest.locationNeedsReview,
+                vehicleIcon:currentCourier?.vehicleType === 'mobil' ? '🚚' : '🛵'
+            });
 
         } catch (err) {
             console.error("Barcode processing error:", err);
@@ -4538,141 +4346,92 @@
     }
 
     async function submitPendingReport() {
+        if (submitPendingReport.busy) return;
         const id = currentPendingTripId || document.getElementById('active-pending-trip-id')?.value;
-        if (!id) return;
-
-        const reasonInput = document.getElementById('pending-reason-input');
-        const reason = (reasonInput && reasonInput.value.trim()) ? reasonInput.value.trim() : 'Toko / Klien Tutup';
-
-        const note = document.getElementById('pending-note-input')?.value.trim() || '';
-
-        const defaultPendingSvg = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='200' viewBox='0 0 300 200'><rect width='300' height='200' fill='%23fff7ed' rx='10'/><rect x='15' y='15' width='270' height='170' fill='none' stroke='%23fdba74' stroke-width='2' stroke-dasharray='4,4' rx='6'/><text x='50%25' y='45%25' font-family='sans-serif' font-size='15' font-weight='bold' fill='%23c2410c' text-anchor='middle'>BUKTI LOKASI / PENDING</text><text x='50%25' y='65%25' font-family='sans-serif' font-size='12' fill='%23ea580c' font-weight='bold' text-anchor='middle'>" + encodeURIComponent(reason) + "</text></svg>";
-        const finalPendingPhoto = currentPendingPhoto || defaultPendingSvg;
-        const nowIso = new Date().toISOString();
-
         const target = masterShipments.find(s => s.id === id);
-
-
+        if (!target) { showToast('Tugas tidak ditemukan. Muat ulang daftar.'); return; }
+        const reason = document.getElementById('pending-reason-input')?.value.trim() || 'Toko / Klien Tutup';
+        const note = document.getElementById('pending-note-input')?.value.trim() || '';
+        const local = typeof window !== 'undefined' && !!window.WTRACK_LOCAL_SANDBOX;
+        const nowIso = new Date().toISOString();
+        const rootId = target.rootTripId || id;
+        const requeueId = 'TRIP_REQUEUE_' + DeliveryIdentity.newId();
+        const button = document.querySelector?.('#pendingReportModal .btn-brand-primary');
+        submitPendingReport.busy = true;
+        if (button) button.disabled = true;
         try {
-            const raw = localStorage.getItem('wtrack_local_trips');
-            if (raw) {
-                const stored = JSON.parse(raw);
-                const cleanSJ = target ? target.noSJ.replace(/^#/, '') : '';
-                const found = stored.find(s => s.id === id || s.id === (target && target.rootTripId));
-                if (found) {
-                    found.status = 'pending_approval';
-                    found.pendingReason = reason;
-                    found.pendingNote = note;
-                    found.pendingProofPhotoUrl = finalPendingPhoto;
-                    found.pendingAt = nowIso;
-                    if (found.destinations) {
-                        const selected = found.destinations[DeliveryIdentity.destinationIndex(found.destinations, target || {})];
-                        if (selected) {
-                            selected.status = 'pending_approval';
-                            selected.pendingReason = reason;
-                            selected.pendingNote = note;
-                            selected.pendingProofPhotoUrl = finalPendingPhoto;
-                            selected.pendingAt = nowIso;
-                        }
-                    }
-                    if (typeof window !== 'undefined' && window.WTRACK_LOCAL_SANDBOX && window.persistLocalSandboxTrips) await window.persistLocalSandboxTrips(stored);
-                    else localStorage.setItem('wtrack_local_trips', JSON.stringify(stored));
-                }
+            const photo = currentPendingPhoto ? (local ? currentPendingPhoto :
+                await uploadProofPhotoOnline(currentPendingPhoto, 'proofs_pending', {
+                    tripId:rootId,deliveryId:target.deliveryId || '',stopIndex:target.stopIndex || 1,
+                    sjNumber:(target.noSJ || '').replace(/^#/, '')})) : '';
+            const report = {status:'pending_approval',pendingReason:reason,pendingNote:note,
+                pendingProofPhotoUrl:photo,pendingAt:nowIso};
+            const updateTrip = trip => {
+                const destinations = trip.destinations?.length ? trip.destinations : [{
+                    stopIndex:target.stopIndex || 1,locationName:target.destination || '',
+                    address:target.address || '',noSJ:(target.noSJ || '').replace(/^#/, '')}];
+                const index = DeliveryIdentity.destinationIndex(destinations,target);
+                if (index < 0) throw Error('Titik pengiriman berubah. Muat ulang.');
+                const selected = destinations[index];
+                if (['done','completed','delivered'].includes(selected.status) || selected.completedTime || selected.completedAt)
+                    throw Error('Pengiriman sudah selesai. Laporan pending tidak disimpan.');
+                const unassigned = {courierId:'',courierName:'',assignedTo:'',driver:'',carrier:'',
+                    vehiclePlate:'',vehicleName:'',previousCourierId:trip.courierId || '',
+                    previousCourierName:trip.courierName || '',assignedAt:null,acceptedTime:null,
+                    completedAt:null,completedTime:null};
+                const attempts = [...(selected.failedAttempts || trip.failedAttempts || []),{
+                    courierId:trip.courierId || '',courierName:trip.courierName || '',
+                    sourceTripId:rootId,reason,note,photoUrl:photo,reportedAt:nowIso}];
+                const failed = {...selected,...report,failedAttempts:attempts};
+                const queued = {...trip,...unassigned,...report,failedAttempts:attempts,
+                    priority:'urgent',isFailed:true,isPendingRollover:true,destinations:[failed]};
+                if (destinations.length === 1) return {source:queued};
+                const remaining = destinations.filter((_,i)=>i !== index);
+                const allDone = remaining.every(d=>['done','completed','delivered'].includes(d.status));
+                return {source:{...trip,destinations:remaining,pendingReason:'',pendingNote:'',
+                    status:allDone ? 'completed' : 'in_progress',deliveryStatus:allDone ? 'completed' : 'in_progress',
+                    ...(allDone ? {completedAt:nowIso} : {})},
+                    queued:{...queued,id:requeueId,tripId:requeueId,sourceTripId:rootId,
+                        noSJ:selected.noSJ || selected.sjNumber || trip.noSJ || '',
+                        sjNumber:selected.sjNumber || selected.noSJ || trip.sjNumber || '',
+                        customer:selected.customer || selected.clientName || trip.customer || '',
+                        address:selected.address || trip.address || '',items:selected.items || trip.items || []}};
+            };
+            if (local) {
+                const stored = JSON.parse(localStorage.getItem('wtrack_local_trips') || '[]');
+                const trip = stored.find(t => (t.id || t.tripId) === rootId);
+                if (!trip) throw Error('Tugas tidak ditemukan.');
+                const result = updateTrip(trip);
+                const next = stored.map(t => t === trip ? result.source : t);
+                if (result.queued) next.push(result.queued);
+                if (window.persistLocalSandboxTrips) await window.persistLocalSandboxTrips(next);
+                else localStorage.setItem('wtrack_local_trips',JSON.stringify(next));
+            } else {
+                if (!firestoreDb) throw Error('Server belum terhubung. Laporan belum disimpan.');
+                await firestoreDb.runTransaction(async tx => {
+                    const ref = firestoreDb.collection('trips').doc(rootId);
+                    const snap = await tx.get(ref);
+                    if (!snap.exists) throw Error('Tugas sudah tidak tersedia.');
+                    const trip = snap.data();
+                    if (typeof doesTripBelongToCurrentCourier === 'function' && !doesTripBelongToCurrentCourier(trip))
+                        throw Error('Tugas sudah berpindah kurir. Muat ulang.');
+                    const result = updateTrip(trip);
+                    tx.update(ref,result.source);
+                    if (result.queued) tx.set(firestoreDb.collection('trips').doc(requeueId),result.queued);
+                });
             }
-        } catch(e) {
-            console.warn("Local pending update note:", e);
-            if (typeof window !== 'undefined' && window.WTRACK_LOCAL_SANDBOX) {
-                showToast(e.message || 'Laporan pending belum tersimpan. Coba lagi.');
-                return;
-            }
+            masterShipments = masterShipments.filter(s => s.id !== id);
+            renderHomeScreen();renderShipmentsScreen();
+            const modal = bootstrap.Modal.getInstance(document.getElementById('pendingReportModal'));
+            modal?.hide();
+            showToast(`Laporan Pending (${reason}) tersimpan dan muncul di Delivery Order.`);
+        } catch(error) {
+            console.warn('Laporan pending belum tersimpan:',error);
+            showToast(error.message || 'Laporan pending belum tersimpan. Coba lagi.');
+        } finally {
+            submitPendingReport.busy = false;
+            if (button) button.disabled = false;
         }
-
-        if (target) {
-            target.status = 'pending';
-            target.isPendingReported = true;
-            target.pendingReason = reason;
-            target.pendingNote = note;
-            target.pendingProofPhotoUrl = finalPendingPhoto;
-            target.pendingAt = nowIso;
-        }
-
-        if (firestoreDb) {
-            const docId = (target && target.rootTripId) ? target.rootTripId : id;
-            const cleanSJ = target ? target.noSJ.replace(/^#/, '') : docId;
-            const stopIdx = (target && target.stopIndex) || currentPendingStopIndex || 1;
-            try {
-                const tripRef = firestoreDb.collection('trips').doc(docId);
-                const snap = await tripRef.get();
-                if (snap.exists) {
-                    const tData = snap.data();
-                    const dests = Array.isArray(tData.destinations) && tData.destinations.length > 0 ? tData.destinations : [{
-                        stopIndex: stopIdx,
-                        locationName: (target && target.destination) || 'Klien Wellen',
-                        address: (target && target.address) || '-',
-                        sjNumber: cleanSJ,
-                        noSJ: cleanSJ
-                    }];
-                    const targetIndex = DeliveryIdentity.destinationIndex(dests, target || {stopIndex: stopIdx});
-                    if (targetIndex < 0) throw new Error('Titik pengiriman tidak ditemukan.');
-                    const updatedDests = dests.map((d, idx) => {
-                        if (idx === targetIndex) {
-                            return {
-                                ...d,
-                                status: 'pending_approval',
-                                pendingReason: reason,
-                                pendingNote: note,
-                                pendingProofPhotoUrl: finalPendingPhoto,
-                                pendingAt: nowIso
-                            };
-                        }
-                        return d;
-                    });
-                    await tripRef.update({
-                        destinations: updatedDests,
-                        pendingReason: reason,
-                        pendingNote: note,
-                        pendingAt: nowIso
-                    });
-                } else {
-                    await tripRef.set({
-                        tripId: docId,
-                        noSJ: cleanSJ,
-                        sjNumber: cleanSJ,
-                        courierId: currentCourier.uid || currentCourier.id,
-                        courierName: currentCourier.name,
-                        vehicleType: currentCourier.vehicleType || 'motor',
-                        status: 'in_progress',
-                        pendingReason: reason,
-                        pendingNote: note,
-                        pendingAt: nowIso,
-                        date: firebase.firestore.Timestamp.now(),
-                        destinations: [{
-                            stopIndex: stopIdx,
-                            locationName: (target && target.destination) || 'Klien Wellen',
-                            address: (target && target.address) || '-',
-                            sjNumber: cleanSJ,
-                            noSJ: cleanSJ,
-                            status: 'pending_approval',
-                            pendingReason: reason,
-                            pendingNote: note,
-                            pendingProofPhotoUrl: finalPendingPhoto,
-                            pendingAt: nowIso
-                        }]
-                    }, { merge: true });
-                }
-            } catch(e) {
-                console.warn("Firestore pending sync note:", e);
-            }
-        }
-
-        renderHomeScreen();
-        renderShipmentsScreen();
-
-        const pendingModalEl = document.getElementById('pendingReportModal');
-        const pendingModal = bootstrap.Modal.getInstance(pendingModalEl);
-        if (pendingModal) pendingModal.hide();
-
-        showToast(`⚠️ Laporan Pending (${reason}) berhasil dikirim ke Admin!`);
     }
 
 
@@ -5093,6 +4852,6 @@
 </script>
 <script src="/js/courier_route.js?v=20261114.1"></script>
 
-<script src="/js/courier_updates.js?v=20261114.1" data-build="25e3763ed7fe89b6"></script>
+<script src="/js/courier_updates.js?v=20261114.1" data-build="af8d98d80d215ebe"></script>
 </body>
 </html>

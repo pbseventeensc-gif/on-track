@@ -1822,6 +1822,7 @@
                 items: (item.items && item.items.length > 0) ? item.items : [{ nama: item.namaBarang || item.itemsSummary || 'Item Cetakan', ukuran:item.ukuran || '-', qty: item.qty || '1 Koli', finishing:item.finishing || '' }],
                 destinations: [{
                     stopIndex: 1,
+                    deliveryId: `DELIVERY_${tripId}_1`,
                     sjNumber: item.sjNumber,
                     noSJ: item.sjNumber,
                     adminSJ: finalAdminSJ,

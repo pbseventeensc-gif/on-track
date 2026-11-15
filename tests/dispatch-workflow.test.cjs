@@ -96,7 +96,7 @@ test('courier pending report persists the separate note on the exact delivery',a
     const source=trip(),data=new Map([['wtrack_local_trips',JSON.stringify([source])]]);
     const target={id:source.id,rootTripId:source.id,deliveryId:'delivery-a',noSJ:'#'+source.noSJ,stopIndex:1};
     const fields={'pending-reason-input':{value:'Klien tutup'},'pending-note-input':{value:'Hubungi Pak Budi besok'}};
-    const c=vm.createContext({currentPendingTripId:source.id,currentPendingPhoto:'',masterShipments:[target],DeliveryIdentity:identity,firestoreDb:null,
+    const c=vm.createContext({window:{WTRACK_LOCAL_SANDBOX:true},currentPendingTripId:source.id,currentPendingPhoto:'',masterShipments:[target],DeliveryIdentity:identity,firestoreDb:null,
         document:{getElementById:id=>fields[id]||{}},localStorage:{getItem:key=>data.get(key)||null,setItem:(key,value)=>data.set(key,value)},
         renderHomeScreen(){},renderShipmentsScreen(){},showToast(){},bootstrap:{Modal:{getInstance:()=>null}},console});
     const html=fs.readFileSync(require.resolve('../kurir.html'),'utf8');
@@ -116,4 +116,53 @@ test('courier local pending report waits for persistence and keeps the screen un
  const html=fs.readFileSync(require.resolve('../kurir.html'),'utf8');
  vm.runInContext(html.slice(html.indexOf('    async function submitPendingReport('),html.indexOf("    let currentSJPhoto = ''")),c);
  await c.submitPendingReport();assert.equal(target.status,'in_progress');assert.equal(written,false);assert.equal(rendered,false);assert.equal(toast,'Versi berubah');
+});
+test('pending remains above a newer urgent import even when the selected date is today',()=>{
+ const container={innerHTML:''};
+ const pending={id:'pending-doc',noSJ:'SJ-OLD-PENDING',status:'pending_approval',date:'2026-11-13',
+   pendingAt:'2026-11-14T01:00:00Z',pendingReason:'Toko tutup',readyStatus:'not_ready',region:'Bekasi'};
+ const imported={id:'new-doc',noSJ:'SJ-NEW-IMPORT',status:'pool',date:'2026-11-15',priority:'urgent',region:'Bekasi'};
+ const window={allPoolTrips:[imported,pending],allCurrentTrips:[]};
+ const c=vm.createContext({window,localStorage:{getItem:()=>null},console,Date,
+   document:{getElementById:id=>id==='view-pool'?container:null,querySelectorAll:()=>[]}});
+ vm.runInContext(fs.readFileSync(require.resolve('../js/unified_pool_ui.js'),'utf8'),c);
+ c.UnifiedPoolUI=window.UnifiedPoolUI;
+ window.UnifiedPoolUI.setDateFolder('2026-11-15');
+ const body=container.innerHTML.split('<tbody id="pool-table-body">')[1];
+ assert.ok(body.indexOf('SJ-OLD-PENDING')>=0);
+ assert.ok(body.indexOf('SJ-OLD-PENDING')<body.indexOf('SJ-NEW-IMPORT'));
+});
+test('cloud pending report never changes the card or claims success on a failed transaction',async()=>{
+ const html=fs.readFileSync(require.resolve('../kurir.html'),'utf8');
+ const target={id:'task',rootTripId:'task',deliveryId:'d',status:'in-transit',noSJ:'#SJ-TEST'};
+ const messages=[];
+ const c=vm.createContext({window:{},currentPendingTripId:'task',currentPendingPhoto:'',masterShipments:[target],
+  document:{getElementById:()=>({value:'Toko tutup'})},DeliveryIdentity:identity,
+  firestoreDb:{runTransaction:async()=>{throw Error('Koneksi gagal');}},
+  showToast:message=>messages.push(message),console:{warn(){}}});
+ vm.runInContext(html.slice(html.indexOf('    async function submitPendingReport('),html.indexOf("    let currentSJPhoto = ''")),c);
+ await c.submitPendingReport();
+ assert.equal(target.status,'in-transit');assert.equal(messages.at(-1),'Koneksi gagal');
+});
+test('a failed stop returns to Pool without losing completed siblings, then can be assigned again',async()=>{
+ const source=trip();source.destinations=[{...source.destinations[0],status:'done',completedTime:now},
+  {...source.destinations[0],deliveryId:'delivery-b',noSJ:'SJ-B',sjNumber:'SJ-B',locationName:'Toko B',status:'in_progress'}];
+ const data=new Map([['wtrack_local_trips',JSON.stringify([source])]]);
+ const target={id:'route_STOP_1',rootTripId:source.id,deliveryId:'delivery-b',noSJ:'#SJ-B',destinationIndex:1};
+ const fields={'pending-reason-input':{value:'Toko tutup'},'pending-note-input':{value:'Kirim besok'}};
+ const c=vm.createContext({window:{WTRACK_LOCAL_SANDBOX:true},currentPendingTripId:target.id,currentPendingPhoto:'data:image/jpeg;base64,TEST',
+  masterShipments:[target],DeliveryIdentity:identity,firestoreDb:null,
+  document:{getElementById:id=>fields[id]||{}},localStorage:{getItem:key=>data.get(key),setItem:(k,v)=>data.set(k,v)},
+  renderHomeScreen(){},renderShipmentsScreen(){},showToast(){},bootstrap:{Modal:{getInstance:()=>null}},console});
+ const html=fs.readFileSync(require.resolve('../kurir.html'),'utf8');
+ vm.runInContext(html.slice(html.indexOf('    async function submitPendingReport('),html.indexOf("    let currentSJPhoto = ''")),c);
+ await c.submitPendingReport();
+ const saved=JSON.parse(data.get('wtrack_local_trips'));
+ const queued=saved.find(t=>t.sourceTripId===source.id),original=saved.find(t=>t.id===source.id);
+ assert.equal(original.destinations.length,1);assert.equal(original.destinations[0].status,'done');
+ assert.equal(queued.courierId,'');assert.equal(queued.noSJ,'SJ-B');assert.equal(queued.destinations[0].deliveryId,'delivery-b');
+ assert.equal(queued.failedAttempts[0].note,'Kirim besok');
+ const assigned=require('../js/sj_assignment.js').assignTrip(queued,{id:'next',name:'Kurir Berikut'});
+ assert.equal(assigned.pendingReason,'');assert.equal(assigned.destinations[0].pendingReason,'');
+ assert.equal(assigned.failedAttempts[0].photoUrl,'data:image/jpeg;base64,TEST');
 });

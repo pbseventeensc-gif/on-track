@@ -1542,6 +1542,7 @@
                                     <button class="btn btn-sm btn-wellen-action d-inline-flex align-items-center gap-1.5" style="height: 32px; border-radius: 8px; font-size: 12px;" onclick="exportRecentShipmentsToExcel()"><i class="bi bi-file-earmark-excel"></i> Report</button>
                                 </div>
                             </div>
+                            <div id="recent-volume-filter" class="px-4 py-2 border-bottom" style="font-size:12px" hidden></div>
                             <div class="table-responsive" style="max-height: 480px; overflow-y: auto;">
                                 <table id="recent-shipments-grid" class="table table-hover align-middle m-0" style="table-layout: auto;">
                                     <thead class="sticky-top" style="position: sticky; top: 0; z-index: 10; background: #F9FAFB;">
@@ -2934,13 +2935,13 @@
 </div>
 
 <div class="modal fade" id="imageModal" tabindex="-1">
-    <div class="modal-dialog modal-sm modal-dialog-centered" style="max-width: 400px;">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 540px; width: 95%;">
         <div class="modal-content border-0 shadow-lg" style="border-radius:24px; overflow:hidden">
             <div class="position-absolute top-0 end-0 p-3" style="z-index: 10">
                 <button type="button" class="btn-close-custom" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body p-0 text-center bg-black d-flex align-items-center justify-content-center flex-column" style="min-height: 300px; position: relative;">
-                <img id="modalImg" src="" style="max-width:100%; max-height: 65vh; width: auto; height: auto; object-fit: contain; image-rendering: high-quality;">
+            <div class="modal-body p-0 text-center bg-black d-flex align-items-center justify-content-center flex-column" style="min-height: 320px; position: relative;">
+                <img id="modalImg" src="" style="width: 100%; height: auto; max-height: 75vh; object-fit: contain; display: block; margin: 0 auto; image-rendering: high-quality;" alt="Bukti PoD">
                 <div id="modalThumbnails" class="d-flex gap-2 justify-content-center align-items-center p-2 bg-dark w-100" style="display:none !important; overflow-x: auto;"></div>
                 <div class="p-3 w-100" style="background: linear-gradient(transparent, rgba(0,0,0,0.8))">
                     <a id="downloadBtn" href="#" download class="btn btn-light btn-sm w-100 fw-bold py-2" style="border-radius: 8px">
@@ -3655,7 +3656,7 @@
 <script src="/js/maps.js?v=20261114.1"></script>
 <script src="/js/fleet_vehicles.js?v=20261114.1"></script>
 <script src="js/delivery_identity.js?v=20261114.1"></script>
-<script src="/js/app.js?v=20261114.1"></script>
+<script src="/js/app.js?v=20261115.4"></script>
 <script src="/js/customer_master.js?v=20261114.1"></script>
 <script src="/js/bulk_assignment.js?v=20261114.1"></script>
 <script src="/js/kpi.js?v=20261114.1"></script>
@@ -3663,7 +3664,7 @@
 <script src="/js/custom_dropdown.js?v=20261114.1"></script>
 <script src="/js/vendor/qrcode.js?v=20261114.1"></script>
 <script src="/js/qr_print_dispatch.js?v=20261114.1"></script>
-<script src="/js/sj_import_engine.js?v=20261114.1"></script>
+<script src="/js/sj_import_engine.js?v=20261115.2"></script>
 <script src="/js/branch_workstation.js?v=20261114.1"></script>
 <script src="/js/spk_manager.js?v=20261114.1"></script>
 <script src="/js/web_qr_scanner_sim.js?v=20261114.1"></script>
@@ -3673,11 +3674,12 @@
 <script src="/js/pool_line_items.js?v=20261114.1"></script>
 <script src="/js/material_usage.js?v=20261114.1"></script>
 <script src="/js/dispatch_workflow.js?v=20261114.1"></script>
-<script src="/js/unified_pool_ui.js?v=20261114.1"></script>
+<script src="/js/sj_assignment.js?v=20261115.3"></script>
+<script src="/js/unified_pool_ui.js?v=20261115.3"></script>
 <script src="/js/erp_sidebar.js?v=20261114.1"></script>
 <script src="/js/vendor/lottie.min.js?v=20261115.1"></script>
 <script src="/js/useanimations_icons.js?v=20261115.1"></script>
 <script src="/js/useanimations_adapter.js?v=20261115.1"></script>
-<script src="/js/volume_comparison.js?v=20261115.1"></script>
+<script src="/js/volume_comparison.js?v=20261115.4"></script>
 </body>
 </html>

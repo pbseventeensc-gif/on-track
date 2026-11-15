@@ -28,10 +28,45 @@
             courierName:courier.name || courier.displayName || 'Kurir',
             assignedTo:courier.name || courier.displayName || 'Kurir',assignedAt:now,acceptedTime:now,
             assignmentSource:'qr_scan',isFailed:false,isPendingRollover:false,failedReason:null,
-            destinations:(source.destinations || []).map(d => done(d) ? {...d} : {...d,status:'in_progress'})};
+            ...(source.failedAttempts?.length ? {pendingReason:'',pendingNote:'',pendingAt:null,pendingProofPhotoUrl:''} : {}),
+            destinations:(source.destinations || []).map(d => done(d) ? {...d} : {...d,status:'in_progress',
+                ...(d.failedAttempts?.length ? {pendingReason:'',pendingNote:'',pendingAt:null,pendingProofPhotoUrl:''} : {})})};
         return {trips:trips.map(row => row === source ? trip : row),trip,alreadyAssigned:false};
     }
-    const api = {matches,claim};
+    async function claimOnline(db, parsed, courier, owns) {
+        if (!db) throw Error('Server tidak terhubung. SJ belum diambil.');
+        const collection = db.collection('trips');
+        const candidates = new Map();
+        if (parsed.tripId) {
+            const snap = await collection.doc(parsed.tripId).get({source:'server'});
+            if (snap.exists) candidates.set(snap.id, snap);
+        } else {
+            const lookups = parsed.sjNumber ? [['noSJ',parsed.sjNumber],['sjNumber',parsed.sjNumber]] :
+                parsed.shortCode ? [['shortCode',parsed.shortCode],['uniqueCode',parsed.shortCode]] : [];
+            for (const [field,value] of lookups) {
+                const snap = await collection.where(field,'==',value).limit(2).get({source:'server'});
+                snap.docs.forEach(doc => candidates.set(doc.id,doc));
+            }
+            // Legacy QR codes may contain a document ID directly.
+            if (!candidates.size && !parsed.sjNumber && !parsed.shortCode && parsed.raw && !parsed.raw.includes('/')) {
+                const snap = await collection.doc(parsed.raw).get({source:'server'});
+                if (snap.exists) candidates.set(snap.id,snap);
+            }
+        }
+        if (!candidates.size) throw Error('SJ tidak ditemukan di Pool. Import dan simpan SJ terlebih dahulu.');
+        if (candidates.size !== 1) throw Error('Identitas SJ ganda. Periksa data dengan admin.');
+        const id = [...candidates.keys()][0];
+        return db.runTransaction(async tx => {
+            const ref = collection.doc(id), snap = await tx.get(ref);
+            if (!snap.exists) throw Error('SJ sudah tidak tersedia. Muat ulang.');
+            const trip = {...snap.data(),id};
+            const identity = parsed.tripId || parsed.sjNumber || parsed.shortCode ? parsed : {tripId:id};
+            const result = claim([trip],identity,courier,owns);
+            if (!result.alreadyAssigned) tx.update(ref,result.trip);
+            return result;
+        });
+    }
+    const api = {matches,claim,claimOnline};
     root.QRClaim = api;
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);
