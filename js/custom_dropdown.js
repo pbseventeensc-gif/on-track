@@ -52,30 +52,44 @@
     }
 
     function positionMenu(triggerEl, menuEl) {
-        if (window.innerWidth <= 640) return; // Mobile uses clean bottom sheet
-
-        const rect = triggerEl.getBoundingClientRect();
-        const menuWidth = Math.min(Math.max(rect.width, 240), window.innerWidth - 20);
-        menuEl.style.width = menuWidth + 'px';
-
-        const viewportHeight = window.innerHeight;
-        const spaceBelow = viewportHeight - rect.bottom;
-        const spaceAbove = rect.top;
-
-        // Clamp horizontally so it stays cleanly on screen
-        const leftPos = Math.max(10, Math.min(rect.left, window.innerWidth - menuWidth - 10));
-        menuEl.style.left = leftPos + 'px';
-
-        // Check if menu fits below or should flip above
-        const estimatedHeight = Math.min(menuEl.scrollHeight || 340, 420);
-        if (spaceBelow < estimatedHeight + 10 && spaceAbove > spaceBelow) {
-            // Position above
-            menuEl.style.top = Math.max(10, rect.top - estimatedHeight - 6) + 'px';
-            menuEl.style.maxHeight = Math.min(spaceAbove - 16, 420) + 'px';
+        // Constrain the list itself as well as its flex parent. This also works
+        // when a zoomed viewport or the on-screen keyboard leaves little space.
+        const viewport = window.visualViewport;
+        const viewportTop = viewport?.offsetTop || 0;
+        const viewportBottom = viewportTop + (viewport?.height || window.innerHeight);
+        const mobile = window.innerWidth <= 640;
+        let limit;
+        let above = false;
+        let rect;
+        if (mobile) {
+            limit = Math.max(0, (viewportBottom - viewportTop) * 0.8);
+            menuEl.style.bottom = Math.max(0, window.innerHeight - viewportBottom) + 'px';
         } else {
-            // Position below
-            menuEl.style.top = (rect.bottom + 6) + 'px';
-            menuEl.style.maxHeight = Math.min(spaceBelow - 16, 420) + 'px';
+            rect = triggerEl.getBoundingClientRect();
+            const menuWidth = Math.min(Math.max(rect.width, 240), window.innerWidth - 20);
+            menuEl.style.width = menuWidth + 'px';
+            menuEl.style.left = Math.max(10, Math.min(rect.left, window.innerWidth - menuWidth - 10)) + 'px';
+            const below = Math.max(0, viewportBottom - rect.bottom - 16);
+            const roomAbove = Math.max(0, rect.top - viewportTop - 16);
+            above = below < 420 && roomAbove > below;
+            limit = Math.min(420, above ? roomAbove : below);
+        }
+        menuEl.style.maxHeight = limit + 'px';
+        const list = menuEl.querySelector('.wtrack-dropdown-items-list');
+        if (list) {
+            const style = getComputedStyle(menuEl);
+            let chrome = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom)
+                + parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth);
+            for (const child of menuEl.children) {
+                if (child === list) continue;
+                const childStyle = getComputedStyle(child);
+                chrome += child.getBoundingClientRect().height + parseFloat(childStyle.marginTop) + parseFloat(childStyle.marginBottom);
+            }
+            list.style.maxHeight = Math.max(0, limit - chrome) + 'px';
+        }
+        if (!mobile) {
+            const height = menuEl.getBoundingClientRect().height;
+            menuEl.style.top = (above ? Math.max(viewportTop + 10, rect.top - height - 6) : rect.bottom + 6) + 'px';
         }
     }
 
@@ -386,7 +400,8 @@
                 });
 
                 emptyState.style.display = visibleCount === 0 ? 'block' : 'none';
-                if (!isMobile) positionMenu(triggerEl, menu);
+                itemsList.scrollTop = 0;
+                positionMenu(triggerEl, menu);
             };
 
             searchInput.addEventListener('input', runFilter);
@@ -418,9 +433,7 @@
         activeMenu = menu;
         activeTrigger = triggerEl;
 
-        if (!isMobile) {
-            positionMenu(triggerEl, menu);
-        }
+        positionMenu(triggerEl, menu);
 
         // Auto-focus search input ONLY on non-touch desktop!
         // On touch devices (mobile & tablet), NEVER auto-focus to prevent the virtual keyboard from popping up and breaking viewport!
@@ -629,9 +642,16 @@
         }
     }, { passive: true, capture: true });
 
+    const repositionActive = () => {
+        if (activeMenu && activeTrigger) positionMenu(activeTrigger, activeMenu);
+    };
+    window.visualViewport?.addEventListener('resize', repositionActive, { passive: true });
+    window.visualViewport?.addEventListener('scroll', repositionActive, { passive: true });
+
     // ONLY close on resize if window width changed significantly (e.g. tablet rotation or desktop resize).
     // NEVER close on height-only changes (which happen when virtual keyboard opens on phone/tablet)!
     window.addEventListener('resize', () => {
+        repositionActive();
         if (Math.abs(window.innerWidth - lastWindowWidth) > 50) {
             lastWindowWidth = window.innerWidth;
             closeActiveDropdown();

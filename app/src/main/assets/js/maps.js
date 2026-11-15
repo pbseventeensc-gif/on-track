@@ -433,6 +433,7 @@ function updateMapMarkers(filter = "") {
 
     // 2. Render Trip Destination Stops (WITHOUT Polyline Route Lines)
     const activeDestKeys = new Set();
+    const courierStopCounters = {};
     if (typeof allCurrentTrips !== 'undefined') {
         const now = new Date();
         const todayDayMs = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
@@ -485,7 +486,10 @@ function updateMapMarkers(filter = "") {
                     let pinColor = cColor;
                     let statusText = 'Pending';
                     const stopIdx = d.stopIndex !== undefined ? d.stopIndex : (idx + 1);
-                    const numBadge = stopIdx;
+
+                    const courierKey = t.courierId || t.courierName || 'unassigned';
+                    courierStopCounters[courierKey] = (courierStopCounters[courierKey] || 0) + 1;
+                    const numBadge = (t.destinations && t.destinations.length > 1) ? stopIdx : courierStopCounters[courierKey];
                     let badgeContent = numBadge;
 
                     if (d.proofPhotoUrl && d.proofPhotoUrl.length > 0) {
@@ -702,12 +706,14 @@ window.gm_authFailure = function() {
     console.warn("Google Maps API Key Error / Disabled. Fallback to OpenStreetMap Active.");
     const input = document.getElementById('places-search');
     if (input) {
+        input.dataset.googlePlacesReady = 'false';
         input.classList.remove('pac-target-input');
         input.style.backgroundImage = 'none';
         input.style.backgroundColor = '#ffffff';
     }
     const pacContainers = document.querySelectorAll('.pac-container');
     pacContainers.forEach(c => c.remove());
+    setDestinationSearchStatus('Pencarian Google tidak tersedia. Anda masih bisa memilih tujuan tersimpan atau mencoba alamat lengkap.');
 };
 
 function addSavedDestination(place) {
@@ -724,6 +730,11 @@ function addSavedDestination(place) {
     if (typeof showToast === 'function') showToast('Lokasi ditambahkan ke rute!');
 }
 
+function setDestinationSearchStatus(message) {
+    const status = document.getElementById('destination-search-status');
+    if (status) status.remove();
+}
+
 async function initAutocomplete() {
     try {
         const input = document.getElementById('places-search');
@@ -736,6 +747,7 @@ async function initAutocomplete() {
         input.style.backgroundImage = 'none';
         input.style.backgroundColor = '#ffffff';
         window.DestinationSearch?.init(input, addSavedDestination);
+        if (input.dataset.googlePlacesReady === 'true') return;
 
         let autocomplete;
         const operationalLatLngBounds = (window.google && google.maps && google.maps.LatLngBounds)
@@ -765,6 +777,8 @@ async function initAutocomplete() {
         }
 
         if (autocomplete) {
+            input.dataset.googlePlacesReady = 'true';
+            setDestinationSearchStatus('Cari lokasi di Google, lalu pilih salah satu sarannya. Tujuan tersimpan tersedia di panel terpisah.');
             autocomplete.addListener("place_changed", () => {
                 const place = autocomplete.getPlace();
                 if (place && place.geometry && place.geometry.location) {
@@ -789,12 +803,29 @@ async function initAutocomplete() {
                     if (typeof showToast === 'function') showToast("Lokasi ditambahkan ke rute!");
                     if (mapDispatch) mapDispatch.flyTo([lat, lng], 16);
                 } else if (input.value.trim().length > 0) {
-                    addManualAddress();
+                    if (typeof showToast === 'function') showToast('Pilih lokasi dari saran Google atau panel tujuan tersimpan.');
                 }
             });
+        } else {
+            input.dataset.googlePlacesReady = 'false';
+            setDestinationSearchStatus('Pencarian Google tidak tersedia. Anda masih bisa memilih tujuan tersimpan atau mencoba alamat lengkap.');
         }
     } catch (e) {
         console.error("Maps Autocomplete Error", e);
+        const input = document.getElementById('places-search');
+        if (input) input.dataset.googlePlacesReady = 'false';
+        setDestinationSearchStatus('Pencarian Google gagal dimuat. Anda masih bisa memilih tujuan tersimpan atau mencoba alamat lengkap.');
+    } finally {
+        const input = document.getElementById('places-search');
+        if (input && !input.dataset.destinationEnterHandler) {
+            input.dataset.destinationEnterHandler = 'true';
+            // Google handles its own arrow keys and Enter. Do not start a second lookup on keypress.
+            input.addEventListener('keydown', event => {
+                if (event.key !== 'Enter' || event.isComposing) return;
+                event.preventDefault();
+                if (input.dataset.googlePlacesReady !== 'true') addManualAddress();
+            });
+        }
     }
 }
 
@@ -803,9 +834,13 @@ async function addManualAddress() {
     if (!input) return;
     const addressText = input.value.trim();
     if (!addressText) return alert("Masukkan nama toko atau alamat lokasi terlebih dahulu!");
+    if (input.dataset.googlePlacesReady === 'true') {
+        input.focus();
+        if (typeof showToast === 'function') showToast('Pilih lokasi dari saran Google atau panel tujuan tersimpan.');
+        return;
+    }
     const saved = window.DestinationSearch?.search(addressText, window.DestinationSearch.candidates()) || [];
-    if (saved.length === 1) { addSavedDestination(saved[0]); return; }
-    if (saved.length > 1) {
+    if (saved.length > 0) {
         input.focus();
         if (typeof showToast === 'function') showToast('Pilih tujuan yang sesuai dari daftar saran.');
         return;

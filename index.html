@@ -16,7 +16,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
     <!-- Libraries -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
@@ -199,6 +199,8 @@
                 if (typeof renderMonitorUI === 'function') renderMonitorUI();
             } else if (viewId === 'dispatch') {
                 if (typeof renderCourierOptions === 'function') renderCourierOptions();
+                if (typeof renderQueue === 'function') renderQueue();
+                setTimeout(() => { if (window.mapDispatch) window.mapDispatch.invalidateSize(); }, 60);
             } else if (viewId === 'fleet') {
                 if (typeof renderKPIView === 'function') renderKPIView();
             } else if (viewId === 'chat') {
@@ -228,6 +230,10 @@
 
             const badgeEl = document.getElementById('placeholder-404-badge');
             if (badgeEl) badgeEl.innerText = category ? `${category} • 404 Dalam Pengembangan` : '404 • Modul Dalam Pengembangan';
+
+            if (typeof window.updatePageTitleHeader === 'function') {
+                window.updatePageTitleHeader(title || 'Modul', el, category);
+            }
 
             document.querySelectorAll('.nav-link-custom').forEach(l => l.classList.remove('active'));
             document.querySelectorAll('.sub-nav-item').forEach(l => l.classList.remove('active'));
@@ -342,7 +348,9 @@
     </script>
 
     <!-- Custom CSS Styles -->
-    <link rel="stylesheet" href="/css/style.css?v=300.0">
+    <link rel="stylesheet" href="/css/style.css?v=20261114.1">
+    <link rel="stylesheet" href="/css/material_master.css?v=20261114.1">
+    <link rel="stylesheet" href="/css/dispatch_workflow.css?v=20261114.1">
     <style>
         :root {
             --primary: #FF471D;          /* Vibrant Brand Orange */
@@ -350,9 +358,14 @@
             --secondary: #FFAA0A;        /* Warm Golden Amber */
             --dark: #0A0A0A;             /* Deep Carbon Black */
             --bg-body: #F9FAFB;
-            --border-color: #E5E7EB;
-            --text-main: #0A0A0A;
-            --text-muted: #6B7280;
+            --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            --border-color: #EAECF0;
+            --border-input: #D0D5DD;
+            --text-main: #101828;
+            --text-body: #1E293B;
+            --text-cell: #344054;
+            --text-muted: #667085;
             --sidebar-width: 260px;
             --sidebar-bg: #FF471D;
             --status-transit: #FF471D;
@@ -361,15 +374,23 @@
             --status-delayed: #EF4444;
         }
         * {
-            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif !important;
+            font-family: var(--font-sans) !important;
+        }
+        code, pre, .font-mono {
+            font-family: var(--font-mono) !important;
         }
         body {
-            background-color: var(--bg-body);
-            font-family: 'Plus Jakarta Sans', sans-serif !important;
-            color: var(--text-main);
+            background-color: #F9FAFB;
+            font-family: var(--font-sans) !important;
+            font-size: 14px;
+            line-height: 1.5;
+            color: var(--text-body);
             overflow: hidden;
             height: 100vh;
         }
+        h1 { font-size: 20px; font-weight: 700; line-height: 1.3; letter-spacing: -0.01em; color: var(--text-main); }
+        h2 { font-size: 14px; font-weight: 700; line-height: 1.5; color: var(--text-main); }
+        h3, h4 { color: var(--text-main); }
         .wrapper { display: flex; height: 100vh; width: 100vw; overflow: hidden; }
 
         /* ======================================================== */
@@ -400,18 +421,23 @@
             flex: 1;
             position: relative;
             min-width: 0;
+            display: flex;
+            align-items: center;
+            height: 38px;
         }
         .sidebar-search-input {
             width: 100% !important;
+            height: 38px !important;
             background: rgba(255, 255, 255, 0.06) !important;
             border: 1px solid rgba(255, 255, 255, 0.1) !important;
             border-radius: 10px !important;
             color: #ffffff !important;
             font-size: 13.5px !important;
             font-weight: 500 !important;
-            padding: 8px 36px 8px 12px !important;
+            padding: 8px 12px 8px 36px !important;
             outline: none !important;
             transition: 0.15s ease !important;
+            box-sizing: border-box !important;
         }
         .sidebar-search-input::placeholder {
             color: rgba(255, 255, 255, 0.45) !important;
@@ -422,33 +448,71 @@
             border-color: rgba(255, 255, 255, 0.3) !important;
             box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.12) !important;
         }
-        .sidebar-search-wrapper i {
-            position: absolute;
-            right: 12px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: rgba(255, 255, 255, 0.5) !important;
-            font-size: 13px;
-            pointer-events: none;
+        .sidebar-search-wrapper i,
+        .sidebar-search-wrapper .ua-icon,
+        .sidebar-search-wrapper span.ua-icon {
+            position: absolute !important;
+            left: 12px !important;
+            right: auto !important;
+            top: 50% !important;
+            transform: translateY(-50%) !important;
+            color: var(--ua-accent, #F59E0B) !important;
+            font-size: 13px !important;
+            width: 15px !important;
+            height: 15px !important;
+            pointer-events: none !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            z-index: 2 !important;
+            transition: color 0.15s ease, filter 0.15s ease !important;
+        }
+        .sidebar-search-wrapper:hover i,
+        .sidebar-search-wrapper:hover .ua-icon,
+        .sidebar-search-wrapper:hover span.ua-icon,
+        .sidebar-search-wrapper:focus-within i,
+        .sidebar-search-wrapper:focus-within .ua-icon,
+        .sidebar-search-wrapper:focus-within span.ua-icon {
+            color: var(--ua-accent-hover, #FBBF24) !important;
+            filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.5));
         }
         .sidebar-collapse-btn {
-            width: 38px;
-            height: 38px;
+            width: 38px !important;
+            height: 38px !important;
             background: rgba(255, 255, 255, 0.06) !important;
             border: 1px solid rgba(255, 255, 255, 0.1) !important;
             border-radius: 10px !important;
-            color: rgba(255, 255, 255, 0.85) !important;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            font-size: 12px;
-            transition: 0.15s ease;
-            flex-shrink: 0;
+            color: var(--ua-accent, #F59E0B) !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            cursor: pointer !important;
+            font-size: 12px !important;
+            transition: 0.15s ease !important;
+            flex-shrink: 0 !important;
+            box-sizing: border-box !important;
+            padding: 0 !important;
         }
         .sidebar-collapse-btn:hover {
             background: rgba(255, 255, 255, 0.12) !important;
-            color: #ffffff !important;
+            color: var(--ua-accent-hover, #FBBF24) !important;
+        }
+        .sidebar-collapse-btn i,
+        .sidebar-collapse-btn .ua-icon,
+        .sidebar-collapse-btn span.ua-icon {
+            color: var(--ua-accent, #F59E0B) !important;
+            width: 15px !important;
+            height: 15px !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            transition: color 0.15s ease, filter 0.15s ease !important;
+        }
+        .sidebar-collapse-btn:hover i,
+        .sidebar-collapse-btn:hover .ua-icon,
+        .sidebar-collapse-btn:hover span.ua-icon {
+            color: var(--ua-accent-hover, #FBBF24) !important;
+            filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.5));
         }
 
         /* Collapsed Top Bar */
@@ -511,15 +575,21 @@
             font-weight: 700 !important;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
         }
-        .nav-link-custom i {
+        .nav-link-custom i,
+        .nav-link-custom .ua-icon {
             font-size: 17px !important;
             margin-right: 12px !important;
             min-width: 20px !important;
             text-align: center !important;
-            color: #94A3B8 !important;
+            color: var(--ua-accent, #F59E0B) !important;
+            transition: color 0.15s ease, filter 0.15s ease !important;
         }
-        .nav-link-custom.active i, .nav-link-custom:hover i {
-            color: #ffffff !important;
+        .nav-link-custom.active i,
+        .nav-link-custom.active .ua-icon,
+        .nav-link-custom:hover i,
+        .nav-link-custom:hover .ua-icon {
+            color: var(--ua-accent-hover, #FBBF24) !important;
+            filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.5));
         }
 
         /* Accordion Groups */
@@ -545,18 +615,21 @@
             color: #ffffff !important;
             background: rgba(255, 255, 255, 0.06) !important;
         }
-        .sidebar-group-header .group-icon {
+        .sidebar-group-header .group-icon,
+        .sidebar-group-header .group-icon.ua-icon {
             font-size: 17px !important;
             min-width: 20px !important;
             margin-right: 12px !important;
             display: inline-flex !important;
             align-items: center !important;
             justify-content: center !important;
-            color: #94A3B8 !important;
-            transition: color 0.15s ease !important;
+            color: var(--ua-accent, #F59E0B) !important;
+            transition: color 0.15s ease, filter 0.15s ease !important;
         }
-        .sidebar-group-header:hover .group-icon {
-            color: #ffffff !important;
+        .sidebar-group-header:hover .group-icon,
+        .sidebar-accordion-group.open .sidebar-group-header .group-icon {
+            color: var(--ua-accent-hover, #FBBF24) !important;
+            filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.5));
         }
         .sidebar-group-header .chevron-icon {
             font-size: 11px !important;
@@ -575,9 +648,6 @@
         .sidebar-accordion-group.open .sidebar-group-header {
             color: #ffffff !important;
             font-weight: 700 !important;
-        }
-        .sidebar-accordion-group.open .sidebar-group-header .group-icon {
-            color: #ffffff !important;
         }
         .sidebar-accordion-group.open .chevron-icon {
             transform: rotate(180deg) !important;
@@ -610,20 +680,26 @@
             text-overflow: ellipsis !important;
             font-weight: 500 !important;
         }
-        .sub-nav-item i.sub-icon {
+        .sub-nav-item i.sub-icon,
+        .sub-nav-item .ua-icon.sub-icon,
+        .sub-nav-item .ua-icon {
             font-size: 14px !important;
             min-width: 18px !important;
             text-align: center !important;
-            color: #64748B !important;
-            transition: color 0.15s ease !important;
+            color: var(--ua-accent, #F59E0B) !important;
+            transition: color 0.15s ease, filter 0.15s ease !important;
             flex-shrink: 0 !important;
         }
         .sub-nav-item:hover {
             color: #ffffff !important;
             background: rgba(255, 255, 255, 0.06) !important;
         }
-        .sub-nav-item:hover i.sub-icon {
-            color: #ffffff !important;
+        .sub-nav-item:hover i.sub-icon,
+        .sub-nav-item:hover .ua-icon,
+        .sub-nav-item.active i.sub-icon,
+        .sub-nav-item.active .ua-icon {
+            color: var(--ua-accent-hover, #FBBF24) !important;
+            filter: drop-shadow(0 0 5px rgba(245, 158, 11, 0.45));
         }
         .sub-nav-item.active {
             color: #ffffff !important;
@@ -824,7 +900,14 @@
         .top-header { height: 70px; background: #fff; border-bottom: 1px solid var(--border-color); padding: 0 32px; display: flex; align-items: center; justify-content: space-between; }
         .search-container { position: relative; width: 300px; }
         .search-container i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
-        .search-input, .form-control, .form-select { padding-left: 36px; border-radius: 10px; border: 1px solid var(--border-color); background: #ffffff; color: #111827 !important; font-size: 0.9rem; width: 100%; }
+        .search-input, .form-control, .form-select { border-radius: 8px; border: 1px solid #D0D5DD; background-color: #ffffff; color: #1E293B !important; font-family: var(--font-sans); font-size: 13px; font-weight: 400; line-height: 1.45; min-height: 34px; box-shadow: none; width: 100%; transition: border-color 0.15s ease, box-shadow 0.15s ease; }
+        .form-select { padding: 0 32px 0 12px; height: 34px; cursor: pointer; }
+        .form-select.form-select-sm { height: 32px; min-height: 32px; font-size: 12.5px; padding: 0 28px 0 10px; border-radius: 8px; }
+        .form-control { padding: 6px 12px; height: 34px; }
+        .form-control.form-control-sm { height: 32px; min-height: 32px; font-size: 12.5px; padding: 4px 10px; }
+        .search-input { padding-left: 34px; }
+        .search-input:hover, .form-control:hover, .form-select:hover { border-color: #98A2B3; }
+        .search-input:focus, .form-control:focus, .form-select:focus { border-color: #E88520; box-shadow: 0 0 0 3px rgba(204, 97, 0, 0.18); outline: none; }
         .header-actions { display: flex; align-items: center; gap: 16px; }
         .action-btn { width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: center; color: var(--text-muted); cursor: pointer; position: relative; }
         .btn-new-shipment { background: var(--primary); color: #fff; border: none; padding: 10px 20px; border-radius: 10px; font-weight: 600; font-size: 0.9rem; display: flex; align-items: center; gap: 8px; }
@@ -854,14 +937,28 @@
         .login-logo { height: 60px; object-fit: contain; }
         #main-wrapper { display: none; }
         .content-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; min-height: 0; padding: 16px 24px 32px 24px; background: transparent; -webkit-overflow-scrolling: touch; }
-        .stat-card { border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; background: #fff; }
-        .stat-label { font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 8px; }
-        .stat-value { font-size: 1.5rem; font-weight: 800; color: var(--text-main); margin-bottom: 4px; }
-        .card-title { font-weight: 700; font-size: 1.1rem; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+        .stat-card { border: 1px solid #EAECF0; border-radius: 12px; padding: 16px 18px; background: #ffffff; box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05); transition: border-color 0.15s ease, box-shadow 0.15s ease; }
+        .stat-card.clickable:hover { border-color: #D0D5DD; box-shadow: 0 1px 3px rgba(16, 24, 40, 0.10), 0 1px 2px rgba(16, 24, 40, 0.06); }
+        .stat-label { font-size: 13px; font-weight: 500; color: #475467; margin-bottom: 8px; }
+        .stat-value { font-family: var(--font-mono) !important; font-size: 22px; font-weight: 700; line-height: 1.25; color: #101828; margin-bottom: 4px; font-variant-numeric: tabular-nums; }
+        .stat-trend { font-size: 12px; font-weight: 400; color: #667085; }
+        .card-title { font-weight: 700; font-size: 14px; color: #101828; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
         #map, #map-monitor, #map-dispatch { height: 450px; width: 100%; border-radius: 12px; border: 1px solid var(--border-color); }
         #map-monitor, #map-dispatch { min-height: 500px; background: #f8fafc; }
-        .table thead th { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.025em; font-weight: 700; color: var(--text-muted); padding: 12px 16px; border-bottom: 1px solid var(--border-color); }
-        .table tbody td { padding: 16px; font-size: 0.85rem; vertical-align: middle; border-bottom: 1px solid var(--border-color); }
+        .table { border-collapse: collapse; width: 100%; }
+        .table thead th { font-family: var(--font-sans); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; font-weight: 700; color: #667085; background-color: #F9FAFB; padding: 10px 14px; border-top: none; border-bottom: 1px solid #EAECF0; }
+        .table tbody td { font-family: var(--font-sans); padding: 11px 14px; font-size: 13px; font-weight: 400; line-height: 1.45; color: #344054; vertical-align: top; border-top: 1px solid #EAECF0; border-bottom: none; }
+        .table tbody tr:hover td { background-color: #F9FAFB; }
+        #recent-shipments-grid .recent-col-address { display: none; }
+        #recent-shipments-grid.show-address .recent-col-address { display: table-cell; }
+        @media (min-width: 992px) {
+            #modal-sj-import-preview .modal-dialog,
+            #modal-spk-import-preview .modal-dialog {
+                margin-left: calc(var(--sidebar-width, 260px) + 20px);
+                margin-right: 20px;
+                max-width: calc(100vw - var(--sidebar-width, 260px) - 40px);
+            }
+        }
         .badge-pill { padding: 6px 12px; border-radius: 9999px; font-size: 0.7rem; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; }
         .badge-transit { background: #EFF6FF; color: #3B82F6; }
         .badge-delivered { background: #ECFDF5; color: #10B981; }
@@ -942,41 +1039,29 @@
         @media (min-width: 992px) {
             #recent-shipments-grid {
                 width: 100%;
-                table-layout: fixed;
+                table-layout: auto;
             }
-            #recent-shipments-grid th,
+            #recent-shipments-grid th {
+                font-size: 11px;
+                font-weight: 500 !important;
+                letter-spacing: 0.03em;
+                text-transform: uppercase;
+                color: #667085;
+                padding: 8px 10px;
+                white-space: nowrap;
+            }
             #recent-shipments-grid td {
-                padding: 10px 6px;
-                font-size: 0.78rem;
-                white-space: normal !important;
-                overflow-wrap: anywhere;
-            }
-            #recent-shipments-grid .text-nowrap,
-            #recent-shipments-grid .badge,
-            #recent-shipments-grid .badge-pill {
-                white-space: normal !important;
-                overflow-wrap: anywhere;
+                padding: 8px 10px;
+                font-size: 12px;
+                vertical-align: middle;
             }
             #recent-shipments-grid .text-truncate {
-                max-width: 100% !important;
-                white-space: normal !important;
-                overflow: visible;
-                text-overflow: clip;
-            }
-            #recent-shipments-grid td .d-inline-flex {
-                max-width: 100%;
-                flex-wrap: wrap;
-                row-gap: 4px;
-            }
-            #recent-shipments-grid td .d-inline-flex > span {
-                min-width: 0;
-            }
-            #recent-shipments-grid td:nth-child(7) img {
-                flex-shrink: 0;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
             }
             #recent-shipments-grid td:last-child .btn {
-                padding: 3px;
-                min-width: 24px;
+                padding: 3px 6px;
                 font-size: 0.78rem;
             }
         }
@@ -1025,8 +1110,8 @@
         <!-- Search & Collapse Toggle Button (Exact Dribbble Layout gb 2) -->
         <div class="sidebar-top-bar">
             <div class="sidebar-search-wrapper">
-                <input type="text" id="erp-sidebar-search" class="sidebar-search-input" placeholder="Search" oninput="filterSidebarMenus(this.value)">
                 <i class="bi bi-search"></i>
+                <input type="text" id="erp-sidebar-search" class="sidebar-search-input" placeholder="Search" oninput="filterSidebarMenus(this.value)">
             </div>
             <button class="sidebar-collapse-btn" id="btn-sidebar-collapse" onclick="toggleCollapse()" title="Collapse / Expand Sidebar">
                 <i class="bi bi-chevron-double-left" id="sidebar-collapse-icon"></i>
@@ -1042,48 +1127,7 @@
                 <i class="bi bi-grid-fill"></i> <span>Dashboard</span>
             </a>
 
-            <!-- 2. Job Intake -->
-            <div class="sidebar-accordion-group" data-group="job-intake">
-                <div class="sidebar-group-header" onclick="toggleSidebarGroup('job-intake')">
-                    <div class="d-flex align-items-center">
-                        <i class="bi bi-folder2 group-icon"></i>
-                        <span class="group-title">Job Intake</span>
-                    </div>
-                    <i class="bi bi-chevron-down chevron-icon"></i>
-                </div>
-                <div class="sidebar-sub-items">
-                    <a href="javascript:void(0)" class="sub-nav-item" id="nav-job-new-order" onclick="openModulePlaceholder('New Order', 'Job Intake', this)">
-                        <i class="bi bi-plus-circle sub-icon"></i> <span>New Order</span>
-                    </a>
-                    <a href="javascript:void(0)" class="sub-nav-item" id="nav-job-file-upload" onclick="openModulePlaceholder('File Upload', 'Job Intake', this)">
-                        <i class="bi bi-cloud-arrow-up sub-icon"></i> <span>File Upload</span>
-                    </a>
-                    <a href="javascript:void(0)" class="sub-nav-item" id="nav-import-spk" onclick="openSPKImportModal()">
-                        <i class="bi bi-file-earmark-spreadsheet sub-icon"></i> <span>SPK Import</span>
-                    </a>
-                    <a href="javascript:void(0)" class="sub-nav-item" id="nav-import-sj" onclick="openSJImportModal()">
-                        <i class="bi bi-file-earmark-arrow-down sub-icon"></i> <span>Surat Jalan Import</span>
-                    </a>
-                </div>
-            </div>
-
-            <!-- 3. Pre-Press / Desk print -->
-            <div class="sidebar-accordion-group" data-group="desk-print">
-                <div class="sidebar-group-header" onclick="toggleSidebarGroup('desk-print')">
-                    <div class="d-flex align-items-center">
-                        <i class="bi bi-bezier2 group-icon"></i>
-                        <span class="group-title">Desk print</span>
-                    </div>
-                    <i class="bi bi-chevron-down chevron-icon"></i>
-                </div>
-                <div class="sidebar-sub-items">
-                    <a href="javascript:void(0)" class="sub-nav-item" id="nav-deskprint-prefile" onclick="openModulePlaceholder('Pre File management', 'Desk print', this)">
-                        <i class="bi bi-file-earmark-check sub-icon"></i> <span>Pre File management</span>
-                    </a>
-                </div>
-            </div>
-
-            <!-- 4. Production -->
+            <!-- 2. Production -->
             <div class="sidebar-accordion-group" data-group="production">
                 <div class="sidebar-group-header" onclick="toggleSidebarGroup('production')">
                     <div class="d-flex align-items-center">
@@ -1093,6 +1137,12 @@
                     <i class="bi bi-chevron-down chevron-icon"></i>
                 </div>
                 <div class="sidebar-sub-items">
+                    <a href="javascript:void(0)" class="sub-nav-item" id="nav-import-spk" onclick="openSPKImportModal()">
+                        <i class="bi bi-file-earmark-spreadsheet sub-icon"></i> <span>SPK Import</span>
+                    </a>
+                    <a href="javascript:void(0)" class="sub-nav-item" id="nav-deskprint-prefile" onclick="openModulePlaceholder('Pre File management', 'Production', this)">
+                        <i class="bi bi-file-earmark-check sub-icon"></i> <span>Pre File management</span>
+                    </a>
                     <a href="javascript:void(0)" class="sub-nav-item" id="nav-prod-machine-assign" onclick="openModulePlaceholder('Machine Assignment', 'Production', this)">
                         <i class="bi bi-printer sub-icon"></i> <span>Machine Assignment</span>
                     </a>
@@ -1111,7 +1161,7 @@
                 </div>
             </div>
 
-            <!-- 5. Inventory (Open by default in Card container - exactly as in Dribbble gb 2) -->
+            <!-- 3. Inventory -->
             <div class="sidebar-accordion-group open" data-group="inventory">
                 <div class="sidebar-group-header" onclick="toggleSidebarGroup('inventory')">
                     <div class="d-flex align-items-center">
@@ -1139,7 +1189,7 @@
                 </div>
             </div>
 
-            <!-- 6. QC & Shipping (Live Modules) -->
+            <!-- 4. QC & Shipping -->
             <div class="sidebar-accordion-group" data-group="qc-shipping">
                 <div class="sidebar-group-header" onclick="toggleSidebarGroup('qc-shipping')">
                     <div class="d-flex align-items-center">
@@ -1149,6 +1199,9 @@
                     <i class="bi bi-chevron-down chevron-icon"></i>
                 </div>
                 <div class="sidebar-sub-items">
+                    <a href="javascript:void(0)" class="sub-nav-item" id="nav-import-sj" onclick="openSJImportModal()">
+                        <i class="bi bi-file-earmark-arrow-down sub-icon"></i> <span>Delivery Order Import</span>
+                    </a>
                     <a href="javascript:void(0)" class="sub-nav-item" id="nav-qc-quality-control" onclick="openModulePlaceholder('Quality Control', 'QC & Shipping', this)">
                         <i class="bi bi-shield-check sub-icon"></i> <span>Quality Control</span>
                     </a>
@@ -1159,7 +1212,7 @@
                         <i class="bi bi-geo-alt sub-icon"></i> <span>Live Tracking</span>
                     </a>
                     <a href="javascript:void(0)" class="sub-nav-item" id="nav-pool" onclick="switchTab('pool', this)">
-                        <i class="bi bi-clipboard2-check sub-icon"></i> <span>Plan Shipment</span>
+                        <i class="bi bi-clipboard2-check sub-icon"></i> <span>Delivery Order</span>
                     </a>
                     <a href="javascript:void(0)" class="sub-nav-item" id="nav-spk" onclick="switchTab('spk', this)">
                         <i class="bi bi-card-checklist sub-icon"></i> <span>SPK Management</span>
@@ -1174,7 +1227,7 @@
                 </div>
             </div>
 
-            <!-- 7. Analytics & Report (Live Reports & Analytics) -->
+            <!-- 5. Analytics & Report -->
             <div class="sidebar-accordion-group" data-group="analytics-report">
                 <div class="sidebar-group-header" onclick="toggleSidebarGroup('analytics-report')">
                     <div class="d-flex align-items-center">
@@ -1184,6 +1237,9 @@
                     <i class="bi bi-chevron-down chevron-icon"></i>
                 </div>
                 <div class="sidebar-sub-items">
+                    <a href="javascript:void(0)" class="sub-nav-item" id="nav-volume-comparison" onclick="window.VolumeComparison && window.VolumeComparison.focusChart()">
+                        <i class="bi bi-bar-chart-steps sub-icon"></i> <span>Volume Comparison</span>
+                    </a>
                     <a href="javascript:void(0)" class="sub-nav-item" id="nav-analytics-efficiency" onclick="openModulePlaceholder('Efficiency Report', 'Analytics & Report', this)">
                         <i class="bi bi-graph-up-arrow sub-icon"></i> <span>Efficiency Report</span>
                     </a>
@@ -1208,10 +1264,32 @@
                     <a href="javascript:void(0)" class="sub-nav-item" id="nav-chat" onclick="switchTab('chat', this)">
                         <i class="bi bi-chat-dots sub-icon"></i> <span>Drivers Chat</span>
                     </a>
+                    <a href="javascript:void(0)" class="sub-nav-item" id="nav-material-usage" onclick="MaterialUsage.open()">
+                        <i class="bi bi-bar-chart-line sub-icon"></i> <span>Usage</span>
+                    </a>
                 </div>
             </div>
 
-            <!-- Settings -->
+            <!-- 6. Master Data -->
+            <div class="sidebar-accordion-group" data-group="master-data">
+                <div class="sidebar-group-header" onclick="toggleSidebarGroup('master-data')">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-database group-icon"></i>
+                        <span class="group-title">Master Data</span>
+                    </div>
+                    <i class="bi bi-chevron-down chevron-icon"></i>
+                </div>
+                <div class="sidebar-sub-items">
+                    <a href="javascript:void(0)" class="sub-nav-item" id="nav-material-master" onclick="MaterialMaster.open()">
+                        <i class="bi bi-layers sub-icon"></i> <span>Bahan</span>
+                    </a>
+                    <a href="javascript:void(0)" class="sub-nav-item" id="nav-customers" onclick="switchTab('customers', this)">
+                        <i class="bi bi-person-vcard sub-icon"></i> <span>Database Customer</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- 7. Settings -->
             <a href="javascript:void(0)" class="nav-link-custom mt-2" id="nav-settings" onclick="switchTab('settings', this)">
                 <i class="bi bi-gear"></i> <span>Settings</span>
             </a>
@@ -1261,20 +1339,25 @@
     <!-- Main Panel -->
     <div class="main-panel">
         <header class="top-header">
-            <div class="d-flex align-items-center gap-3">
-                <button class="btn btn-light d-lg-none" onclick="toggleSidebar()">
+            <div class="d-flex align-items-center gap-3 flex-grow-1 min-w-0">
+                <button class="btn btn-light d-lg-none" onclick="toggleSidebar()" aria-label="Toggle sidebar">
                     <i class="bi bi-list fs-4"></i>
                 </button>
-                <div class="d-flex align-items-center gap-2 px-3 py-2 rounded-3 border bg-white shadow-sm fw-semibold text-dark extra-small" style="border-radius: 10px; font-size: 0.85rem;">
-                    <i class="bi bi-calendar3 text-primary"></i>
-                    <span id="current-date-text">--</span>
+                <!-- Esse-style Top Page Title Block (Breadcrumb + Title menyatu di top header sejajar aksi kanan) -->
+                <div id="esse-page-header" class="esse-page-header">
+                    <div class="esse-breadcrumb">
+                        <span class="brand" id="esse-breadcrumb-brand">Wellen Print</span>
+                        <span class="sep">/</span>
+                        <span class="current" id="esse-breadcrumb-current">Dashboard</span>
+                    </div>
+                    <h1 class="esse-title d-flex align-items-center gap-2" id="esse-page-title">
+                        <span id="esse-page-title-icon" class="ua-title-icon" style="color: var(--ua-accent, #F59E0B); width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;"><i class="bi bi-grid-fill"></i></span>
+                        <span id="esse-page-title-text">Dashboard</span>
+                    </h1>
                 </div>
             </div>
 
-            <div class="header-actions">
-                <a href="KurirKita-Terbaru_7.apk" download="KurirKita-Terbaru_7.apk" class="btn btn-sm btn-outline-primary fw-bold d-inline-flex align-items-center gap-1.5 py-1.5 px-3 shadow-2xs text-decoration-none" style="border-radius: 10px; font-size: 0.82rem;" title="Download File APK Android KurirKita Versi Terbaru 7">
-                    <i class="bi bi-android2 fs-6"></i> Download APK (v7)
-                </a>
+            <div class="header-actions flex-shrink-0">
                 <div class="position-relative">
                     <div class="action-btn" id="notif-bell-btn" onclick="toggleNotifDropdown(event)" title="Notifications">
                         <i class="bi bi-bell"></i>
@@ -1298,11 +1381,16 @@
                     </div>
                 </div>
                 <div id="branch-selector-wrapper" class="d-flex align-items-center gap-2 me-2">
-                    <select id="header-branch-filter" class="form-select form-select-sm fw-bold border-success-subtle" style="border-radius: 10px; width: auto; min-width: 155px; font-size: 0.8rem; background: #f0fdf4; color: #15803d; cursor: pointer;" onchange="switchBranchFilter(this.value)">
-                        <option value="all" selected>Semua Cabang</option>
+                    <select id="header-branch-filter" class="form-select form-select-sm" style="width: auto; min-width: 155px;" onchange="switchBranchFilter(this.value)">
+                        <option value="all" selected>Branch</option>
                         <option value="pusat">Pusat</option>
                         <option value="cikokol">Cikokol</option>
                     </select>
+                </div>
+                <div id="lang-switcher" class="lang-switcher" role="group" aria-label="Language switcher">
+                    <button type="button" class="lang-switcher-btn active" data-lang="id" onclick="window.setAppLanguage && window.setAppLanguage('id')">ID</button>
+                    <span class="lang-switcher-sep">/</span>
+                    <button type="button" class="lang-switcher-btn" data-lang="en" onclick="window.setAppLanguage && window.setAppLanguage('en')">ENG</button>
                 </div>
             </div>
         </header>
@@ -1310,36 +1398,36 @@
         <div class="content-scroll">
             <!-- DASHBOARD VIEW -->
             <div id="view-dashboard" class="view-section active">
-                <div class="row row-cols-2 row-cols-md-3 row-cols-xl-5 g-3 mb-4">
-                    <div class="col">
+                <div class="stat-cards-grid mb-4">
+                    <div class="stat-card-col">
                         <div class="stat-card clickable" onclick="filterTableByCard('active')" title="Klik untuk memfilter tabel ke Total Shipments Today">
                             <div class="stat-label">Total Shipments Today</div>
                             <div class="stat-value" id="stat-active">0</div>
                             <div class="stat-trend text-muted">Hari Ini</div>
                         </div>
                     </div>
-                    <div class="col">
+                    <div class="stat-card-col">
                         <div class="stat-card clickable" onclick="filterTableByCard('completed')" title="Klik untuk memfilter tabel ke Completed Shipments">
                             <div class="stat-label">Completed</div>
                             <div class="stat-value" id="stat-completed">0</div>
                             <div class="stat-trend text-muted">Hari Ini</div>
                         </div>
                     </div>
-                    <div class="col">
+                    <div class="stat-card-col">
                         <div class="stat-card">
                             <div class="stat-label">Delivery Rate</div>
                             <div class="stat-value" id="stat-ontime">0%</div>
                             <div class="stat-trend text-muted">Real-time</div>
                         </div>
                     </div>
-                    <div class="col">
+                    <div class="stat-card-col">
                         <div class="stat-card clickable" onclick="filterTableByCard('returned')" title="Klik untuk memfilter tabel ke Returned / ACC Pending">
                             <div class="stat-label">Returned</div>
                             <div class="stat-value" id="stat-delayed">0</div>
                             <div class="stat-trend text-muted">Ke Kantor</div>
                         </div>
                     </div>
-                    <div class="col">
+                    <div class="stat-card-col">
                         <div class="stat-card clickable" onclick="filterTableByCard('total_km')" title="Klik untuk memfilter tabel ke Total Distance">
                             <div class="stat-label">Total Distance</div>
                             <div class="stat-value" id="stat-total-km">0 km</div>
@@ -1352,7 +1440,7 @@
                     <div class="col-lg-8">
                         <div class="border rounded-4 overflow-hidden">
                             <div class="p-3 bg-white border-bottom d-flex justify-content-between align-items-center">
-                                <span class="fw-bold"><i class="bi bi-map me-2"></i>Live Fleet Tracking</span>
+                                <span class="fw-bold"><i class="bi bi-map me-2"></i>Live Tracking</span>
                                 <div class="d-flex gap-2">
                                     <button class="btn btn-sm btn-outline-primary fw-bold btn-heatmap-toggle" style="border-radius: 8px;" onclick="toggleHeatmap()"><i class="bi bi-fire me-1"></i> Heatmap</button>
                                     <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">LIVE</span>
@@ -1365,8 +1453,8 @@
                         <div class="border rounded-4 p-4 bg-white shadow-sm mb-4">
                             <div class="card-title mb-3 d-flex justify-content-between align-items-center">
                                 <span>Priority Alerts</span>
-                                <button class="btn btn-sm btn-link text-danger text-decoration-none p-0 extra-small fw-semibold border-0" onclick="clearAllPriorityAlerts()" title="Hapus Semua Peringatan">
-                                    <i class="bi bi-trash me-1"></i>Hapus Semua
+                                <button class="btn btn-sm btn-link text-danger text-decoration-none p-0 border-0" onclick="clearAllPriorityAlerts()" title="Hapus Semua" aria-label="Hapus Semua">
+                                    <i class="bi bi-trash" style="font-size: 13.5px;"></i>
                                 </button>
                             </div>
                             <div id="priority-alerts" class="d-flex flex-column gap-2" style="max-height: 280px; overflow-y: auto; padding-right: 4px;">
@@ -1392,67 +1480,83 @@
                     </div>
                 </div>
 
+                <!-- SHIPMENT VOLUME COMPARISON (PCS) - ESSE STYLE CHART -->
+                <div id="dashboard-volume-comparison-container"></div>
+
                 <div class="row mb-4">
                     <div class="col-12">
-                        <div class="border rounded-4 p-4 bg-white shadow-sm">
-                            <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
-                                <div class="card-title m-0 d-flex align-items-center gap-2">
-                                    <span>Recent Shipments</span>
-                                    <span id="recent-shipments-total-badge" class="badge bg-light text-secondary border fw-normal" style="font-size: 0.725rem;">0 Total</span>
-                                    <button class="btn btn-sm btn-light border ms-1" title="Refresh Data" onclick="loadFullHistory()"><i class="bi bi-arrow-clockwise"></i></button>
+                        <div class="border p-4 bg-white" style="border-color: #EAECF0 !important; border-radius: 12px; box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);">
+                            <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    <h2 class="m-0" style="font-size: 14px; font-weight: 700; color: #101828;">Recent Shipments</h2>
+                                    <span id="recent-shipments-total-badge" class="badge" style="background: #FFF4E5; color: #CC6100; border: 1px solid rgba(204, 97, 0, 0.25); font-size: 11.5px; font-weight: 700;">0 Total</span>
+                                    <button class="btn btn-sm btn-light border" style="height: 32px; border-radius: 8px; border-color: #D0D5DD !important;" title="Refresh Data" onclick="loadFullHistory()"><i class="bi bi-arrow-clockwise"></i></button>
+                                    <button type="button" id="recent-switch-selected" class="btn btn-sm" style="height: 32px; border-radius: 8px; font-size: 12.5px; border: 1px solid rgba(204, 97, 0, 0.4); color: #CC6100; background: #FFF9F2; font-weight: 600;" disabled onclick="BulkAssignment.open()">Switch (0)</button>
                                 </div>
                                 <div class="d-flex align-items-center gap-2 flex-wrap">
-                                    <div class="d-flex align-items-center gap-1 bg-light border p-1 px-2" style="border-radius: 10px;">
-                                        <i class="bi bi-calendar3 text-muted extra-small ms-1"></i>
-                                        <span class="extra-small text-muted fw-bold">Dari:</span>
-                                        <input type="date" id="recent-start-date" class="form-control form-control-sm border-0 bg-transparent fw-normal py-1" style="width: 125px; font-size: 0.8rem;" onchange="renderRecentShipments()" oninput="renderRecentShipments()">
-                                        <span class="extra-small text-muted fw-bold ms-1">Sampai:</span>
-                                        <input type="date" id="recent-end-date" class="form-control form-control-sm border-0 bg-transparent fw-normal py-1" style="width: 125px; font-size: 0.8rem;" onchange="renderRecentShipments()" oninput="renderRecentShipments()">
-                                    </div>
-                                    <button class="btn btn-sm btn-light border py-1 px-2 text-muted fw-semibold" style="border-radius: 10px; font-size: 0.75rem;" onclick="setRecentDateThisMonth()" title="Tampilkan Riwayat Bulan Ini">Bulan Ini</button>
-                                    <button class="btn btn-sm btn-light border py-1 px-2 text-muted fw-semibold" style="border-radius: 10px; font-size: 0.75rem;" onclick="setRecentDateAllTime()" title="Tampilkan Semua Riwayat Tanggal">Semua Tanggal</button>
-                                    <select id="recent-carrier-filter" class="form-select form-select-sm fw-normal py-2" style="border-radius: 10px; width: auto; min-width: 135px; font-size: 0.8rem; background: #f8fafc;" onchange="renderRecentShipments()">
-                                        <option value="all">Semua Kurir</option>
-                                    </select>
-                                    <select id="recent-status-filter" class="form-select form-select-sm fw-normal py-2" style="border-radius: 10px; width: auto; min-width: 140px; font-size: 0.8rem; background: #f8fafc;" onchange="renderRecentShipments()">
-                                        <option value="all">Status</option>
-                                        <option value="active_all">Semua Aktif</option>
-                                        <option value="in_progress">On Delivery</option>
-                                        <option value="returned">Returned / Pending</option>
-                                        <option value="completed">Completed</option>
-                                    </select>
                                     <div class="position-relative">
-                                        <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"></i>
-                                        <input type="text" id="recent-shipment-search" class="form-control form-control-sm ps-5 py-2 fw-normal" style="border-radius: 10px; width: 200px; background: #f8fafc;" placeholder="Cari ID, Alamat, Kurir..." oninput="renderRecentShipments(this.value)" autocomplete="off">
+                                        <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-2.5 text-muted" style="font-size: 13px;"></i>
+                                        <input type="text" id="recent-shipment-search" class="form-control form-control-sm" style="padding-left: 32px; width: 210px;" placeholder="Cari ID, Alamat, Kurir..." oninput="renderRecentShipments(this.value)" autocomplete="off">
                                     </div>
-                                    <button class="btn btn-sm btn-light border py-2 px-2" style="border-radius: 10px;" title="Reset Filter" onclick="resetRecentFilters()"><i class="bi bi-arrow-counterclockwise"></i></button>
-                                    <button class="btn btn-sm btn-outline-dark fw-bold px-3 py-2" style="border-radius: 10px;" onclick="exportRecentShipmentsToExcel()"><i class="bi bi-file-earmark-excel me-1"></i> Excel Report</button>
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm bg-white border d-inline-flex align-items-center gap-2" type="button" id="recent-filter-dropdown-btn" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" style="height: 32px; border-radius: 8px; border-color: #D0D5DD !important; color: #1E293B; font-size: 12.5px; padding: 0 12px;">
+                                            <i class="bi bi-sliders2 text-muted"></i>
+                                            <span>Filter</span>
+                                            <i class="bi bi-chevron-down text-muted" style="font-size: 11px;"></i>
+                                        </button>
+                                        <div class="dropdown-menu dropdown-menu-end p-3" aria-labelledby="recent-filter-dropdown-btn" style="min-width: 280px; border: 1px solid #EAECF0; border-radius: 12px; box-shadow: 0 12px 16px -4px rgba(16, 24, 40, 0.08), 0 4px 6px -2px rgba(16, 24, 40, 0.03);">
+                                            <div class="mb-2">
+                                                <label class="form-label mb-1" style="font-size: 11px; font-weight: 600; color: #667085; text-transform: uppercase;">Tanggal</label>
+                                                <div class="d-flex align-items-center gap-1">
+                                                    <input type="date" id="recent-start-date" class="form-control form-control-sm" onchange="renderRecentShipments()" oninput="renderRecentShipments()">
+                                                    <span class="text-muted" style="font-size: 12px;">–</span>
+                                                    <input type="date" id="recent-end-date" class="form-control form-control-sm" onchange="renderRecentShipments()" oninput="renderRecentShipments()">
+                                                </div>
+                                            </div>
+                                            <div class="mb-2">
+                                                <label class="form-label mb-1" style="font-size: 11px; font-weight: 600; color: #667085; text-transform: uppercase;">Kurir</label>
+                                                <select id="recent-carrier-filter" class="form-select form-select-sm" onchange="renderRecentShipments()">
+                                                    <option value="all">Semua Kurir</option>
+                                                </select>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label mb-1" style="font-size: 11px; font-weight: 600; color: #667085; text-transform: uppercase;">Status</label>
+                                                <select id="recent-status-filter" class="form-select form-select-sm" onchange="renderRecentShipments()">
+                                                    <option value="all">Status</option>
+                                                    <option value="active_all">Semua Aktif</option>
+                                                    <option value="in_progress">On Delivery</option>
+                                                    <option value="returned">Returned / Pending</option>
+                                                    <option value="completed">Completed</option>
+                                                </select>
+                                            </div>
+                                            <label class="d-flex align-items-center gap-2 mb-3" style="font-size: 12.5px; color: #344054; cursor: pointer;">
+                                                <input type="checkbox" id="recent-show-address" class="form-check-input m-0" onchange="toggleRecentAddressColumn(this.checked)">
+                                                <span>Tampilkan kolom Alamat</span>
+                                            </label>
+                                            <div class="d-flex justify-content-end">
+                                                <button type="button" class="btn btn-sm btn-light border w-100" style="height: 32px; border-radius: 8px; border-color: #D0D5DD !important; font-size: 12.5px;" onclick="resetRecentFilters()"><i class="bi bi-arrow-counterclockwise me-1"></i> Reset Filter</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button id="btn-toggle-recent-address" type="button" class="btn btn-sm btn-light border d-inline-flex align-items-center gap-1.5" style="height: 32px; border-radius: 8px; font-size: 12px; border-color: #D0D5DD !important;" onclick="toggleRecentAddressColumn()" title="Tampilkan / Sembunyikan kolom Alamat"><i class="bi bi-geo-alt"></i> <span id="btn-toggle-recent-address-label">Alamat</span></button>
+                                    <button class="btn btn-sm btn-wellen-action d-inline-flex align-items-center gap-1.5" style="height: 32px; border-radius: 8px; font-size: 12px;" onclick="exportRecentShipmentsToExcel()"><i class="bi bi-file-earmark-excel"></i> Report</button>
                                 </div>
                             </div>
                             <div class="table-responsive" style="max-height: 480px; overflow-y: auto;">
-                                <table id="recent-shipments-grid" class="table table-hover align-middle m-0">
-                                    <colgroup>
-                                        <col style="width:8%">
-                                        <col style="width:11%">
-                                        <col style="width:7%">
-                                        <col style="width:21%">
-                                        <col style="width:10%">
-                                        <col style="width:14%">
-                                        <col style="width:12%">
-                                        <col style="width:10%">
-                                        <col style="width:7%">
-                                    </colgroup>
-                                    <thead class="sticky-top bg-white" style="position: sticky; top: 0; z-index: 10; box-shadow: inset 0 -2px 0 #e2e8f0;">
-                                    <tr class="text-nowrap">
-                                        <th style="background: #ffffff; white-space: nowrap;" class="fw-semibold cursor-pointer text-nowrap" onclick="sortRecentShipments('date')">Date <i id="sort-icon-date" class="bi bi-arrow-down-up text-muted ms-1"></i></th>
-                                        <th style="background: #ffffff; white-space: nowrap;" class="fw-semibold text-nowrap">No. SJ</th>
-                                        <th style="background: #ffffff; white-space: nowrap;" class="fw-semibold text-nowrap">Admin SJ</th>
-                                        <th style="background: #ffffff; white-space: nowrap;" class="fw-semibold cursor-pointer text-nowrap" onclick="sortRecentShipments('destination')">Destination <i id="sort-icon-destination" class="bi bi-arrow-down-up text-muted ms-1"></i></th>
-                                        <th style="background: #ffffff; white-space: nowrap;" class="fw-semibold cursor-pointer text-nowrap" onclick="sortRecentShipments('status')">Status <i id="sort-icon-status" class="bi bi-arrow-down-up text-muted ms-1"></i></th>
-                                        <th style="background: #ffffff; white-space: nowrap;" class="fw-semibold text-nowrap text-center">Bukti Foto (PoD)</th>
-                                        <th style="background: #ffffff; white-space: nowrap;" class="fw-semibold cursor-pointer text-nowrap" onclick="sortRecentShipments('carrier')">Carrier <i id="sort-icon-carrier" class="bi bi-arrow-down-up text-muted ms-1"></i></th>
-                                        <th style="background: #ffffff; white-space: nowrap;" class="fw-semibold cursor-pointer text-nowrap" onclick="sortRecentShipments('eta')">ETA / Completed <i id="sort-icon-eta" class="bi bi-arrow-down-up text-muted ms-1"></i></th>
-                                        <th style="background: #ffffff; white-space: nowrap;" class="fw-semibold text-nowrap">Action</th>
+                                <table id="recent-shipments-grid" class="table table-hover align-middle m-0" style="table-layout: auto;">
+                                    <thead class="sticky-top" style="position: sticky; top: 0; z-index: 10; background: #F9FAFB;">
+                                    <tr class="text-nowrap" style="height: 38px;">
+                                        <th class="text-center" style="width: 36px; min-width: 36px; padding: 8px 6px;"><input type="checkbox" id="recent-select-all" class="form-check-input m-0" style="width:14px;height:14px;cursor:pointer" aria-label="Pilih semua pengantaran yang ditampilkan" title="Pilih semua yang ditampilkan" onchange="BulkAssignment.selectAll(this.checked)"></th>
+                                        <th class="cursor-pointer text-nowrap" style="width: 120px; min-width: 110px; padding: 8px 10px;" onclick="sortRecentShipments('date')">Tanggal</th>
+                                        <th class="text-nowrap" style="width: 130px; min-width: 120px; padding: 8px 10px;">No. DO</th>
+                                        <th class="text-nowrap" style="width: 75px; min-width: 70px; padding: 8px 10px;">Admin</th>
+                                        <th class="cursor-pointer text-nowrap" style="min-width: 170px; padding: 8px 10px;" onclick="sortRecentShipments('destination')">Customer</th>
+                                        <th class="recent-col-address text-nowrap" style="min-width: 200px; padding: 8px 10px;">Alamat</th>
+                                        <th class="text-nowrap text-center" style="width: 60px; min-width: 60px; padding: 8px 6px;">Foto</th>
+                                        <th class="cursor-pointer text-nowrap" style="width: 140px; min-width: 130px; padding: 8px 10px;" onclick="sortRecentShipments('carrier')">Carrier</th>
+                                        <th class="cursor-pointer text-nowrap" style="width: 120px; min-width: 110px; padding: 8px 10px;" onclick="sortRecentShipments('status')">Status</th>
+                                        <th class="cursor-pointer text-nowrap" style="width: 85px; min-width: 80px; padding: 8px 10px;" onclick="sortRecentShipments('eta')">ETA</th>
+                                        <th class="text-nowrap text-end" style="width: 85px; min-width: 80px; padding: 8px 10px;">Action</th>
                                     </tr>
                                     </thead>
                                     <tbody id="recent-shipments-table"></tbody>
@@ -1468,22 +1572,27 @@
                 <div class="row g-4 mb-4">
                     <div class="col-lg-7 col-xl-7">
                         <div class="border rounded-4 p-4 bg-white shadow-sm h-100">
-                            <h6 class="fw-bold mb-4 fs-5"><i class="bi bi-box-seam me-2 text-primary"></i>Assign Shipment</h6>
+                            <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="bi bi-box-seam text-primary" style="font-size: 15px;"></i>
+                                    <span style="font-size: 13.5px; font-weight: 600; color: #101828;">Assign Shipment</span>
+                                </div>
+                            </div>
 
-                            <div class="mb-4">
-                                <label class="extra-small fw-bold text-muted text-uppercase mb-2">1. Select Courier</label>
-                                <select id="sel-courier" class="form-select border-1 py-2" style="border-radius: 10px;" onchange="onDispatchCourierChange()"></select>
+                            <div class="mb-3" style="max-width: 440px;">
+                                <label class="mb-1.5" style="font-size: 11px; font-weight: 500; color: #667085; text-transform: uppercase; letter-spacing: 0.03em;">1. Select Courier</label>
+                                <select id="sel-courier" class="form-select" style="height: 36px; font-size: 12.5px; border-radius: 8px;" onchange="onDispatchCourierChange()"></select>
                                 <div id="dispatch-courier-auto-info" class="mt-2" style="display: none;">
-                                    <span class="badge" id="dispatch-courier-vehicle-badge" style="font-size: 0.8rem;"></span>
+                                    <span class="badge" id="dispatch-courier-vehicle-badge" style="font-size: 0.78rem;"></span>
                                 </div>
                             </div>
 
                             <!-- Pilihan Armada Mobil Khusus Driver yang Ditentukan Admin -->
-                            <div id="dispatch-fleet-vehicle-container" class="mb-4 p-3 bg-light border rounded-3" style="display: none;">
-                                <label class="extra-small fw-bold text-dark text-uppercase mb-2 d-flex align-items-center gap-1.5">
+                            <div id="dispatch-fleet-vehicle-container" class="mb-3 p-3 bg-light border rounded-3" style="display: none;">
+                                <label class="extra-small fw-medium text-dark text-uppercase mb-2 d-flex align-items-center gap-1.5" style="font-size: 11px;">
                                     <i class="bi bi-truck text-primary fs-6"></i> <span>Tentukan Armada Mobil Operasional (Admin):</span>
                                 </label>
-                                <select id="dispatch-fleet-vehicle-select" class="form-select border-1 py-2 fw-semibold" style="border-radius: 10px;">
+                                <select id="dispatch-fleet-vehicle-select" class="form-select border-1 py-1.5 fw-medium" style="border-radius: 8px; font-size: 12.5px; height: 36px;">
                                     <option value="">-- Pilih Armada Mobil Operasional --</option>
                                     <optgroup label="Granmax (6 Unit)">
                                         <option value="B 9227 SCH">Granmax B 9227 SCH (Agung)</option>
@@ -1504,7 +1613,7 @@
                                         <option value="B 9243 PCJ">L300 B 9243 PCJ (L300 Gudang)</option>
                                     </optgroup>
                                 </select>
-                                <small class="text-muted extra-small mt-1 d-block"><i class="bi bi-info-circle me-1"></i>Admin menentukan plat mobil yang digunakan driver untuk rute ini.</small>
+                                <small class="text-muted extra-small mt-1 d-block" style="font-size: 10.5px;"><i class="bi bi-info-circle me-1"></i>Admin menentukan plat mobil yang digunakan driver untuk rute ini.</small>
                             </div>
 
                             <!-- Jenis Armada Pengantaran Otomatis (Radio Button Manual Disembunyikan) -->
@@ -1513,46 +1622,95 @@
                                 <input type="radio" class="btn-check" name="dispatch-vehicle-type" id="veh-mobil" value="mobil">
                             </div>
 
-                            <div class="mb-4">
-                                <label class="extra-small fw-bold text-muted text-uppercase mb-2">2. Upload Bulk Surat Jalan Photo (Optional, Bisa >1 Foto)</label>
-                                <input type="file" id="dispatch-bulk-sj-file" accept="image/*" multiple class="form-control py-2 border-1" style="border-radius: 10px;">
-                            </div>
-
-                            <div class="mb-4">
-                                <label class="extra-small fw-bold text-muted text-uppercase mb-2">3. Add Destinations</label>
-                                <div class="d-flex gap-2 mb-3">
+                            <div class="mb-3">
+                                <label class="mb-1.5" style="font-size: 11px; font-weight: 500; color: #667085; text-transform: uppercase; letter-spacing: 0.03em;">2. Add Destinations</label>
+                                <div class="d-flex gap-2 mb-2">
                                     <div class="position-relative flex-grow-1">
-                                        <i class="bi bi-geo-alt position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"></i>
-                                        <input type="text" id="places-search" class="form-control ps-5 py-2" style="border-radius: 10px; background-color: #ffffff;" placeholder="Tulis / cari nama toko atau alamat..." autocomplete="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" data-grammarly="false" onkeypress="if(event.key==='Enter'){ event.preventDefault(); addManualAddress(); }">
+                                        <i class="bi bi-geo-alt position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" style="font-size: 13px;"></i>
+                                        <input type="text" id="places-search" class="form-control ps-5 py-1.5" style="border-radius: 8px; background-color: #ffffff; height: 36px; font-size: 12.5px;" placeholder="Tulis / cari nama toko atau alamat..." autocomplete="off" spellcheck="false" data-lpignore="true" data-1p-ignore="true" data-grammarly="false">
                                     </div>
-                                    <button class="btn btn-dark px-3 fw-bold d-flex align-items-center gap-1" style="border-radius: 10px; font-size: 0.85rem;" onclick="addManualAddress()">
+                                    <button class="btn btn-dark px-3 d-flex align-items-center gap-1 shadow-xs" style="border-radius: 8px; font-size: 12px; font-weight: 500; height: 36px;" onclick="addManualAddress()">
                                         <i class="bi bi-plus-lg"></i> <span>ADD</span>
                                     </button>
                                 </div>
                             </div>
 
-                            <div class="border rounded-3 p-3 bg-white shadow-sm mb-4">
-                                <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div class="border rounded-3 p-3 bg-white shadow-sm mb-3">
+                                <div class="d-flex justify-content-between align-items-center mb-2 pb-1 border-bottom">
                                     <div class="d-flex align-items-center gap-2">
-                                        <label class="extra-small fw-bold text-dark text-uppercase m-0">Rute Pengantaran Kurir</label>
-                                        <span id="queue-count-badge" class="badge bg-primary px-2.5 py-1.5 fw-bold" style="border-radius: 20px; font-size: 0.725rem;">0 Total Destinasi</span>
+                                        <label class="m-0" style="font-size: 11px; font-weight: 500; color: #344054; text-transform: uppercase; letter-spacing: 0.03em;">Rute</label>
+                                        <span id="queue-count-badge" class="badge" style="background: #FFF4E5; color: #CC6100; border: 1px solid rgba(204, 97, 0, 0.25); border-radius: 20px; font-size: 11px; font-weight: 700; padding: 2px 8px;">0 Total Destinasi</span>
                                     </div>
-                                    <button class="btn btn-sm btn-link text-danger text-decoration-none extra-small fw-bold p-0" onclick="tripQueue=[];renderQueue();" title="Kosongkan Rute">
-                                        <i class="bi bi-x-circle me-1"></i>Reset
+                                    <button class="btn btn-sm btn-link text-danger text-decoration-none p-0" style="font-size: 13px;" onclick="tripQueue=[];renderQueue();" title="Reset Rute" aria-label="Reset Rute">
+                                        <i class="bi bi-trash"></i>
                                     </button>
                                 </div>
-                                <div id="dispatch-queue" class="d-flex flex-column gap-2 overflow-y-auto pe-1" style="min-height: 180px; max-height: 380px;"></div>
+                                <div id="dispatch-queue" class="d-flex flex-column gap-2 overflow-y-auto pe-1" style="min-height: 80px; max-height: 380px;">
+                                    <div class="text-center py-3 text-muted" style="font-size: 11.5px;"><i class="bi bi-geo-alt me-1 text-primary"></i> Belum ada titik rute pengantaran.</div>
+                                </div>
                             </div>
 
-                            <button class="btn btn-dark w-100 py-3 fw-bold shadow-sm" style="border-radius:12px;" onclick="submitTrip()">
-                                <i class="bi bi-send-plus-fill me-2"></i> CONFIRM & DISPATCH
-                            </button>
+                            <div class="d-flex justify-content-between align-items-center pt-3 border-top mt-2">
+                                <div class="d-flex align-items-center gap-1.5 text-muted" style="font-size: 11.5px;">
+                                    <i class="bi bi-info-circle text-primary"></i>
+                                    <span>Tentukan kurir &amp; destinasi untuk penugasan</span>
+                                </div>
+                                <button id="dispatch-confirm-btn" class="btn btn-primary d-inline-flex align-items-center gap-2 shadow-sm dispatch-btn-modern" style="height: 36px; padding: 0 16px; border-radius: 8px; font-size: 12.5px; font-weight: 500; transition: all 0.2s ease;" onclick="openDispatchConfirmModal()">
+                                    <i class="bi bi-send-fill" style="font-size: 12px;"></i>
+                                    <span>Confirm &amp; Dispatch</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
 
                     <div class="col-lg-5 col-xl-5">
-                        <div class="border rounded-4 overflow-hidden shadow-sm position-sticky" style="top: 20px; min-height: 550px;">
-                            <div id="map-dispatch" style="height: 100%; min-height: 550px; width: 100%;"></div>
+                        <div class="border rounded-4 overflow-hidden shadow-sm position-sticky d-flex flex-column" id="map-dispatch-card" style="top: 20px; min-height: 520px;">
+                            <div class="p-2.5 px-3 bg-white border-bottom d-flex align-items-center justify-content-between flex-shrink-0">
+                                <div class="d-flex align-items-center gap-1.5">
+                                    <i class="bi bi-map text-primary" style="font-size: 13px;"></i>
+                                    <span style="font-size: 12px; font-weight: 600; color: #101828;">Peta Rute</span>
+                                </div>
+                                <span class="badge bg-light text-secondary border fw-normal" style="font-size: 10.5px;">Live Navigation</span>
+                            </div>
+                            <div id="map-dispatch" class="flex-grow-1" style="min-height: 470px; width: 100%;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modern Dispatch Confirmation Modal -->
+            <div class="modal fade" id="dispatchConfirmModal" tabindex="-1" aria-labelledby="dispatchConfirmModalLabel" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered" style="max-width: 420px;">
+                    <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
+                        <div class="modal-body p-4 text-center">
+                            <div class="mx-auto mb-3 d-flex align-items-center justify-content-center dispatch-modal-icon-pulse" style="width: 52px; height: 52px; border-radius: 50%; background: #EFF8FF; color: #175CD3; border: 1px solid #D1E9FF;">
+                                <i class="bi bi-send-check-fill fs-4"></i>
+                            </div>
+                            <h5 class="fw-semibold text-dark mb-1" id="dispatchConfirmModalLabel" style="font-size: 16px;">Konfirmasi Penugasan Kurir</h5>
+                            <p class="text-muted mb-3" style="font-size: 12px; line-height: 1.4;">Pastikan kurir dan rute pengantaran sudah sesuai sebelum dikirim ke sistem kurir.</p>
+
+                            <div class="p-3 rounded-3 text-start mb-3" style="background: #F9FAFB; border: 1px solid #EAECF0;">
+                                <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                                    <span class="text-muted" style="font-size: 11.5px;">Kurir</span>
+                                    <span id="dispatch-modal-courier-name" class="fw-medium text-dark" style="font-size: 12px;">-</span>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                                    <span class="text-muted" style="font-size: 11.5px;">Total Destinasi</span>
+                                    <span id="dispatch-modal-dest-count" class="badge" style="background: #FFF4E5; color: #CC6100; border: 1px solid rgba(204, 97, 0, 0.25); font-size: 11px; font-weight: 700;">0 Destinasi</span>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="text-muted" style="font-size: 11.5px;">Armada</span>
+                                    <span id="dispatch-modal-fleet" class="fw-medium text-dark font-monospace" style="font-size: 11.5px;">-</span>
+                                </div>
+                            </div>
+
+                            <div class="d-flex gap-2 justify-content-end">
+                                <button type="button" class="btn btn-light border flex-grow-1" data-bs-dismiss="modal" style="height: 38px; border-radius: 8px; font-size: 12.5px; font-weight: 500; border-color: #D0D5DD !important; color: #344054;">Batal</button>
+                                <button type="button" id="dispatch-modal-submit-btn" class="btn btn-primary flex-grow-1 d-inline-flex align-items-center justify-content-center gap-1.5 shadow-sm" style="height: 38px; border-radius: 8px; font-size: 12.5px; font-weight: 500;" onclick="confirmAndExecuteDispatch()">
+                                    <i class="bi bi-send-fill" style="font-size: 12px;"></i>
+                                    <span>Kirim Sekarang</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1563,27 +1721,29 @@
                 <div class="border rounded-4 p-3 bg-white shadow-sm mb-4">
                     <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
                         <div class="d-flex align-items-center gap-2">
-                            <i class="bi bi-calendar3 fs-5 text-primary"></i>
-                            <span class="fw-bold extra-small text-uppercase text-muted">Filter Periode KPI:</span>
+                            <i class="bi bi-calendar3 text-primary" style="font-size: 14px;"></i>
+                            <span class="text-muted" style="font-size: 11.5px; font-weight: 500; text-transform: uppercase;">Periode:</span>
                         </div>
                         <div class="d-flex flex-wrap align-items-center gap-2">
                             <div class="d-flex align-items-center gap-1">
-                                <span class="extra-small text-muted fw-bold">Armada:</span>
-                                <select id="kpi-vehicle-filter" class="form-select form-select-sm border fw-bold text-primary" style="border-radius: 8px; width: 175px;" onchange="renderKPIView()">
+                                <span class="text-muted" style="font-size: 11.5px;">Armada:</span>
+                                <select id="kpi-vehicle-filter" class="form-select form-select-sm border text-dark" style="border-radius: 8px; width: 155px; font-size: 12px;" onchange="renderKPIView()">
                                     <option value="all" selected>Semua Armada</option>
                                     <option value="motor">Kurir Motor</option>
                                     <option value="mobil">Driver Mobil</option>
                                 </select>
                             </div>
                             <div class="d-flex align-items-center gap-1">
-                                <span class="extra-small text-muted fw-bold">Dari:</span>
-                                <input type="date" id="kpi-start-date" class="form-control form-control-sm border" style="border-radius: 8px; width: 145px;" onchange="renderKPIView()">
+                                <span class="text-muted" style="font-size: 11.5px;">Dari:</span>
+                                <input type="date" id="kpi-start-date" class="form-control form-control-sm border" style="border-radius: 8px; width: 140px; font-size: 12px;" onchange="renderKPIView()">
                             </div>
                             <div class="d-flex align-items-center gap-1">
-                                <span class="extra-small text-muted fw-bold">Sampai:</span>
-                                <input type="date" id="kpi-end-date" class="form-control form-control-sm border" style="border-radius: 8px; width: 145px;" onchange="renderKPIView()">
+                                <span class="text-muted" style="font-size: 11.5px;">Sampai:</span>
+                                <input type="date" id="kpi-end-date" class="form-control form-control-sm border" style="border-radius: 8px; width: 140px; font-size: 12px;" onchange="renderKPIView()">
                             </div>
-                            <button class="btn btn-sm btn-outline-dark fw-bold px-3 py-2 ms-2" style="border-radius: 10px;" onclick="exportKPIToExcel()"><i class="bi bi-file-earmark-excel me-1"></i> Excel KPI Report</button>
+                            <button class="btn btn-sm btn-wellen-action d-inline-flex align-items-center gap-1.5" style="height: 32px; border-radius: 8px; font-size: 12px;" onclick="exportKPIToExcel()">
+                                <i class="bi bi-file-earmark-excel"></i> Report
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -1616,8 +1776,8 @@
                 <div class="border rounded-4 p-4 bg-white shadow-sm mb-4">
                     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                         <div>
-                            <h6 class="fw-bold m-0 fs-6">Sistem Achievement & Badges Kurir / Driver</h6>
-                            <small class="text-muted" id="kpi-achievements-subtitle">Pencapaian khusus untuk Kurir Motor (banyak titik) & Driver Mobil (jarak jauh/muatan)</small>
+                            <span class="fw-semibold text-dark" style="font-size: 13.5px;">Pencapaian & Badge</span>
+                            <small class="text-muted d-block" id="kpi-achievements-subtitle" style="font-size: 11.5px;">Peringkat dan performa kurir.</small>
                         </div>
                     </div>
                     <div class="row g-3" id="kpi-achievements-container">
@@ -1702,130 +1862,121 @@
             <!-- FLEET VEHICLE INVENTORY VIEW [SUPER ADMIN ONLY] -->
             <div id="view-fleet-inventory" class="view-section" style="display: none;">
                 <!-- Main Header & Action Bar -->
-                <div class="d-flex flex-wrap align-items-center justify-content-between mb-4 gap-3 bg-white p-3.5 rounded-4 border shadow-sm">
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="bg-dark p-2.5 rounded-3 text-white">
-                            <i class="bi bi-truck-front-fill fs-4"></i>
-                        </div>
-                        <div>
-                            <div class="d-flex align-items-center gap-2">
-                                <h5 class="fw-bold m-0 text-dark" style="font-size: 1.1rem;">Inventaris Armada Kendaraan Operasional</h5>
-                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-0.5 fw-bold extra-small">SUPER ADMIN ONLY</span>
-                            </div>
-                            <span class="extra-small text-muted">Pengawasan terpadu armada Granmax & Truk box: pantau jatuh tempo Pajak STNK, Uji KIR Kemenhub, Jadwal Servis Rutin, dan Kontak Alert WhatsApp.</span>
-                        </div>
+                <div class="d-flex flex-wrap align-items-center justify-content-between mb-3 gap-2 pb-2 border-bottom" style="border-color: #EAECF0 !important;">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="fw-semibold text-dark" style="font-size: 13.5px;">Fleet Inventory</span>
+                        <span class="badge" style="background: #FFF4E5; color: #CC6100; border: 1px solid rgba(204, 97, 0, 0.25); font-size: 11px; font-weight: 700;">12 Armada</span>
                     </div>
                     <div class="d-flex align-items-center gap-2">
-                        <button class="btn btn-sm btn-outline-dark fw-bold px-3 py-2 shadow-xs d-flex align-items-center gap-1.5" style="border-radius: 10px;" onclick="window.fleetModule.exportFleetToExcel()">
+                        <button class="btn btn-sm btn-wellen-action d-inline-flex align-items-center gap-1.5" style="height: 32px; border-radius: 8px; font-size: 12px;" onclick="window.fleetModule.exportFleetToExcel()">
                             <i class="bi bi-file-earmark-excel"></i> <span>Export</span>
                         </button>
-                        <button class="btn btn-sm btn-dark fw-bold px-3 py-2 shadow-xs d-flex align-items-center gap-1.5" style="border-radius: 10px;" onclick="window.fleetModule.openAddFleetModal()">
-                            <i class="bi bi-plus-circle-fill"></i> <span>Tambah Armada</span>
+                        <button class="btn btn-sm btn-dark d-inline-flex align-items-center gap-1.5" style="height: 32px; border-radius: 8px; font-size: 12px; font-weight: 500;" onclick="window.fleetModule.openAddFleetModal()">
+                            <i class="bi bi-plus-lg"></i> <span>Armada</span>
                         </button>
                     </div>
                 </div>
 
                 <!-- Alert Stats Cards -->
-                <div class="row g-3 mb-4">
+                <div class="row g-2 mb-3">
                     <div class="col-6 col-lg">
-                        <div class="stat-card shadow-sm p-3 bg-white border rounded-4 h-100">
-                            <div class="stat-label text-uppercase text-muted extra-small fw-bold">Total Armada Operasional</div>
-                            <div class="stat-value fs-3 fw-bolder text-dark" id="fleet-stat-total">12</div>
-                            <div class="extra-small text-muted mt-1"><i class="bi bi-truck me-1 text-primary"></i>12 Unit Perusahaan</div>
+                        <div class="stat-card shadow-2fs p-2.5 px-3 bg-white border rounded-3 h-100" style="border-color: #EAECF0 !important;">
+                            <div class="stat-label text-uppercase text-muted" style="font-size: 11px; font-weight: 500;">Total Armada</div>
+                            <div class="stat-value text-dark" style="font-size: 16px; font-weight: 600;" id="fleet-stat-total">12</div>
+                            <div class="text-muted mt-0.5" style="font-size: 11px;"><i class="bi bi-truck me-1 text-primary"></i>12 Unit</div>
                         </div>
                     </div>
                     <div class="col-6 col-lg">
-                        <div class="stat-card shadow-sm p-3 bg-white border rounded-4 h-100">
-                            <div class="stat-label text-uppercase extra-small fw-bold" style="color: #4f46e5;">Granmax</div>
-                            <div class="stat-value fs-3 fw-bolder" style="color: #4f46e5;" id="fleet-stat-granmax">6</div>
-                            <div class="extra-small text-muted mt-1"><i class="bi bi-truck-front me-1"></i>Armada Granmax</div>
+                        <div class="stat-card shadow-2fs p-2.5 px-3 bg-white border rounded-3 h-100" style="border-color: #EAECF0 !important;">
+                            <div class="stat-label text-uppercase" style="color: #4f46e5; font-size: 11px; font-weight: 500;">Granmax</div>
+                            <div class="stat-value" style="color: #4f46e5; font-size: 16px; font-weight: 600;" id="fleet-stat-granmax">6</div>
+                            <div class="text-muted mt-0.5" style="font-size: 11px;"><i class="bi bi-truck-front me-1"></i>Armada Granmax</div>
                         </div>
                     </div>
                     <div class="col-6 col-lg">
-                        <div class="stat-card shadow-sm p-3 bg-white border rounded-4 h-100">
-                            <div class="stat-label text-uppercase extra-small fw-bold" style="color: #d97706;">Truk box</div>
-                            <div class="stat-value fs-3 fw-bolder" style="color: #d97706;" id="fleet-stat-truckbox">4</div>
-                            <div class="extra-small text-muted mt-1"><i class="bi bi-box-seam me-1"></i>Armada Truk Box</div>
+                        <div class="stat-card shadow-2fs p-2.5 px-3 bg-white border rounded-3 h-100" style="border-color: #EAECF0 !important;">
+                            <div class="stat-label text-uppercase" style="color: #d97706; font-size: 11px; font-weight: 500;">Truk Box</div>
+                            <div class="stat-value" style="color: #d97706; font-size: 16px; font-weight: 600;" id="fleet-stat-truckbox">4</div>
+                            <div class="text-muted mt-0.5" style="font-size: 11px;"><i class="bi bi-box-seam me-1"></i>Armada Box</div>
                         </div>
                     </div>
                     <div class="col-6 col-lg">
-                        <div class="stat-card shadow-sm p-3 bg-white border rounded-4 h-100">
-                            <div class="stat-label text-uppercase extra-small fw-bold" style="color: #059669;">Pick Up & L 300</div>
-                            <div class="stat-value fs-3 fw-bolder" style="color: #059669;" id="fleet-stat-pickupl300">2</div>
-                            <div class="extra-small text-muted mt-1"><i class="bi bi-truck-flatbed me-1"></i>Operasional Gudang</div>
+                        <div class="stat-card shadow-2fs p-2.5 px-3 bg-white border rounded-3 h-100" style="border-color: #EAECF0 !important;">
+                            <div class="stat-label text-uppercase" style="color: #059669; font-size: 11px; font-weight: 500;">Pick Up &amp; L 300</div>
+                            <div class="stat-value" style="color: #059669; font-size: 16px; font-weight: 600;" id="fleet-stat-pickupl300">2</div>
+                            <div class="text-muted mt-0.5" style="font-size: 11px;"><i class="bi bi-truck-flatbed me-1"></i>Gudang</div>
                         </div>
                     </div>
                     <div class="col-12 col-lg">
-                        <div class="stat-card shadow-sm p-3 bg-white border rounded-4 h-100">
-                            <div class="stat-label text-uppercase text-danger extra-small fw-bold">Perlu Perhatian (H-7 / Overdue)</div>
-                            <div class="stat-value fs-3 fw-bolder text-danger" id="fleet-stat-attention">0</div>
-                            <div class="extra-small text-danger mt-1"><i class="bi bi-exclamation-triangle-fill me-1"></i>Pajak / KIR / Servis</div>
+                        <div class="stat-card shadow-2fs p-2.5 px-3 bg-white border rounded-3 h-100" style="border-color: #EAECF0 !important;">
+                            <div class="stat-label text-uppercase text-danger" style="font-size: 11px; font-weight: 500;">Perlu Perhatian</div>
+                            <div class="stat-value text-danger" style="font-size: 16px; font-weight: 600;" id="fleet-stat-attention">0</div>
+                            <div class="text-danger mt-0.5" style="font-size: 11px;"><i class="bi bi-exclamation-triangle me-1"></i>Pajak / KIR / Servis</div>
                         </div>
                     </div>
                 </div>
 
                 <!-- Filter & Search Toolbar -->
-                <div class="border rounded-4 p-3 bg-white shadow-sm mb-4">
+                <div class="border rounded-3 p-3 bg-white shadow-2fs mb-3" style="border-color: #EAECF0 !important;">
                     <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
                         <div class="d-flex flex-wrap align-items-center gap-2">
                             <div class="d-flex align-items-center gap-1">
-                                <span class="extra-small text-muted fw-bold">Armada:</span>
-                                <select id="fleet-filter-type" class="form-select form-select-sm border fw-semibold" style="border-radius: 8px; width: 170px;" onchange="window.fleetModule.renderFleetInventoryView()">
-                                    <option value="all">Armada</option>
+                                <span class="text-muted" style="font-size: 11.5px;">Armada:</span>
+                                <select id="fleet-filter-type" class="form-select form-select-sm border text-dark" style="border-radius: 8px; width: 160px; font-size: 12px;" onchange="window.fleetModule.renderFleetInventoryView()">
+                                    <option value="all">Semua Armada</option>
                                     <option value="granmax">Granmax (6 Unit)</option>
-                                    <option value="truck_box">Truk box (4 Unit)</option>
+                                    <option value="truck_box">Truk Box (4 Unit)</option>
                                     <option value="pickup">Pick Up (1 Unit)</option>
                                     <option value="l300">L 300 (1 Unit)</option>
                                 </select>
                             </div>
                             <div class="d-flex align-items-center gap-1">
-                                <span class="extra-small text-muted fw-bold">Status:</span>
-                                <select id="fleet-filter-status" class="form-select form-select-sm border fw-semibold" style="border-radius: 8px; width: 210px;" onchange="window.fleetModule.renderFleetInventoryView()">
-                                    <option value="all">Status</option>
+                                <span class="text-muted" style="font-size: 11.5px;">Status:</span>
+                                <select id="fleet-filter-status" class="form-select form-select-sm border text-dark" style="border-radius: 8px; width: 190px; font-size: 12px;" onchange="window.fleetModule.renderFleetInventoryView()">
+                                    <option value="all">Semua Status</option>
                                     <option value="attention">Perlu Perhatian (H-7 / Overdue)</option>
-                                    <option value="warning_h7">Peringatan H-7 Saja</option>
-                                    <option value="overdue">Lewat Jatuh Tempo (Overdue)</option>
+                                    <option value="warning_h7">Peringatan H-7</option>
+                                    <option value="overdue">Overdue</option>
                                 </select>
                             </div>
                         </div>
                         <div class="d-flex flex-wrap align-items-center gap-2">
-                            <!-- Single Central Alert & WhatsApp Number (Clean, Minimalist, No Color Block) -->
-                            <div class="d-flex align-items-center gap-2 px-3 py-1.5 rounded-3 border bg-white shadow-xs" style="font-size: 0.8rem;">
-                                <i class="bi bi-whatsapp text-success fs-6"></i>
-                                <span class="text-muted fw-medium">No. HP Alert:</span>
-                                <span class="fw-bold font-monospace text-dark" id="fleet-central-phone-display">+62 812-1020-3040</span>
-                                <button class="btn btn-xs btn-link text-muted p-0 text-decoration-none ms-1" onclick="window.fleetModule.openEditCentralPhoneModal()" title="Ubah Nomor WhatsApp Alert">
-                                    <i class="bi bi-pencil-square"></i>
+                            <!-- WhatsApp Alert Number & Quick Send (Icon only) -->
+                            <div class="d-flex align-items-center gap-1.5 px-2.5 py-1 rounded-3 border bg-white shadow-2fs" style="font-size: 11.5px; height: 32px; border-color: #EAECF0 !important;">
+                                <i class="bi bi-whatsapp text-success" style="font-size: 13.5px;" title="WhatsApp Alert"></i>
+                                <span class="font-monospace text-dark fw-medium" id="fleet-central-phone-display">+62 812-1020-3040</span>
+                                <button class="btn btn-xs btn-link text-muted p-0 text-decoration-none" onclick="window.fleetModule.openEditCentralPhoneModal()" title="Ubah Nomor WhatsApp">
+                                    <i class="bi bi-pencil" style="font-size: 11px;"></i>
                                 </button>
-                                <button class="btn btn-xs btn-outline-secondary py-0.5 px-2 rounded-2 fw-semibold ms-1" onclick="window.fleetModule.sendCentralAlertWhatsApp()" title="Kirim Pesan WhatsApp Rekap Alert">
-                                    <i class="bi bi-send me-1"></i> Kirim Alert
+                                <button class="btn btn-xs btn-outline-secondary p-1 rounded-2 d-inline-flex align-items-center justify-content-center" style="width: 24px; height: 24px; border-color: #D0D5DD !important;" onclick="window.fleetModule.sendCentralAlertWhatsApp()" title="Kirim WhatsApp Alert">
+                                    <i class="bi bi-send text-primary" style="font-size: 11px;"></i>
                                 </button>
                             </div>
 
-                            <div class="position-relative" style="min-width: 240px;">
-                                <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"></i>
-                                <input type="text" id="fleet-search-input" class="form-control form-control-sm ps-5 py-2 fw-normal" style="border-radius: 10px; background: #f8fafc;" placeholder="Cari Nopol, Driver..." oninput="window.fleetModule.renderFleetInventoryView()">
+                            <div class="position-relative" style="min-width: 220px;">
+                                <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-2.5 text-muted" style="font-size: 12px;"></i>
+                                <input type="text" id="fleet-search-input" class="form-control form-control-sm ps-4 py-1.5" style="border-radius: 8px; font-size: 12px;" placeholder="Cari Nopol, Driver..." oninput="window.fleetModule.renderFleetInventoryView()">
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- Table Container -->
-                <div class="border rounded-4 p-4 bg-white shadow-sm mb-4">
+                <div class="border rounded-3 p-3 bg-white shadow-2fs mb-4" style="border-color: #EAECF0 !important;">
                     <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
                         <table class="table table-hover align-middle m-0">
-                            <thead class="sticky-top bg-white" style="position: sticky; top: 0; z-index: 10; box-shadow: inset 0 -2px 0 #e2e8f0;">
-                                <tr class="text-nowrap extra-small text-uppercase fw-bold" style="background: #f8fafc;">
-                                    <th style="min-width: 150px; font-size: 0.72rem; letter-spacing: 0.05em; color: #64748b; padding: 12px 14px;">NOPOL</th>
-                                    <th style="min-width: 150px; font-size: 0.72rem; letter-spacing: 0.05em; color: #64748b; padding: 12px 14px;">DRIVER</th>
-                                    <th style="min-width: 140px; font-size: 0.72rem; letter-spacing: 0.05em; color: #64748b; padding: 12px 14px;">PAJAK</th>
-                                    <th style="min-width: 140px; font-size: 0.72rem; letter-spacing: 0.05em; color: #64748b; padding: 12px 14px;">KIR</th>
-                                    <th style="min-width: 250px; font-size: 0.72rem; letter-spacing: 0.05em; color: #64748b; padding: 12px 14px;">JADWAL & SERVIS</th>
-                                    <th style="min-width: 90px; font-size: 0.72rem; letter-spacing: 0.05em; color: #64748b; padding: 12px 14px;" class="text-end">AKSI</th>
+                            <thead class="sticky-top" style="position: sticky; top: 0; z-index: 10; background: #F9FAFB;">
+                                <tr class="text-nowrap" style="height: 38px;">
+                                    <th style="min-width: 140px; font-size: 11px; font-weight: 500 !important; color: #667085; text-transform: uppercase; letter-spacing: 0.04em; background: #F9FAFB; padding: 8px 12px; border-bottom: 1px solid #EAECF0;">NOPOL</th>
+                                    <th style="min-width: 140px; font-size: 11px; font-weight: 500 !important; color: #667085; text-transform: uppercase; letter-spacing: 0.04em; background: #F9FAFB; padding: 8px 12px; border-bottom: 1px solid #EAECF0;">DRIVER</th>
+                                    <th style="min-width: 130px; font-size: 11px; font-weight: 500 !important; color: #667085; text-transform: uppercase; letter-spacing: 0.04em; background: #F9FAFB; padding: 8px 12px; border-bottom: 1px solid #EAECF0;">PAJAK</th>
+                                    <th style="min-width: 130px; font-size: 11px; font-weight: 500 !important; color: #667085; text-transform: uppercase; letter-spacing: 0.04em; background: #F9FAFB; padding: 8px 12px; border-bottom: 1px solid #EAECF0;">KIR</th>
+                                    <th style="min-width: 240px; font-size: 11px; font-weight: 500 !important; color: #667085; text-transform: uppercase; letter-spacing: 0.04em; background: #F9FAFB; padding: 8px 12px; border-bottom: 1px solid #EAECF0;">JADWAL &amp; SERVIS</th>
+                                    <th style="min-width: 90px; font-size: 11px; font-weight: 500 !important; color: #667085; text-transform: uppercase; letter-spacing: 0.04em; background: #F9FAFB; padding: 8px 12px; border-bottom: 1px solid #EAECF0;" class="text-end">AKSI</th>
                                 </tr>
                             </thead>
                             <tbody id="fleet-table-body">
-                                <tr><td colspan="6" class="text-center py-4 text-muted">Memuat data armada operasional...</td></tr>
+                                <tr><td colspan="6" class="text-center py-4 text-muted" style="font-size: 12px;">Memuat data armada operasional...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -1835,27 +1986,21 @@
             <!-- COURIER AUDIT & PENDING MAP VIEW -->
             <div id="view-courier-audit" class="view-section" style="display: none;">
                 <!-- Main Header & Subview Navigation Bar -->
-                <div class="d-flex flex-wrap align-items-center justify-content-between mb-4 gap-3 bg-white p-3 rounded-4 border shadow-sm">
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="bg-primary-subtle p-2.5 rounded-3 text-primary">
-                            <i class="bi bi-clock-history fs-4"></i>
-                        </div>
-                        <div>
-                            <h5 class="fw-bold m-0 text-dark" style="font-size: 1.05rem;">Audit Kurir & Pusat Laporan Operasional</h5>
-                            <span class="extra-small text-muted">Rekapitulasi jam kerja efektif, status pengantaran, dan pusat distribusi laporan WA & Email</span>
-                        </div>
+                <div class="d-flex flex-wrap align-items-center justify-content-between mb-3 gap-2 pb-2 border-bottom" style="border-color: #EAECF0 !important;">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="fw-semibold text-dark" style="font-size: 13.5px;">Daily Courier Audit</span>
                     </div>
                     <div class="d-flex flex-wrap align-items-center gap-2">
                         <div class="bg-light p-1 rounded-3 border d-inline-flex gap-1" id="auditViewSwitcher">
-                            <button type="button" class="btn btn-sm btn-primary fw-bold px-3.5 py-1.5 rounded-2 shadow-sm text-white" id="btn-subview-audit-table" onclick="switchAuditSubView('table')">
-                                <i class="bi bi-table me-1.5"></i> Rekap & Peta Audit
+                            <button type="button" class="btn btn-sm btn-primary px-3 py-1 rounded-2 shadow-xs text-white" id="btn-subview-audit-table" style="font-size: 12px; font-weight: 500;" onclick="switchAuditSubView('table')">
+                                <i class="bi bi-table me-1"></i> Rekap
                             </button>
-                            <button type="button" class="btn btn-sm btn-light border fw-bold px-3 py-1.5 rounded-2 text-secondary" id="btn-subview-audit-dist" onclick="switchAuditSubView('distribution')">
-                                <i class="bi bi-send-fill me-1.5 text-primary"></i> Pusat Distribusi & Jadwal (WA & Email)
+                            <button type="button" class="btn btn-sm btn-light border px-3 py-1 rounded-2 text-secondary" id="btn-subview-audit-dist" style="font-size: 12px; font-weight: 500;" onclick="switchAuditSubView('distribution')">
+                                <i class="bi bi-send-fill me-1 text-primary"></i> Jadwal
                             </button>
                         </div>
-                        <button class="btn btn-sm btn-outline-success fw-bold d-flex align-items-center gap-1.5 px-3 py-1.5" style="border-radius: 8px;" onclick="exportCourierAuditToExcel()">
-                            <i class="bi bi-file-earmark-excel"></i> Export Excel
+                        <button class="btn btn-sm btn-wellen-action d-inline-flex align-items-center gap-1.5" style="height: 32px; border-radius: 8px; font-size: 12px;" onclick="exportCourierAuditToExcel()">
+                            <i class="bi bi-file-earmark-excel"></i> Excel
                         </button>
                     </div>
                 </div>
@@ -1863,41 +2008,41 @@
                 <!-- SUBVIEW 1: REKAPITULASI & PETA AUDIT KURIR -->
                 <div id="subview-audit-table">
                     <!-- Filter Bar -->
-                    <div class="border rounded-4 p-3 bg-white shadow-sm mb-4">
+                    <div class="border rounded-3 p-3 bg-white shadow-2fs mb-3" style="border-color: #EAECF0 !important;">
                         <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
                             <div class="d-flex align-items-center gap-2">
-                                <span class="badge bg-light text-dark border px-2.5 py-1.5 extra-small fw-bold">
-                                    <i class="bi bi-funnel me-1 text-primary"></i>Filter Audit
+                                <span class="badge bg-light text-dark border px-2.5 py-1 extra-small" style="font-size: 11px; font-weight: 500;">
+                                    <i class="bi bi-funnel me-1 text-primary"></i>Filter
                                 </span>
                             </div>
                             <div class="d-flex flex-wrap align-items-center gap-2">
                                 <div class="d-flex align-items-center gap-1">
-                                    <span class="extra-small text-muted fw-bold">Dari:</span>
-                                    <input type="date" id="audit-start-date" class="form-control form-control-sm border fw-bold text-primary" style="border-radius: 8px; width: 135px;" onchange="renderCourierAuditView()">
+                                    <span class="text-muted" style="font-size: 11.5px;">Dari:</span>
+                                    <input type="date" id="audit-start-date" class="form-control form-control-sm border text-dark" style="border-radius: 8px; width: 135px; font-size: 12px;" onchange="renderCourierAuditView()">
                                 </div>
                                 <div class="d-flex align-items-center gap-1">
-                                    <span class="extra-small text-muted fw-bold">Sampai:</span>
-                                    <input type="date" id="audit-end-date" class="form-control form-control-sm border fw-bold text-primary" style="border-radius: 8px; width: 135px;" onchange="renderCourierAuditView()">
+                                    <span class="text-muted" style="font-size: 11.5px;">Sampai:</span>
+                                    <input type="date" id="audit-end-date" class="form-control form-control-sm border text-dark" style="border-radius: 8px; width: 135px; font-size: 12px;" onchange="renderCourierAuditView()">
                                 </div>
                                 <div class="d-flex align-items-center gap-1">
-                                    <span class="extra-small text-muted fw-bold">Armada:</span>
-                                    <select id="audit-vehicle-filter" class="form-select form-select-sm border fw-bold text-primary" style="border-radius: 8px; min-width: 155px;" onchange="renderCourierAuditView()">
-                                        <option value="all" selected>Armada</option>
+                                    <span class="text-muted" style="font-size: 11.5px;">Armada:</span>
+                                    <select id="audit-vehicle-filter" class="form-select form-select-sm border text-dark" style="border-radius: 8px; min-width: 140px; font-size: 12px;" onchange="renderCourierAuditView()">
+                                        <option value="all" selected>Semua Armada</option>
                                         <option value="motor">Motor</option>
                                         <option value="mobil">Mobil</option>
                                     </select>
                                 </div>
                                 <div class="d-flex align-items-center gap-1">
-                                    <span class="extra-small text-muted fw-bold">Kurir:</span>
-                                    <select id="audit-courier-select" class="form-select form-select-sm border fw-bold text-dark" style="border-radius: 8px; min-width: 180px;" onchange="onAuditCourierSelectChange()">
+                                    <span class="text-muted" style="font-size: 11.5px;">Kurir:</span>
+                                    <select id="audit-courier-select" class="form-select form-select-sm border text-dark" style="border-radius: 8px; min-width: 160px; font-size: 12px;" onchange="onAuditCourierSelectChange()">
                                         <option value="" selected>Semua Kurir</option>
                                     </select>
                                 </div>
-                                <button class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1" style="border-radius: 8px;" onclick="renderCourierAuditView()" title="Refresh Data">
+                                <button class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1" style="height: 32px; border-radius: 8px;" onclick="renderCourierAuditView()" title="Refresh Data">
                                     <i class="bi bi-arrow-clockwise"></i>
                                 </button>
-                                <button class="btn btn-sm btn-primary d-flex align-items-center gap-1.5 fw-bold px-3 shadow-sm" style="border-radius: 8px;" onclick="switchAuditSubView('distribution')">
-                                    <i class="bi bi-send-fill"></i> Buka Pusat Laporan (WA & Email)
+                                <button class="btn btn-sm btn-primary d-flex align-items-center gap-1.5 px-3" style="height: 32px; border-radius: 8px; font-size: 12px; font-weight: 500;" onclick="switchAuditSubView('distribution')">
+                                    <i class="bi bi-send-fill" style="font-size: 11px;"></i> Laporan
                                 </button>
                             </div>
                         </div>
@@ -1906,56 +2051,56 @@
                     <!-- 4 KPI Summary Cards -->
                     <div class="row g-3 mb-4">
                         <div class="col-sm-6 col-xl-3">
-                            <div class="card border-0 shadow-sm rounded-4 p-3 bg-white h-100">
+                            <div class="card border p-3 bg-white h-100" style="border-radius: 10px; border-color: #eaecf0 !important; box-shadow: 0 1px 2px rgba(16,24,40,0.04);">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <div>
-                                        <span class="text-muted extra-small text-uppercase fw-bold">Total Terkirim</span>
-                                        <h4 class="fw-bold text-success mt-1 mb-0" id="audit-stat-delivered">0</h4>
+                                        <span class="text-muted extra-small text-uppercase fw-medium">Total Terkirim</span>
+                                        <div class="fw-semibold text-success mt-1 mb-0" style="font-size: 18px;" id="audit-stat-delivered">0</div>
                                     </div>
-                                    <div class="bg-success-subtle p-2.5 rounded-3 text-success">
-                                        <i class="bi bi-check2-circle fs-4"></i>
+                                    <div class="bg-success-subtle p-2 rounded-2 text-success">
+                                        <i class="bi bi-check2-circle fs-6"></i>
                                     </div>
                                 </div>
                                 <div class="extra-small text-muted mt-2" id="audit-stat-delivered-sub">0% dari total pengantaran</div>
                             </div>
                         </div>
                         <div class="col-sm-6 col-xl-3">
-                            <div class="card border-0 shadow-sm rounded-4 p-3 bg-white h-100">
+                            <div class="card border p-3 bg-white h-100" style="border-radius: 10px; border-color: #eaecf0 !important; box-shadow: 0 1px 2px rgba(16,24,40,0.04);">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <div>
-                                        <span class="text-muted extra-small text-uppercase fw-bold">Gagal (Tidak Diantar)</span>
-                                        <h4 class="fw-bold text-danger mt-1 mb-0" id="audit-stat-failed">0</h4>
+                                        <span class="text-muted extra-small text-uppercase fw-medium">Gagal (Tidak Diantar)</span>
+                                        <div class="fw-semibold text-danger mt-1 mb-0" style="font-size: 18px;" id="audit-stat-failed">0</div>
                                     </div>
-                                    <div class="bg-danger-subtle p-2.5 rounded-3 text-danger">
-                                        <i class="bi bi-x-circle fs-4"></i>
+                                    <div class="bg-danger-subtle p-2 rounded-2 text-danger">
+                                        <i class="bi bi-x-circle fs-6"></i>
                                     </div>
                                 </div>
                                 <div class="extra-small text-muted mt-2" id="audit-stat-failed-sub">Murni karena tidak diantar kurir</div>
                             </div>
                         </div>
                         <div class="col-sm-6 col-xl-3">
-                            <div class="card border-0 shadow-sm rounded-4 p-3 bg-white h-100">
+                            <div class="card border p-3 bg-white h-100" style="border-radius: 10px; border-color: #eaecf0 !important; box-shadow: 0 1px 2px rgba(16,24,40,0.04);">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <div>
-                                        <span class="text-muted extra-small text-uppercase fw-bold">Pending (Diajukan Kurir)</span>
-                                        <h4 class="fw-bold text-warning-emphasis mt-1 mb-0" id="audit-stat-pending">0</h4>
+                                        <span class="text-muted extra-small text-uppercase fw-medium">Pending (Diajukan Kurir)</span>
+                                        <div class="fw-semibold text-warning-emphasis mt-1 mb-0" style="font-size: 18px;" id="audit-stat-pending">0</div>
                                     </div>
-                                    <div class="bg-warning-subtle p-2.5 rounded-3 text-warning-emphasis">
-                                        <i class="bi bi-clock-history fs-4"></i>
+                                    <div class="bg-warning-subtle p-2 rounded-2 text-warning-emphasis">
+                                        <i class="bi bi-clock-history fs-6"></i>
                                     </div>
                                 </div>
                                 <div class="extra-small text-muted mt-2" id="audit-stat-pending-sub">Pengajuan toko tutup di sistem</div>
                             </div>
                         </div>
                         <div class="col-sm-6 col-xl-3">
-                            <div class="card border-0 shadow-sm rounded-4 p-3 bg-white h-100">
+                            <div class="card border p-3 bg-white h-100" style="border-radius: 10px; border-color: #eaecf0 !important; box-shadow: 0 1px 2px rgba(16,24,40,0.04);">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <div>
-                                        <span class="text-muted extra-small text-uppercase fw-bold">Rata-Rata Jam Efektif</span>
-                                        <h4 class="fw-bold text-primary mt-1 mb-0" id="audit-stat-avg-hours">0j 0m</h4>
+                                        <span class="text-muted extra-small text-uppercase fw-medium">Rata-Rata Jam Efektif</span>
+                                        <div class="fw-semibold text-primary mt-1 mb-0" style="font-size: 18px;" id="audit-stat-avg-hours">0j 0m</div>
                                     </div>
-                                    <div class="bg-primary-subtle p-2.5 rounded-3 text-primary">
-                                        <i class="bi bi-stopwatch fs-4"></i>
+                                    <div class="bg-primary-subtle p-2 rounded-2 text-primary">
+                                        <i class="bi bi-stopwatch fs-6"></i>
                                     </div>
                                 </div>
                                 <div class="extra-small text-muted mt-2" id="audit-stat-avg-sub">Durasi pertama assign s/d upload akhir</div>
@@ -1972,7 +2117,7 @@
                                     <h6 class="fw-bold m-0 text-dark" style="font-size: 0.9rem;">
                                         <i class="bi bi-people-fill text-primary me-2"></i>Rekapitulasi Kurir Harian
                                     </h6>
-                                    <span class="badge bg-light text-muted border extra-small" id="audit-courier-count">0 Kurir</span>
+                                    <span class="badge extra-small" id="audit-courier-count" style="background: #FFF4E5; color: #CC6100; border: 1px solid rgba(204, 97, 0, 0.25); font-weight: 700;">0 Kurir</span>
                                 </div>
                                 <div class="table-responsive" style="max-height: 560px;">
                                     <table class="table table-hover align-middle mb-0" style="font-size: 0.825rem;">
@@ -2112,28 +2257,28 @@
                                             <div class="col-6 col-sm-3">
                                                 <div class="p-3 rounded-3 bg-light border text-center">
                                                     <span class="text-muted extra-small text-uppercase fw-bold d-block">Total Tugas</span>
-                                                    <h4 class="fw-bold text-dark my-1" id="report-card-total-stops">0</h4>
+                                                    <div class="fw-semibold text-dark my-1" style="font-size: 18px;" id="report-card-total-stops">0</div>
                                                     <small class="text-muted extra-small">Paket</small>
                                                 </div>
                                             </div>
                                             <div class="col-6 col-sm-3">
                                                 <div class="p-3 rounded-3 bg-light border text-center" style="border-left: 3px solid #16a34a !important;">
                                                     <span class="text-success extra-small text-uppercase fw-bold d-block">Terkirim</span>
-                                                    <h4 class="fw-bold text-success my-1" id="report-card-delivered">0</h4>
+                                                    <div class="fw-semibold text-success my-1" style="font-size: 18px;" id="report-card-delivered">0</div>
                                                     <small class="text-muted extra-small" id="report-card-success-rate">0% Sukses</small>
                                                 </div>
                                             </div>
                                             <div class="col-6 col-sm-3">
                                                 <div class="p-3 rounded-3 bg-light border text-center" style="border-left: 3px solid #dc2626 !important;">
                                                     <span class="text-danger extra-small text-uppercase fw-bold d-block">Gagal</span>
-                                                    <h4 class="fw-bold text-danger my-1" id="report-card-failed">0</h4>
+                                                    <div class="fw-semibold text-danger my-1" style="font-size: 18px;" id="report-card-failed">0</div>
                                                     <small class="text-muted extra-small">Tidak Diantar</small>
                                                 </div>
                                             </div>
                                             <div class="col-6 col-sm-3">
                                                 <div class="p-3 rounded-3 bg-light border text-center" style="border-left: 3px solid #ea580c !important;">
                                                     <span class="text-warning-emphasis extra-small text-uppercase fw-bold d-block">Pending</span>
-                                                    <h4 class="fw-bold text-warning-emphasis my-1" id="report-card-pending">0</h4>
+                                                    <div class="fw-semibold text-warning-emphasis my-1" style="font-size: 18px;" id="report-card-pending">0</div>
                                                     <small class="text-muted extra-small">Diajukan Kurir</small>
                                                 </div>
                                             </div>
@@ -2201,15 +2346,15 @@
 
                                     <!-- Action Toolbar -->
                                     <div class="d-flex flex-wrap gap-2 justify-content-between align-items-center pt-2 border-top">
-                                        <button type="button" class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1" onclick="generateReportPreviews()">
-                                            <i class="bi bi-arrow-clockwise"></i> Perbarui Pratinjau
+                                        <button type="button" class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1" style="height: 32px; border-radius: 8px; font-size: 12px;" onclick="generateReportPreviews()">
+                                            <i class="bi bi-arrow-clockwise"></i> Refresh
                                         </button>
                                         <div class="d-flex gap-2">
-                                            <button type="button" class="btn btn-sm btn-light border text-dark fw-semibold d-flex align-items-center gap-1" onclick="copyWhatsAppReportText()">
-                                                <i class="bi bi-clipboard"></i> Salin Teks
+                                            <button type="button" class="btn btn-sm btn-light border text-dark d-flex align-items-center gap-1" style="height: 32px; border-radius: 8px; font-size: 12px; font-weight: 500;" onclick="copyWhatsAppReportText()">
+                                                <i class="bi bi-clipboard"></i> Salin
                                             </button>
-                                            <button type="button" class="btn btn-sm btn-success fw-bold d-flex align-items-center gap-1.5 px-3.5 shadow-sm" onclick="sendWhatsAppViaDirectLink()">
-                                                <i class="bi bi-whatsapp"></i> Buka WhatsApp & Kirim
+                                            <button type="button" class="btn btn-sm btn-success d-flex align-items-center gap-1.5 px-3" style="height: 32px; border-radius: 8px; font-size: 12px; font-weight: 500;" onclick="sendWhatsAppViaDirectLink()">
+                                                <i class="bi bi-whatsapp"></i> WhatsApp
                                             </button>
                                         </div>
                                     </div>
@@ -2313,11 +2458,11 @@
 
                                     <!-- Actions for Email -->
                                     <div class="d-flex flex-wrap gap-2 justify-content-end">
-                                        <button type="button" class="btn btn-sm btn-outline-secondary fw-semibold d-flex align-items-center gap-1" onclick="openMailtoClient()">
-                                            <i class="bi bi-box-arrow-up-right"></i> Buka di Gmail / Outlook
+                                        <button type="button" class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1" style="height: 32px; border-radius: 8px; font-size: 12px; font-weight: 500;" onclick="openMailtoClient()">
+                                            <i class="bi bi-box-arrow-up-right"></i> Mail
                                         </button>
-                                        <button type="button" class="btn btn-sm btn-primary fw-semibold d-flex align-items-center gap-1.5 px-3.5 shadow-sm" onclick="triggerServerEmailDispatch()">
-                                            <i class="bi bi-send"></i> Kirim Email Sekarang
+                                        <button type="button" class="btn btn-sm btn-primary d-flex align-items-center gap-1.5 px-3" style="height: 32px; border-radius: 8px; font-size: 12px; font-weight: 500;" onclick="triggerServerEmailDispatch()">
+                                            <i class="bi bi-send"></i> Kirim
                                         </button>
                                     </div>
                                     <div id="email-dispatch-status" class="mt-2.5 extra-small" style="display: none;"></div>
@@ -2408,7 +2553,7 @@
             <div id="view-monitor" class="view-section">
                 <div class="border rounded-4 p-3 bg-white mb-3 shadow-sm">
                     <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h6 class="fw-bold m-0"><i class="bi bi-geo-alt-fill me-2"></i>Live Fleet Tracking</h6>
+                        <h6 class="fw-bold m-0"><i class="bi bi-geo-alt-fill me-2"></i>Live Tracking</h6>
                         <span class="badge bg-success-subtle text-success px-3 py-2 border border-success-subtle">LIVE</span>
                     </div>
 
@@ -2453,8 +2598,8 @@
                                 <span class="extra-small text-muted fw-bold">Sampai:</span>
                                 <input type="date" id="rep-end-date" class="form-control form-control-sm border" style="border-radius: 8px; width: 145px;" onchange="loadFullHistory()">
                             </div>
-                            <button class="btn btn-outline-dark fw-bold px-3 btn-sm" style="border-radius: 8px;" onclick="exportFullReportsToExcel()"><i class="bi bi-file-earmark-excel me-1"></i> Excel Report</button>
-                            <button class="btn btn-danger fw-bold px-3 btn-sm" style="border-radius: 8px;" onclick="clearAllHistory()"><i class="bi bi-trash me-1"></i> Hapus Semua</button>
+                            <button class="btn btn-sm btn-wellen-action d-inline-flex align-items-center gap-1.5" style="height: 32px; border-radius: 8px; font-size: 12px;" onclick="exportFullReportsToExcel()"><i class="bi bi-file-earmark-excel"></i> Report</button>
+                            <button class="btn btn-sm btn-outline-danger d-inline-flex align-items-center gap-1" style="height: 32px; border-radius: 8px; font-size: 12px;" onclick="clearAllHistory()" title="Hapus Semua" aria-label="Hapus Semua"><i class="bi bi-trash"></i></button>
                         </div>
                     </div>
                     <div id="history-list"></div>
@@ -2516,8 +2661,8 @@
                         </button>
                     </div>
                     <div class="d-flex align-items-center gap-2">
-                        <button class="btn btn-sm btn-outline-primary fw-semibold px-3 aerotrack-input" type="button" onclick="window.sjImportEngine && window.sjImportEngine.triggerExcelFileInput()">
-                            <i class="bi bi-upload me-1"></i> Import SJ Baru
+                        <button class="btn btn-sm btn-wellen-action d-inline-flex align-items-center gap-1.5 px-3" style="height: 32px; border-radius: 8px; font-size: 12px;" type="button" onclick="window.sjImportEngine && window.sjImportEngine.triggerExcelFileInput()">
+                            <i class="bi bi-upload"></i> Import SPK
                         </button>
                         <button class="btn btn-sm btn-light border fw-semibold px-3 aerotrack-input" type="button" onclick="loadPoolTrips()">
                             <i class="bi bi-arrow-clockwise me-1"></i> Refresh
@@ -2550,7 +2695,7 @@
                             <select id="bulk-courier-select" class="aerotrack-select" style="width: 190px;">
                                 <option value="">Pilih Kurir Tujuan...</option>
                             </select>
-                            <button class="btn btn-sm btn-dark fw-semibold px-3 aerotrack-input" onclick="bulkAssignPoolTrips()">
+                            <button class="btn btn-sm btn-wellen-action fw-semibold px-3 aerotrack-input" onclick="bulkAssignPoolTrips()">
                                 <i class="bi bi-check2-all me-1"></i> Assign Terpilih
                             </button>
                             <button class="btn btn-sm btn-outline-danger px-2.5 aerotrack-input" onclick="clearAllPoolTrips()" title="Hapus Seluruh Pool">
@@ -2582,6 +2727,62 @@
                         </table>
                     </div>
                 </div>
+            </div>
+
+            <!-- CUSTOMER MASTER DATABASE VIEW -->
+            <div id="view-customers" class="view-section material-master" style="display:none">
+                <div id="customer-master-table"></div>
+                <dialog id="customer-editor" class="mm-editor" aria-labelledby="customer-editor-title">
+                    <div class="mm-editor-heading"><h5 id="customer-editor-title">Data Customer</h5><button type="button" class="mm-icon-button" onclick="document.getElementById('customer-editor').close()" aria-label="Tutup editor customer">×</button></div>
+                    <form onsubmit="event.preventDefault();CustomerMaster.save()">
+                        <input type="hidden" id="customer-id">
+                        <label class="form-label small w-100">Nama Customer<input class="form-control" id="customer-name" required maxlength="250"></label>
+                        <label class="form-label small w-100">Admin<input class="form-control" id="customer-adminSJ" maxlength="200" placeholder="Nama penanggung jawab"></label>
+                        <label class="form-label small w-100">Alamat<textarea class="form-control" id="customer-address" rows="2" maxlength="2000"></textarea></label>
+                        <label class="form-label small w-100">Wilayah<input class="form-control" id="customer-region" maxlength="100"></label>
+                        <p id="customer-editor-error" class="small text-danger" role="alert"></p>
+                        <div class="mm-editor-footer"><button type="button" class="mm-button" onclick="document.getElementById('customer-editor').close()">Batal</button><button id="customer-save" type="submit" class="mm-button mm-button-primary">Simpan Customer</button></div>
+                    </form>
+                </dialog>
+                <dialog id="customer-bulk-editor" class="mm-editor" aria-labelledby="customer-bulk-title">
+                    <div class="mm-editor-heading"><h5 id="customer-bulk-title">Isi Admin sekaligus</h5><button type="button" class="mm-icon-button" onclick="CustomerMaster.closeBulk()" aria-label="Tutup pengisian Admin">×</button></div>
+                    <form onsubmit="event.preventDefault();CustomerMaster.saveBulk()">
+                        <p id="customer-bulk-target-name" class="small fw-semibold" hidden></p>
+                        <p class="small text-muted">Terapkan satu nama admin ke <strong id="customer-bulk-count">0</strong> customer terpilih, termasuk pilihan di halaman lain. Admin sebelumnya pada pilihan ikut diganti.</p>
+                        <div class="customer-admin-picker">
+                            <label id="customer-admin-field-label" class="customer-admin-field-label">Nama Admin <span aria-hidden="true">*</span></label>
+                            <input id="customer-bulk-admin" type="hidden">
+                            <button id="customer-admin-trigger" type="button" class="customer-admin-trigger" role="combobox" aria-labelledby="customer-admin-field-label customer-admin-label" aria-controls="customer-admin-options" aria-haspopup="listbox" aria-expanded="false" aria-required="true" onclick="CustomerMaster.toggleAdminPicker()">
+                                <span id="customer-admin-label">Pilih admin</span><i class="bi bi-chevron-down" aria-hidden="true"></i>
+                            </button>
+                            <div id="customer-admin-panel" class="customer-admin-panel" hidden>
+                                <div class="customer-admin-search"><i class="bi bi-search" aria-hidden="true"></i><input id="customer-admin-search" type="search" aria-label="Cari Admin" placeholder="Cari admin..." autocomplete="off" maxlength="200" oninput="CustomerMaster.filterAdminOptions(this.value)" onkeydown="CustomerMaster.adminPickerKey(event)"></div>
+                                <div id="customer-admin-options" class="customer-admin-options" role="listbox" aria-label="Pilihan Admin"></div>
+                            </div>
+                        </div>
+                        <p id="customer-bulk-error" class="small text-danger" role="status"></p>
+                        <div class="mm-editor-footer"><button type="button" class="mm-button" onclick="CustomerMaster.closeBulk()">Batal</button><button id="customer-bulk-save" type="submit" class="mm-button mm-button-primary">Terapkan Admin</button></div>
+                    </form>
+                </dialog>
+                <dialog id="customer-admin-manager" class="mm-editor" aria-labelledby="customer-admin-manager-title">
+                    <div class="mm-editor-heading"><h5 id="customer-admin-manager-title">Daftar Admin</h5><button type="button" class="mm-icon-button" onclick="CustomerMaster.closeAdminManager()" aria-label="Tutup daftar Admin">×</button></div>
+                    <p class="small text-muted">Pilih admin yang tersedia, atau cari nama baru untuk ditambahkan.</p>
+                    <form onsubmit="event.preventDefault();CustomerMaster.addAdmin()">
+                        <div class="customer-admin-picker">
+                            <label id="customer-directory-field-label" class="customer-admin-field-label">Nama Admin <span aria-hidden="true">*</span></label>
+                            <input id="customer-admin-new-name" type="hidden">
+                            <button id="customer-directory-trigger" type="button" class="customer-admin-trigger" role="combobox" aria-labelledby="customer-directory-field-label customer-directory-label" aria-controls="customer-directory-options" aria-haspopup="listbox" aria-expanded="false" aria-required="true" onclick="CustomerMaster.toggleAdminPicker('directory')">
+                                <span id="customer-directory-label">Pilih admin</span><i class="bi bi-chevron-down" aria-hidden="true"></i>
+                            </button>
+                            <div id="customer-directory-panel" class="customer-admin-panel" hidden>
+                                <div class="customer-admin-search"><i class="bi bi-search" aria-hidden="true"></i><input id="customer-directory-search" type="search" aria-label="Cari nama Admin" placeholder="Cari admin..." autocomplete="off" maxlength="200" oninput="CustomerMaster.filterAdminOptions(this.value,'directory')" onkeydown="CustomerMaster.adminPickerKey(event,'directory')"></div>
+                                <div id="customer-directory-options" class="customer-admin-options" role="listbox" aria-label="Daftar nama Admin"></div>
+                            </div>
+                        </div>
+                        <p id="customer-admin-manager-status" class="small text-muted mt-2" role="status"></p>
+                        <div class="mm-editor-footer"><button type="button" class="mm-button" onclick="CustomerMaster.closeAdminManager()">Selesai</button><button id="customer-admin-add" type="submit" class="mm-button mm-button-primary"><i class="bi bi-plus-lg"></i> Tambah</button></div>
+                    </form>
+                </dialog>
             </div>
 
             <!-- WORKSTATION CIKOKOL VIEW -->
@@ -2638,51 +2839,48 @@
             <!-- POD ARCHIVE VIEW -->
             <div id="view-pod-archive" class="view-section">
                 <div class="border rounded-4 p-4 bg-white shadow-sm mb-4">
-                    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2 pb-2 border-bottom" style="border-color: #EAECF0 !important;">
                         <div>
-                            <h6 class="fw-bold m-0 text-dark"><i class="bi bi-images me-2 text-primary"></i>📦 Arsip Foto Bukti Pengiriman (PoD)</h6>
-                            <small class="text-muted extra-small">Cari dan tinjau seluruh arsip foto bukti pengiriman kurir</small>
+                            <span class="fw-semibold text-dark" style="font-size: 13.5px;"><i class="bi bi-images me-1.5 text-primary"></i>POD</span>
                         </div>
                         <div class="d-flex align-items-center gap-2 flex-wrap">
-                            <button class="btn btn-sm btn-light border extra-small fw-normal" style="border-radius: 8px;" onclick="setArchiveDateToday()" title="Tampilkan Arsip Hari Ini">Hari Ini</button>
-                            <button class="btn btn-sm btn-light border extra-small fw-normal" style="border-radius: 8px;" onclick="setArchiveDateThisMonth()" title="Tampilkan Arsip Bulan Ini">Bulan Ini</button>
-                            <button class="btn btn-sm btn-light border extra-small fw-normal" style="border-radius: 8px;" onclick="setArchiveDateAllTime()" title="Tampilkan Seluruh Arsip Foto">Semua Tanggal</button>
-                            <button class="btn btn-sm btn-outline-dark fw-bold px-3 py-1 extra-small" style="border-radius: 8px;" onclick="exportPoDArchiveToExcel()" title="Download Laporan Arsip PoD ke Excel"><i class="bi bi-file-earmark-excel me-1 text-success"></i> Download Excel PoD</button>
-                            <button class="btn btn-sm btn-light border extra-small fw-normal" style="border-radius: 8px;" title="Reset Filter Arsip" onclick="resetPoDArchiveFilter()">
+                            <button class="btn btn-sm btn-light border" style="height: 32px; border-radius: 8px; font-size: 12px;" onclick="setArchiveDateAllTime()" title="Tampilkan Seluruh Arsip Foto">Semua Tanggal</button>
+                            <button class="btn btn-sm btn-wellen-action d-inline-flex align-items-center gap-1.5" style="height: 32px; border-radius: 8px; font-size: 12px;" onclick="exportPoDArchiveToExcel()" title="Download Laporan Arsip PoD ke Excel"><i class="bi bi-file-earmark-excel"></i> Report</button>
+                            <button class="btn btn-sm btn-light border" style="height: 32px; border-radius: 8px; font-size: 12px;" title="Reset Filter Arsip" onclick="resetPoDArchiveFilter()">
                                 <i class="bi bi-arrow-counterclockwise me-1"></i> Reset
                             </button>
                         </div>
                     </div>
 
-                    <div class="row g-2 mb-4">
+                    <div class="row g-2 mb-3">
                         <div class="col-md-3">
-                            <label class="extra-small text-muted fw-semibold mb-1 d-block">PILIH KURIR</label>
-                            <select id="archive-courier-filter" class="form-select form-select-sm border fw-normal py-2" style="border-radius: 10px; font-size: 0.8rem; background: #f8fafc;" onchange="renderPoDArchiveView()">
+                            <label class="text-muted mb-1 d-block" style="font-size: 11.5px;">Kurir</label>
+                            <select id="archive-courier-filter" class="form-select form-select-sm border py-1.5 text-dark" style="border-radius: 8px; font-size: 12px;" onchange="renderPoDArchiveView()">
                                 <option value="all">Semua Kurir</option>
                             </select>
                         </div>
                         <div class="col-md-3">
-                            <label class="extra-small text-muted fw-semibold mb-1 d-block">KATEGORI FOTO</label>
-                            <select id="archive-category-filter" class="form-select form-select-sm border fw-normal py-2" style="border-radius: 10px; font-size: 0.8rem; background: #f8fafc;" onchange="renderPoDArchiveView()">
+                            <label class="text-muted mb-1 d-block" style="font-size: 11.5px;">Foto</label>
+                            <select id="archive-category-filter" class="form-select form-select-sm border py-1.5 text-dark" style="border-radius: 8px; font-size: 12px;" onchange="renderPoDArchiveView()">
                                 <option value="all">Semua Kategori</option>
                                 <option value="admin_bulk">Bulk SJ Admin (Kantor)</option>
-                                <option value="sj">Surat Jalan Ttd (Kurir)</option>
+                                <option value="sj">Delivery Order Ttd (Kurir)</option>
                                 <option value="item">Foto Barang</option>
                             </select>
                         </div>
                         <div class="col-md-3">
-                            <label class="extra-small text-muted fw-semibold mb-1 d-block">RENTANG TANGGAL</label>
-                            <div class="d-flex align-items-center gap-1 bg-light border p-1 px-2" style="border-radius: 10px;">
-                                <input type="date" id="archive-start-date" class="form-control form-control-sm border-0 bg-transparent fw-normal py-1" style="font-size: 0.775rem;" onchange="renderPoDArchiveView()">
-                                <span class="extra-small text-muted">s/d</span>
-                                <input type="date" id="archive-end-date" class="form-control form-control-sm border-0 bg-transparent fw-normal py-1" style="font-size: 0.775rem;" onchange="renderPoDArchiveView()">
+                            <label class="text-muted mb-1 d-block" style="font-size: 11.5px;">Rentang Tanggal</label>
+                            <div class="d-flex align-items-center gap-1 bg-light border p-1 px-2" style="border-radius: 8px; height: 32px;">
+                                <input type="date" id="archive-start-date" class="form-control form-control-sm border-0 bg-transparent py-0" style="font-size: 11.5px;" onchange="renderPoDArchiveView()">
+                                <span class="text-muted" style="font-size: 11px;">s/d</span>
+                                <input type="date" id="archive-end-date" class="form-control form-control-sm border-0 bg-transparent py-0" style="font-size: 11.5px;" onchange="renderPoDArchiveView()">
                             </div>
                         </div>
                         <div class="col-md-3">
-                            <label class="extra-small text-muted fw-semibold mb-1 d-block">CARI ID / KLIEN</label>
+                            <label class="text-muted mb-1 d-block" style="font-size: 11.5px;">Cari ID / Klien</label>
                             <div class="position-relative">
-                                <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" style="font-size: 0.85rem;"></i>
-                                <input type="text" id="archive-search-input" class="form-control form-control-sm ps-5 py-2 fw-normal" style="border-radius: 10px; background: #f8fafc; font-size: 0.8rem;" placeholder="Cari ID, Klien..." oninput="renderPoDArchiveView(this.value)" autocomplete="off">
+                                <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-2.5 text-muted" style="font-size: 12px;"></i>
+                                <input type="text" id="archive-search-input" class="form-control form-control-sm ps-4 py-1" style="border-radius: 8px; font-size: 12px; height: 32px;" placeholder="Cari ID, Klien..." oninput="renderPoDArchiveView(this.value)" autocomplete="off">
                             </div>
                         </div>
                     </div>
@@ -2709,21 +2907,19 @@
                     <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-3 py-1.5 mb-2 fw-semibold" id="placeholder-404-badge" style="font-size: 12px;">
                         404 • Modul Dalam Pengembangan
                     </span>
-                    <h3 class="fw-bold text-dark mb-2" id="placeholder-404-title">Modul Belum Tersedia</h3>
-                    <p class="text-muted mb-4" style="max-width: 480px; font-size: 13.5px; line-height: 1.6;" id="placeholder-404-desc">
-                        Halaman ini merupakan bagian dari roadmap pengembangan sistem Wellen Print ERP. Fitur ini sedang disiapkan dan belum aktif di sistem saat ini.
+                    <div class="fw-semibold text-dark mb-2" style="font-size: 14px;" id="placeholder-404-title">Modul Belum Tersedia</div>
+                    <p class="text-muted mb-4" style="max-width: 480px; font-size: 13px; line-height: 1.5;" id="placeholder-404-desc">
+                        Halaman ini sedang dalam tahap pengembangan sistem Wellen Print ERP.
                     </p>
                     <div class="d-flex gap-2 flex-wrap justify-content-center">
-                        <button class="btn btn-primary px-4 py-2 fw-semibold" style="border-radius: 10px; font-size: 13px;" onclick="switchTab('dashboard')">
+                        <button class="btn btn-primary px-3.5 py-2 fw-medium" style="border-radius: 8px; font-size: 12.5px; background: #175cd3; border-color: #175cd3;" onclick="switchTab('dashboard')">
                             <i class="bi bi-speedometer2 me-1.5"></i> Kembali ke Dashboard
                         </button>
-                        <button class="btn btn-outline-dark px-3.5 py-2 fw-semibold" style="border-radius: 10px; font-size: 13px;" onclick="switchTab('pool')">
-                            <i class="bi bi-box-seam me-1.5"></i> Buka Plan Shipment
+                        <button class="btn btn-outline-secondary px-3.5 py-2 fw-medium" style="border-radius: 8px; font-size: 12.5px;" onclick="switchTab('pool')">
+                            <i class="bi bi-box-seam me-1.5"></i> Buka Delivery Order
                         </button>
                     </div>
                 </div>
-            </div>
-</div>
             </div>
 
         </div>
@@ -2776,7 +2972,7 @@
                 <div class="mb-3">
                     <label class="extra-small fw-bold text-muted text-uppercase mb-2 d-block">1. Kategori Foto Bukti</label>
                     <select id="upload-modal-category" class="form-select py-2 fw-semibold" style="border-radius: 10px;">
-                        <option value="sj">Foto Surat Jalan (SJ)</option>
+                        <option value="sj">Foto Delivery Order (DO)</option>
                         <option value="item">Foto Barang / Fisik (Item)</option>
                     </select>
                 </div>
@@ -2840,7 +3036,7 @@
                         <div class="form-check p-2.5 px-3 border rounded-3 bg-white" style="cursor: pointer;">
                             <input class="form-check-input" type="radio" name="switch-scope" id="switch-scope-trip" value="entire_trip" checked>
                             <label class="form-check-label w-100 cursor-pointer" for="switch-scope-trip">
-                                <span class="fw-bold text-dark d-block" style="font-size: 0.85rem;" id="switch-scope-trip-label">Seluruh Surat Jalan / Trip (Semua Titik)</span>
+                                <span class="fw-bold text-dark d-block" style="font-size: 0.85rem;" id="switch-scope-trip-label">Seluruh Delivery Order / Trip (Semua Titik)</span>
                                 <small class="text-muted extra-small">Alihkan seluruh daftar toko/klien di trip ini ke kurir/driver baru</small>
                             </label>
                         </div>
@@ -2889,7 +3085,7 @@
         <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
             <div class="modal-header border-bottom py-3">
                 <div>
-                    <h6 class="modal-title fw-bold text-dark m-0" id="auditSjModalTitle"><i class="bi bi-file-earmark-check-fill text-primary me-2"></i>Audit & Pencocokan Surat Jalan (H+1)</h6>
+                    <h6 class="modal-title fw-bold text-dark m-0" id="auditSjModalTitle"><i class="bi bi-file-earmark-check-fill text-primary me-2"></i>Audit & Pencocokan Delivery Order (H+1)</h6>
                     <small class="text-muted extra-small" id="auditSjModalSubtitle">Sandingkan Foto Bulk SJ Admin dengan Foto POD Kurir</small>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -3081,85 +3277,76 @@
     </div>
 </div>
 
-<!-- MODAL: IMPORT SURAT JALAN & PREVIEW INTERAKTIF (AEROTRACK ERP UI STYLE) -->
+<!-- MODAL: IMPORT DELIVERY ORDER & PREVIEW -->
 <div class="modal fade" id="modal-sj-import-preview" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable" style="max-width: 1240px;">
-        <div class="modal-content rounded-4 border-0 shadow-lg overflow-hidden">
-            <!-- AeroTrack ERP Modal Header -->
-            <div class="modal-header border-bottom py-3 px-4 bg-white d-flex align-items-center justify-content-between">
-                <div>
-                    <div class="d-flex align-items-center gap-2">
-                        <span class="aerotrack-badge badge-primary px-2.5 py-1">Import Engine</span>
-                        <h5 class="modal-title fw-bold text-dark m-0 fs-6">Import Surat Jalan Percetakan</h5>
-                        <span class="aerotrack-badge" id="sj-import-count-badge">0 Surat Jalan</span>
-                    </div>
-                    <small class="text-muted" style="font-size: 0.78rem;">Mendukung batch import 100+ file Word (.doc / .docx / RTF Crystal Reports) & Excel (.xlsx / .csv)</small>
+    <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg overflow-hidden" style="border-radius: 12px; border: 1px solid #EAECF0 !important;">
+            <div class="modal-header border-bottom py-3 px-4 bg-white d-flex align-items-center justify-content-between" style="border-color: #EAECF0 !important;">
+                <div class="d-flex align-items-center gap-2">
+                    <h5 class="modal-title fw-bold text-dark m-0" style="font-size: 16px;">Import Delivery Order</h5>
+                    <span id="sj-import-count-badge" style="background: #FFF4E5; color: #CC6100; border: 1px solid rgba(204, 97, 0, 0.25); font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 9999px;">0 Delivery Order</span>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
 
-            <!-- AeroTrack Filter & Control Bar -->
-            <div class="aerotrack-filter-bar px-4 py-2.5 border-bottom bg-white d-flex align-items-center justify-content-between flex-wrap gap-2">
-                <div class="d-flex align-items-center gap-2 flex-wrap">
+            <div class="px-4 py-2.5 border-bottom bg-white d-flex align-items-center justify-content-between flex-wrap" style="border-color: #EAECF0 !important; gap: 8px; padding-top: 10px; padding-bottom: 10px;">
+                <div class="d-flex align-items-center flex-wrap" style="gap: 8px;">
                     <input type="file" id="sj-excel-native-input" class="d-none" accept=".xlsx, .xls, .csv, .docx, .doc, .rtf, .docm, .dotx, .dot" multiple onchange="window.sjImportEngine && window.sjImportEngine.handleExcelFileSelected(event)">
                     <input type="file" id="sj-folder-native-input" class="d-none" webkitdirectory directory multiple onchange="window.sjImportEngine && window.sjImportEngine.handleExcelFolderSelected(event)">
-                    <button type="button" class="btn btn-sm aerotrack-input d-flex align-items-center gap-1.5 fw-semibold" style="background: transparent !important; color: #0f172a !important; border: 1.5px solid #cbd5e1 !important;" onclick="document.getElementById('sj-excel-native-input').click()">
-                        <i class="bi bi-file-earmark-arrow-up text-primary"></i> <span>Pilih File</span>
+                    <button type="button" class="btn btn-sm bg-white border d-inline-flex align-items-center fw-medium" style="height: 32px; border-radius: 8px; border-color: #D0D5DD !important; color: #1E293B; font-size: 12.5px; padding: 0 12px; gap: 6px;" onclick="document.getElementById('sj-excel-native-input').click()">
+                        <i class="bi bi-file-earmark-arrow-up text-muted"></i> <span>File</span>
                     </button>
-                    <button type="button" class="btn btn-sm btn-light border aerotrack-input d-flex align-items-center gap-1.5 fw-semibold" onclick="document.getElementById('sj-folder-native-input').click()" title="Pilih satu folder berisi banyak file Surat Jalan (100+ file .doc/.docx)">
-                        <i class="bi bi-folder2-open text-primary"></i> <span>Pilih Folder</span>
+                    <button type="button" class="btn btn-sm bg-white border d-inline-flex align-items-center fw-medium" style="height: 32px; border-radius: 8px; border-color: #D0D5DD !important; color: #1E293B; font-size: 12.5px; padding: 0 12px; gap: 6px;" onclick="document.getElementById('sj-folder-native-input').click()">
+                        <i class="bi bi-folder2-open text-muted"></i> <span>Folder</span>
                     </button>
-                    <input type="text" id="preview-search-sj" class="aerotrack-input" placeholder="Cari No. SJ / Customer..." style="width: 230px;" oninput="window.sjImportEngine && window.sjImportEngine.filterPreviewTable(this.value)">
+                    <div class="position-relative" style="width: 210px;">
+                        <i class="bi bi-search position-absolute top-50 translate-middle-y text-muted" style="left: 11px; font-size: 13px; pointer-events: none;"></i>
+                        <input type="text" id="preview-search-sj" class="form-control form-control-sm" placeholder="Cari No. DO / Customer..." style="padding-left: 34px; width: 100%;" oninput="window.sjImportEngine && window.sjImportEngine.filterPreviewTable(this.value)">
+                    </div>
                 </div>
-                <div class="d-flex align-items-center gap-1.5 flex-wrap">
-                    <span class="text-muted extra-small me-1">Atur Cetak:</span>
-                    <button type="button" class="btn btn-sm btn-light border py-1 px-3 aerotrack-input fw-semibold" onclick="window.sjImportEngine && window.sjImportEngine.setBulkPrintBranch('pusat')">Pusat</button>
-                    <button type="button" class="btn btn-sm btn-light border py-1 px-3 aerotrack-input fw-semibold" onclick="window.sjImportEngine && window.sjImportEngine.setBulkPrintBranch('cikokol')">Cikokol</button>
+                <div class="d-flex align-items-center flex-wrap" style="gap: 6px;">
+                    <span class="text-muted" style="font-size: 12px;">Branch:</span>
+                    <button type="button" class="btn btn-sm bg-white border fw-medium" style="height: 32px; border-radius: 8px; border-color: #D0D5DD !important; color: #344054; font-size: 12.5px; padding: 0 12px;" onclick="window.sjImportEngine && window.sjImportEngine.setBulkPrintBranch('pusat')">Pusat</button>
+                    <button type="button" class="btn btn-sm bg-white border fw-medium" style="height: 32px; border-radius: 8px; border-color: #D0D5DD !important; color: #344054; font-size: 12.5px; padding: 0 12px;" onclick="window.sjImportEngine && window.sjImportEngine.setBulkPrintBranch('cikokol')">Cikokol</button>
+                    <button type="button" id="btn-toggle-import-details" class="btn btn-sm bg-white border fw-medium" style="height: 32px; border-radius: 8px; border-color: #D0D5DD !important; color: #64748B; font-size: 12px; padding: 0 10px;" onclick="var t=document.getElementById('sj-import-preview-table'); if(t){t.classList.toggle('show-import-details'); this.classList.toggle('text-dark', t.classList.contains('show-import-details'));}">Detail Item</button>
                 </div>
             </div>
 
-            <!-- Rekap Region Ringkas -->
-            <div id="sj-import-region-breakdown" class="px-4 py-2 bg-light border-bottom d-flex align-items-center flex-wrap gap-2" style="font-size: 0.78rem;"></div>
+            <div id="sj-import-region-breakdown" class="px-4 py-2 bg-light border-bottom d-flex align-items-center flex-wrap gap-2" style="font-size: 12px; border-color: #EAECF0 !important;"></div>
 
-            <!-- AeroTrack ERP Data Grid -->
-            <div class="modal-body p-3 bg-light">
-                <div class="aerotrack-table-container bg-white shadow-sm">
-                    <div class="table-responsive" style="max-height: 460px;">
-                        <table class="table aerotrack-table align-middle mb-0 text-nowrap">
+            <div class="modal-body p-3" style="background: #F9FAFB;">
+                <div class="aerotrack-table-container bg-white">
+                    <div class="table-responsive" style="max-height: 440px;">
+                        <table id="sj-import-preview-table" class="table aerotrack-table sj-import-table align-middle mb-0 text-nowrap">
                             <thead class="sticky-top">
                                 <tr>
                                     <th style="width: 38px;" class="text-center">
                                         <input type="checkbox" class="form-check-input" id="check-all-preview-sj" checked onchange="window.sjImportEngine && window.sjImportEngine.toggleAllPreview(this.checked)">
                                     </th>
-                                    <th style="width: 140px;">No. Surat Jalan</th>
-                                    <th style="width: 110px;">Admin SJ</th>
-                                    <th style="width: 90px;">Kode Unik</th>
-                                    <th style="min-width: 180px;">Customer</th>
-                                    <th style="min-width: 220px;">Alamat Kirim</th>
-                                    <th style="width: 130px;">Wilayah</th>
-                                    <th style="width: 140px;">Lokasi Cetak</th>
-                                    <th style="min-width: 200px;">Item / Nama Barang</th>
-                                    <th style="width: 110px;">Ukuran</th>
-                                    <th style="width: 80px;" class="text-end">Qty</th>
+                                    <th>No. Delivery Order</th>
+                                    <th>Admin</th>
+                                    <th>Customer</th>
+                                    <th>Address</th>
+                                    <th>Region</th>
+                                    <th class="sj-import-col-detail">Branch</th>
+                                    <th class="sj-import-col-detail">Item Description</th>
+                                    <th class="sj-import-col-detail">Size</th>
+                                    <th class="sj-import-col-detail text-end">Qty</th>
                                 </tr>
                             </thead>
                             <tbody id="sj-import-preview-tbody">
-                                <tr><td colspan="10" class="text-center py-5 text-muted" style="font-size: 0.85rem;">Belum ada file dipilih. Silakan pilih file Excel (.xlsx / .xls) atau Word (.docx / .doc) di atas.</td></tr>
+                                <tr><td colspan="6" class="text-center py-5 text-muted" style="font-size: 13px;">Belum ada file dipilih.</td></tr>
                             </tbody>
                         </table>
                     </div>
                 </div>
             </div>
 
-            <!-- AeroTrack ERP Modal Footer -->
-            <div class="modal-footer border-top py-3 px-4 bg-white d-flex justify-content-between">
-                <button type="button" class="btn btn-sm btn-light border px-3 aerotrack-input fw-semibold" data-bs-dismiss="modal">Tutup</button>
-                <div class="d-flex align-items-center gap-2">
-                    <button type="button" class="btn btn-sm px-3 fw-semibold aerotrack-input" id="btn-commit-import-sj" style="background: transparent !important; color: #0f172a !important; border: 1.5px solid #0f172a !important;" onclick="window.sjImportEngine && window.sjImportEngine.commitImportBatch(false)">
-                        <i class="bi bi-box-arrow-in-down me-1 text-primary"></i> Simpan ke Pool
-                    </button>
-                    <button type="button" class="btn btn-sm btn-primary px-3.5 fw-semibold aerotrack-input" id="btn-commit-import-and-print" onclick="window.sjImportEngine && window.sjImportEngine.commitImportBatch(true)">
-                        <i class="bi bi-printer me-1"></i> Simpan & Cetak SJ
+            <div class="modal-footer border-top py-3 px-4 bg-white d-flex justify-content-between" style="border-color: #EAECF0 !important;">
+                <button type="button" class="btn btn-sm bg-white border fw-medium" style="height: 34px; border-radius: 8px; border-color: #D0D5DD !important; color: #344054; font-size: 13px; padding: 0 14px;" data-bs-dismiss="modal">Tutup</button>
+                <div class="d-flex align-items-center" style="gap: 8px;">
+                    <button type="button" class="btn btn-sm btn-wellen-action" id="btn-commit-import-sj" style="height: 34px; border-radius: 8px; font-size: 13px; padding: 0 14px;" onclick="window.sjImportEngine && window.sjImportEngine.commitImportBatch(false)">
+                        <i class="bi bi-box-arrow-in-down me-1"></i> Simpan ke Pool
                     </button>
                 </div>
             </div>
@@ -3176,10 +3363,9 @@
                 <div>
                     <div class="d-flex align-items-center gap-2">
                         <span class="aerotrack-badge badge-warning px-2.5 py-1">SPK Engine</span>
-                        <h5 class="modal-title fw-bold text-dark m-0 fs-6">Import SPK Percetakan & Produksi</h5>
+                        <h5 class="modal-title fw-bold text-dark m-0 fs-6">import SPK</h5>
                         <span class="aerotrack-badge" id="spk-import-count-badge">0 SPK</span>
                     </div>
-                    <small class="text-muted" style="font-size: 0.78rem;">Alokasi percetakan otomatis: Mesin Digital Print, Nama Barang, Ukuran, Qty & Finishing</small>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
@@ -3190,10 +3376,10 @@
                     <input type="file" id="spk-excel-native-input" class="d-none" accept=".xlsx, .xls, .csv" multiple onchange="window.spkManager && window.spkManager.handleSPKUpload(event)">
                     <input type="file" id="spk-folder-native-input" class="d-none" webkitdirectory directory multiple onchange="window.spkManager && window.spkManager.handleSPKFolderSelected(event)">
                     <button type="button" class="btn btn-sm aerotrack-input d-flex align-items-center gap-1.5 fw-semibold" style="background: transparent !important; color: #0f172a !important; border: 1.5px solid #cbd5e1 !important;" onclick="document.getElementById('spk-excel-native-input').click()">
-                        <i class="bi bi-file-earmark-arrow-up text-primary"></i> <span>Pilih File</span>
+                        <i class="bi bi-file-earmark-check text-primary" data-ua="fileText"></i> <span>File</span>
                     </button>
                     <button type="button" class="btn btn-sm btn-light border aerotrack-input d-flex align-items-center gap-1.5 fw-semibold" onclick="document.getElementById('spk-folder-native-input').click()" title="Pilih folder berisi file-file SPK">
-                        <i class="bi bi-folder2-open text-primary"></i> <span>Pilih Folder</span>
+                        <i class="bi bi-folder2-open text-primary" data-ua="folder"></i> <span>Folder</span>
                     </button>
                     <button type="button" class="btn btn-sm btn-outline-danger aerotrack-input px-2.5" id="btn-spk-bulk-delete" style="display: none;" onclick="window.spkManager && window.spkManager.deleteSelectedSPKRows()" title="Hapus SPK terpilih">
                         <i class="bi bi-trash me-1"></i> Hapus Terpilih
@@ -3219,7 +3405,7 @@
                                     <th style="width: 44px;" class="text-center">No</th>
                                     <th style="width: 140px;">Mesin</th>
                                     <th style="min-width: 220px;">Nama Barang & Job</th>
-                                    <th style="width: 120px;">Ukuran</th>
+                                    <th style="width: 120px;">Size</th>
                                     <th style="width: 80px;" class="text-end">Qty</th>
                                     <th style="width: 140px;">Finishing</th>
                                     <th style="width: 130px;">Cabang</th>
@@ -3237,8 +3423,8 @@
             <!-- Footer -->
             <div class="modal-footer border-top py-3 px-4 bg-white d-flex justify-content-between">
                 <button type="button" class="btn btn-sm btn-light border px-3 aerotrack-input fw-semibold" data-bs-dismiss="modal">Batal</button>
-                <button type="button" class="btn btn-sm btn-primary px-3.5 fw-semibold aerotrack-input" onclick="window.commitSPKImportPreview && window.commitSPKImportPreview()">
-                    <i class="bi bi-check-lg me-1"></i> Simpan SPK Produksi
+                <button type="button" class="btn btn-sm btn-wellen-action px-3.5 fw-semibold aerotrack-input" onclick="window.commitSPKImportPreview && window.commitSPKImportPreview()">
+                    <i class="bi bi-check-lg me-1"></i> Simpan
                 </button>
             </div>
         </div>
@@ -3258,7 +3444,7 @@
             <div class="modal-body p-3">
                 <input type="hidden" id="cikokol-ship-trip-id">
                 <div class="mb-3">
-                    <small class="text-muted d-block">ID Surat Jalan: <b id="cikokol-ship-trip-label" class="text-dark"></b></small>
+                    <small class="text-muted d-block">ID Delivery Order: <b id="cikokol-ship-trip-label" class="text-dark"></b></small>
                     <small class="text-muted d-block">Klien / Barang: <b id="cikokol-ship-client-label" class="text-dark"></b></small>
                 </div>
                 <div class="mb-3">
@@ -3464,20 +3650,34 @@
 
 <!-- Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<script src="js/destination_search.js?v=2"></script>
-<script src="/js/maps.js?v=175.0"></script>
-<script src="/js/fleet_vehicles.js?v=1.4"></script>
-<script src="js/delivery_identity.js?v=1"></script>
-<script src="/js/app.js?v=177.0"></script>
-<script src="/js/kpi.js?v=174.0"></script>
-<script src="/js/courier_audit.js?v=175.0"></script>
-<script src="/js/custom_dropdown.js?v=2.0"></script>
-<script src="/js/qr_print_dispatch.js?v=2.2"></script>
-<script src="/js/sj_import_engine.js?v=2.2"></script>
-<script src="/js/branch_workstation.js?v=2.2"></script>
-<script src="/js/spk_manager.js?v=3.0"></script>
-<script src="/js/web_qr_scanner_sim.js?v=2.2"></script>
-<script src="/js/unified_pool_ui.js?v=3.1"></script>
-<script src="/js/erp_sidebar.js?v=1.0"></script>
+<script src="js/maps_destination.js?v=20261114.1"></script>
+<script src="js/destination_search.js?v=20261114.1"></script>
+<script src="/js/maps.js?v=20261114.1"></script>
+<script src="/js/fleet_vehicles.js?v=20261114.1"></script>
+<script src="js/delivery_identity.js?v=20261114.1"></script>
+<script src="/js/app.js?v=20261114.1"></script>
+<script src="/js/customer_master.js?v=20261114.1"></script>
+<script src="/js/bulk_assignment.js?v=20261114.1"></script>
+<script src="/js/kpi.js?v=20261114.1"></script>
+<script src="/js/courier_audit.js?v=20261114.1"></script>
+<script src="/js/custom_dropdown.js?v=20261114.1"></script>
+<script src="/js/vendor/qrcode.js?v=20261114.1"></script>
+<script src="/js/qr_print_dispatch.js?v=20261114.1"></script>
+<script src="/js/sj_import_engine.js?v=20261114.1"></script>
+<script src="/js/branch_workstation.js?v=20261114.1"></script>
+<script src="/js/spk_manager.js?v=20261114.1"></script>
+<script src="/js/web_qr_scanner_sim.js?v=20261114.1"></script>
+<script src="/js/material_seed.js?v=20261114.1"></script>
+<script src="/js/material_master.js?v=20261114.1"></script>
+<script src="/js/material_cloud.js?v=20261114.1"></script>
+<script src="/js/pool_line_items.js?v=20261114.1"></script>
+<script src="/js/material_usage.js?v=20261114.1"></script>
+<script src="/js/dispatch_workflow.js?v=20261114.1"></script>
+<script src="/js/unified_pool_ui.js?v=20261114.1"></script>
+<script src="/js/erp_sidebar.js?v=20261114.1"></script>
+<script src="/js/vendor/lottie.min.js?v=20261115.1"></script>
+<script src="/js/useanimations_icons.js?v=20261115.1"></script>
+<script src="/js/useanimations_adapter.js?v=20261115.1"></script>
+<script src="/js/volume_comparison.js?v=20261115.1"></script>
 </body>
 </html>

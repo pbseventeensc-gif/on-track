@@ -110,6 +110,10 @@
             }
         }
 
+        if (typeof window.updatePageTitleHeader === 'function') {
+            window.updatePageTitleHeader(title || 'Modul', el, category);
+        }
+
         const sb = document.getElementById('sidebar');
         const backdrop = document.getElementById('sidebar-backdrop');
         if (sb && window.innerWidth <= 991) sb.classList.remove('open');

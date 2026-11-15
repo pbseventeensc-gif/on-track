@@ -16,6 +16,16 @@ window.UnifiedPoolUI = (function () {
   let activeDeliveryStatusFilter = 'ALL'; // 'ALL' or 'PENDING_FAILED'
   let currentSearchQuery = '';
 
+  function displayPoolText(value) {
+    const text = String(value || '-').trim().toLocaleLowerCase('id-ID');
+    const normal = text.replace(/\p{L}[\p{L}\p{N}]*/gu, word => {
+      if (/^(pt|cv|ud|pd|tb|rt|rw|dki|bsd|pik|pvc|mdf|hpl|acp|uv|[ab]\d+)$/i.test(word)) return word.toUpperCase();
+      if (/^(cm|mm|m|kg|gsm|pcs|m2)$/.test(word)) return word;
+      return word.charAt(0).toLocaleUpperCase('id-ID') + word.slice(1);
+    });
+    return normal.replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+  }
+
   function init() {
     console.log("UnifiedPoolUI initialized.");
     // Bersihkan cache demo/sample lama dari localStorage
@@ -83,6 +93,7 @@ window.UnifiedPoolUI = (function () {
 
     function addTrip(t) {
       if (!t) return;
+      if (window.WTRACK_LOCAL_SANDBOX && t.courierId && t.destinations?.length > 1) return;
       const tid = String(t.noSJ || t.sjNumber || t.id || t.tripId);
       if (!tid || seenIds.has(tid) || deletedSet.has(tid)) return;
 
@@ -93,7 +104,8 @@ window.UnifiedPoolUI = (function () {
       const dDate = t.date || t.dateFolder || todayStr;
       const isOld = (dDate < todayStr);
       const dStatus = (t.deliveryStatus || t.status || 'pending').toLowerCase();
-      const isFailed = (dStatus === 'failed' || dStatus === 'returned' || dStatus === 'undelivered' || !!t.isFailed || !!t.failedReason || !!t.pendingReason);
+      const pendingDestination=(t.destinations||[]).some(d=>['pending_approval','klien_tutup','failed','returned'].includes(d.status)||(d.status==='pending'&&!!d.pendingReason));
+      const isFailed = (['failed','returned','undelivered','klien_tutup','pending_approval'].includes(dStatus) || !!t.isFailed || !!t.failedReason || pendingDestination || (dStatus==='pending'&&!!t.pendingReason));
       const isAssigned = (dStatus === 'in_progress' || dStatus === 'driver_assigned' || dStatus === 'departed' || (t.assignedTo && !isFailed) || (t.courierId && !isFailed));
       const isCompleted = (dStatus === 'completed' || dStatus === 'done' || dStatus === 'delivered');
 
@@ -114,10 +126,10 @@ window.UnifiedPoolUI = (function () {
       // Normalisasi field agar aman ditampilkan di antarmuka
       const normalized = {
         id: tid,
-        tripId: t.tripId || tid,
+        tripId: t.tripId || t.id || tid,
         noSJ: cleanSJ,
         sjNumber: cleanSJ,
-        adminSJ: t.adminSJ || (t.destinations && t.destinations[0]?.adminSJ) || '',
+        adminSJ: (t.destinations && t.destinations[0]?.adminSJ) || t.adminSJ || window.CustomerMaster?.resolveName(t.customer || t.clientName) || '',
         readyStatus: t.readyStatus || 'ready',
         uniqueCode: t.uniqueCode || t.shortCode || 'WK-AUTO',
         shortCode: t.shortCode || t.uniqueCode || 'WK-AUTO',
@@ -132,6 +144,11 @@ window.UnifiedPoolUI = (function () {
         deliveryStatus: isFailed ? 'failed' : 'pending',
         isPendingRollover: !!isPendingRollover,
         isFailed: !!isFailed,
+        workflowRef: window.DispatchWorkflow?.reference(t,0),
+        priority: t.destinations?.[0]?.priority || t.priority || 'normal',
+        pickupStatus: t.pickupStatus || '',
+        deliveryMethod: t.deliveryMethod || 'courier',
+        pendingNote: window.DispatchWorkflow?.pendingInfo(t,t.destinations?.[0]||{}).note || t.pendingNote || t.pendingReason || '',
         pendingReason: t.pendingReason || (t.destinations && t.destinations[0]?.pendingReason) || '',
         isRolloverFromYesterday: !!(isOld && !isFailed),
         items: t.items || [{
@@ -160,14 +177,19 @@ window.UnifiedPoolUI = (function () {
 
     // 3. Dari window.allCurrentTrips (Firebase database): Hanya ambil pengantaran pending yang memiliki Surat Jalan resmi (SJ-...)
     if (Array.isArray(window.allCurrentTrips)) {
-      window.allCurrentTrips.forEach(t => {
+      let pendingSources=window.allCurrentTrips;
+      if(window.WTRACK_LOCAL_SANDBOX) {
+        try {pendingSources=[...JSON.parse(localStorage.getItem('wtrack_local_trips')||'[]'),...pendingSources];}catch(_){}
+      }
+      pendingSources.forEach(t => {
         if (!t) return;
         const dStatus = (t.deliveryStatus || t.status || '').toLowerCase();
-        const isTripFailed = (dStatus === 'failed' || dStatus === 'returned' || dStatus === 'undelivered' || dStatus === 'klien_tutup' || !!t.isFailed || !!t.failedReason || !!t.pendingReason);
+        const isTripFailed = (dStatus === 'failed' || dStatus === 'returned' || dStatus === 'undelivered' || dStatus === 'klien_tutup' || !!t.isFailed || !!t.failedReason || ((t.destinations?.length||0)<=1 && dStatus==='pending' && !!t.pendingReason));
 
         if (Array.isArray(t.destinations) && t.destinations.length > 0) {
           t.destinations.forEach((d, idx) => {
             if (!d) return;
+            if(['done','completed','delivered'].includes(d.status)||d.completedTime||d.completedAt) return;
             const validSJ = (d.sjNumber || d.noSJ || t.noSJ || t.sjNumber || '').trim();
             // Lewati jika bukan nomor Surat Jalan yang valid (jangan masukkan dummy TRIP_xxx)
             if (!validSJ || validSJ.startsWith('TRIP_')) return;
@@ -192,7 +214,7 @@ window.UnifiedPoolUI = (function () {
                   stopIndex: d.stopIndex || (idx + 1),
                   noSJ: validSJ,
                   sjNumber: validSJ,
-                  adminSJ: t.adminSJ || d.adminSJ || '',
+                  adminSJ: d.adminSJ || t.adminSJ || window.CustomerMaster?.resolveName(d.customer || d.clientName || t.customer || t.clientName) || '',
                   readyStatus: 'ready',
                   uniqueCode: d.uniqueCode || d.shortCode || t.uniqueCode || t.shortCode || 'WK-AUTO',
                   shortCode: d.shortCode || d.uniqueCode || t.shortCode || t.uniqueCode || 'WK-AUTO',
@@ -209,6 +231,10 @@ window.UnifiedPoolUI = (function () {
                   isFailed: true,
                   isPendingFromCourier: true,
                   pendingReason: reason,
+                  pendingNote: window.DispatchWorkflow?.pendingInfo(t,d).note || d.pendingNote || t.pendingNote || reason,
+                  workflowRef: window.DispatchWorkflow?.reference(t,idx),
+                  priority: d.priority || t.priority || 'normal',
+                  pickupStatus: t.pickupStatus || '',
                   assignedCourierName: (typeof getCourierDisplayName === 'function' ? getCourierDisplayName(t.courierId) : t.courierId) || '',
                   items: (d.items && d.items.length > 0) ? d.items : [{
                     nama: d.itemsSummary || 'Item Pending Pengiriman',
@@ -300,6 +326,10 @@ window.UnifiedPoolUI = (function () {
         if (!t.isFailed) return false;
       } else if (activeDeliveryStatusFilter === 'PENDING') {
         if (t.isFailed || t.readyStatus === 'not_ready') return false;
+      } else if (activeDeliveryStatusFilter === 'URGENT') {
+        if(t.priority!=='urgent') return false;
+      } else if (activeDeliveryStatusFilter === 'PICKUP') {
+        if(t.pickupStatus!=='waiting') return false;
       }
 
       if (activeDateFolder !== 'ALL') {
@@ -325,6 +355,8 @@ window.UnifiedPoolUI = (function () {
 
     // 4. SORTING: Surat Jalan Gagal Kirim & Rollover H-1 selalu MUNCUL PALING ATAS!
     filtered.sort((a, b) => {
+      if(a.priority==='urgent'&&b.priority!=='urgent') return -1;
+      if(b.priority==='urgent'&&a.priority!=='urgent') return 1;
       if (a.isFailed && !b.isFailed) return -1;
       if (!a.isFailed && b.isFailed) return 1;
       if (a.isRolloverFromYesterday && !b.isRolloverFromYesterday) return -1;
@@ -333,173 +365,137 @@ window.UnifiedPoolUI = (function () {
     });
 
     container.innerHTML = `
-      <!-- HEADER (Ringkas tanpa tombol terpisah di atas) -->
-      <div class="d-flex align-items-center justify-content-between mb-3">
-        <div>
-          <div class="d-flex align-items-center gap-2 flex-wrap">
-            <h4 class="fw-bold mb-0 text-dark">Plan Shipment</h4>
-            <span class="badge bg-primary px-2.5 py-1 rounded-pill extra-small">${totalPool} SJ Aktif</span>
-            <span class="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1 rounded-pill extra-small fw-semibold d-inline-flex align-items-center gap-1">
-              <i class="bi bi-check2-circle"></i> ${totalReady} Siap Kirim
-            </span>
-            ${totalNotReady > 0 ? `
-              <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 px-2.5 py-1 rounded-pill extra-small fw-bold d-inline-flex align-items-center gap-1">
-                <i class="bi bi-clock-history"></i> ${totalNotReady} Belum Ready
-              </span>
-            ` : ''}
-            ${totalFailed > 0 ? `
-              <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 px-2.5 py-1 rounded-pill extra-small fw-bold d-inline-flex align-items-center gap-1">
-                <i class="bi bi-x-circle-fill"></i> ${totalFailed} Pending / Gagal
-              </span>
-            ` : ''}
-          </div>
-          <p class="text-muted small mb-0 mt-1">
-            Database Surat Jalan terintegrasi Excel, verifikasi kesiapan barang (Checker), klasifikasi Region otomatis & penugasan armada.
-          </p>
+      <div class="aerotrack-table-container bg-white mb-4" style="border: 1px solid #EAECF0; border-radius: 12px; box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);">
+        <!-- Underline Tabs (Esse style) -->
+        <div class="d-flex align-items-center gap-4 px-3 border-bottom overflow-x-auto" style="border-color: #EAECF0 !important;">
+          <button type="button" class="btn btn-link text-decoration-none px-1 py-2.5 d-inline-flex align-items-center gap-1.5 text-nowrap" style="font-size: 13px; border-radius: 0; border-bottom: 2px solid ${activeDeliveryStatusFilter === 'ALL' ? '#CC6100' : 'transparent'}; color: ${activeDeliveryStatusFilter === 'ALL' ? '#101828' : '#667085'}; font-weight: ${activeDeliveryStatusFilter === 'ALL' ? '600' : '500'};" onclick="UnifiedPoolUI.setDeliveryStatusFilter('ALL')">
+            <span>Ready</span>
+            <span class="wellen-count-badge" style="background: ${activeDeliveryStatusFilter === 'ALL' ? '#CC6100' : '#FFF4E5'}; color: ${activeDeliveryStatusFilter === 'ALL' ? '#ffffff' : '#CC6100'}; border: 1px solid rgba(204, 97, 0, 0.25); font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 9999px;">${totalReady}</span>
+          </button>
+          <button type="button" class="btn btn-link text-decoration-none px-1 py-2.5 d-inline-flex align-items-center gap-1.5 text-nowrap" style="font-size: 13px; border-radius: 0; border-bottom: 2px solid ${activeDeliveryStatusFilter === 'NOT_READY' ? '#CC6100' : 'transparent'}; color: ${activeDeliveryStatusFilter === 'NOT_READY' ? '#101828' : '#667085'}; font-weight: ${activeDeliveryStatusFilter === 'NOT_READY' ? '600' : '500'};" onclick="UnifiedPoolUI.setDeliveryStatusFilter('NOT_READY')">
+            <span>Belum Ready</span>
+            <span class="wellen-count-badge" style="background: ${activeDeliveryStatusFilter === 'NOT_READY' ? '#CC6100' : '#FFF4E5'}; color: ${activeDeliveryStatusFilter === 'NOT_READY' ? '#ffffff' : '#CC6100'}; border: 1px solid rgba(204, 97, 0, 0.25); font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 9999px;">${totalNotReady}</span>
+          </button>
+          <button type="button" class="btn btn-link text-decoration-none px-1 py-2.5 d-inline-flex align-items-center gap-1.5 text-nowrap" style="font-size: 13px; border-radius: 0; border-bottom: 2px solid ${activeDeliveryStatusFilter === 'FAILED' || activeDeliveryStatusFilter === 'PENDING_FAILED' ? '#CC6100' : 'transparent'}; color: ${activeDeliveryStatusFilter === 'FAILED' || activeDeliveryStatusFilter === 'PENDING_FAILED' ? '#101828' : '#667085'}; font-weight: ${activeDeliveryStatusFilter === 'FAILED' || activeDeliveryStatusFilter === 'PENDING_FAILED' ? '600' : '500'};" onclick="UnifiedPoolUI.setDeliveryStatusFilter('FAILED')">
+            <span>Pending / Gagal</span>
+            <span class="wellen-count-badge" style="background: ${activeDeliveryStatusFilter === 'FAILED' || activeDeliveryStatusFilter === 'PENDING_FAILED' ? '#CC6100' : '#FFF4E5'}; color: ${activeDeliveryStatusFilter === 'FAILED' || activeDeliveryStatusFilter === 'PENDING_FAILED' ? '#ffffff' : '#CC6100'}; border: 1px solid rgba(204, 97, 0, 0.25); font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 9999px;">${totalFailed}</span>
+          </button>
+          ${window.WTRACK_LOCAL_SANDBOX && window.DispatchWorkflow ? `
+          <button type="button" class="btn btn-link text-decoration-none px-1 py-2.5 d-inline-flex align-items-center gap-1.5 text-nowrap" style="font-size: 13px; border-radius: 0; border-bottom: 2px solid ${activeDeliveryStatusFilter === 'URGENT' ? '#CC6100' : 'transparent'}; color: ${activeDeliveryStatusFilter === 'URGENT' ? '#101828' : '#667085'}; font-weight: ${activeDeliveryStatusFilter === 'URGENT' ? '600' : '500'};" onclick="UnifiedPoolUI.setDeliveryStatusFilter('URGENT')">
+            <span>Urgent</span>
+            <span class="wellen-count-badge" style="background: ${activeDeliveryStatusFilter === 'URGENT' ? '#CC6100' : '#FFF4E5'}; color: ${activeDeliveryStatusFilter === 'URGENT' ? '#ffffff' : '#CC6100'}; border: 1px solid rgba(204, 97, 0, 0.25); font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 9999px;">${allTrips.filter(t=>t.priority==='urgent').length}</span>
+          </button>
+          <button type="button" class="btn btn-link text-decoration-none px-1 py-2.5 d-inline-flex align-items-center gap-1.5 text-nowrap" style="font-size: 13px; border-radius: 0; border-bottom: 2px solid ${activeDeliveryStatusFilter === 'PICKUP' ? '#CC6100' : 'transparent'}; color: ${activeDeliveryStatusFilter === 'PICKUP' ? '#101828' : '#667085'}; font-weight: ${activeDeliveryStatusFilter === 'PICKUP' ? '600' : '500'};" onclick="UnifiedPoolUI.setDeliveryStatusFilter('PICKUP')">
+            <span>Pickup</span>
+            <span class="wellen-count-badge" style="background: ${activeDeliveryStatusFilter === 'PICKUP' ? '#CC6100' : '#FFF4E5'}; color: ${activeDeliveryStatusFilter === 'PICKUP' ? '#ffffff' : '#CC6100'}; border: 1px solid rgba(204, 97, 0, 0.25); font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 9999px;">${allTrips.filter(t=>t.pickupStatus==='waiting').length}</span>
+          </button>` : ''}
         </div>
-      </div>
 
-      <!-- SUB-TABS FILTER: ON HAND SIAP KIRIM VS BELUM SIAP KIRIM VS PENDING/GAGAL KIRIM -->
-      <div class="d-flex align-items-center justify-content-between mb-2.5">
-        <div class="aerotrack-pill-nav mb-0">
-          <button class="aerotrack-pill-btn ${activeDeliveryStatusFilter === 'ALL' ? 'active' : ''}" 
-                  type="button" onclick="UnifiedPoolUI.setDeliveryStatusFilter('ALL')">
-            <i class="bi bi-box-seam ${activeDeliveryStatusFilter === 'ALL' ? 'text-primary' : ''}"></i> On Hand Siap Kirim (${totalReady})
-          </button>
-          <button class="aerotrack-pill-btn ${activeDeliveryStatusFilter === 'NOT_READY' ? 'active' : ''} text-warning fw-semibold" 
-                  type="button" onclick="UnifiedPoolUI.setDeliveryStatusFilter('NOT_READY')">
-            <i class="bi bi-clock-history text-warning"></i> Belum Siap Kirim
-            <span class="badge ${totalNotReady > 0 ? 'bg-warning text-dark' : 'bg-secondary text-white'} rounded-pill ms-1">${totalNotReady}</span>
-          </button>
-          <button class="aerotrack-pill-btn ${activeDeliveryStatusFilter === 'FAILED' || activeDeliveryStatusFilter === 'PENDING_FAILED' ? 'active' : ''} text-danger fw-semibold" 
-                  type="button" onclick="UnifiedPoolUI.setDeliveryStatusFilter('FAILED')">
-            <i class="bi bi-exclamation-triangle-fill text-danger"></i> Pending / Gagal Kirim
-            <span class="badge ${totalFailed > 0 ? 'bg-danger text-white' : 'bg-secondary text-white'} rounded-pill ms-1">${totalFailed}</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- TABLE SURAT JALAN POOL (AEROTRACK ERP UI STYLE) -->
-      <div class="aerotrack-table-container bg-white shadow-sm mb-4">
-        <!-- AeroTrack Filter Bar (Baris 1: Filter & Pencarian + Kalender Tanggal + Tombol Import) -->
-        <div class="aerotrack-filter-bar d-flex align-items-center justify-content-between gap-2 border-bottom p-2.5 flex-nowrap overflow-x-auto">
-          <div class="d-flex align-items-center gap-1.5 flex-nowrap">
-            <input type="text" id="pool-unified-search" class="aerotrack-input" placeholder="Stock ID / No. SJ / Customer..." style="width: 180px; font-size: 0.8rem;" value="${currentSearchQuery}" oninput="UnifiedPoolUI.setSearchQuery(this.value)">
-            
-            <select id="pool-region-filter" class="form-select form-select-sm aerotrack-select" style="min-width: 155px; font-size: 0.8rem;" onchange="UnifiedPoolUI.setRegionFilter(this.value)">
-              <option value="ALL" ${activeRegionFilter === 'ALL' ? 'selected' : ''}>Semua Wilayah (${totalPool})</option>
-              ${regions.map(r => `<option value="${r}" ${activeRegionFilter === r ? 'selected' : ''}>${r} (${regionCounts[r]})</option>`).join('')}
-            </select>
-
-            <!-- Kalender Filter Tanggal -->
-            <div class="d-flex align-items-center gap-1" style="position: relative;">
-              <input type="date" id="pool-unified-date" class="aerotrack-input" 
-                     style="min-width: 130px; height: 32px; font-size: 0.8rem; padding: 2px 8px;" 
-                     value="${activeDateFolder !== 'ALL' ? activeDateFolder : ''}" 
-                     onchange="UnifiedPoolUI.setDateFolder(this.value || 'ALL')"
-                     title="Filter Kalender Tanggal">
-              ${activeDateFolder !== 'ALL' ? `
-                <button class="btn btn-sm btn-light border py-1 px-2 text-danger aerotrack-input" 
-                        onclick="UnifiedPoolUI.setDateFolder('ALL')" 
-                        title="Reset Kalender (Tampilkan Semua Tanggal)">
-                  <i class="bi bi-x-lg" style="font-size: 0.75rem;"></i>
-                </button>
-              ` : ''}
+        <!-- Baris Filter & Import -->
+        <div class="d-flex align-items-center justify-content-between border-bottom px-3 flex-wrap" style="border-color: #EAECF0 !important; padding-top: 10px; padding-bottom: 10px; gap: 8px;">
+          <div class="d-flex align-items-center flex-wrap" style="gap: 8px;">
+            <div class="position-relative" style="width: 210px;">
+              <i class="bi bi-search position-absolute top-50 translate-middle-y text-muted" style="left: 11px; font-size: 13px; pointer-events: none;"></i>
+              <input type="text" id="pool-unified-search" class="form-control form-control-sm" placeholder="Cari No. DO, Customer..." style="padding-left: 34px; width: 100%;" value="${currentSearchQuery}" oninput="UnifiedPoolUI.setSearchQuery(this.value)">
             </div>
-
-            <select id="pool-print-filter" class="form-select form-select-sm aerotrack-select" style="min-width: 135px; font-size: 0.8rem;" onchange="UnifiedPoolUI.setPrintFilter(this.value)">
-              <option value="ALL" ${activePrintLocationFilter === 'ALL' ? 'selected' : ''}>Semua Lokasi</option>
-              <option value="pusat" ${activePrintLocationFilter === 'pusat' ? 'selected' : ''}>Pusat (${totalPusat})</option>
-              <option value="cikokol" ${activePrintLocationFilter === 'cikokol' ? 'selected' : ''}>Cikokol (${totalCikokol})</option>
-            </select>
+            <div style="width: 165px;">
+              <select id="pool-region-filter" class="form-select form-select-sm" onchange="UnifiedPoolUI.setRegionFilter(this.value)">
+                <option value="ALL" ${activeRegionFilter === 'ALL' ? 'selected' : ''}>Region (${totalPool})</option>
+                ${regions.map(r => `<option value="${r}" ${activeRegionFilter === r ? 'selected' : ''}>${r} (${regionCounts[r]})</option>`).join('')}
+              </select>
+            </div>
+            <div class="d-flex align-items-center" style="gap: 4px;">
+              <input type="date" id="pool-unified-date" class="form-control form-control-sm" style="width: 138px;" value="${activeDateFolder !== 'ALL' ? activeDateFolder : ''}" onchange="UnifiedPoolUI.setDateFolder(this.value || 'ALL')">
+              ${activeDateFolder !== 'ALL' ? `<button class="btn btn-sm bg-white border text-muted" style="height: 32px; border-radius: 8px; border-color: #D0D5DD !important;" onclick="UnifiedPoolUI.setDateFolder('ALL')" title="Reset Tanggal"><i class="bi bi-x-lg" style="font-size: 11px;"></i></button>` : ''}
+            </div>
+            <div style="width: 140px;">
+              <select id="pool-print-filter" class="form-select form-select-sm" onchange="UnifiedPoolUI.setPrintFilter(this.value)">
+                <option value="ALL" ${activePrintLocationFilter === 'ALL' ? 'selected' : ''}>Branch</option>
+                <option value="pusat" ${activePrintLocationFilter === 'pusat' ? 'selected' : ''}>Pusat (${totalPusat})</option>
+                <option value="cikokol" ${activePrintLocationFilter === 'cikokol' ? 'selected' : ''}>Cikokol (${totalCikokol})</option>
+              </select>
+            </div>
           </div>
-
-          <div class="d-flex align-items-center gap-1.5 flex-nowrap ms-auto">
-            <!-- Button Import SJ Excel / Word -->
-            <button class="btn btn-success btn-sm fw-bold px-2.5 py-1.5 aerotrack-input d-flex align-items-center gap-1.5 shadow-sm text-nowrap" 
-                    onclick="document.getElementById('sj-excel-file-input').click()"
-                    title="Import Surat Jalan dari file Excel (.xlsx) atau Word (.docx / .doc)">
-              <i class="bi bi-file-earmark-arrow-up-fill"></i>
-              <span>Import SJ</span>
+          <div class="d-flex align-items-center ms-auto" style="gap: 8px;">
+            <button class="btn btn-sm btn-wellen-action text-white fw-semibold d-inline-flex align-items-center text-nowrap" style="height: 32px; border-radius: 8px; font-size: 12.5px; padding: 0 12px; gap: 6px;" onclick="document.getElementById('sj-excel-file-input').click()">
+              <i class="bi bi-upload" style="font-size: 12px;"></i>
+              <span>Import DO</span>
             </button>
-            <input type="file" id="sj-excel-file-input" class="d-none" accept=".xlsx, .xls, .csv, .docx, .doc, .rtf" 
-                   onchange="window.SJImportEngine && window.SJImportEngine.handleFileUpload(event)">
-
-            <button class="btn btn-light border btn-sm px-2 py-1.5 aerotrack-input" onclick="UnifiedPoolUI.refresh()" title="Muat Ulang Data">
+            <input type="file" id="sj-excel-file-input" class="d-none" accept=".xlsx, .xls, .csv, .docx, .doc, .rtf" multiple onchange="window.SJImportEngine && window.SJImportEngine.handleFileUpload(event)">
+            <button class="btn btn-sm bg-white border text-muted d-inline-flex align-items-center justify-content-center" style="height: 32px; width: 32px; border-radius: 8px; border-color: #D0D5DD !important;" onclick="UnifiedPoolUI.refresh()" title="Muat Ulang">
               <i class="bi bi-arrow-clockwise"></i>
             </button>
           </div>
         </div>
 
-        <!-- AeroTrack Action Toolbar (Baris 2: Seleksi, Penugasan Kurir, Cetak, Hapus Terpilih) -->
-        <div class="d-flex align-items-center justify-content-between gap-2 px-3 py-2 border-bottom bg-light bg-opacity-50 flex-nowrap overflow-x-auto">
-          <div class="d-flex align-items-center gap-2">
-            <span class="aerotrack-badge badge-primary py-1 px-2.5 fw-semibold" id="pool-selected-count">0 Surat Jalan dipilih</span>
-          </div>
-
-          <div class="d-flex align-items-center gap-2 flex-wrap ms-auto">
-            <span class="extra-small text-muted fw-bold text-uppercase d-none d-sm-inline">Tugaskan:</span>
-            <select id="pool-bulk-courier" class="form-select form-select-sm aerotrack-select" style="min-width: 210px; max-width: 250px; font-size: 0.8rem;">
-              ${UnifiedPoolUI.buildCourierOptionsHtml()}
-            </select>
-            <button class="btn btn-sm btn-primary aerotrack-input fw-semibold px-3 py-1.5 d-flex align-items-center gap-1 shadow-sm" 
-                    onclick="UnifiedPoolUI.assignSelectedToCourier()" title="Tugaskan Surat Jalan Terpilih">
+        <!-- Baris Aksi Terpilih (Contextual: tampil saat ada SJ dicentang) -->
+        <div id="pool-bulk-bar" class="d-none align-items-center justify-content-between px-3 border-bottom flex-wrap" style="border-color: #FFE3C2 !important; background: #FFF9F2; padding-top: 8px; padding-bottom: 8px; gap: 8px;">
+          <span id="pool-selected-count" style="font-size: 12.5px; font-weight: 600; color: #B05500;">0 dipilih</span>
+          <div class="d-flex align-items-center flex-wrap ms-auto" style="gap: 6px;">
+            <div style="width: 220px; flex-shrink: 0;">
+              <select id="pool-bulk-courier" class="form-select form-select-sm">
+                ${UnifiedPoolUI.buildCourierOptionsHtml()}
+              </select>
+            </div>
+            <button class="btn btn-sm text-white fw-semibold d-inline-flex align-items-center" style="height: 32px; border-radius: 8px; background: #CC6100; font-size: 12.5px; padding: 0 12px; gap: 6px;" onclick="UnifiedPoolUI.assignSelectedToCourier()">
               <i class="bi bi-send-check"></i>
               <span>Tugaskan</span>
             </button>
-
-            <!-- Checker Bulk Action Buttons -->
-            <button class="btn btn-sm btn-outline-warning aerotrack-input fw-semibold px-2.5 py-1.5 d-flex align-items-center gap-1" 
-                    onclick="UnifiedPoolUI.bulkSetReadyStatus(false)" title="Tandai Surat Jalan Terpilih BELUM READY (Pindah ke Belum Siap Kirim)">
+            <button class="btn btn-sm bg-white border d-inline-flex align-items-center" style="height: 32px; border-radius: 8px; border-color: #D0D5DD !important; color: #344054; font-size: 12.5px; padding: 0 10px; gap: 6px;" onclick="UnifiedPoolUI.bulkSetReadyStatus(false)">
               <i class="bi bi-clock-history"></i>
               <span>Belum Ready</span>
             </button>
-            <button class="btn btn-sm btn-outline-success aerotrack-input fw-semibold px-2.5 py-1.5 d-flex align-items-center gap-1" 
-                    onclick="UnifiedPoolUI.bulkSetReadyStatus(true)" title="Tandai Surat Jalan Terpilih SUDAH READY (Siap Kirim)">
+            <button class="btn btn-sm bg-white border d-inline-flex align-items-center" style="height: 32px; border-radius: 8px; border-color: #D0D5DD !important; color: #344054; font-size: 12.5px; padding: 0 10px; gap: 6px;" onclick="UnifiedPoolUI.bulkSetReadyStatus(true)">
               <i class="bi bi-check2-circle"></i>
-              <span>Siap Kirim</span>
+              <span>Ready</span>
             </button>
-
-            <button class="btn btn-sm btn-outline-primary aerotrack-input fw-semibold px-2.5 py-1.5 d-flex align-items-center gap-1" 
-                    onclick="UnifiedPoolUI.printSelectedSuratJalan()" title="Cetak Surat Jalan yang dipilih">
+            <button class="btn btn-sm bg-white border d-inline-flex align-items-center" style="height: 32px; border-radius: 8px; border-color: #D0D5DD !important; color: #344054; font-size: 12.5px; padding: 0 10px; gap: 6px;" onclick="UnifiedPoolUI.printSelectedSuratJalan()">
               <i class="bi bi-printer"></i>
               <span>Cetak</span>
             </button>
-
-            <button class="btn btn-sm btn-outline-danger aerotrack-input px-2.5 py-1.5" 
-                    onclick="UnifiedPoolUI.deleteSelectedPool()" title="Hapus Surat Jalan Terpilih">
+            <button class="btn btn-sm bg-white border text-danger d-inline-flex align-items-center justify-content-center" style="height: 32px; width: 32px; border-radius: 8px; border-color: #D0D5DD !important;" onclick="UnifiedPoolUI.deleteSelectedPool()" title="Hapus Terpilih">
               <i class="bi bi-trash"></i>
             </button>
           </div>
         </div>
 
         <div class="table-responsive">
-          <table class="table aerotrack-table align-middle mb-0 text-nowrap">
+          <table class="table aerotrack-table align-middle mb-0 text-nowrap ${window.PoolLineItems ? 'pool-local-table' : ''}">
+            <colgroup>
+              <col style="width: 36px;">
+              <col style="width: 130px;">
+              <col style="width: 70px;">
+              <col style="width: 100px;">
+              <col style="width: 170px;">
+              <col>
+              <col style="width: 110px;">
+              ${window.PoolLineItems ? '<col style="width: 95px;">' : ''}
+              <col style="width: 90px;">
+              <col style="width: 75px;">
+              <col style="width: 210px;">
+            </colgroup>
             <thead>
               <tr>
-                <th style="width: 38px;" class="text-center">
+                <th class="text-center">
                   <input type="checkbox" class="form-check-input" id="select-all-pool" onchange="UnifiedPoolUI.toggleAllCheckbox(this)">
                 </th>
-                <th style="width: 135px;">No. Surat Jalan</th>
-                <th style="width: 105px;">Admin SJ</th>
-                <th style="width: 85px;">Kode Unik</th>
-                <th style="width: 105px;">Tanggal</th>
-                <th style="min-width: 170px; max-width: 250px;">Customer</th>
-                <th style="min-width: 200px; max-width: 300px;">Alamat Kirim</th>
-                <th style="width: 110px;">Wilayah</th>
-                <th style="width: 120px;" class="text-center">Status</th>
-                <th style="width: 90px;" class="text-center">Print</th>
-                <th style="width: 150px;" class="text-end">Aksi / Checker</th>
+                <th>No. DO</th>
+                <th>Admin</th>
+                <th>Tanggal</th>
+                <th>Customer</th>
+                <th>Alamat</th>
+                <th>Region</th>
+                ${window.PoolLineItems ? '<th>Berat</th>' : ''}
+                <th class="text-center">Status</th>
+                <th class="text-center">Branch</th>
+                <th class="text-end">Aksi</th>
               </tr>
             </thead>
             <tbody id="pool-table-body">
               ${filtered.length === 0 ? `
-                <tr><td colspan="11" class="text-center py-5 text-muted" style="font-size: 0.85rem;">
-                  <i class="bi bi-inbox fs-2 d-block mb-2 text-muted"></i>
-                  Belum ada Surat Jalan di pool untuk kriteria ini.<br>
-                  <button class="btn btn-outline-success btn-sm mt-3 fw-bold aerotrack-input" onclick="document.getElementById('sj-excel-file-input').click()">
-                    <i class="bi bi-file-earmark-arrow-up me-1"></i> Import Excel / Word Surat Jalan Sekarang
-                  </button>
+                <tr><td colspan="${window.PoolLineItems ? 11 : 10}" class="text-center py-5 text-muted" style="font-size: 13px;">
+                  <i class="bi bi-inbox fs-3 d-block mb-2 text-muted"></i>
+                  Belum ada Delivery Order di pool.
                 </td></tr>
               ` : filtered.map(t => renderTableRow(t)).join('')}
             </tbody>
@@ -528,6 +524,11 @@ window.UnifiedPoolUI = (function () {
 
     const rawSJ = (t.noSJ || t.sjNumber || '').trim();
     const displayId = (rawSJ && !rawSJ.startsWith('TRIP_')) ? rawSJ : '-';
+    const lineItems = window.PoolLineItems;
+    const workflow = window.WTRACK_LOCAL_SANDBOX && window.DispatchWorkflow;
+    const workflowRef = workflow ? workflow.argument(t.workflowRef || {tripId:t.tripId||t.id,destinationIndex:0,noSJ:rawSJ}) : '';
+    const customerText = displayPoolText(t.customer);
+    const addressText = displayPoolText(t.address);
 
     // Row Background Styling
     let rowBgStyle = '';
@@ -540,67 +541,62 @@ window.UnifiedPoolUI = (function () {
     return `
       <tr ${rowBgStyle}>
         <td class="text-center" style="width: 38px;">
-          <input type="checkbox" class="form-check-input pool-checkbox" value="${t.id}" onchange="UnifiedPoolUI.updateSelectionCount()">
+          <input type="checkbox" class="form-check-input pool-checkbox" value="${t.id}" ${t.pickupStatus==='waiting'?'disabled':''} onchange="UnifiedPoolUI.updateSelectionCount()">
         </td>
-        <td style="width: 135px;">
+        <td class="text-nowrap" style="width: 130px;">
           ${displayId !== '-' ? `
-            <a class="aerotrack-id-link font-monospace fw-bold" onclick="UnifiedPoolUI.quickPreviewQR('${t.id}')" title="Klik untuk lihat QR Code">${displayId}</a>
+            ${lineItems ? `<button type="button" class="btn btn-link p-0 aerotrack-id-link font-monospace text-start text-nowrap" style="font-size: 12px; font-weight: 400 !important;" onclick="PoolLineItems.toggle(${lineItems.argument(rawSJ)})" aria-expanded="${lineItems.isExpanded(rawSJ)}" title="Buka / tutup detail item DO"><i class="bi bi-chevron-${lineItems.isExpanded(rawSJ) ? 'down' : 'right'} me-1"></i>${displayId}</button><small class="d-block text-muted" style="font-size: 11px; font-weight: 400 !important;">${lineItems.itemsOf(t).length} item</small>` : `<a class="aerotrack-id-link font-monospace text-nowrap" style="font-size: 12px; font-weight: 400 !important;" onclick="UnifiedPoolUI.quickPreviewQR('${t.id}')" title="Klik untuk lihat QR Code">${displayId}</a>`}
           ` : `
-            <span class="text-muted font-monospace">-</span>
+            <span class="text-muted font-monospace" style="font-weight: 400 !important;">-</span>
           `}
         </td>
         <td style="width: 105px;">
-          <span class="text-muted extra-small font-monospace fw-semibold">${t.adminSJ || '-'}</span>
-        </td>
-        <td style="width: 85px;">
-          <span class="aerotrack-badge font-monospace">${t.uniqueCode || 'WK-AUTO'}</span>
+          <span class="text-muted extra-small font-monospace" style="font-weight: 400 !important;">${String(t.adminSJ || '-').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}</span>
         </td>
         <td style="width: 105px;">
-          <div class="font-monospace text-dark extra-small fw-semibold d-flex align-items-center gap-1">
+          <div class="font-monospace text-dark extra-small d-flex align-items-center gap-1" style="font-weight: 400 !important;">
             <i class="bi bi-calendar3 text-muted"></i>
             <span>${t.date || '-'}</span>
           </div>
         </td>
         <td style="min-width: 170px; max-width: 250px;">
-          <div class="fw-semibold text-dark" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.3; white-space: normal; word-break: break-word;" title="${t.customer || '-'}">${t.customer || '-'}</div>
+          <div class="text-dark" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.3; white-space: normal; word-break: break-word; text-transform: none; font-weight: 400 !important;" title="${customerText}">${customerText}</div>
         </td>
         <td style="min-width: 200px; max-width: 300px;">
-          <div class="text-muted" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.35; font-size: 0.825rem; white-space: normal; word-break: break-word;" title="${t.address || '-'}">
-            ${t.address || '-'}
+          <div class="text-muted" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.35; font-size: 0.825rem; white-space: normal; word-break: break-word; text-transform: none; font-weight: 400 !important;" title="${addressText}">
+            ${addressText}
           </div>
+          ${workflow&&t.pendingNote ? `<small class="workflow-pending-note" style="font-weight: 400 !important;"><span class="text-muted">Note Kurir:</span> ${workflow.escape(t.pendingNote)}</small>` : ''}
         </td>
         <td style="width: 110px;">
-          <span class="aerotrack-badge badge-primary">${t.region || 'Jabodetabek'}</span>
+          <span class="aerotrack-badge badge-primary" style="font-weight: 400 !important;">${t.region || 'Jabodetabek'}</span>
         </td>
+        ${lineItems ? `<td style="font-weight: 400 !important;">${lineItems.renderWeight(t)}</td>` : ''}
         <td class="text-center" style="width: 120px;">
-          ${t.readyStatus === 'not_ready' ? `
-            <span class="badge bg-secondary text-white extra-small fw-semibold px-2 py-1 d-inline-flex align-items-center gap-1 shadow-xs">
+          ${t.priority==='urgent'?'<span class="badge bg-danger text-white mb-1" style="font-weight: 400 !important;">Urgent</span>':''}
+          ${t.pickupStatus==='waiting'?'<span class="badge bg-primary-subtle text-primary border" style="font-weight: 400 !important;">Menunggu Pickup</span>':t.readyStatus === 'not_ready' ? `
+            <span class="badge bg-secondary text-white extra-small px-2 py-1 d-inline-flex align-items-center gap-1 shadow-xs" style="font-weight: 400 !important;">
               <i class="bi bi-clock-history"></i> Belum Ready
             </span>
           ` : (t.isFailed ? `
-            <span class="badge bg-danger text-white extra-small fw-semibold px-2 py-1 d-inline-flex align-items-center gap-1 shadow-xs" title="${t.pendingReason || 'Gagal / Pending'}">
+            <span class="badge bg-danger text-white extra-small px-2 py-1 d-inline-flex align-items-center gap-1 shadow-xs" style="font-weight: 400 !important;" title="${t.pendingReason || 'Gagal / Pending'}">
               <i class="bi bi-x-circle-fill"></i> ${t.isPendingFromCourier ? 'Pending Kurir' : 'Gagal Kirim'}
             </span>
           ` : `
-            <span class="badge bg-success-subtle text-success border border-success-subtle extra-small fw-semibold px-2 py-1 d-inline-flex align-items-center gap-1">
-              <i class="bi bi-check2"></i> Siap Kirim
-            </span>
+            <span class="badge bg-success-subtle text-success border border-success-subtle extra-small px-2 py-1 text-nowrap" style="font-weight: 400 !important;">Ready</span>
           `)}
         </td>
-        <td class="text-center" style="width: 90px;">
+        <td class="text-center" style="width: 75px;">
           ${locBadge}
-          ${branchState ? `<div class="mt-1">${branchState}</div>` : ''}
+          ${branchState ? `<div class="mt-1" style="font-weight: 400 !important;">${branchState}</div>` : ''}
         </td>
-        <td class="text-end" style="width: 150px;">
-          <div class="d-flex align-items-center justify-content-end gap-1">
+        <td class="text-end text-nowrap" style="width: 210px;">
+          <div class="d-inline-flex align-items-center justify-content-end gap-1 flex-nowrap">
+            ${workflow ? `<button type="button" class="workflow-icon ${t.priority==='urgent'?'text-danger':''}" title="${t.priority==='urgent'?'Kembalikan prioritas normal':'Tandai Urgent'}" aria-label="${t.priority==='urgent'?'Kembalikan prioritas normal':'Tandai Urgent'}" onclick="DispatchWorkflow.toggleUrgent(this,${workflowRef},${t.priority!=='urgent'})">${workflow.icon('urgent')}</button>${t.pickupStatus==='waiting'?`<button type="button" class="btn btn-sm btn-outline-success extra-small text-nowrap" style="font-weight: 400 !important;" onclick="DispatchWorkflow.confirmPickup(${workflowRef})">Diambil</button><button type="button" class="workflow-icon" title="Batalkan pickup" aria-label="Batalkan pickup" onclick="DispatchWorkflow.cancelPickup(this,${workflowRef})">${workflow.icon('close')}</button>`:`<button type="button" class="workflow-icon" title="Pickup by Customer" aria-label="Pickup by Customer" onclick="DispatchWorkflow.requestPickup(this,${workflowRef})">${workflow.icon('pickup')}</button>`}` : ''}
             ${t.readyStatus === 'not_ready' ? `
-              <button class="btn btn-sm btn-success py-1 px-2 aerotrack-input fw-semibold extra-small" onclick="UnifiedPoolUI.toggleReadyStatus('${t.id}', true)" title="Barang fisik sudah ready, pindahkan ke On Hand Siap Kirim">
-                <i class="bi bi-check2-circle me-1"></i>Siap
-              </button>
+              <button class="btn btn-sm btn-success py-1 px-2 aerotrack-input extra-small text-nowrap" style="font-weight: 400 !important;" onclick="UnifiedPoolUI.toggleReadyStatus('${t.id}', true)" title="Tandai Ready">Ready</button>
             ` : `
-              <button class="btn btn-sm btn-outline-warning text-dark py-1 px-2 aerotrack-input fw-semibold extra-small" onclick="UnifiedPoolUI.toggleReadyStatus('${t.id}', false)" title="Barang fisik belum ready, pindahkan ke Belum Siap Kirim">
-                <i class="bi bi-clock-history text-warning me-1"></i>Belum Ready
-              </button>
+              <button class="btn btn-sm btn-outline-warning text-dark py-1 px-2 aerotrack-input extra-small text-nowrap" style="font-weight: 400 !important;" onclick="UnifiedPoolUI.toggleReadyStatus('${t.id}', false)" title="Tandai Belum Ready">Belum Ready</button>
             `}
             ${(t.printLocation === 'cikokol' || t.originBranch === 'cikokol') ? `
             <button class="btn btn-sm btn-light border py-1 px-2 text-dark aerotrack-input" onclick="UnifiedPoolUI.printSingleSJ('${t.id}')" title="Cetak Surat Jalan (Cikokol)">
@@ -617,6 +613,7 @@ window.UnifiedPoolUI = (function () {
           </div>
         </td>
       </tr>
+      ${lineItems ? lineItems.renderDetail(t) : ''}
     `;
   }
 
@@ -718,7 +715,7 @@ window.UnifiedPoolUI = (function () {
     });
 
     try {
-      localStorage.setItem('wtrack_local_trips', JSON.stringify(trips.slice(0, 500)));
+      localStorage.setItem('wtrack_local_trips', JSON.stringify(window.WTRACK_LOCAL_SANDBOX ? trips : trips.slice(0, 500)));
     } catch(e) {}
 
     if (window.showToast) {
@@ -748,7 +745,7 @@ window.UnifiedPoolUI = (function () {
   }
 
   function toggleAllCheckbox(source) {
-    document.querySelectorAll('.pool-checkbox').forEach(cb => cb.checked = source.checked);
+    document.querySelectorAll('.pool-checkbox').forEach(cb => cb.checked = source.checked && !cb.disabled);
     updateSelectionCount();
   }
 
@@ -756,7 +753,12 @@ window.UnifiedPoolUI = (function () {
     const checked = document.querySelectorAll('.pool-checkbox:checked').length;
     const countEl = document.getElementById('pool-selected-count');
     if (countEl) {
-      countEl.innerText = `${checked} Surat Jalan dipilih`;
+      countEl.innerText = `${checked} dipilih`;
+    }
+    const bulkBar = document.getElementById('pool-bulk-bar');
+    if (bulkBar) {
+      bulkBar.classList.toggle('d-none', checked === 0);
+      bulkBar.classList.toggle('d-flex', checked > 0);
     }
   }
 
@@ -871,7 +873,7 @@ window.UnifiedPoolUI = (function () {
           storedList.unshift(tt);
         }
       });
-      localStorage.setItem('wtrack_local_trips', JSON.stringify(storedList.slice(0, 500)));
+      localStorage.setItem('wtrack_local_trips', JSON.stringify(window.WTRACK_LOCAL_SANDBOX ? storedList : storedList.slice(0, 500)));
     } catch(e) {}
 
     // Req 12 & 13: Sinkronisasi langsung ke window.allCurrentTrips & Firestore agar Dashboard Admin dan Aplikasi Kurir sinkron real-time!
@@ -1123,7 +1125,8 @@ window.UnifiedPoolUI = (function () {
     const t = trips.find(x => x.id === id);
     if (!t) return;
     if (window.QRPrintDispatch) {
-      const qrData = JSON.stringify({ sj: t.noSJ || t.id, code: t.uniqueCode, dest: t.address });
+      const qrData = window.QRPrintDispatch.mapsPayload(t);
+      if (!qrData) return alert('Isi alamat tujuan sebelum membuat QR Google Maps.');
       const svg = window.QRPrintDispatch.generateQRCodeSVG(qrData, 180);
       alert(`Pratinjau Kode Unik: ${t.uniqueCode}\nNo SJ: ${t.noSJ || t.id}\nKlien: ${t.customer}`);
     }
@@ -1254,6 +1257,7 @@ window.UnifiedPoolUI = (function () {
 
   return {
     init,
+    getTripsSource,
     renderUnifiedPoolView,
     setDateFolder,
     setRegionFilter,

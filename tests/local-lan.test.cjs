@@ -1,0 +1,38 @@
+const {test} = require('node:test');
+const assert = require('node:assert/strict');
+const {createServer} = require('../scripts/local-sandbox.cjs');
+
+test('LAN preview shares only in-memory test data and rejects stale updates', async t => {
+  const server = createServer({shared:true});
+  await new Promise(resolve => server.listen(0,'127.0.0.1',resolve));
+  t.after(() => new Promise(resolve => {server.closeAllConnections();server.close(resolve);}));
+  const base=`http://127.0.0.1:${server.address().port}`;
+  const page=await fetch(base);
+  const html=await page.text();
+  assert.match(page.headers.get('content-security-policy'), /connect-src 'self'/);
+  assert.doesNotMatch(html, /<script[^>]+src=["']https:\/\/www\.gstatic\.com\/firebasejs/);
+  const token=html.match(/data-session-token="([a-f0-9]+)"/)[1];
+  const headers={'X-WTrack-Local-Token':token,'Content-Type':'application/json'};
+  assert.equal((await fetch(base+'/local-sandbox/state')).status,403);
+  assert.deepEqual(await fetch(base+'/local-sandbox/state',{headers}).then(r=>r.json()),{version:0,trips:[]});
+  const trips=[{id:'local-1',noSJ:'SJ-1126-01287',courierId:'uP70R51x7CbR5ggHEyeXfsjSTfO2',status:'in_progress'}];
+  const saved=await fetch(base+'/local-sandbox/state',{method:'POST',headers,body:JSON.stringify({version:0,trips})});
+  assert.equal(saved.status,200);
+  assert.deepEqual(await saved.json(),{version:1,trips});
+  assert.deepEqual(await fetch(base+'/local-sandbox/state',{headers}).then(r=>r.json()),{version:1,trips});
+  assert.equal((await fetch(base+'/local-sandbox/state?version=1',{headers})).status,204);
+  const stale=await fetch(base+'/local-sandbox/state',{method:'POST',headers,body:JSON.stringify({version:0,trips:[]})});
+  assert.equal(stale.status,409);
+  assert.deepEqual((await stale.json()).trips,trips);
+  assert.equal((await fetch(base+'/local-sandbox/state',{method:'POST',headers:{...headers,Origin:'https://example.invalid'},body:'{}'})).status,403);
+  assert.equal((await fetch(base+'/api/delete-courier',{method:'POST',body:'{}'})).status,405);
+  assert.equal((await fetch(base+'/local-sandbox/state',{method:'POST',headers,body:JSON.stringify({version:1,trips:[...trips,...trips]})})).status,400);
+  const freshServer=createServer({shared:true});
+  await new Promise(resolve=>freshServer.listen(0,'127.0.0.1',resolve));
+  t.after(()=>new Promise(resolve=>{freshServer.closeAllConnections();freshServer.close(resolve);}));
+  const freshBase=`http://127.0.0.1:${freshServer.address().port}`;
+  const freshHtml=await fetch(freshBase).then(r=>r.text());
+  const freshToken=freshHtml.match(/data-session-token="([a-f0-9]+)"/)[1];
+  const freshState=await fetch(freshBase+'/local-sandbox/state',{headers:{'X-WTrack-Local-Token':freshToken}}).then(r=>r.json());
+  assert.deepEqual(freshState,{version:0,trips:[]});
+});

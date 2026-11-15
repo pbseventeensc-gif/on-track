@@ -1,7 +1,11 @@
 (function (root) {
     const normalize = text => String(text || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    const searchText = text => normalize(text).replace(/\b(jakbar|jaksel|jakpus|jakut|jaktim|warehouse)\b/g, word => ({
+        jakbar: 'jakarta barat', jaksel: 'jakarta selatan', jakpus: 'jakarta pusat',
+        jakut: 'jakarta utara', jaktim: 'jakarta timur', warehouse: 'wh'
+    })[word]);
     function search(query, candidates) {
-        const terms = normalize(query).split(/\s+/).filter(Boolean);
+        const terms = searchText(query).split(/\s+/).filter(Boolean);
         if (!terms.length) return [];
         const seen = new Set();
         return candidates.map(candidate => {
@@ -15,7 +19,7 @@
             if (!candidate.name || !candidate.address || !Number.isFinite(candidate.lat) || !Number.isFinite(candidate.lng)) return false;
             const name = normalize(candidate.name);
             // WH and warehouse are interchangeable; words can be separated by other words.
-            const text = normalize(`${candidate.name} ${candidate.address}`).replace(/\bwarehouse\b/g, 'warehouse wh');
+            const text = searchText(`${candidate.name} ${candidate.address}`);
             const words = text.split(/\s+/);
             const matches = terms.every(term => words.some(word => word.startsWith(term === 'warehouse' ? 'wh' : term)));
             const key = `${name}|${normalize(candidate.address)}`;
@@ -23,7 +27,7 @@
             seen.add(key);
             return true;
         }).sort((a, b) => {
-            const score = candidate => terms.filter(term => normalize(candidate.name).split(/\s+/).some(word => word.startsWith(term))).length;
+            const score = candidate => terms.filter(term => searchText(candidate.name).split(/\s+/).some(word => word.startsWith(term))).length;
             return score(b) - score(a) || a.name.localeCompare(b.name);
         }).slice(0, 8);
     }
@@ -41,28 +45,28 @@
     function init(input, select) {
         if (input.dataset.savedDestinationSearch) return;
         input.dataset.savedDestinationSearch = 'true';
-        if (!root.document.getElementById('destination-search-dropdown-style')) {
-            const style = root.document.createElement('style');
-            style.id = 'destination-search-dropdown-style';
-            style.textContent = '.destination-search-local-active .pac-container { display: none !important; }';
-            root.document.head.appendChild(style);
-        }
+        // Saved places have their own panel above the input. Never hide or cover Google predictions.
         const list = root.document.createElement('div');
-        list.className = 'list-group shadow-sm';
+        list.className = 'list-group shadow-sm mb-2';
         list.id = 'saved-destination-suggestions';
-        Object.assign(list.style, {position:'absolute', top:'100%', left:'0', right:'0', zIndex:'1055', maxHeight:'280px', overflowY:'auto', display:'none'});
+        Object.assign(list.style, {maxHeight:'180px', overflowY:'auto', display:'none'});
         list.setAttribute('aria-label', 'Tujuan tersimpan');
-        input.parentElement.appendChild(list);
-        let matches = [], active = -1;
+        const searchRow = input.parentElement.parentElement;
+        searchRow.parentElement.insertBefore(list, searchRow);
+        let matches = [];
         const hide = () => {
-            list.style.display = 'none'; active = -1;
-            root.document.body.classList.remove('destination-search-local-active');
+            list.style.display = 'none';
         };
         const choose = index => { const place = matches[index]; if (!place) return; hide(); select(place); input.blur(); };
         const draw = () => {
-            matches = search(input.value, candidates());
+            matches = search(input.value, candidates()).slice(0, 4);
             list.replaceChildren();
-            active = -1;
+            if (matches.length) {
+                const label = root.document.createElement('small');
+                label.className = 'list-group-item text-muted fw-semibold';
+                label.textContent = 'Tujuan tersimpan / riwayat — pilih untuk memakai lokasi tersimpan';
+                list.appendChild(label);
+            }
             for (const [index, place] of matches.entries()) {
                 const button = root.document.createElement('button');
                 button.type = 'button';
@@ -85,22 +89,16 @@
                 list.appendChild(button);
             }
             list.style.display = matches.length ? 'block' : 'none';
-            root.document.body.classList.toggle('destination-search-local-active', matches.length > 0);
         };
         input.addEventListener('input', draw);
         input.addEventListener('focus', draw);
-        input.addEventListener('blur', hide);
+        input.addEventListener('blur', event => { if (!list.contains(event.relatedTarget)) hide(); });
+        list.addEventListener('focusout', event => {
+            if (event.relatedTarget !== input && !list.contains(event.relatedTarget)) hide();
+        });
         input.addEventListener('keydown', event => {
-            if (list.style.display === 'none') return;
-            if (event.key === 'Escape') {hide(); return;}
-            if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-                event.preventDefault(); event.stopImmediatePropagation();
-                active = (active + (event.key === 'ArrowDown' ? 1 : -1) + matches.length) % matches.length;
-                [...list.children].forEach((child, index) => child.classList.toggle('active', index === active));
-            } else if (event.key === 'Enter' && (active >= 0 || matches.length === 1)) {
-                event.preventDefault(); event.stopImmediatePropagation(); choose(active >= 0 ? active : 0);
-            }
-        }, true);
+            if (event.key === 'Escape') hide();
+        });
         input.addEventListener('change', () => {if (!input.value) hide();});
     }
     const api = {search, remember, history, candidates, init};

@@ -585,6 +585,43 @@
             color: #8E8E93;
             margin: 2px 0 0 0;
         }
+        .shipment-card.local-compact .shipment-card-left {
+            min-width: 0;
+            flex: 1;
+        }
+        .shipment-card.local-compact .shipment-card-left > div:last-child {
+            min-width: 0;
+        }
+        .shipment-card.local-compact .shipment-vehicle-badge {
+            flex-shrink: 0;
+        }
+        .shipment-card.local-compact .shipment-route-text {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            overflow-wrap: anywhere;
+        }
+        .shipment-card.local-compact .status-pill {
+            white-space: nowrap;
+        }
+
+        .courier-route-panel { margin: 0 16px 14px; padding: 12px; border: 1px solid #e2e8f0; border-radius: 16px; background: #fff; font-size: 0.82rem; }
+        .courier-route-panel[hidden] { display: none; }
+        .courier-route-heading, .courier-route-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+        .courier-route-heading { justify-content: space-between; }
+        .courier-route-panel small { color: #6b7280; display: block; margin-top: 6px; }
+        .courier-route-panel ol { margin: 10px 0; padding-left: 22px; }
+        .courier-route-panel li { padding: 4px 0; }
+        .courier-route-name { display: inline-block; width: calc(100% - 108px); vertical-align: middle; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .courier-route-panel button { min-width: 30px; min-height: 30px; border: 1px solid #e2e8f0; border-radius: 7px; background: #f8fafc; color: #111827; }
+        .courier-route-panel button:disabled { opacity: .35; }
+        .courier-route-link { display: inline-block; padding: 9px 12px; border-radius: 9px; background: #ff471d; color: #fff; text-decoration: none; font-weight: 700; }
+        .courier-route-link:hover { color: #fff; background: #e03b14; }
+        .courier-route-check { width: 17px; height: 17px; flex-shrink: 0; accent-color: #ff471d; cursor: pointer; }
+
+        .shipment-admin-sj { font-size: 0.72rem; color: #64748b; margin-top: 5px; line-height: 1.5; overflow-wrap: anywhere; }
+        .shipment-admin-sj strong { color: #334155; }
 
         /* Status Badges */
         .status-pill {
@@ -1076,7 +1113,10 @@
             transform: scale(0.92);
         }
     </style>
-    <script src="js/delivery_identity.js?v=1"></script>
+    <script src="js/delivery_identity.js?v=20261114.1"></script>
+    <script src="js/maps_destination.js?v=20261114.1"></script>
+    <script src="js/courier_admin.js?v=20261114.1"></script>
+    <script src="js/qr_claim.js?v=20261114.1"></script>
 </head>
 <body>
 
@@ -1112,13 +1152,14 @@
             </div>
 
             <!-- Live Courier Profile Preview Badge -->
-            <div id="login-courier-preview" class="d-none align-items-center gap-2 p-2 mb-3 rounded-3" style="background: #f8fafc; border: 1.5px solid #e2e8f0;">
+            <button type="button" id="login-courier-preview" class="d-none align-items-center gap-2 p-2 mb-3 rounded-3 w-100 text-start" style="background: #f8fafc; border: 1.5px solid #e2e8f0; cursor: pointer; font-family: inherit;" onclick="selectLoginCourierPreview()" aria-label="Pilih akun dan lengkapi email" title="Pilih akun, lalu isi password">
                 <img id="login-preview-avatar" src="" alt="Avatar" style="width:38px;height:38px;border-radius:50%;object-fit:cover;border:1.5px solid #FF471D;flex-shrink:0;">
                 <div class="overflow-hidden">
                     <div id="login-preview-name" class="fw-bold text-dark text-truncate" style="font-size:0.88rem;line-height:1.2;"></div>
                     <div id="login-preview-role" class="text-muted extra-small text-truncate" style="font-size:0.75rem;"></div>
                 </div>
-            </div>
+                <i class="bi bi-chevron-right ms-auto text-muted" aria-hidden="true"></i>
+            </button>
 
             <div class="form-floating-custom">
                 <i class="bi bi-lock"></i>
@@ -1135,7 +1176,7 @@
             </div>
 
             <!-- Log In Button -->
-            <button class="btn-brand-primary" onclick="handleLoginSubmit()">
+            <button type="button" id="login-submit-button" class="btn-brand-primary" onclick="handleLoginSubmit()">
                 Log In
             </button>
         </div>
@@ -1234,6 +1275,8 @@
             <span class="section-header-link" onclick="navigateToScreen('shipments')">Semua SJ</span>
         </div>
 
+        <div class="px-3 mb-3"><button type="button" class="btn btn-outline-primary btn-sm rounded-pill recover-courier-tasks" onclick="recoverCourierTasks()"><i class="bi bi-arrow-clockwise me-1"></i>Pulihkan Tugas Hari Ini</button><small class="d-block text-muted mt-1">Tampilkan kembali tugas belum selesai. Foto bukti tetap aman.</small></div>
+        <div class="courier-route-panel" data-courier-route-panel hidden></div>
         <div id="home-shipments-preview-container">
             <!-- Dynamic Cards Rendered Here -->
         </div>
@@ -1254,6 +1297,7 @@
             </button>
         </div>
 
+        <div class="px-3 mb-3"><button type="button" class="btn btn-outline-primary btn-sm rounded-pill recover-courier-tasks" onclick="recoverCourierTasks()"><i class="bi bi-arrow-clockwise me-1"></i>Pulihkan Tugas Hari Ini</button><small class="d-block text-muted mt-1">Tampilkan kembali tugas belum selesai. Foto bukti tetap aman.</small></div>
         <!-- Quick Search Bar (Collapsible) -->
         <div id="shipments-search-box" class="p-3 bg-white border-bottom d-none">
             <div class="home-search-pill">
@@ -1265,6 +1309,7 @@
         <!-- Filter Chips (Hari Ini, Pending, In Transit, Selesai, dan Riwayat 3 Hari) -->
         <div class="shipments-filter-scroll">
             <div class="filter-chip active" id="chip-filter-all" onclick="setShipmentFilter('all', this)">Hari Ini</div>
+            <div class="filter-chip" id="chip-filter-unfinished" onclick="setShipmentFilter('unfinished', this)">Belum Selesai Hari Ini</div>
             <div class="filter-chip" id="chip-filter-in-transit" onclick="setShipmentFilter('in-transit', this)">In Transit</div>
             <div class="filter-chip" id="chip-filter-delivered" onclick="setShipmentFilter('delivered', this)">Selesai Hari Ini</div>
             <div class="filter-chip" id="chip-filter-pending" onclick="setShipmentFilter('pending', this)">Pending</div>
@@ -1280,6 +1325,7 @@
         </div>
 
         <!-- Shipments Cards Container -->
+        <div class="courier-route-panel" data-courier-route-panel hidden></div>
         <div id="shipments-full-list-container">
             <!-- Dynamic Shipment Cards Rendered Here -->
         </div>
@@ -1450,6 +1496,8 @@
                             <span class="pending-reason-chip" onclick="selectPendingReasonChip('Alamat Tidak Ditemukan', this)">Alamat Sulit</span>
                         </div>
                         <input type="text" id="pending-reason-input" class="form-control py-2.5 px-3" style="border-radius: 14px; font-size: 0.85rem; font-weight: 600; border: 1.5px solid #E2E8F0;" placeholder="Misal: Toko Tutup / Klien Libur...">
+                        <label class="small fw-semibold mt-3 mb-1" for="pending-note-input">Catatan untuk Admin</label>
+                        <textarea id="pending-note-input" class="form-control" rows="2" maxlength="1000" placeholder="Catatan tambahan dari kurir..."></textarea>
                     </div>
 
                     <!-- Foto Bukti Toko Tutup / Lokasi: Kamera + Galeri -->
@@ -1795,29 +1843,28 @@
     // Master Fleet Identity Mapping (Berlaku untuk seluruh 22 akun Kurir & Driver secara live)
     const MASTER_COURIERS_LIST = [
         // Kurir Motor (12 Personil)
-        { canonicalId: 'ahmad', displayName: 'Ahmad', role: 'Kurir Motor', vehicleType: 'motor', defaultUid: '9dhFtf5QTQW8zmb8cZW5YFgZfmH3', avatar: 'assets/couriers/Ahmad.jpeg', tokens: ['ahmad', 'ahmadmotor03'] },
-        { canonicalId: 'beto', displayName: 'Beto', role: 'Kurir Motor', vehicleType: 'motor', defaultUid: 'l6fLsN7ijQdq5m2tcUs2xpmMFv63', avatar: 'assets/couriers/Beto.jpeg', tokens: ['beto', 'betomotor99'] },
-        { canonicalId: 'eri', displayName: 'Eri', role: 'Kurir Motor', vehicleType: 'motor', defaultUid: 'CkRWbGxehCfVOi4iMWvnm66W9NM2', avatar: 'assets/couriers/Eri.jpeg', tokens: ['eri', 'erimotor04', 'ckrwb'] },
-        { canonicalId: 'irfan', displayName: 'Irfan', role: 'Kurir Motor', vehicleType: 'motor', defaultUid: 'gQyw0Ot9pWY9DuWugNK7IpwaM352', avatar: 'assets/couriers/Irfan.jpeg', tokens: ['irfan', 'irfanmotor05', 'gqyw0'] },
-        { canonicalId: 'baihaqi', displayName: 'Baihaqi', role: 'Kurir Motor', vehicleType: 'motor', defaultUid: 'xONhqVSNSYcEcGCZyW2cLGJWQt92', avatar: 'assets/couriers/Baykaqi.jpeg', tokens: ['baihaqi', 'baikaqi', 'bayhaqi', 'baykaqi', 'muhamadbayhaqi0', 'xonh'] },
-        { canonicalId: 'haris', displayName: 'Haris', role: 'Kurir Motor', vehicleType: 'motor', defaultUid: 'uWA0dLFxj0MsGe3YXHuvHjg1GZs1', avatar: 'assets/couriers/Haris.jpeg', tokens: ['haris', 'harismotor02', 'uwa0d'] },
-        { canonicalId: 'umar', displayName: 'Umar', role: 'Kurir Motor', vehicleType: 'motor', defaultUid: 'eRg9WzDaEgPPl6jcEzo0ERYNyI82', avatar: 'assets/couriers/Umar.jpeg', tokens: ['umar', 'umarmotor01', 'erg9w'] },
-        { canonicalId: 'noval', displayName: 'Noval', role: 'Kurir Motor', vehicleType: 'motor', defaultUid: 'D9hmxHZ2SJa2BgZN8DO2cT6lgGh1', avatar: 'assets/couriers/Noval.jpeg', tokens: ['noval', 'novalempah2', 'novalganteng1', 'd9hmx'] },
-        { canonicalId: 'jay', displayName: 'Jay', role: 'Kurir Motor', vehicleType: 'motor', defaultUid: 'XFAoplNpgjc0QzqE6gcTIa5OA0r2', avatar: 'assets/couriers/Jaya.jpeg', tokens: ['jay', 'jaya', 'andiwijaya', 'andiwijaya27', 'xfaop'] },
-        { canonicalId: 'ferdi', displayName: 'Ferdi', role: 'Kurir Motor', vehicleType: 'motor', defaultUid: 'BOMM2Wmk9LXs90qO3RWskGyIOk72', avatar: 'assets/couriers/Ferdi.jpeg', tokens: ['ferdi', 'fredi', 'fredisambo1', 'fredisambo', 'bomm2'] },
-        { canonicalId: 'jagat', displayName: 'Jagatbaru', role: 'Kurir Motor', vehicleType: 'motor', defaultUid: 'kwpGbShXoog9kFiRmevZpwTgVxv2', avatar: 'assets/couriers/Jagat.jpeg', tokens: ['jagat', 'jagad', 'jagatbaru', 'jagatbaru1', 'kwpgb'] },
-        { canonicalId: 'pbseventeensc', displayName: 'pbseventeensc', role: 'Kurir Motor', vehicleType: 'motor', defaultUid: 'uP70R51x7CbR5ggHEyeXfsjSTfO2', avatar: 'assets/couriers/Pbseventeen.jpeg', tokens: ['pbseventeensc', 'pbseventensc', 'pbseventeen', 'pb', 'up70', 'pbseventeensc@gmail.com'] },
+        { canonicalId: 'ahmad', loginEmail: "ahmadmotor03@gmail.com", displayName: 'Ahmad', role: 'Kurir Motor', vehicleType: 'motor', defaultUid: '9dhFtf5QTQW8zmb8cZW5YFgZfmH3', avatar: 'assets/couriers/Ahmad.jpeg', tokens: ['ahmad', 'ahmadmotor03'] },
+        { canonicalId: 'beto', loginEmail: "betomotor99@gmail.com", displayName: 'Beto', role: 'Kurir Motor', vehicleType: 'motor', defaultUid: 'l6fLsN7ijQdq5m2tcUs2xpmMFv63', avatar: 'assets/couriers/Beto.jpeg', tokens: ['beto', 'betomotor99'] },
+        { canonicalId: 'eri', loginEmail: "erimotor04@gmail.com", displayName: 'Eri', role: 'Kurir Motor', vehicleType: 'motor', defaultUid: 'CkRWbGxehCfVOi4iMWvnm66W9NM2', avatar: 'assets/couriers/Eri.jpeg', tokens: ['eri', 'erimotor04', 'ckrwb'] },
+        { canonicalId: 'irfan', loginEmail: "irfanmotor05@gmail.com", displayName: 'Irfan', role: 'Kurir Motor', vehicleType: 'motor', defaultUid: 'gQyw0Ot9pWY9DuWugNK7IpwaM352', avatar: 'assets/couriers/Irfan.jpeg', tokens: ['irfan', 'irfanmotor05', 'gqyw0'] },
+        { canonicalId: 'baihaqi', loginEmail: "muhamadbayhaqi0@gmail.com", displayName: 'Baihaqi', role: 'Kurir Motor', vehicleType: 'motor', defaultUid: 'xONhqVSNSYcEcGCZyW2cLGJWQt92', avatar: 'assets/couriers/Baykaqi.jpeg', tokens: ['baihaqi', 'baikaqi', 'bayhaqi', 'baykaqi', 'muhamadbayhaqi0', 'xonh'] },
+        { canonicalId: 'haris', loginEmail: "harismotor02@gmail.com", displayName: 'Haris', role: 'Kurir Motor', vehicleType: 'motor', defaultUid: 'uWA0dLFxj0MsGe3YXHuvHjg1GZs1', avatar: 'assets/couriers/Haris.jpeg', tokens: ['haris', 'harismotor02', 'uwa0d'] },
+        { canonicalId: 'umar', loginEmail: "umarmotor01@gmail.com", displayName: 'Umar', role: 'Kurir Motor', vehicleType: 'motor', defaultUid: 'eRg9WzDaEgPPl6jcEzo0ERYNyI82', avatar: 'assets/couriers/Umar.jpeg', tokens: ['umar', 'umarmotor01', 'erg9w'] },
+        { canonicalId: 'noval', loginEmail: "novalempah2@gmail.com", displayName: 'Noval', role: 'Kurir Motor', vehicleType: 'motor', defaultUid: 'D9hmxHZ2SJa2BgZN8DO2cT6lgGh1', avatar: 'assets/couriers/Noval.jpeg', tokens: ['noval', 'novalempah2', 'novalganteng1', 'd9hmx'] },
+        { canonicalId: 'jay', loginEmail: "andiwijaya27@gmail.com", displayName: 'Jay', role: 'Kurir Motor', vehicleType: 'motor', defaultUid: 'XFAoplNpgjc0QzqE6gcTIa5OA0r2', avatar: 'assets/couriers/Jaya.jpeg', tokens: ['jay', 'jaya', 'andiwijaya', 'andiwijaya27', 'xfaop'] },
+        { canonicalId: 'ferdi', loginEmail: "fredisambo1@gmail.com", displayName: 'Ferdi', role: 'Kurir Motor', vehicleType: 'motor', defaultUid: 'BOMM2Wmk9LXs90qO3RWskGyIOk72', avatar: 'assets/couriers/Ferdi.jpeg', tokens: ['ferdi', 'fredi', 'fredisambo1', 'fredisambo', 'bomm2'] },
+        { canonicalId: 'jagat', loginEmail: "jagadbaru1@gmail.com", displayName: 'Jagatbaru', role: 'Kurir Motor', vehicleType: 'motor', defaultUid: 'kwpGbShXoog9kFiRmevZpwTgVxv2', avatar: 'assets/couriers/Jagat.jpeg', tokens: ['jagat', 'jagad', 'jagatbaru', 'jagatbaru1', 'kwpgb'] },
+        { canonicalId: 'pbseventeensc', loginEmail: "pbseventeensc@gmail.com", displayName: 'pbseventeensc', role: 'Kurir Motor', vehicleType: 'motor', defaultUid: 'uP70R51x7CbR5ggHEyeXfsjSTfO2', avatar: 'assets/couriers/Pbseventeen.jpeg', tokens: ['pbseventeensc', 'pbseventensc', 'pbseventeen', 'pb', 'up70', 'pbseventeensc@gmail.com'] },
 
         // Driver Mobil (9 Personil)
-        { canonicalId: 'rizki', displayName: 'Rizki', role: 'Driver Mobil', vehicleType: 'mobil', defaultUid: 'gz9F6MqupoXEFTpOTJJ1aFjtSD52', avatar: 'assets/couriers/Rizki.jpeg', tokens: ['rizki', 'rizky', 'rizkidriver07', 'gz9f6', 'vdyqr'] },
-        { canonicalId: 'soleh', displayName: 'Soleh', role: 'Driver Mobil', vehicleType: 'mobil', defaultUid: 'G1g9fwjcLSclVmg77ZfrVfT9dzY2', avatar: 'assets/couriers/Soleh.jpeg', tokens: ['soleh', 'muhammadsoleh1', 'muhammadsoleh', 'muhammad soleh', 'g1g9f'] },
-        { canonicalId: 'romi', displayName: 'Romi', role: 'Driver Mobil', vehicleType: 'mobil', defaultUid: 'oC2EvdhruFMaKC10jmMUyYbmdtp1', avatar: 'assets/couriers/Romi.jpeg', tokens: ['romi', 'rommy', 'rommydriver19', 'oc2ev'] },
-        { canonicalId: 'firdaus', displayName: 'Firdaus', role: 'Driver Mobil', vehicleType: 'mobil', defaultUid: 'KgKbQdpUHmcQzu2o8N6czx0N7EP2', avatar: 'assets/couriers/Firdaus.jpeg', tokens: ['firdaus', 'kgkbq'] },
-        { canonicalId: 'alan', displayName: 'Alan', role: 'Driver Mobil', vehicleType: 'mobil', defaultUid: 'unNGSiqnOifJSXyQDRiiqlWd83q2', avatar: 'assets/couriers/Alan.jpeg', tokens: ['alan', 'alanpasming', 'alanpasming1', 'unngs'] },
-        { canonicalId: 'yakub', displayName: 'Yakub', role: 'Driver Mobil', vehicleType: 'mobil', defaultUid: '17zXKPw8SFXDhW6Z6lc547R4TEE2', avatar: 'assets/couriers/Yakub.jpeg', tokens: ['yakub', 'yakubdriver08', '17zxk'] },
-        { canonicalId: 'iwan', displayName: 'Iwan', role: 'Driver Mobil', vehicleType: 'mobil', defaultUid: 'J3wejohLG5dXbX0im5ozeGzpjzt2', avatar: 'https://ui-avatars.com/api/?name=Iwan&background=65A30D&color=fff', tokens: ['iwan', 'iwandriver04', 'j3wej'] },
-        { canonicalId: 'agung', displayName: 'Agung', role: 'Driver Mobil', vehicleType: 'mobil', defaultUid: 'RLLeIifIbmVj1HHKALY40n1lKRr1', avatar: 'assets/couriers/Agung.jpeg', tokens: ['agung', 'agungdriver10', 'rllei'] },
-        { canonicalId: 'husen', displayName: 'Husen', role: 'Driver Mobil', vehicleType: 'mobil', defaultUid: 'juHUuOWS4FOVpHxE59t4xf0ld1z1', avatar: 'assets/couriers/Husen.jpeg', tokens: ['husen', 'husensuka3', 'husensuka', 'juhu'] }
+        { canonicalId: 'soleh', loginEmail: "muhammadsoleh1@gmail.com", displayName: 'Soleh', role: 'Driver Mobil', vehicleType: 'mobil', defaultUid: 'G1g9fwjcLSclVmg77ZfrVfT9dzY2', avatar: 'assets/couriers/Soleh.jpeg', tokens: ['soleh', 'muhammadsoleh1', 'muhammadsoleh', 'muhammad soleh', 'g1g9f'] },
+        { canonicalId: 'romi', loginEmail: "rommydriver19@gmail.com", displayName: 'Romi', role: 'Driver Mobil', vehicleType: 'mobil', defaultUid: 'oC2EvdhruFMaKC10jmMUyYbmdtp1', avatar: 'assets/couriers/Romi.jpeg', tokens: ['romi', 'rommy', 'rommydriver19', 'oc2ev'] },
+        { canonicalId: 'firdaus', loginEmail: "firdaus7@gmail.com", displayName: 'Firdaus', role: 'Driver Mobil', vehicleType: 'mobil', defaultUid: 'KgKbQdpUHmcQzu2o8N6czx0N7EP2', avatar: 'assets/couriers/Firdaus.jpeg', tokens: ['firdaus', 'kgkbq'] },
+        { canonicalId: 'alan', loginEmail: "alanpasming@gmail.com", displayName: 'Alan', role: 'Driver Mobil', vehicleType: 'mobil', defaultUid: 'unNGSiqnOifJSXyQDRiiqlWd83q2', avatar: 'assets/couriers/Alan.jpeg', tokens: ['alan', 'alanpasming', 'alanpasming1', 'unngs'] },
+        { canonicalId: 'yakub', loginEmail: "yakubdriver08@gmail.com", displayName: 'Yakub', role: 'Driver Mobil', vehicleType: 'mobil', defaultUid: '17zXKPw8SFXDhW6Z6lc547R4TEE2', avatar: 'assets/couriers/Yakub.jpeg', tokens: ['yakub', 'yakubdriver08', '17zxk'] },
+        { canonicalId: 'iwan', loginEmail: "iwandriver04@gmail.com", displayName: 'Iwan', role: 'Driver Mobil', vehicleType: 'mobil', defaultUid: 'J3wejohLG5dXbX0im5ozeGzpjzt2', avatar: 'https://ui-avatars.com/api/?name=Iwan&background=65A30D&color=fff', tokens: ['iwan', 'iwandriver04', 'j3wej'] },
+        { canonicalId: 'agung', loginEmail: "agungdriver10@gmail.com", displayName: 'Agung', role: 'Driver Mobil', vehicleType: 'mobil', defaultUid: 'RLLeIifIbmVj1HHKALY40n1lKRr1', avatar: 'assets/couriers/Agung.jpeg', tokens: ['agung', 'agungdriver10', 'rllei'] },
+        { canonicalId: 'husen', loginEmail: "husensuka3@gmail.com", displayName: 'Husen', role: 'Driver Mobil', vehicleType: 'mobil', defaultUid: 'juHUuOWS4FOVpHxE59t4xf0ld1z1', avatar: 'assets/couriers/Husen.jpeg', tokens: ['husen', 'husensuka3', 'husensuka', 'juhu'] }
     ];
 
     const COMPANY_FLEET_VEHICLES = [
@@ -1830,7 +1877,7 @@
         { plate: "B 9032 SCG", name: "Truk Box B 9032 SCG (Iwan)", category: "Truk Box", driverCanonical: "iwan" },
         { plate: "B 9177 SCH", name: "Truk Box B 9177 SCH (Husen)", category: "Truk Box", driverCanonical: "husen" },
         { plate: "B 9842 NCC", name: "Truk Box B 9842 NCC (Cadangan Gudang)", category: "Truk Box", driverCanonical: "" },
-        { plate: "B 9084 SCH", name: "Truk Box B 9084 SCH (Rizki)", category: "Truk Box", driverCanonical: "rizki" },
+        { plate: "B 9084 SCH", name: "Truk Box B 9084 SCH", category: "Truk Box", driverCanonical: "" },
         { plate: "B 9463 SAJ", name: "Pick Up B 9463 SAJ (Pick Up Gudang)", category: "Pick Up", driverCanonical: "" },
         { plate: "B 9243 PCJ", name: "L300 B 9243 PCJ (L300 Gudang)", category: "L300", driverCanonical: "" }
     ];
@@ -1937,6 +1984,31 @@
         return (norm && norm.avatar) || courierObj.avatar || '';
     }
 
+    function findLoginCourierMatch(value) {
+        const query = String(value || '').trim().toLowerCase();
+        if (query.length < 2) return null;
+        const accounts = MASTER_COURIERS_LIST.filter(account => account.loginEmail);
+        const aliases = account => [account.loginEmail, account.loginEmail.split('@')[0],
+            account.canonicalId, account.displayName, ...(account.tokens || [])].map(text => text.toLowerCase());
+        const exact = accounts.filter(account => aliases(account).includes(query));
+        if (exact.length === 1) return exact[0];
+        const matches = accounts.filter(account => aliases(account).some(alias => alias.startsWith(query)));
+        return matches.length === 1 ? matches[0] : null;
+    }
+
+    function selectLoginCourierPreview() {
+        const emailInput = document.getElementById('login-input-email');
+        const account = findLoginCourierMatch(emailInput?.value);
+        if (!account) return;
+        emailInput.value = account.loginEmail;
+        updateLoginCourierPreview();
+        const passInput = document.getElementById('login-input-pass');
+        if (passInput) {
+            passInput.value = '';
+            passInput.focus();
+        }
+    }
+
     function updateLoginCourierPreview() {
         const emailInput = document.getElementById('login-input-email');
         const previewWrap = document.getElementById('login-courier-preview');
@@ -1952,8 +2024,9 @@
             return;
         }
 
-        const profile = resolveCourierProfile(val);
-        if (profile && profile.canonicalId && profile.canonicalId !== 'kurir') {
+        const account = findLoginCourierMatch(val);
+        const profile = account ? resolveCourierProfile(account.loginEmail, account.defaultUid) : null;
+        if (profile) {
             const officialAvatar = resolveOfficialAvatar(profile);
             const avatarUrl = getNormalizedAvatarUrl(officialAvatar || profile.avatar, profile.name);
             if (previewAvatar) {
@@ -2168,9 +2241,17 @@
         const tripMaster = MASTER_COURIERS_LIST.find(m => m.defaultUid === rawCid || (rawCid && m.canonicalId === rawCid.toLowerCase()));
         if (tripMaster && tripMaster.canonicalId === myCanon) return true;
 
-        // 4. Profile resolver match
-        if (rawCname || rawCid) {
-            const tripProfile = resolveCourierProfile(rawCname || rawCid, rawCid);
+        // An explicit assignment owns the trip. Old names, plates and destination
+        // metadata must never give the previous courier access after a switch.
+        if (rawCid) {
+            const assignedProfile = resolveCourierProfile(rawCid, rawCid);
+            return !!(assignedProfile.canonicalId && myCanon &&
+                assignedProfile.canonicalId.toLowerCase() === myCanon);
+        }
+
+        // Legacy records without an explicit courier ID may still use names.
+        if (rawCname) {
+            const tripProfile = resolveCourierProfile(rawCname, '');
             if (tripProfile.canonicalId && myCanon && tripProfile.canonicalId.toLowerCase() === myCanon) return true;
         }
 
@@ -2365,15 +2446,18 @@
         return false;
     }
 
-    function syncFirestoreTrips() {
+    function syncFirestoreTrips(serverSnapshot) {
         if (!firestoreDb) return;
-        if (tripsUnsubscribe) {
+        if(typeof window !== 'undefined') window.CourierAdminSJ?.connect(firestoreDb);
+        if (!serverSnapshot && tripsUnsubscribe) {
             try { tripsUnsubscribe(); } catch(e) {}
         }
         try {
-            tripsUnsubscribe = firestoreDb.collection('trips').onSnapshot(snap => {
+            const applySnapshot = snap => {
                 const freshList = [];
+                const cloudTripIds = new Set();
                 snap.forEach(doc => {
+                    cloudTripIds.add(doc.id);
                     const t = { ...doc.data(), id: doc.id };
                     if (isPoolShipment(t)) return;
                     if (!doesTripBelongToCurrentCourier(t)) return;
@@ -2412,15 +2496,21 @@
                             status: isDone ? 'delivered' : (isPendingReported ? 'pending' : (t.status === 'in_progress' || dest.status === 'in_progress' || dest.status === 'arrived' ? 'in-transit' : 'pending')),
                             isPendingReported: isPendingReported,
                             pendingReason: pendingReasonVal,
+                            pendingNote: dest.pendingNote || (dests.length === 1 ? t.pendingNote : '') || '',
                             pendingProofPhotoUrl: pendingPhotoVal,
                             pendingAt: dest.pendingAt || t.pendingAt || null,
                             date: dateIso,
-                            completedAt: dest.completedAt || t.completedAt || (isDone ? dateIso : null),
+                            completedAt: dest.completedTime || dest.completedAt || (dests.length === 1 ? (t.completedTime || t.completedAt || null) : null),
                             address: dest.address || t.address || 'Alamat Lokasi',
                             phone: dest.phone || t.phone || '021-5506999',
-                            latitude: dest.latitude || t.latitude || null,
-                            longitude: dest.longitude || t.longitude || null,
+                            latitude: dest.latitude ?? dest.lat ?? (dests.length === 1 ? t.latitude ?? t.lat ?? null : null),
+                            longitude: dest.longitude ?? dest.lng ?? (dests.length === 1 ? t.longitude ?? t.lng ?? null : null),
+                            storeName: dest.storeName || '',
+                            storeDestination: dest.storeDestination || (dests.length === 1 ? t.storeDestination : '') || '',
+                            customer: dest.customer || t.customer || '',
+                            clientName: dest.clientName || t.clientName || '',
                             adminSJ: dest.adminSJ || t.adminSJ || '',
+                            locationNeedsReview: !!dest.locationNeedsReview,
                             region: dest.region || t.region || '',
                             proofPhotoUrl: dest.proofPhotoUrl || (dest.proofPhotoItems && dest.proofPhotoItems[0]) || (dests.length === 1 ? t.proofPhotoUrl : '') || '',
                             proofSJUrl: dest.proofPhotoSj || dest.proofSJUrl || (dests.length === 1 ? t.proofSJUrl : '') || ''
@@ -2429,14 +2519,53 @@
                 });
 
                 masterShipments = freshList;
-                syncLocalImportedTrips();
+                syncLocalImportedTrips.cloudTripIds = cloudTripIds;
+                if (!serverSnapshot) syncLocalImportedTrips();
                 renderHomeScreen();
                 renderShipmentsScreen();
-            }, err => {
+            };
+            if (serverSnapshot) applySnapshot(serverSnapshot);
+            else tripsUnsubscribe = firestoreDb.collection('trips').onSnapshot(applySnapshot, err => {
                 console.warn("Firestore sync offline fallback:", err);
             });
         } catch(e) {
             console.warn("syncFirestoreTrips error:", e);
+            if (serverSnapshot) throw e;
+        }
+    }
+
+    function isRecoveryShipmentToday(shipment, now = new Date()) {
+        const key = date => new Intl.DateTimeFormat('en-CA', {timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit'}).format(date);
+        if (!shipment.date) return false;
+        if (typeof shipment.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(shipment.date)) return shipment.date === key(now);
+        const ms = parseAnyDateMs(shipment.date);
+        return !!ms && key(new Date(ms)) === key(now);
+    }
+
+    let isRecoveringCourierTasks = false;
+    async function recoverCourierTasks() {
+        if (isRecoveringCourierTasks) return;
+        if (!firestoreDb || !currentCourier) { showToast('Silakan login dan periksa koneksi.'); return; }
+        isRecoveringCourierTasks = true;
+        document.querySelectorAll('.recover-courier-tasks').forEach(b => { b.disabled = true; });
+        showToast('Memuat ulang tugas hari ini dari server…');
+        try {
+            const snapshot = await firestoreDb.collection('trips').get({source: 'server'});
+            syncFirestoreTrips(snapshot);
+            currentFilter = 'unfinished';
+            document.querySelectorAll('.filter-chip').forEach(chip => chip.classList.remove('active'));
+            document.getElementById('chip-filter-unfinished')?.classList.add('active');
+            navigateToScreen('shipments');
+            renderHomeScreen();
+            renderShipmentsScreen();
+            const count = getValidCourierShipments().filter(s => s.status !== 'delivered' && isRecoveryShipmentToday(s)).length;
+            showToast(count ? `${count} tugas hari ini yang belum selesai ditampilkan.` : 'Tidak ada tugas hari ini yang belum selesai.');
+        } catch (error) {
+            console.warn('Pemulihan tugas gagal:', error);
+            showToast('Gagal memuat dari server. Periksa koneksi lalu coba lagi.');
+        } finally {
+            isRecoveringCourierTasks = false;
+            document.querySelectorAll('.recover-courier-tasks').forEach(b => { b.disabled = false; });
         }
     }
 
@@ -2448,6 +2577,8 @@
             if (!Array.isArray(stored)) return;
 
             stored.forEach(t => {
+                // A cached import must not resurrect a cloud trip transferred away.
+                if (syncLocalImportedTrips.cloudTripIds?.has(t.id || t.tripId)) return;
                 if (isPoolShipment(t)) return;
                 if (!doesTripBelongToCurrentCourier(t)) return;
 
@@ -2478,14 +2609,21 @@
                             status: isDone ? 'delivered' : (isPendingReported ? 'pending' : (t.status === 'in_progress' || dest.status === 'in_progress' ? 'in-transit' : 'pending')),
                             isPendingReported: isPendingReported,
                             pendingReason: pendingReasonVal,
+                            pendingNote: dest.pendingNote || (dests.length === 1 ? t.pendingNote : '') || '',
                             pendingProofPhotoUrl: pendingPhotoVal,
                             pendingAt: dest.pendingAt || t.pendingAt || null,
                             date: t.assignedAt || t.date || new Date().toISOString(),
+                            completedAt: dest.completedTime || dest.completedAt || (dests.length === 1 ? (t.completedTime || t.completedAt || null) : null),
                             address: dest.address || t.address || 'Alamat Lokasi',
                             phone: dest.phone || '021-5506999',
-                            latitude: dest.latitude || t.latitude || null,
-                            longitude: dest.longitude || t.longitude || null,
+                            latitude: dest.latitude ?? dest.lat ?? (dests.length === 1 ? t.latitude ?? t.lat ?? null : null),
+                            longitude: dest.longitude ?? dest.lng ?? (dests.length === 1 ? t.longitude ?? t.lng ?? null : null),
+                            storeName: dest.storeName || '',
+                            storeDestination: dest.storeDestination || (dests.length === 1 ? t.storeDestination : '') || '',
+                            customer: dest.customer || t.customer || '',
+                            clientName: dest.clientName || t.clientName || '',
                             adminSJ: dest.adminSJ || t.adminSJ || '',
+                            locationNeedsReview: !!dest.locationNeedsReview,
                             region: dest.region || t.region || '',
                             proofPhotoUrl: dest.proofPhotoUrl || '',
                             proofSJUrl: dest.proofSJUrl || dest.proofPhotoSj || ''
@@ -2674,11 +2812,14 @@
     }
 
     function loadSavedSession() {
+        // A cached display profile alone is not an authenticated session.
+        const user = typeof firebase !== 'undefined' && firebase.auth ? firebase.auth().currentUser : null;
+        if (!user || user.isAnonymous) return false;
         try {
             const raw = localStorage.getItem('wtrack_saved_courier');
             if (raw) {
                 const parsed = JSON.parse(raw);
-                if (parsed && (parsed.name || parsed.id || parsed.email || parsed.canonicalId)) {
+                if (parsed && (parsed.uid || parsed.id) === user.uid) {
                     const resolved = resolveCourierProfile(parsed.email || parsed.canonicalId || parsed.name || parsed.id, parsed.uid || parsed.id);
                     const officialAvatar = resolveOfficialAvatar(resolved || parsed);
 
@@ -2722,42 +2863,45 @@
     }
 
     // Login Handlers: User memasukkan akunnya sendiri langsung (Sekali login langsung tersimpan)
-    function handleLoginSubmit() {
+    async function handleLoginSubmit() {
         const emailInput = document.getElementById('login-input-email');
         const passInput = document.getElementById('login-input-pass');
-        const email = emailInput ? emailInput.value.trim() : '';
-        const pass = passInput ? passInput.value.trim() : '';
-
+        const input = emailInput?.value.trim() || '';
+        const account = findLoginCourierMatch(input);
+        const email = input.includes('@') ? input : (account?.loginEmail || '');
+        const pass = passInput?.value || '';
         if (!email) {
-            showToast("Silakan masukkan email atau username akun Anda.");
+            showToast('Masukkan email lengkap atau pilih kartu akun Anda.');
             return;
         }
-
+        if (!pass) {
+            showToast('Password wajib diisi.');
+            passInput?.focus();
+            return;
+        }
+        if (typeof firebase === 'undefined' || !firebase.auth) {
+            showToast('Layanan login belum terhubung. Periksa koneksi dan coba lagi.');
+            return;
+        }
+        const button = document.getElementById('login-submit-button');
+        if (button?.disabled) return;
         const keepSignedIn = document.getElementById('keep-signed-in')?.checked !== false;
-        showToast("Memproses login...");
-
-        const resolvedProfile = resolveCourierProfile(email);
-        const officialAvatar = resolveOfficialAvatar(resolvedProfile);
-        if (officialAvatar) resolvedProfile.avatar = officialAvatar;
-
-        if (typeof firebase !== 'undefined' && firebase.auth && email.includes('@') && pass.length >= 6) {
-            firebase.auth().signInWithEmailAndPassword(email, pass).then(cred => {
-                const u = cred.user;
-                const finalProfile = resolveCourierProfile(email, u.uid);
-                const masterPhoto = resolveOfficialAvatar(finalProfile);
-                if (masterPhoto) {
-                    finalProfile.avatar = masterPhoto;
-                } else if (u.photoURL) {
-                    finalProfile.avatar = u.photoURL;
-                }
-                completeCourierLogin(finalProfile, keepSignedIn);
-            }).catch(() => {
-                completeCourierLogin(resolvedProfile, keepSignedIn);
-            });
-            return;
+        if (button) button.disabled = true;
+        showToast('Memproses login...');
+        try {
+            const cred = await firebase.auth().signInWithEmailAndPassword(email, pass);
+            const user = cred.user;
+            const profile = resolveCourierProfile(user.email || email, user.uid);
+            const photo = resolveOfficialAvatar(profile);
+            if (photo || user.photoURL) profile.avatar = photo || user.photoURL;
+            completeCourierLogin(profile, keepSignedIn);
+        } catch (error) {
+            showToast(error.code === 'auth/network-request-failed'
+                ? 'Koneksi terputus. Periksa internet dan coba lagi.'
+                : 'Login gagal. Periksa email dan password Anda.');
+        } finally {
+            if (button) button.disabled = false;
         }
-
-        completeCourierLogin(resolvedProfile, keepSignedIn);
     }
 
     function handleGoogleLogin() {
@@ -2775,10 +2919,10 @@
                 }
                 completeCourierLogin(profile, true);
             }).catch(() => {
-                completeCourierLogin(resolveCourierProfile('pbseventeensc@gmail.com'), true);
+                showToast('Login Google belum berhasil. Silakan coba lagi atau gunakan email dan password.');
             });
         } else {
-            completeCourierLogin(resolveCourierProfile('pbseventeensc@gmail.com'), true);
+            showToast('Login Google belum berhasil. Silakan coba lagi atau gunakan email dan password.');
         }
     }
 
@@ -2899,6 +3043,7 @@
 
     // Render Home Screen
     function renderHomeScreen() {
+        if (window.CourierRoute) CourierRoute.sync(getValidCourierShipments());
         updateDynamicGreeting();
         const validList = getValidCourierShipments().filter(s => !isShipmentHistory(s));
         const activeList = validList.filter(s => s.status !== 'delivered');
@@ -2954,6 +3099,7 @@
 
     // Render Full Shipments Screen
     function renderShipmentsScreen() {
+        if (window.CourierRoute) CourierRoute.sync(getValidCourierShipments());
         const container = document.getElementById('shipments-full-list-container');
         if (!container) return;
 
@@ -2988,7 +3134,9 @@
             filtered = historyShipments;
         } else {
             if (historyBanner) historyBanner.classList.add('d-none');
-            if (currentFilter === 'all') {
+            if (currentFilter === 'unfinished') {
+                filtered = todayShipments.filter(s => s.status !== 'delivered' && isRecoveryShipmentToday(s));
+            } else if (currentFilter === 'all') {
                 filtered = todayShipments;
             } else if (currentFilter === 'in-transit') {
                 filtered = todayShipments.filter(s => s.status === 'in-transit');
@@ -3010,6 +3158,14 @@
         }
 
         container.innerHTML = filtered.map(s => renderShipmentCardHtml(s, isHistoryMode)).join('');
+    }
+
+    function getCompactCourierLabel(shipment) {
+        const candidates = [shipment.storeName, shipment.storeDestination,
+            shipment.clientName, shipment.customer, shipment.destination];
+        const value = candidates.find(value => typeof value === 'string' && value.trim() &&
+            !/^(?:-|customer\s*\/\s*klien|tujuan(?: pengantaran)?|alamat lokasi)$/i.test(value.trim()));
+        return (value || 'Tujuan Pengantaran').split(/[,\r\n]/)[0].trim();
     }
 
     function renderShipmentCardHtml(s, isHistoryView = false) {
@@ -3092,25 +3248,25 @@
 
         const safeDest = (s.destination || '').replace(/'/g, "\\'");
         const safeSJ = (s.noSJ || '').replace(/'/g, "\\'");
-        const safeAdminSJ = String(s.adminSJ || '').replace(/[&<>"']/g,
+        const compact = true;
+        const escapeCardText = value => String(value || '').replace(/[&<>"']/g,
             char => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[char]));
-        const adminSJHtml = safeAdminSJ ? `
-            <div class="d-flex align-items-center gap-2 mt-2 mb-2 px-2 py-2 rounded-3 border" style="background:#eff6ff;border-color:#bfdbfe!important;">
-                <i class="bi bi-person-vcard-fill text-primary"></i>
-                <span class="extra-small text-secondary">Kontak Admin SJ:</span>
-                <strong class="extra-small text-dark">${safeAdminSJ}</strong>
-            </div>` : '';
+        const cardDestination = compact ? escapeCardText(getCompactCourierLabel(s)) : s.destination;
+        const adminName = s.adminSJ || window.CourierAdminSJ?.resolve(s) || '';
+        const adminSJHtml = `<div class="shipment-admin-sj"><i class="bi bi-person-vcard me-1"></i>Admin SJ: <strong>${escapeCardText(adminName || 'Belum diatur')}</strong></div>`;
 
         // Req 4: Hapus icon delete di kurir (baik di titik pengantaran aktif maupun riwayat)
         return `
-            <div class="shipment-card" id="card-${s.id}" onclick="toggleExpandCard('${s.id}')">
+            <div class="shipment-card${compact ? ' local-compact' : ''}" data-shipment-id="${s.id}" onclick="toggleExpandCard('${s.id}', this)">
                 ${historyTagHtml}
                 <div class="shipment-card-top">
                     <div class="shipment-card-left">
+                        ${typeof window !== 'undefined' && window.CourierRoute ? CourierRoute.checkbox(s) : ''}
                         <div class="shipment-vehicle-badge">${displayVehicleIcon}</div>
                         <div>
                             <h6 class="shipment-no-title">${s.noSJ && s.noSJ !== '-' ? s.noSJ : `Titik ${s.stopIndex || 1} • Manual Dispatch`}</h6>
-                            <div class="shipment-route-text">${s.destination}</div>
+                            <div class="shipment-route-text">${cardDestination}</div>
+                            ${adminSJHtml}
                         </div>
                     </div>
                     <div class="d-flex align-items-center gap-1.5">
@@ -3120,13 +3276,15 @@
 
                 <!-- Expanded Actions Drawer: Hanya Klien & Alamat -->
                 <div class="shipment-actions-drawer" onclick="event.stopPropagation()">
-                    <div class="extra-small mb-2">
-                        <div class="fw-bold text-dark mb-1 fs-6"><i class="bi bi-building text-primary me-1.5"></i>${s.destination}</div>
+                    ${compact ? `<details class="extra-small mb-2">
+                        <summary class="text-secondary" style="cursor:pointer"><i class="bi bi-geo-alt-fill text-danger me-1.5"></i>Alamat lengkap</summary>
+                        <div class="text-secondary mt-2">${escapeCardText(s.address)}</div>
+                    </details>` : `<div class="extra-small mb-2">
+                        <div class="fw-bold text-dark mb-1 fs-6"><i class="bi bi-building text-primary me-1.5"></i>${cardDestination}</div>
                         <div class="text-secondary"><i class="bi bi-geo-alt-fill text-danger me-1.5"></i>${s.address}</div>
-                    </div>
-                    ${adminSJHtml}
+                    </div>`}
                     <div class="d-flex gap-2 mb-1 align-items-center">
-                        <a href="${getGoogleMapsNavUrl(s)}" target="_blank" class="btn btn-sm btn-light border flex-1 fw-bold extra-small text-dark">
+                        <a href="${getGoogleMapsNavUrl(s) || '#'}" target="_blank" rel="noopener" aria-disabled="${!getGoogleMapsNavUrl(s)}" class="btn btn-sm btn-light border flex-1 fw-bold extra-small text-dark ${getGoogleMapsNavUrl(s) ? '' : 'disabled'}">
                             <i class="bi bi-compass text-primary me-1"></i> Navigasi Maps
                         </a>
                         <a href="tel:${s.phone}" class="btn btn-sm btn-light border flex-1 fw-bold extra-small text-dark">
@@ -3221,9 +3379,10 @@
         const noSJ = s ? s.noSJ : '#SJ-1126-01287';
         const dest = s ? s.destination : 'Tujuan Pengantaran';
         const addr = s ? s.address : '-';
-        const arrivalDate = (s && s.completedAt) ? new Date(s.completedAt) : new Date();
-        const timeStr = arrivalDate.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB';
-        const dateStr = arrivalDate.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+        const completedMs = s ? parseAnyDateMs(s.completedAt) : 0;
+        const arrivalDate = completedMs > 0 && Number.isFinite(completedMs) ? new Date(completedMs) : null;
+        const timeStr = arrivalDate ? arrivalDate.toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }) + ' WIB' : 'Waktu selesai tidak tersedia';
+        const dateStr = arrivalDate ? arrivalDate.toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta', day: '2-digit', month: 'short', year: 'numeric' }) : '-';
         const cName = currentCourier.name || 'Kurir';
         const cRole = currentCourier.role || 'Kurir Motor';
         const targetGroup = getTargetWaGroupForCourier(s);
@@ -3690,8 +3849,8 @@
         }
     }
 
-    function toggleExpandCard(cardId) {
-        const card = document.getElementById('card-' + cardId);
+    function toggleExpandCard(cardId, clickedCard) {
+        const card = clickedCard || Array.from(document.querySelectorAll('.shipment-card')).find(element => element.dataset.shipmentId === cardId && element.closest('.app-screen.active'));
         if (card) {
             card.classList.toggle('expanded');
         }
@@ -3833,18 +3992,16 @@
     }
 
     function getGoogleMapsNavUrl(s) {
-        if (!s) return 'https://maps.google.com';
-        const lat = parseFloat(s.latitude);
-        const lng = parseFloat(s.longitude);
-        const hasValidCoords = !isNaN(lat) && !isNaN(lng) && (Math.abs(lat) > 0.001 || Math.abs(lng) > 0.001);
-
-        if (hasValidCoords) {
-            return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
-        }
-
-        const queryParts = [s.destination, s.address, s.region].filter(Boolean);
-        const query = queryParts.join(', ');
-        return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query || s.address || 'Jakarta')}`;
+        if (!s) return '';
+        const number = value => value === null || value === undefined || String(value).trim() === '' ? NaN : Number(value);
+        const lat = number(s.latitude ?? s.lat);
+        const lng = number(s.longitude ?? s.lng);
+        const importedPlaceholder = Math.abs(lat - (-6.2088)) < 0.0000001 && Math.abs(lng - 106.8456) < 0.0000001;
+        const valid = Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180
+            && (lat !== 0 || lng !== 0) && !importedPlaceholder && !s.locationNeedsReview;
+        const query = valid ? lat + ',' + lng : window.MapsDestination.query(s);
+        if (!query) return '';
+        return 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(query) + '&dir_action=navigate';
     }
 
     function parseWtrackBarcode(rawCode) {
@@ -3860,11 +4017,23 @@
             tripId = parts[2] || '';
             sjNumber = parts[3] || '';
             shortCode = parts[4] || '';
+        } else if (/^https?:\/\//i.test(raw)) {
+            try {
+                const url = new URL(raw);
+                const mapsLink = ['www.google.com','google.com','maps.google.com'].includes(url.hostname) && url.pathname.startsWith('/maps');
+                const compactMapsLink = url.hostname === 'maps.google.com' && url.pathname === '/' && url.searchParams.has('q');
+                if (url.protocol === 'https:' && (mapsLink || compactMapsLink)) {
+                    const identity = new URLSearchParams(url.hash.slice(1));
+                    sjNumber = identity.get('sj') || '';
+                    tripId = identity.get('trip') || '';
+                }
+            } catch (_) {}
+            if (!sjNumber && !tripId) return null;
         } else {
             const sjMatch = raw.match(/SJ-\d{2,4}-\d{4,6}/i);
             if (sjMatch) {
                 sjNumber = sjMatch[0];
-            } else if (raw.startsWith('SJ-')) {
+            } else if (/^SJ[-/]/i.test(raw)) {
                 sjNumber = raw;
             } else if (/^\d{5,8}$/.test(raw)) {
                 shortCode = raw;
@@ -3893,6 +4062,19 @@
         showToast('🔍 Memverifikasi Barcode / QR Surat Jalan...');
 
         try {
+            if (window.WTRACK_LOCAL_SANDBOX) {
+                const result = QRClaim.claim(JSON.parse(localStorage.getItem('wtrack_local_trips') || '[]'), parsed, currentCourier,
+                    trip => doesTripBelongToCurrentCourier(trip));
+                if (!result.alreadyAssigned) await window.persistLocalSandboxTrips(result.trips);
+                window.refreshLocalCourier();
+                const card = masterShipments.find(s => s.rootTripId === result.trip.id || s.id === result.trip.id);
+                if (result.alreadyAssigned) {
+                    showToast('SJ sudah ada di tugas Anda.');
+                    navigateToScreen('shipments');
+                } else if (card) showTaskClaimedModal(card);
+                else navigateToScreen('shipments');
+                return;
+            }
             let foundTrip = null;
             let foundDocId = null;
 
@@ -4080,8 +4262,14 @@
                 date: nowIso,
                 address: displayAddr,
                 phone: firstDest.phone || foundTrip.phone || '021-5506999',
-                latitude: firstDest.latitude || foundTrip.latitude || null,
-                longitude: firstDest.longitude || foundTrip.longitude || null,
+                latitude: firstDest.latitude ?? firstDest.lat ?? (foundTrip.destinations?.length > 1 ? null : foundTrip.latitude ?? foundTrip.lat ?? null),
+                longitude: firstDest.longitude ?? firstDest.lng ?? (foundTrip.destinations?.length > 1 ? null : foundTrip.longitude ?? foundTrip.lng ?? null),
+                storeName: firstDest.storeName || '',
+                storeDestination: firstDest.storeDestination || foundTrip.storeDestination || '',
+                customer: firstDest.customer || foundTrip.customer || '',
+                clientName: firstDest.clientName || foundTrip.clientName || '',
+                adminSJ: firstDest.adminSJ || foundTrip.adminSJ || '',
+                locationNeedsReview: !!firstDest.locationNeedsReview,
                 region: firstDest.region || foundTrip.region || '',
                 proofPhotoUrl: '',
                 proofSJUrl: ''
@@ -4120,7 +4308,10 @@
 
         const navUrl = getGoogleMapsNavUrl(s);
         if (navBtn) {
-            navBtn.href = navUrl;
+            navBtn.href = navUrl || '#';
+            navBtn.classList.toggle('disabled', !navUrl);
+            navBtn.setAttribute('aria-disabled', String(!navUrl));
+            navBtn.setAttribute('rel', 'noopener');
         }
 
         navigateToScreen('home');
@@ -4326,6 +4517,8 @@
 
         const reasonInput = document.getElementById('pending-reason-input');
         const existing = masterShipments.find(s => s.id === id);
+        const noteInput = document.getElementById('pending-note-input');
+        if (noteInput) noteInput.value = existing?.pendingNote || '';
         if (reasonInput) {
             reasonInput.value = (existing && existing.pendingReason) ? existing.pendingReason : '';
         }
@@ -4351,18 +4544,14 @@
         const reasonInput = document.getElementById('pending-reason-input');
         const reason = (reasonInput && reasonInput.value.trim()) ? reasonInput.value.trim() : 'Toko / Klien Tutup';
 
+        const note = document.getElementById('pending-note-input')?.value.trim() || '';
+
         const defaultPendingSvg = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='200' viewBox='0 0 300 200'><rect width='300' height='200' fill='%23fff7ed' rx='10'/><rect x='15' y='15' width='270' height='170' fill='none' stroke='%23fdba74' stroke-width='2' stroke-dasharray='4,4' rx='6'/><text x='50%25' y='45%25' font-family='sans-serif' font-size='15' font-weight='bold' fill='%23c2410c' text-anchor='middle'>BUKTI LOKASI / PENDING</text><text x='50%25' y='65%25' font-family='sans-serif' font-size='12' fill='%23ea580c' font-weight='bold' text-anchor='middle'>" + encodeURIComponent(reason) + "</text></svg>";
         const finalPendingPhoto = currentPendingPhoto || defaultPendingSvg;
         const nowIso = new Date().toISOString();
 
         const target = masterShipments.find(s => s.id === id);
-        if (target) {
-            target.status = 'pending';
-            target.isPendingReported = true;
-            target.pendingReason = reason;
-            target.pendingProofPhotoUrl = finalPendingPhoto;
-            target.pendingAt = nowIso;
-        }
+
 
         try {
             const raw = localStorage.getItem('wtrack_local_trips');
@@ -4373,6 +4562,7 @@
                 if (found) {
                     found.status = 'pending_approval';
                     found.pendingReason = reason;
+                    found.pendingNote = note;
                     found.pendingProofPhotoUrl = finalPendingPhoto;
                     found.pendingAt = nowIso;
                     if (found.destinations) {
@@ -4380,15 +4570,30 @@
                         if (selected) {
                             selected.status = 'pending_approval';
                             selected.pendingReason = reason;
+                            selected.pendingNote = note;
                             selected.pendingProofPhotoUrl = finalPendingPhoto;
                             selected.pendingAt = nowIso;
                         }
                     }
-                    localStorage.setItem('wtrack_local_trips', JSON.stringify(stored));
+                    if (typeof window !== 'undefined' && window.WTRACK_LOCAL_SANDBOX && window.persistLocalSandboxTrips) await window.persistLocalSandboxTrips(stored);
+                    else localStorage.setItem('wtrack_local_trips', JSON.stringify(stored));
                 }
             }
         } catch(e) {
             console.warn("Local pending update note:", e);
+            if (typeof window !== 'undefined' && window.WTRACK_LOCAL_SANDBOX) {
+                showToast(e.message || 'Laporan pending belum tersimpan. Coba lagi.');
+                return;
+            }
+        }
+
+        if (target) {
+            target.status = 'pending';
+            target.isPendingReported = true;
+            target.pendingReason = reason;
+            target.pendingNote = note;
+            target.pendingProofPhotoUrl = finalPendingPhoto;
+            target.pendingAt = nowIso;
         }
 
         if (firestoreDb) {
@@ -4415,6 +4620,7 @@
                                 ...d,
                                 status: 'pending_approval',
                                 pendingReason: reason,
+                                pendingNote: note,
                                 pendingProofPhotoUrl: finalPendingPhoto,
                                 pendingAt: nowIso
                             };
@@ -4424,6 +4630,7 @@
                     await tripRef.update({
                         destinations: updatedDests,
                         pendingReason: reason,
+                        pendingNote: note,
                         pendingAt: nowIso
                     });
                 } else {
@@ -4436,6 +4643,7 @@
                         vehicleType: currentCourier.vehicleType || 'motor',
                         status: 'in_progress',
                         pendingReason: reason,
+                        pendingNote: note,
                         pendingAt: nowIso,
                         date: firebase.firestore.Timestamp.now(),
                         destinations: [{
@@ -4446,6 +4654,7 @@
                             noSJ: cleanSJ,
                             status: 'pending_approval',
                             pendingReason: reason,
+                            pendingNote: note,
                             pendingProofPhotoUrl: finalPendingPhoto,
                             pendingAt: nowIso
                         }]
@@ -4465,6 +4674,7 @@
 
         showToast(`⚠️ Laporan Pending (${reason}) berhasil dikirim ke Admin!`);
     }
+
 
     let currentSJPhoto = '';
     let currentBarangPhoto = '';
@@ -4859,6 +5069,14 @@
             emailInput.addEventListener('change', updateLoginCourierPreview);
         }
 
+        const passInput = document.getElementById('login-input-pass');
+        if (passInput) passInput.addEventListener('keydown', event => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                handleLoginSubmit();
+            }
+        });
+
         const hasSession = loadSavedSession();
         if (!hasSession) {
             navigateToScreen('login');
@@ -4873,6 +5091,8 @@
         }
     });
 </script>
+<script src="/js/courier_route.js?v=20261114.1"></script>
 
+<script src="/js/courier_updates.js?v=20261114.1" data-build="34802353f6b90656"></script>
 </body>
 </html>

@@ -1,0 +1,26 @@
+Rilis 14 November 2026
+
+Produksi: https://on-track-indol.vercel.app/ — kurir: https://on-track-indol.vercel.app/kurir
+
+Deployment `dpl_33JX29afwhMqQ3Dwd2jacGDAAUTo`, status READY, build kurir `145ae374d2320476`. Halaman dashboard, kurir, customer_master.js, dan app-version.json yang diunduh dari domain produksi cocok byte demi byte dengan public/. Seluruh 32 aset JS/CSS lokal yang dirujuk kedua halaman mengembalikan HTTP 200. API foto tetap menolak ID tidak valid dengan HTTP 400.
+
+Kartu kurir memakai elemen yang diklik sehingga Home dan Shipments tidak membuka kartu tersembunyi pada tab lain. ID kartu duplikat dihapus. Admin SJ tampil langsung di bawah tujuan, dengan fallback ke master customer untuk SJ lama yang belum menyimpan admin. Pencocokan nama utuh yang dinormalisasi; tidak ada tebakan PIC bila nama tidak ditemukan. Riwayat SJ tidak ditulis ulang. Badge kamera “2 Foto” di tabel dashboard dihapus; thumbnail dan akses foto tetap ada.
+
+Tabel customer menyediakan pencarian, filter status Admin SJ, pagination, tambah dan edit. Firebase adalah sumber online; sandbox memakai penyimpanan lokal terpisah. Import memakai nama customer yang dinormalisasi, menambahkan yang baru, mengubah data berbeda, dan melewati data identik. Admin terakhir yang tidak kosong pada customer berulang dalam Excel menjadi nilai import. Alamat dan koordinat lama dipertahankan bila file tidak memberikan penggantinya. Pemeriksaan transaksi menangani import bersamaan. Lookup mengambil master terbaru, termasuk perubahan dari perangkat lain.
+
+Sinkronisasi Excel ADMIN SJ.xlsx telah diterapkan ke Firebase: 681 customer baru, 54 customer lama diperbarui. Verifikasi ulang dry-run: 0 baru, 0 berubah, 735 dilewati. Jumlah total 3.182 dokumen customer / 3.033 kunci nama unik, dengan 735 dokumen berisi Admin SJ. Sebelum perubahan terdapat 2.501 dokumen customer dan belum ada Admin SJ. Backup master sebelum penulisan berada pada `.artifacts/admin-sj-release-2026-11-14/`; tidak diunggah ke Vercel.
+
+Master Bahan online di `configuration/material_master_v1` sudah berisi 61 bahan hasil tabel timbang. Seed hanya membuat dokumen bila belum ada; tidak menimpa edit berikutnya. Simpan memeriksa revisi untuk menolak edit basi dari perangkat lain. Pilihan bahan, stiker, laminasi dan line tersimpan pada SJ melalui transaksi Firebase. Perhitungan/Usage mengambil arsip di `material_usage_sources`, memasukkan seluruh item SJ, dan dapat mengekspor Excel. Import SJ baru menyimpan dokumen, registry pencegah duplikat, dan arsip Usage dalam satu transaksi. SJ lama yang masih ada di Firebase diarsipkan saat menu Usage dibuka. SJ yang sudah dihapus sebelum arsip online tersedia tidak dapat dipulihkan dari Firebase oleh fitur ini.
+
+Pembaruan web kurir memeriksa penanda versi saat kembali ke halaman / internet pulih dan setiap 60 detik. Reload ditunda selama dialog foto/form terbuka. Jalankan `node scripts/sync-web-assets.cjs` sebelum rilis berikutnya agar build marker dan salinan public/ serta fallback APK konsisten. Tidak ada APK baru yang dibangun: source Android yang tersedia memuat halaman online, sehingga pengguna perlu refresh atau menutup APK sepenuhnya lalu membukanya dengan internet untuk memperoleh rilis pertama ini. Binary terpasang dan perilaku kamera/GPS langsung di perangkat Android belum diuji.
+
+Validasi: 165/165 tes lulus. Uji Chrome 390 px memeriksa klik Home/Shipments secara terpisah, Admin SJ terlihat tanpa ekspansi, dan tidak ada overflow horizontal. Uji dashboard memeriksa edit, pagination, pencarian, refresh, master 61 bahan, menu Usage, serta Excel asli 17.041 baris (735 customer unik). Import ulang sandbox tidak menambah customer; tidak ada exception JavaScript. Tes tambahan mencakup kegagalan cloud tanpa pesan sukses palsu, koreksi admin di preview, header Admin Surat Jalan, penolakan edit bahan basi, penyimpanan line/Usage, dan penundaan update saat dialog bukti foto terbuka.
+
+Hal yang masih perlu ditangani:
+
+- 90 dari 117 tujuan pada dokumen yang belum berstatus selesai belum cocok dengan Admin SJ dari master. Ini mencakup data lama dan pool, bukan hitungan tugas hari ini. Tampilkan “Belum diatur” dan lengkapi nama customer/admin; 27 tujuan dapat menemukan admin lewat nilai tersimpan/master. Dokumen SJ lama sendiri tetap belum memiliki field admin tersimpan; fallback dilakukan pada tampilan.
+- Ada 99 kelompok nama customer duplikat dari database lama. Tidak dihapus otomatis karena dokumen dapat mempunyai alamat/koordinat berbeda. Import baru tidak menambah duplikat untuk nama yang sudah ditemukan.
+- Rules Firestore lama masih terbuka. GET collection clients dengan field mask nama tanpa token mengembalikan HTTP 200 pada verifikasi pascadeploy. Pembatasan baca/tulis berdasarkan akun/role belum diubah dalam rilis ini. Ini perlu ditangani sebelum menyatakan database aman untuk akses publik; deploy aplikasi ini bukan audit keamanan menyeluruh.
+- Perhitungan bahan tetap membutuhkan Size/Qty yang valid dan material yang cocok. Data yang belum lengkap ditampilkan sebagai belum dihitung, bukan nol.
+
+Deployment tambahan `inspect-master-data` sempat dibuat oleh launcher native Vercel saat perintah audit. Deployment dan aliasnya telah dihapus sesudah persetujuan pengguna; project utama tidak diganti. Perintah audit berikutnya memakai CLI JavaScript dengan project `on-track` secara eksplisit.

@@ -16,7 +16,11 @@ local.properties
 .vercel
 scratch/
 venv_pptx/
-.artifacts/firebase-security-*/
+.artifacts/
+*.apk
+*.pptx
+test_surat_jalan.csv
+task.md
 firebase-debug.log*
 database-debug.log*
 node_modules/

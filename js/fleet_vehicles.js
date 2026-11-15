@@ -174,10 +174,10 @@
             plate_number: 'B 9084 SCH',
             vehicle_category: 'truck_box',
             vehicle_type: 'mobil',
-            assigned_person_id: 'rizki',
-            assigned_person_name: 'Rizki',
-            assigned_role: 'driver',
-            assigned_person_phone: '628123456702',
+            assigned_person_id: '',
+            assigned_person_name: '',
+            assigned_role: '',
+            assigned_person_phone: '',
             tax_due_date: '2026-12-08',
             kir_due_date: '2026-11-02', // H-3 (Warning H-7)
             service_due_date: '2026-11-18',
@@ -234,8 +234,42 @@
         { id: 'gudang', name: 'Gudang', role: 'driver', vehicleType: 'mobil' },
         { id: 'iwan', name: 'Iwan', role: 'driver', vehicleType: 'mobil' },
         { id: 'husen', name: 'Husen', role: 'driver', vehicleType: 'mobil' },
-        { id: 'rizki', name: 'Rizki', role: 'driver', vehicleType: 'mobil' }
+        { id: 'firdaus', name: 'Firdaus', role: 'driver', vehicleType: 'mobil' }
     ];
+
+    function isRemovedFleetDriver(id, name = '') {
+        const identity = typeof normalizeCourierIdentity === 'function' ? normalizeCourierIdentity(id || '', name) : null;
+        return /^(riski|rizki|rizky)$/i.test(identity?.canonicalId || id || '') || /^(riski|rizki|rizky)$/i.test(name.trim());
+    }
+
+    function getFleetDrivers() {
+        const drivers = new Map();
+        const add = (id, name, canonicalId = id) => {
+            if (!id || !name || isRemovedFleetDriver(id, name)) return;
+            if (typeof deletedCourierUids !== 'undefined' &&
+                (deletedCourierUids.has(id) || deletedCourierUids.has(canonicalId))) return;
+            drivers.set(canonicalId, {id: canonicalId, name, role: 'driver'});
+        };
+        MASTER_PERSONIL.forEach(p => add(p.id, p.name));
+        (window.MASTER_COURIERS || []).filter(p => p.role === 'driver').forEach(p =>
+            add(p.defaultUid || p.canonicalId, p.displayName, p.canonicalId));
+        const profiles = typeof registeredUsersObjects !== 'undefined' ? registeredUsersObjects : {};
+        const seen = new Set();
+        Object.entries(profiles).forEach(([key, profile]) => {
+            if (!profile || seen.has(profile)) return;
+            seen.add(profile);
+            if (!/driver|sopir/i.test(profile.role || '') || profile.disabled || profile.deleted) return;
+            const id = profile.userId || profile.uid || key;
+            const identity = typeof normalizeCourierIdentity === 'function' ? normalizeCourierIdentity(id, profile.name || '') : null;
+            const canonicalId = identity?.isMaster ? identity.canonicalId : (profile.courierId || id);
+            add(id, profile.name || profile.email || id, canonicalId);
+        });
+        return [...drivers.values()].sort((a, b) => a.name.localeCompare(b.name, 'id', {sensitivity: 'base'}));
+    }
+
+    function escapeFleetOption(value) {
+        return String(value).replace(/[&<>"']/g, char => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[char]));
+    }
 
     // RBAC Guard helper
     function assertSuperAdmin() {
@@ -454,6 +488,13 @@
             // Ensure each vehicle has service_history array initialized
             let updated = false;
             fleet.forEach(v => {
+                if (isRemovedFleetDriver(v.assigned_person_id, v.assigned_person_name || '')) {
+                    v.assigned_person_id = '';
+                    v.assigned_person_name = '';
+                    v.assigned_role = '';
+                    v.assigned_person_phone = '';
+                    updated = true;
+                }
                 if (!Array.isArray(v.service_history)) {
                     v.service_history = generateInitialServiceHistory(v);
                     updated = true;
@@ -808,81 +849,65 @@
                 catBadge = `<span class="badge" style="background-color: #f8fafc; color: #475569; border: 1px solid #e2e8f0; font-size: 0.65rem; font-weight: 700; border-radius: 4px; padding: 2px 6px;">${cat.toUpperCase()}</span>`;
             }
 
-            // Due Date Badges
+            // Due Date Badges (Compact & Clean)
             const taxBadge = `
-                <div class="d-flex flex-column align-items-start gap-1">
-                    <div class="fw-semibold text-dark" style="font-size: 0.82rem;">
+                <div class="d-flex flex-column align-items-start" style="gap: 2px;">
+                    <span class="text-dark" style="font-size: 12px; font-weight: 500;">
                         ${formatPrettyDate(v.tax_due_date)}
-                    </div>
-                    <span class="badge" style="${ev.taxAlert.pillStyle} font-size: 0.65rem; font-weight: 600; border-radius: 4px; padding: 2px 6px;">
+                    </span>
+                    <span class="badge" style="${ev.taxAlert.pillStyle} font-size: 0.62rem; font-weight: 500; border-radius: 4px; padding: 1px 5px;">
                         ${ev.taxAlert.label}
                     </span>
                 </div>
             `;
 
             const kirBadge = `
-                <div class="d-flex flex-column align-items-start gap-1">
-                    <div class="fw-semibold text-dark" style="font-size: 0.82rem;">
+                <div class="d-flex flex-column align-items-start" style="gap: 2px;">
+                    <span class="text-dark" style="font-size: 12px; font-weight: 500;">
                         ${v.kir_due_date ? formatPrettyDate(v.kir_due_date) : '-'}
-                    </div>
+                    </span>
                     ${v.kir_due_date && ev.kirAlert ? `
-                        <span class="badge" style="${ev.kirAlert.pillStyle} font-size: 0.65rem; font-weight: 600; border-radius: 4px; padding: 2px 6px;">
+                        <span class="badge" style="${ev.kirAlert.pillStyle} font-size: 0.62rem; font-weight: 500; border-radius: 4px; padding: 1px 5px;">
                             ${ev.kirAlert.label}
                         </span>
-                    ` : `<span class="badge" style="background-color: #f8fafc; color: #94a3b8; border: 1px solid #e2e8f0; font-size: 0.65rem; font-weight: 500; border-radius: 4px; padding: 2px 6px;">- Bebas KIR -</span>`}
+                    ` : `<span class="badge" style="background-color: #f8fafc; color: #94a3b8; border: 1px solid #e2e8f0; font-size: 0.62rem; font-weight: 500; border-radius: 4px; padding: 1px 5px;">Bebas KIR</span>`}
                 </div>
             `;
 
             const historyList = Array.isArray(v.service_history) ? v.service_history : [];
             const historyCount = historyList.length;
-            const lastService = historyCount > 0 ? historyList[0] : null;
 
             const serviceBadge = `
-                <div class="d-flex flex-column align-items-start gap-1">
+                <div class="d-flex flex-column align-items-start" style="gap: 3px;">
                     <div class="d-flex align-items-center gap-1.5 flex-wrap">
-                        <span class="fw-semibold text-dark" style="font-size: 0.82rem;">
+                        <span class="text-dark" style="font-size: 12px; font-weight: 500;">
                             ${formatPrettyDate(v.service_due_date)}
                         </span>
-                        <span class="badge" style="${ev.serviceAlert.pillStyle} font-size: 0.65rem; font-weight: 600; border-radius: 4px; padding: 2px 6px;">
+                        <span class="badge" style="${ev.serviceAlert.pillStyle} font-size: 0.62rem; font-weight: 500; border-radius: 4px; padding: 1px 5px;">
                             ${ev.serviceAlert.label}
                         </span>
+                        <button class="btn btn-xs btn-outline-secondary py-0 px-1.5 rounded-1 fw-normal" 
+                                style="font-size: 0.68rem; height: 20px; border-color: #d0d5dd; background: #ffffff; color: #475467;" 
+                                onclick="window.fleetModule.openServiceHistoryModal('${v.id}')" title="Riwayat Servis">
+                            <i class="bi bi-clock-history me-0.5"></i>${historyCount}
+                        </button>
                     </div>
-
                     ${v.service_details ? `
-                        <div class="mt-0.5">
-                            <span class="badge text-start text-truncate fw-normal d-inline-block" 
-                                  style="max-width: 220px; background: #f8fafc; color: #475569; border: 1px solid #e2e8f0; font-size: 0.68rem; padding: 2.5px 6px; border-radius: 4px;" 
-                                  title="Rencana servis berikutnya: ${v.service_details}">
-                                🔧 ${v.service_details}
-                            </span>
+                        <div class="text-truncate text-muted" style="max-width: 240px; font-size: 0.68rem;" title="Rencana servis: ${v.service_details}">
+                            🔧 ${v.service_details}
                         </div>
                     ` : ''}
-
-                    <div class="mt-1 d-flex flex-column align-items-start gap-0.5">
-                        <button class="btn btn-xs btn-outline-secondary d-inline-flex align-items-center gap-1.5 py-0.5 px-2 rounded-2 fw-semibold" 
-                                style="font-size: 0.7rem; border-color: #cbd5e1; background: #ffffff; color: #334155;" 
-                                onclick="window.fleetModule.openServiceHistoryModal('${v.id}')">
-                            <i class="bi bi-clock-history text-secondary"></i>
-                            <span>Riwayat Servis</span>
-                            <span class="badge bg-light text-secondary border rounded-pill px-1.5 py-0.2" style="font-size: 0.62rem;">${historyCount}</span>
-                        </button>
-                        ${lastService ? `
-                            <div class="extra-small text-muted mt-0.5" style="font-size: 0.66rem;" title="Servis Terakhir (${formatPrettyDate(lastService.date)}): ${lastService.replaced_items}">
-                                <i class="bi bi-check2 text-secondary me-0.5"></i> Terakhir: <b>${formatPrettyDate(lastService.date)}</b>
-                            </div>
-                        ` : ''}
-                    </div>
                 </div>
             `;
 
-            // Row style highlight: delicate left border stripe instead of heavy background fill
+            // Row style highlight: delicate left border stripe
             let rowStyle = '';
             if (ev.isOverdueOverall) {
-                rowStyle = 'style="background-color: #fffafb; border-left: 3.5px solid #ef4444;"';
+                rowStyle = 'style="background-color: #fffafb; border-left: 3px solid #ef4444;"';
             } else if (ev.isH7Overall) {
-                rowStyle = 'style="background-color: #fffdfa; border-left: 3.5px solid #f59e0b;"';
+                rowStyle = 'style="background-color: #fffdfa; border-left: 3px solid #f59e0b;"';
             } else {
-                rowStyle = 'style="border-left: 3.5px solid transparent;"';
+                rowStyle = 'style="border-left: 3px solid transparent;"';
             }
 
             // Driver Initials Avatar & Photo
@@ -891,59 +916,55 @@
 
             return `
                 <tr ${rowStyle}>
-                    <!-- 1. NOPOL (Proporsional & Elegan) -->
-                    <td class="text-nowrap py-3">
-                        <div class="d-inline-flex flex-column align-items-start gap-1">
-                            <div class="nopol-box font-monospace fw-bold text-white shadow-xs"
-                                 style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-radius: 6px; padding: 2.5px 8px; font-size: 0.8rem; letter-spacing: 0.04em; border: 1px solid #334155; display: inline-block;">
+                    <!-- 1. NOPOL -->
+                    <td class="text-nowrap py-2" style="padding: 6px 12px;">
+                        <div class="d-inline-flex align-items-center gap-1.5">
+                            <div class="nopol-box font-monospace text-white shadow-2xs"
+                                 style="background: #1e293b; border-radius: 5px; padding: 2px 7px; font-size: 0.76rem; letter-spacing: 0.03em; border: 1px solid #334155; font-weight: 500;">
                                 ${v.plate_number}
                             </div>
-                            <div class="mt-0.5">
-                                ${catBadge}
-                            </div>
+                            ${catBadge}
                         </div>
                     </td>
 
                     <!-- 2. DRIVER -->
-                    <td class="py-3">
+                    <td class="py-2" style="padding: 6px 12px;">
                         <div class="d-flex align-items-center gap-2">
                             ${driverPhotoUrl 
-                                ? `<img src="${driverPhotoUrl}" class="rounded-circle shadow-xs" style="width: 32px; height: 32px; object-fit: cover; border: 1.5px solid #c7d2fe; flex-shrink: 0;" alt="${v.assigned_person_name}">`
-                                : `<div class="rounded-circle d-flex align-items-center justify-content-center text-dark fw-bold" style="width: 32px; height: 32px; background: #e0e7ff; color: #3730a3; font-size: 0.75rem; flex-shrink: 0; border: 1px solid #c7d2fe;">${initials}</div>`
+                                ? `<img src="${driverPhotoUrl}" class="rounded-circle shadow-2xs" style="width: 26px; height: 26px; object-fit: cover; border: 1px solid #cbd5e1; flex-shrink: 0;" alt="${v.assigned_person_name}">`
+                                : `<div class="rounded-circle d-flex align-items-center justify-content-center text-dark" style="width: 26px; height: 26px; background: #e0e7ff; color: #3730a3; font-size: 0.7rem; font-weight: 500; flex-shrink: 0; border: 1px solid #c7d2fe;">${initials}</div>`
                             }
-                            <div class="fw-bold text-dark text-truncate" style="font-size: 0.85rem; max-width: 160px;">
+                            <div class="text-dark text-truncate" style="font-size: 12.5px; font-weight: 500; max-width: 150px;">
                                 ${v.assigned_person_name || '-'}
                             </div>
                         </div>
                     </td>
 
                     <!-- 3. PAJAK -->
-                    <td class="text-nowrap py-3">
+                    <td class="text-nowrap py-2" style="padding: 6px 12px;">
                         ${taxBadge}
                     </td>
 
                     <!-- 4. KIR -->
-                    <td class="text-nowrap py-3">
+                    <td class="text-nowrap py-2" style="padding: 6px 12px;">
                         ${kirBadge}
                     </td>
 
                     <!-- 5. JADWAL & SERVIS -->
-                    <td class="py-3" style="min-width: 220px; max-width: 280px;">
+                    <td class="py-2" style="min-width: 200px; max-width: 260px; padding: 6px 12px;">
                         ${serviceBadge}
                     </td>
 
                     <!-- 6. AKSI -->
-                    <td class="text-nowrap py-3 text-end">
-                        <div class="d-flex align-items-center justify-content-end gap-1.5">
-                            <button class="btn btn-sm btn-outline-secondary py-1 px-2.5 fw-semibold" 
+                    <td class="text-nowrap py-2 text-end" style="padding: 6px 12px;">
+                        <div class="d-flex align-items-center justify-content-end gap-1">
+                            <button class="btn btn-sm btn-outline-secondary py-0.5 px-2 fw-medium" 
                                     style="border-radius: 6px; font-size: 0.72rem; border-color: #cbd5e1; color: #334155; background: #ffffff;" 
                                     onclick="window.fleetModule.openEditFleetModal('${v.id}')" title="Edit Data Kendaraan">
-                                <i class="bi bi-pencil me-1 text-muted"></i>Edit
+                                <i class="bi bi-pencil text-muted"></i>
                             </button>
-                            <button class="btn btn-sm py-1 px-2 fw-semibold" 
+                            <button class="btn btn-sm py-0.5 px-2 fw-medium" 
                                     style="border-radius: 6px; font-size: 0.72rem; border: 1px solid rgba(239, 68, 68, 0.2); color: #ef4444; background: rgba(239, 68, 68, 0.08); transition: all 0.2s;" 
-                                    onmouseover="this.style.background='rgba(239, 68, 68, 0.18)'; this.style.color='#dc2626';"
-                                    onmouseout="this.style.background='rgba(239, 68, 68, 0.08)'; this.style.color='#ef4444';"
                                     onclick="window.fleetModule.deleteFleetVehicle('${v.id}')" title="Hapus Kendaraan">
                                 <i class="bi bi-trash"></i>
                             </button>
@@ -1008,9 +1029,15 @@
         const sel = document.getElementById('fleet-input-personil');
         if (!sel) return;
         const opts = ['<option value="">-- Pilih Driver --</option>'];
-        MASTER_PERSONIL.forEach(p => {
+        const drivers = getFleetDrivers();
+        if (selectedId && !drivers.some(p => p.id === selectedId) && !isRemovedFleetDriver(selectedId)) {
+            // Preserve an existing assignment until the admin explicitly changes it.
+            const existing = getStoredFleet().find(v => v.assigned_person_id === selectedId);
+            if (existing) drivers.push({id: selectedId, name: existing.assigned_person_name || selectedId, role: 'driver'});
+        }
+        drivers.forEach(p => {
             const isSel = p.id === selectedId ? 'selected' : '';
-            opts.push(`<option value="${p.id}" data-role="${p.role}" ${isSel}>${p.name}</option>`);
+            opts.push(`<option value="${escapeFleetOption(p.id)}" data-role="${p.role}" ${isSel}>${escapeFleetOption(p.name)}</option>`);
         });
         sel.innerHTML = opts.join('');
     }
@@ -1034,7 +1061,7 @@
         const category = document.getElementById('fleet-input-category')?.value || 'granmax';
         const personilSel = document.getElementById('fleet-input-personil');
         const personilId = personilSel.value;
-        const personilName = personilSel.options[personilSel.selectedIndex]?.text || '';
+        const personilName = personilId ? (personilSel.options[personilSel.selectedIndex]?.text || '') : '';
         const phone = document.getElementById('fleet-input-phone').value.trim();
         const taxDue = document.getElementById('fleet-input-tax').value;
         const kirDue = document.getElementById('fleet-input-kir').value || null;
@@ -1061,7 +1088,7 @@
                     vehicle_type: 'mobil',
                     assigned_person_id: personilId,
                     assigned_person_name: personilName,
-                    assigned_role: 'driver',
+                    assigned_role: personilId ? 'driver' : '',
                     assigned_person_phone: phone,
                     tax_due_date: taxDue,
                     kir_due_date: kirDue,
@@ -1083,7 +1110,7 @@
                 vehicle_type: 'mobil',
                 assigned_person_id: personilId,
                 assigned_person_name: personilName,
-                assigned_role: 'driver',
+                assigned_role: personilId ? 'driver' : '',
                 assigned_person_phone: phone,
                 tax_due_date: taxDue,
                 kir_due_date: kirDue,
@@ -2071,6 +2098,7 @@
         appendServiceTag,
         exportFleetToExcel,
         getStoredFleet,
+        getFleetDrivers,
         openEditCentralPhoneModal,
         sendCentralAlertWhatsApp,
         getCentralPhone,

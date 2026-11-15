@@ -59,69 +59,63 @@
         if (!document.getElementById('cikokol-workstation-table-body')) {
             viewContainer.innerHTML = `
                 <!-- HEADER WORKSTATION CIKOKOL -->
-                <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
-                    <div>
-                        <div class="d-flex align-items-center gap-2">
-                            <h4 class="fw-bold mb-0 text-dark">Workstation Cabang Cikokol</h4>
-                            <span class="badge bg-warning text-dark border border-warning/40 px-2.5 py-1 rounded-pill extra-small fw-bold">Hub Produksi & Transit</span>
-                        </div>
-                        <p class="text-muted small mb-0 mt-1">
-                            Kelola pekerjaan cetak cabang Cikokol, pantau deadline pengerjaan real-time, dan kirim barang ke Pusat.
-                        </p>
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="fw-semibold text-dark" style="font-size: 13.5px;">Produksi Cikokol</span>
+                        <span class="badge bg-warning-subtle text-dark border border-warning/40 px-2 py-0.5 rounded-pill extra-small fw-medium">Branch cikokol</span>
                     </div>
                     <div class="d-flex align-items-center flex-wrap gap-2">
-                        <button class="btn btn-light border btn-sm px-2.5 py-2" style="border-radius:10px;" onclick="renderWorkstationView()" title="Refresh Data">
+                        <button class="btn btn-light border btn-sm px-2.5 py-1.5" style="border-radius:8px; font-size: 12px;" onclick="renderWorkstationView()" title="Refresh Data">
                             <i class="bi bi-arrow-clockwise"></i>
                         </button>
                     </div>
                 </div>
 
                 <!-- STATISTIK BADGES TAHAPAN -->
-                <div class="row g-3 mb-4">
+                <div class="row g-3 mb-3">
                     <div class="col-6 col-lg-3">
-                        <div class="card border-0 shadow-sm p-3 bg-white h-100" style="border-radius: 14px;">
-                            <div class="text-muted extra-small fw-bold text-uppercase">Total Tugas Cikokol</div>
-                            <h3 class="fw-bold text-dark mt-1 mb-0" id="cikokol-stat-total">0</h3>
+                        <div class="card border p-3 bg-white h-100" style="border-radius: 10px; border-color: #eaecf0 !important; box-shadow: 0 1px 2px rgba(16,24,40,0.04);">
+                            <div class="text-muted extra-small fw-medium text-uppercase">Total Tugas</div>
+                            <div class="fw-semibold text-dark mt-1 mb-0" style="font-size: 18px;" id="cikokol-stat-total">0</div>
                         </div>
                     </div>
                     <div class="col-6 col-lg-3">
-                        <div class="card border-0 shadow-sm p-3 bg-white h-100" style="border-radius: 14px;">
-                            <div class="text-muted extra-small fw-bold text-uppercase">Proses Cetak</div>
-                            <h3 class="fw-bold text-primary mt-1 mb-0" id="cikokol-stat-printing">0</h3>
+                        <div class="card border p-3 bg-white h-100" style="border-radius: 10px; border-color: #eaecf0 !important; box-shadow: 0 1px 2px rgba(16,24,40,0.04);">
+                            <div class="text-muted extra-small fw-medium text-uppercase">Cetak</div>
+                            <div class="fw-semibold text-primary mt-1 mb-0" style="font-size: 18px;" id="cikokol-stat-printing">0</div>
                         </div>
                     </div>
                     <div class="col-6 col-lg-3">
-                        <div class="card border-0 shadow-sm p-3 bg-white h-100" style="border-radius: 14px;">
-                            <div class="text-muted extra-small fw-bold text-uppercase">Packing Siap Kirim</div>
-                            <h3 class="fw-bold text-warning mt-1 mb-0" id="cikokol-stat-packing">0</h3>
+                        <div class="card border p-3 bg-white h-100" style="border-radius: 10px; border-color: #eaecf0 !important; box-shadow: 0 1px 2px rgba(16,24,40,0.04);">
+                            <div class="text-muted extra-small fw-medium text-uppercase">Packing</div>
+                            <div class="fw-semibold text-warning-emphasis mt-1 mb-0" style="font-size: 18px;" id="cikokol-stat-packing">0</div>
                         </div>
                     </div>
                     <div class="col-6 col-lg-3">
-                        <div class="card border-0 shadow-sm p-3 bg-white h-100" style="border-radius: 14px;">
-                            <div class="text-muted extra-small fw-bold text-uppercase">Sedang Menuju Pusat</div>
-                            <h3 class="fw-bold text-success mt-1 mb-0" id="cikokol-stat-shipped">0</h3>
+                        <div class="card border p-3 bg-white h-100" style="border-radius: 10px; border-color: #eaecf0 !important; box-shadow: 0 1px 2px rgba(16,24,40,0.04);">
+                            <div class="text-muted extra-small fw-medium text-uppercase">Menuju Pusat</div>
+                            <div class="fw-semibold text-success mt-1 mb-0" style="font-size: 18px;" id="cikokol-stat-shipped">0</div>
                         </div>
                     </div>
                 </div>
 
                 <!-- TABEL WORKSTATION CIKOKOL -->
-                <div class="card border-0 shadow-sm" style="border-radius: 16px;">
-                    <div class="card-header bg-white border-bottom p-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
-                        <span class="fw-bold text-dark small"><i class="bi bi-clock-history me-1 text-primary"></i>Daftar Antrian Cetak & Pengiriman ke Pusat</span>
-                        <span class="badge bg-light text-muted border extra-small">Live Sync Real-time</span>
+                <div class="card border shadow-sm" style="border-radius: 10px; border-color: #eaecf0 !important;">
+                    <div class="card-header bg-white border-bottom p-3 d-flex flex-wrap align-items-center justify-content-between gap-2" style="border-color: #eaecf0 !important;">
+                        <span class="fw-semibold text-dark" style="font-size: 13px;"><i class="bi bi-clock-history me-1.5 text-primary"></i>Daftar Antrian Cetak & Pengiriman ke Pusat</span>
                     </div>
                     <div class="card-body p-0">
                         <div class="table-responsive">
-                            <table class="table table-hover align-middle mb-0">
-                                <thead class="table-light extra-small text-uppercase">
+                            <table class="table table-hover align-middle mb-0" style="font-size: 13px;">
+                                <thead style="background: #f9fafb;">
                                     <tr>
-                                        <th style="width: 40px;" class="text-center">No</th>
-                                        <th>Surat Jalan / SPK</th>
-                                        <th>Klien & Tujuan</th>
-                                        <th>Item Barang & Qty</th>
-                                        <th>Deadline & SLA</th>
-                                        <th>Status Tahapan</th>
-                                        <th class="text-end">Aksi Update Tahapan</th>
+                                        <th style="width: 40px; font-size: 11px; font-weight: 500 !important; color: #667085; text-transform: uppercase; padding: 10px 14px; background: #f9fafb; border-bottom: 1px solid #eaecf0;" class="text-center">No</th>
+                                        <th style="font-size: 11px; font-weight: 500 !important; color: #667085; text-transform: uppercase; padding: 10px 14px; background: #f9fafb; border-bottom: 1px solid #eaecf0;">Surat Jalan / SPK</th>
+                                        <th style="font-size: 11px; font-weight: 500 !important; color: #667085; text-transform: uppercase; padding: 10px 14px; background: #f9fafb; border-bottom: 1px solid #eaecf0;">Klien & Tujuan</th>
+                                        <th style="font-size: 11px; font-weight: 500 !important; color: #667085; text-transform: uppercase; padding: 10px 14px; background: #f9fafb; border-bottom: 1px solid #eaecf0;">Item Barang & Qty</th>
+                                        <th style="font-size: 11px; font-weight: 500 !important; color: #667085; text-transform: uppercase; padding: 10px 14px; background: #f9fafb; border-bottom: 1px solid #eaecf0;">Deadline</th>
+                                        <th style="font-size: 11px; font-weight: 500 !important; color: #667085; text-transform: uppercase; padding: 10px 14px; background: #f9fafb; border-bottom: 1px solid #eaecf0;">Status</th>
+                                        <th style="font-size: 11px; font-weight: 500 !important; color: #667085; text-transform: uppercase; padding: 10px 14px; background: #f9fafb; border-bottom: 1px solid #eaecf0;" class="text-end">Aksi</th>
                                     </tr>
                                 </thead>
                                 <tbody id="cikokol-workstation-table-body" class="small">

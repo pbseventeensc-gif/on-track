@@ -1,5 +1,26 @@
 # Penghapusan akun kurir dan driver
 
+## Pembaruan 14 November 2026
+
+Atas permintaan pengguna, cleanup Rizki selesai untuk UID utama
+`gz9F6MqupoXEFTpOTJJ1aFjtSD52`, alias `VDyQRzlGiAcIfIetZeiGOtPP6fJ2`, dan
+canonical `rizki`. Pemeriksaan awal menemukan akun Authentication dan profilnya
+sudah tidak ada. Cleanup memasang penanda `completed`, mencabut akses RTDB,
+dan menghapus lokasi lama. Pemeriksaan ulang memastikan semua hasil tersebut;
+tiga trip historis dipertahankan, semuanya selesai. Backup sebelum cleanup ada
+di `.artifacts/firebase-security-2026-11-14/rizki-before.json`.
+
+Rizki dihapus dari master pilihan dashboard dan halaman kurir, serta dari
+pembuatan alias profil otomatis. Nama `Rizki (Nonaktif)` tetap dapat ditampilkan
+pada riwayat tanpa membuat akun aktif. Konfigurasi cleanup server tetap memuat
+UID lama agar operasi bisa diulang. Skrip khusus `scripts/retire-rizki.cjs`
+mendukung inspect, `--delete-rizki`, dan `--verify-rizki`, memakai kredensial
+produksi dalam environment proses, tanpa menulis kredensial ke disk.
+
+Deployment webapp pada catatan status lama di bawah sudah dilaksanakan dalam
+sesi lanjutan. Validasi terbaru: seluruh 124 tes lulus, termasuk pemindahan kartu
+Live Tracking melalui snapshot Firestore dan pembersihan master Rizki.
+
 ## Pemakaian
 
 Pada pengaturan dashboard, **Kelola Akun Kurir & Driver** memiliki tombol

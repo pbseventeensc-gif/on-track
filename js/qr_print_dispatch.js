@@ -10,13 +10,86 @@
     // -------------------------------------------------------------
     // EMBEDDED PURE-JS QR CODE GENERATOR (Simple, Fast, Offline)
     // -------------------------------------------------------------
-    // Menggunakan Google Charts API SVG fallback jika online, atau Canvas/SVG offline
-    function renderQRCodeSvg(text, size = 120) {
-        // Fallback robust & crisp SVG generator menggunakan QR server atau local data-url
-        const encoded = encodeURIComponent(text);
-        return `<img src="https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encoded}&margin=2" 
-                     onerror="this.onerror=null; this.src='https://chart.googleapis.com/chart?chs=${size}x${size}&cht=qr&chl=${encoded}';"
-                     alt="QR Code" style="width: ${size}px; height: ${size}px; object-fit: contain; image-rendering: pixelated; display: block; margin: 0 auto;">`;
+    function compactPayload(trip) {
+        const sj=String(trip.sjNumber||trip.noSJ||'').trim().replace(/^#/, '');
+        return sj && sj!=='-' && !sj.startsWith('TRIP_') ? sj.toUpperCase() : String(trip.tripId||trip.id||trip.shortCode||trip.uniqueCode||'').trim();
+    }
+    function mapsPayload(trip) {
+        const firstDest = trip.destinations?.[0] || {};
+        const address = window.MapsDestination.query(firstDest, trip);
+        // Keep the selected pin: searching the address again can select a
+        // different branch. A route-level pin must not leak into another stop.
+        const number = value => value === null || value === undefined || String(value).trim() === '' ? NaN : Number(value);
+        const hasDestinationPin = [firstDest.latitude, firstDest.longitude, firstDest.lat, firstDest.lng]
+            .some(value => value !== null && value !== undefined && String(value).trim() !== '');
+        const point = hasDestinationPin || trip.destinations?.length > 1 ? firstDest : trip;
+        const lat = number(point.latitude ?? point.lat);
+        const lng = number(point.longitude ?? point.lng);
+        const placeholder = Math.abs(lat + 6.2088) < 0.0000001 && Math.abs(lng - 106.8456) < 0.0000001;
+        const valid = Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180
+            && (lat !== 0 || lng !== 0) && !placeholder && !firstDest.locationNeedsReview && !point.locationNeedsReview;
+        // Six decimal places keep sub-metre precision without storing GPS noise.
+        const query = valid ? Number(lat.toFixed(6)) + ',' + Number(lng.toFixed(6)) : address;
+        if (!query) return '';
+        const sj = String(firstDest.noSJ || firstDest.sjNumber || trip.noSJ || trip.sjNumber || '').trim().replace(/^#/, '');
+        const identity = sj ? 'sj=' + encodeURIComponent(sj) : 'trip=' + encodeURIComponent(trip.id || trip.tripId || '');
+        return 'https://maps.google.com/?q=' + (valid ? query : encodeURIComponent(query).replace(/%20/g, '+')) + '#' + identity;
+    }
+    function destinationQRCode(trip, size) {
+        const payload = mapsPayload(trip);
+        return payload ? renderQRCodeSvg(payload, size) : '<div style="padding:12px;font-size:10px;color:#6b7280">Alamat tujuan belum tersedia</div>';
+    }
+    function renderQRCodeSvg(text, size = 128) {
+        if(typeof window.qrcode!=='function') throw new Error('Generator QR lokal belum dimuat. Refresh halaman sebelum mencetak.');
+        const payload=String(text||'').trim();
+        if(!payload) throw new Error('Isi untuk QR tidak tersedia.');
+        const qr=window.qrcode(0,'M');
+        addCompactQRData(qr, payload);
+        qr.make();
+        const count=qr.getModuleCount(),quiet=4,extent=count+quiet*2,edge=Math.max(1,Number(size)||128);
+        let path='';
+        for(let row=0;row<count;row++) for(let col=0;col<count;) {
+            if(!qr.isDark(row,col)) {col++;continue;}
+            const start=col;while(col<count&&qr.isDark(row,col))col++;
+            const width=col-start;path+=`M${start+quiet} ${row+quiet}h${width}v1h-${width}z`;
+        }
+        return `<svg xmlns="http://www.w3.org/2000/svg" role="img" aria-label="QR Surat Jalan" data-modules="${count}" width="${edge}" height="${edge}" viewBox="0 0 ${extent} ${extent}" shape-rendering="crispEdges" style="display:block;margin:0 auto;width:${edge}px;height:${edge}px;max-width:none;background:#fff"><rect width="${extent}" height="${extent}" fill="#fff"/><path d="${path}" fill="#000"/></svg>`;
+    }
+
+    function addCompactQRData(qr, payload) {
+        // Choose the smallest combination of numeric, alphanumeric and byte
+        // segments. Encoding a whole URL as bytes wastes space on SJ/GPS digits.
+        if (payload.length > 512 || !/^[\x20-\x7e]+$/.test(payload)) {
+            qr.addData(payload, 'Byte');
+            return;
+        }
+        const costs = Array(payload.length + 1).fill(Infinity);
+        const previous = [];
+        costs[0] = 0;
+        const modes = [
+            {name:'Numeric', accepts:/^[0-9]$/, header:14, bits:n=>Math.floor(n/3)*10 + [0,4,7][n%3]},
+            {name:'Alphanumeric', accepts:/^[0-9A-Z $%*+\-./:]$/, header:13, bits:n=>Math.floor(n/2)*11 + (n%2)*6},
+            {name:'Byte', accepts:/^[\x20-\x7e]$/, header:12, bits:n=>n*8}
+        ];
+        for (let start=0; start<payload.length; start++) {
+            for (const mode of modes) {
+                for (let end=start+1; end<=payload.length; end++) {
+                    if (!mode.accepts.test(payload[end-1]) || (mode.name==='Byte' && end-start>255)) break;
+                    const cost=costs[start]+mode.header+mode.bits(end-start);
+                    if (cost<costs[end]) {
+                        costs[end]=cost;
+                        previous[end]={start, mode:mode.name};
+                    }
+                }
+            }
+        }
+        const segments=[];
+        for (let end=payload.length; end>0;) {
+            const segment=previous[end];
+            segments.unshift({text:payload.slice(segment.start,end), mode:segment.mode});
+            end=segment.start;
+        }
+        segments.forEach(segment=>qr.addData(segment.text,segment.mode));
     }
 
     // Ambil detail trip dari memori
@@ -91,7 +164,6 @@
 
         const sjNumber = trip.sjNumber || trip.noSJ || trip.tripId || 'SJ-UNKNOWN';
         const shortCode = trip.shortCode || trip.uniqueCode || (trip.id ? trip.id.slice(-6).toUpperCase() : 'WK-0000');
-        const qrPayload = trip.qrPayload || `WTRACK|SJ|${trip.id}|${sjNumber}|${shortCode}`;
         const region = trip.region || 'Jabodetabek';
         const originBranch = (trip.originBranch || trip.printLocation || trip.branchId || 'pusat').toUpperCase();
 
@@ -100,14 +172,14 @@
 
         const firstDest = (trip.destinations && trip.destinations[0]) ? trip.destinations[0] : {};
         const clientName = trip.customer || trip.clientName || firstDest.locationName || 'Pelanggan Umum';
-        const address = trip.address || firstDest.address || '-';
+        const address = firstDest.address || trip.address || '-';
         const firstItem = (trip.items && trip.items[0]) ? trip.items[0] : null;
         const itemsSummary = firstDest.itemsSummary || (firstItem ? firstItem.nama : '') || 'Barang Cetakan Promosi & Advertising';
         const qty = firstDest.qty || (firstItem ? `${firstItem.qty} ${firstItem.satuan || 'Pcs'}` : '') || '1 Koli';
 
         const courierName = trip.courierId && typeof window.getCourierDisplayName === 'function' 
             ? window.getCourierDisplayName(trip.courierId) 
-            : (trip.courierId || 'Belum Ditugaskan (Ambil via QR)');
+            : (trip.courierId || 'Belum Ditugaskan');
 
         const vehicleInfo = trip.vehiclePlate ? `Armada Mobil: ${trip.vehiclePlate}` : (trip.vehicleType === 'mobil' ? 'Armada Mobil' : 'Kurir Motor');
 
@@ -126,14 +198,10 @@
                         </div>
                     </div>
 
-                    <!-- Kotak QR Code & Kode Unik -->
-                    <div style="text-align: center; border: 1.5px solid #111827; padding: 6px 10px; border-radius: 8px; background: #f9fafb; min-width: 140px;">
-                        <div style="font-size: 9px; font-weight: 800; text-transform: uppercase; color: #4b5563; letter-spacing: 0.5px; margin-bottom: 4px;">SCAN APK KURIRKITA</div>
-                        ${renderQRCodeSvg(qrPayload, 95)}
-                        <div style="margin-top: 4px; font-family: monospace; font-size: 13px; font-weight: 800; letter-spacing: 1px; color: #111827; background: #fff; border: 1px dashed #9ca3af; padding: 2px 4px; border-radius: 4px;">
-                            ${shortCode}
-                        </div>
-                        <div style="font-size: 8px; color: #6b7280; margin-top: 2px;">Input jika QR rusak</div>
+                    <!-- QR tanpa bingkai, kode unik di bawah -->
+                    <div class="sj-qr-label" style="width:79px;flex-shrink:0;text-align:center;">
+                        ${destinationQRCode(trip, 79)}
+                        <div style="margin-top:2px;font-family:monospace;font-size:10px;font-weight:700;letter-spacing:0;color:#000;overflow-wrap:anywhere;">${shortCode}</div>
                     </div>
                 </div>
 
@@ -229,35 +297,14 @@
         `;
     }
 
-    // Template Mode Stiker Thermal (Hanya Kotak QR + Kode Unik + Info Klien)
+    // Label QR tanpa bingkai, dengan kode unik tepat di bawahnya.
     function buildStickerPrintHtml(trip) {
         if (!trip) return '';
-        const sjNumber = trip.sjNumber || trip.tripId || 'SJ';
-        const shortCode = trip.shortCode || (trip.id ? trip.id.slice(-6).toUpperCase() : 'WK');
-        const qrPayload = trip.qrPayload || `WTRACK|SJ|${trip.id}|${sjNumber}|${shortCode}`;
-        const region = trip.region || 'Jabodetabek';
-        const firstDest = (trip.destinations && trip.destinations[0]) ? trip.destinations[0] : {};
-        const clientName = firstDest.locationName || trip.clientName || 'Klien';
-        const address = firstDest.address || trip.address || '';
-
+        const shortCode = trip.shortCode || trip.uniqueCode || (trip.id ? trip.id.slice(-6).toUpperCase() : 'WK');
         return `
-            <div style="width: 280px; padding: 12px; border: 2px dashed #000; font-family: Arial, sans-serif; text-align: center; margin: 10px auto; page-break-after: always;">
-                <div style="font-weight: 800; font-size: 14px; text-transform: uppercase;">WELLEN PRINT LOGISTICS</div>
-                <div style="background: #000; color: #fff; font-size: 10px; font-weight: bold; padding: 2px 6px; display: inline-block; margin: 4px 0;">
-                    ${region.toUpperCase()} &bull; ${sjNumber}
-                </div>
-                <div style="margin: 6px auto;">
-                    ${renderQRCodeSvg(qrPayload, 110)}
-                </div>
-                <div style="font-family: monospace; font-size: 18px; font-weight: 900; letter-spacing: 2px; margin: 4px 0;">
-                    ${shortCode}
-                </div>
-                <div style="font-size: 11px; font-weight: bold; text-align: left; margin-top: 6px; border-top: 1px solid #000; padding-top: 4px;">
-                    To: ${clientName}
-                </div>
-                <div style="font-size: 9px; text-align: left; color: #333; line-height: 1.2;">
-                    ${address}
-                </div>
+            <div class="sj-qr-label" style="width:79px;font-family:Arial,sans-serif;text-align:center;margin:10px auto;page-break-after:always;">
+                ${destinationQRCode(trip, 79)}
+                <div style="margin-top:2px;font-family:monospace;font-size:10px;font-weight:700;letter-spacing:0;color:#000;overflow-wrap:anywhere;">${shortCode}</div>
             </div>
         `;
     }
@@ -395,6 +442,8 @@
     // Export API
     const qrAPI = {
         renderQRCodeSvg,
+        compactPayload,
+        mapsPayload,
         generateQRCodeSVG: renderQRCodeSvg,
         printSingleSJ,
         printBatchSJ,

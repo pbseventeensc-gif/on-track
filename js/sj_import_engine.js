@@ -107,6 +107,8 @@
     function normalizeHeaderKey(key) {
         const cleaned = String(key || '').toLowerCase().replace(/[^a-z0-9]/g, ' ').replace(/\s+/g, ' ').trim();
 
+        if (cleaned === 'admin' || (cleaned.includes('admin') && (cleaned.includes('sj') || cleaned.includes('surat jalan')))) return 'adminSJ';
+
         // 1. No Surat Jalan / No Faktur
         if (cleaned.includes('no sj') || cleaned.includes('nomor sj') || cleaned.includes('surat jalan') || cleaned.includes('no invoice') || cleaned.includes('nosj') || cleaned.includes('no faktur') || cleaned.includes('faktur')) return 'sjNumber';
 
@@ -115,6 +117,12 @@
 
         // 3. NAMA BARANG / ITEM / PRODUK (HARUS LEBIH DULU daripada customer agar 'nama barang' tidak pernah masuk ke customer!)
         if (cleaned.includes('nama barang') || cleaned.includes('uraian barang') || cleaned.includes('nama produk') || cleaned.includes('nama item') || cleaned.includes('deskripsi barang') || cleaned.includes('deskripsi') || cleaned.includes('uraian') || cleaned.includes('barang') || cleaned.includes('item') || cleaned.includes('produk') || cleaned.includes('pekerjaan')) return 'itemsSummary';
+
+        // Store is the delivery destination, separate from the billing customer.
+        if (['store', 'nama store', 'store tujuan', 'nama toko', 'toko tujuan'].includes(cleaned)) return 'storeDestination';
+
+        // 4. Admin penanggung jawab Surat Jalan.
+        if (cleaned === 'admin' || (cleaned.includes('admin') && (cleaned.includes('sj') || cleaned.includes('surat jalan')))) return 'adminSJ';
 
         // 4. CUSTOMER / KLIEN (Hanya dicocokkan jika ada kata customer, klien, client, toko, pemesan, penerima, kepada, pemberi kerja, atau 'nama customer')
         if (cleaned.includes('customer') || cleaned.includes('klien') || cleaned.includes('client') || cleaned.includes('nama customer') || cleaned.includes('nama klien') || cleaned.includes('nama toko') || cleaned.includes('penerima') || cleaned.includes('kepada') || cleaned.includes('toko') || cleaned.includes('perusahaan') || cleaned.includes('pemesan') || cleaned.includes('pemberi kerja') || cleaned === 'nama' || cleaned === 'cust') return 'clientName';
@@ -163,6 +171,14 @@
 
     function isWellenSuratJalanLayout(rows2D) {
         if (!rows2D || rows2D.length === 0) return false;
+        // A list of deliveries contains SJ numbers too. Prefer its column headers
+        // before detecting the free-form printed layout from document text.
+        const hasTableHeader = rows2D.slice(0, 15).some(row => {
+            const columns = row.map(cell => normalizeHeaderKey(String(cell || '').trim()));
+            return (columns.includes('clientName') || columns.includes('storeDestination')) && columns.includes('sjNumber') &&
+                (columns.includes('itemsSummary') || columns.includes('address'));
+        });
+        if (hasTableHeader) return false;
         let foundSJHeader = false;
         let foundKepadaYth = false;
         for (let r = 0; r < Math.min(rows2D.length, 15); r++) {
@@ -177,7 +193,7 @@
         return foundSJHeader || foundKepadaYth;
     }
 
-    function parseWellenSuratJalanSheet(rows2D, sheetName = '', fileName = '') {
+    function parseWellenSuratJalanSheet(rows2D, sheetName = '', fileName = '', adminSJLookup = null) {
         let sjNumber = '';
         let customer = '';
         let storeDestination = '';
@@ -228,7 +244,7 @@
                 const cell = String(row[c] || '').trim();
                 if (!cell) continue;
                 if (/STORE\s+[A-Z0-9\s]+/i.test(cell) || (/TOKO|CABANG|MALL|GRAND|INDAH/i.test(cell) && cell.length > 8 && !cell.includes('Wellen') && !cell.includes('Pasar Minggu'))) {
-                    if (!storeDestination) storeDestination = cell;
+                    if (!storeDestination || (/^STORE\b/i.test(cell) && !/^STORE\b/i.test(storeDestination))) storeDestination = cell;
                 }
             }
 
@@ -308,11 +324,20 @@
             } catch(e) {}
         }
 
-        const clientNameFinal = customer || 'PT TOYS GAMES INDONESIA';
-        const addressFinal = storeDestination || `Alamat Kirim ${clientNameFinal}`;
+        const clientNameFinal = customer || 'Customer / Klien';
+        const addressFinal = storeDestination || '';
         const reg = detectRegion(addressFinal, clientNameFinal);
+        const itemQuantities = items.map(it => parseFloat(it.qty));
+        const itemQuantityTotal = itemQuantities.length && itemQuantities.every(Number.isFinite)
+            ? itemQuantities.reduce((sum, qty) => sum + qty, 0) : null;
+        const sourceQuantityTotal = totalQty === '' ? null : parseFloat(totalQty);
+        const quantityWarning = Number.isFinite(sourceQuantityTotal) && itemQuantityTotal !== null && Math.abs(sourceQuantityTotal - itemQuantityTotal) > 0.000001
+            ? `TOTAL dokumen ${sourceQuantityTotal}, tetapi jumlah Qty barang ${itemQuantityTotal}. Periksa file sumber.` : '';
         const totalQtyNum = totalQty || (items.length > 0 ? items.reduce((s, it) => s + (parseFloat(it.qty) || 1), 0) + ' Pcs' : '1 Pcs');
         const itemsSummary = items.length > 0 ? `${items.length} Item Cetakan (${totalQtyNum})` : 'Barang Cetakan';
+
+        const adminKey = customer.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const adminSJ = adminSJLookup && typeof adminSJLookup.get === 'function' ? (adminSJLookup.get(adminKey) || '') : '';
 
         return {
             sjNumber: sjNumber || `SJ/${dateFolder.replace(/-/g, '')}/${Math.floor(1000 + Math.random()*9000)}`,
@@ -328,11 +353,40 @@
             qty: String(totalQtyNum).includes('Pcs') ? totalQtyNum : `${totalQtyNum} Pcs`,
             itemsSummary: itemsSummary,
             items: items.length > 0 ? items : [{ nama: 'Barang Cetakan', qty: '1 Pcs' }],
+            sourceQuantityTotal: Number.isFinite(sourceQuantityTotal) ? sourceQuantityTotal : null,
+            itemQuantityTotal,
+            quantityWarning,
             dateFolder: dateFolder,
+            sourceDocumentDate: normalizeSJDocumentDate(dateStr),
             dibuatOleh: dibuatOleh || '',
-            adminSJ: '', // Sesuai permintaan user: sementara blank
+            adminSJ,
             readyStatus: 'ready'
         };
+    }
+
+    function getAdminSJForCustomer(customerName, lookup) {
+        const key = String(customerName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        return lookup && typeof lookup.get === 'function' ? (lookup.get(key) || '') : '';
+    }
+
+    function normalizeSJDocumentDate(value) {
+        const raw=String(value || '').trim();
+        const months={jan:1,feb:2,mar:3,apr:4,mei:5,may:5,jun:6,jul:7,agu:8,aug:8,sep:9,okt:10,oct:10,nov:11,des:12,dec:12};
+        let y,m,d,match;
+        if((match=raw.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:\D|$)/))) [,y,m,d]=match;
+        else if((match=raw.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})(?:\D|$)/))) [,d,m,y]=match;
+        else if((match=raw.match(/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})(?:\D|$)/))) {d=match[1];m=months[match[2].slice(0,3).toLowerCase()];y=match[3];}
+        else if(/^\d{5}(?:\.\d+)?$/.test(raw)) {
+            const date=new Date(Date.UTC(1899,11,30)+Math.floor(Number(raw))*86400000);
+            y=date.getUTCFullYear();m=date.getUTCMonth()+1;d=date.getUTCDate();
+        } else return '';
+        const date=new Date(Date.UTC(Number(y),Number(m)-1,Number(d)));
+        if(date.getUTCFullYear()!==Number(y)||date.getUTCMonth()+1!==Number(m)||date.getUTCDate()!==Number(d)) return '';
+        return `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    }
+    function extractDocumentDate(text) {
+        const match=String(text || '').match(/\b(?:TGL\.?|TANGGAL)\s*[:,-]?\s*(\d{4}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}[-/]\d{1,2}[-/]\d{4}|\d{1,2}\s+[A-Za-z]+\s+\d{4})/i);
+        return match?normalizeSJDocumentDate(match[1]):'';
     }
 
     // Baca dan parse file Excel (Mendukung format standar SJ dan Format SPK Wellen Print Gambar 1)
@@ -344,10 +398,13 @@
 
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
-            reader.onload = function(e) {
+            reader.onload = async function(e) {
                 try {
                     const data = new Uint8Array(e.target.result);
                     const workbook = XLSX.read(data, { type: 'array' });
+                    const adminSJLookup = typeof window.getCustomerAdminSJLookup === 'function'
+                        ? await window.getCustomerAdminSJLookup()
+                        : null;
 
                     // A. Periksa apakah ada sheet yang menggunakan Format Layout Resmi Surat Jalan Wellen
                     const wellenSjRows = [];
@@ -356,7 +413,7 @@
                         if (!sObj) continue;
                         const s2D = XLSX.utils.sheet_to_json(sObj, { header: 1, defval: '' });
                         if (isWellenSuratJalanLayout(s2D)) {
-                            const parsed = parseWellenSuratJalanSheet(s2D, sName, currentImportFileName);
+                            const parsed = parseWellenSuratJalanSheet(s2D, sName, currentImportFileName, adminSJLookup);
                             parsed.rowIndex = wellenSjRows.length + 1;
                             wellenSjRows.push(parsed);
                         }
@@ -465,12 +522,14 @@
                         
                         const descParts = [];
                         if (barangVal) descParts.push(barangVal);
-                        if (ukuranVal && ukuranVal !== '-') descParts.push(`Uk: ${ukuranVal}`);
+                        if (ukuranVal && ukuranVal !== '-') descParts.push(`Size: ${ukuranVal}`);
                         descParts.push(`Qty: ${qtyFormatted}`);
                         const fullDescription = descParts.join(' | ');
 
-                        const address = getVal('address') || `Alamat Kirim ${client}`;
+                        const address = getVal('address') || '';
+                        const storeDestination = getVal('storeDestination');
                         const reg = getVal('region') || detectRegion(address, client);
+                        const adminSJ = getVal('adminSJ') || getAdminSJForCustomer(client, adminSJLookup);
                         const shortCode = generateUniqueCode();
                         const sjNumber = getVal('sjNumber') || `SJ/${todayDate.getFullYear()}/${String(todayDate.getMonth()+1).padStart(2,'0')}/${String(normalizedRows.length + 1).padStart(4, '0')}`;
 
@@ -483,7 +542,9 @@
                             shortCode: shortCode,
                             clientName: client,
                             customer: client,
+                            adminSJ,
                             address: address,
+                            storeDestination: storeDestination,
                             region: reg,
                             namaBarang: barangVal || 'Barang Cetakan',
                             ukuran: ukuranVal || '-',
@@ -494,6 +555,7 @@
                             originBranch: isCikokol ? 'cikokol' : 'pusat',
                             deadline: getVal('deadline') || '17:00 WIB',
                             spkNumber: getVal('spkNumber') || `SPK-${mesinVal || 'WL'}-${normalizedRows.length + 1}`,
+                            sourceDocumentDate: normalizeSJDocumentDate(getVal('dateStr')),
                             dateFolder: defaultDateFolder,
                             machine: mesinVal || 'Digital Print'
                         });
@@ -975,10 +1037,10 @@
 
                 const formattedQty = `${totalQty || (items.length || 1)} Pcs`;
                 const mainBarang = items.length === 1 ? items[0].nama : `${items.length} Items Cetakan (Total ${formattedQty})`;
-                const mainUkuran = items.length === 1 ? items[0].ukuran : (items.length > 0 ? 'Multi Ukuran' : '-');
+                const mainUkuran = items.length === 1 ? items[0].ukuran : (items.length > 0 ? 'Multi Size' : '-');
 
                 const itemsSummary = items.length > 0 ? 
-                    items.map(it => `${it.no ? it.no + '. ' : ''}${it.nama} (Uk: ${it.ukuran} | Qty: ${it.qty})`).join(' | ') :
+                    items.map(it => `${it.no ? it.no + '. ' : ''}${it.nama} (Size: ${it.ukuran} | Qty: ${it.qty})`).join(' | ') :
                     mainBarang;
 
                 normalizedRows.push({
@@ -1002,7 +1064,8 @@
                     machine: 'Digital Print',
                     items: items,
                     sourceFile: file.name,
-                    sourceType: 'word_rtf'
+                    sourceType: 'word_rtf',
+                    sourceDocumentDate: extractDocumentDate(cleanText)
                 });
 
                 return normalizedRows;
@@ -1126,10 +1189,10 @@
 
                 const formattedQty = `${detectedTotal || (items.length || 1)} Pcs`;
                 const mainBarang = items.length === 1 ? items[0].nama : `${items.length} Items Cetakan (Total ${formattedQty})`;
-                const mainUkuran = items.length === 1 ? items[0].ukuran : (items.length > 0 ? 'Multi Ukuran' : '-');
+                const mainUkuran = items.length === 1 ? items[0].ukuran : (items.length > 0 ? 'Multi Size' : '-');
 
                 const itemsSummary = items.length > 0 ? 
-                    items.map(it => `${it.no ? it.no + '. ' : ''}${it.nama} (Uk: ${it.ukuran} | Qty: ${it.qty})`).join(' | ') :
+                    items.map(it => `${it.no ? it.no + '. ' : ''}${it.nama} (Size: ${it.ukuran} | Qty: ${it.qty})`).join(' | ') :
                     mainBarang;
 
                 normalizedRows.push({
@@ -1153,7 +1216,8 @@
                     machine: 'Digital Print',
                     items: items,
                     sourceFile: file.name,
-                    sourceType: 'word_docx'
+                    sourceType: 'word_docx',
+                    sourceDocumentDate: extractDocumentDate(allLines.join(' '))
                 });
 
                 return normalizedRows;
@@ -1214,7 +1278,7 @@
 
                     const formattedQty = `${detectedTotal || (items.length || 1)} Pcs`;
                     const mainBarang = items.length === 1 ? items[0].nama : `${items.length} Items Cetakan (Total ${formattedQty})`;
-                    const mainUkuran = items.length === 1 ? items[0].ukuran : (items.length > 0 ? 'Multi Ukuran' : '-');
+                    const mainUkuran = items.length === 1 ? items[0].ukuran : (items.length > 0 ? 'Multi Size' : '-');
 
                     normalizedRows.push({
                         rowIndex: normalizedRows.length + 1,
@@ -1228,7 +1292,7 @@
                         ukuran: mainUkuran,
                         qty: formattedQty,
                         finishing: '-',
-                        itemsSummary: items.length > 0 ? items.map(it => `${it.no ? it.no + '. ' : ''}${it.nama} (Uk: ${it.ukuran} | Qty: ${it.qty})`).join(' | ') : mainBarang,
+                        itemsSummary: items.length > 0 ? items.map(it => `${it.no ? it.no + '. ' : ''}${it.nama} (Size: ${it.ukuran} | Qty: ${it.qty})`).join(' | ') : mainBarang,
                         picPhone: picName || '0812-9876-5432',
                         originBranch: isCikokol ? 'cikokol' : 'pusat',
                         deadline: '17:00 WIB',
@@ -1237,7 +1301,8 @@
                         machine: 'Digital Print',
                         items: items,
                         sourceFile: file.name,
-                        sourceType: 'word_docx'
+                        sourceType: 'word_docx',
+                        sourceDocumentDate: extractDocumentDate(lines.join(' '))
                     });
                 }
 
@@ -1301,10 +1366,10 @@
                         address: finalAddress,
                         region: reg,
                         namaBarang: items.length === 1 ? items[0].nama : `${items.length} Items Cetakan (Total ${detectedTotal} Pcs)`,
-                        ukuran: items.length === 1 ? items[0].ukuran : (items.length > 0 ? 'Multi Ukuran' : '-'),
+                        ukuran: items.length === 1 ? items[0].ukuran : (items.length > 0 ? 'Multi Size' : '-'),
                         qty: `${detectedTotal || 1} Pcs`,
                         finishing: '-',
-                        itemsSummary: items.length > 0 ? items.map(it => `${it.no ? it.no + '. ' : ''}${it.nama} (Uk: ${it.ukuran} | Qty: ${it.qty})`).join(' | ') : 'Barang Cetakan',
+                        itemsSummary: items.length > 0 ? items.map(it => `${it.no ? it.no + '. ' : ''}${it.nama} (Size: ${it.ukuran} | Qty: ${it.qty})`).join(' | ') : 'Barang Cetakan',
                         picPhone: picName || '0812-9876-5432',
                         originBranch: isCikokol ? 'cikokol' : 'pusat',
                         deadline: '17:00 WIB',
@@ -1313,7 +1378,8 @@
                         machine: 'Digital Print',
                         items: items,
                         sourceFile: file.name,
-                        sourceType: 'word_html'
+                        sourceType: 'word_html',
+                        sourceDocumentDate: extractDocumentDate(allLines.join(' '))
                     });
 
                     return normalizedRows;
@@ -1408,7 +1474,8 @@
                             dateFolder: defaultDateFolder,
                             machine: 'Digital Print',
                             sourceFile: file.name,
-                            sourceType: 'word_binary_doc'
+                            sourceType: 'word_binary_doc',
+                            sourceDocumentDate: extractDocumentDate(rawStrings.join(' '))
                         });
 
                         return normalizedRows;
@@ -1450,7 +1517,8 @@
                         dateFolder: defaultDateFolder,
                         machine: 'Digital Print',
                         sourceFile: file.name,
-                        sourceType: 'word_mammoth'
+                        sourceType: 'word_mammoth',
+                        sourceDocumentDate: extractDocumentDate(text)
                     });
 
                     return normalizedRows;
@@ -1469,8 +1537,39 @@
 
     let currentPreviewRows = [];
 
+    // Only the local sandbox skips duplicate SJ numbers. Keep the first new SJ in each upload.
+    function classifyLocalImportRows(rows, existing) {
+        const numberKey = row => String(row.noSJ || row.sjNumber || '').trim().toUpperCase();
+        const storedNumbers = new Set(existing.map(numberKey).filter(Boolean));
+        const seen = new Set();
+        return rows.map(row => {
+            const key = numberKey(row);
+            const localDuplicateReason = storedNumbers.has(key) ? 'Sudah pernah diimpor' :
+                (key && seen.has(key) ? 'Duplikat dalam unggahan ini' : '');
+            if (key) seen.add(key);
+            return {...row, localDuplicateReason};
+        });
+    }
+
+    const escapePreviewText = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    function updatePreviewRow(index, field, value) {
+        if(!['adminSJ','region','originBranch','previewSelected'].includes(field)) return;
+        const parsed=parsedPreviewList[index],preview=currentPreviewRows.find(row=>row.originalIndex===index);
+        if(parsed)parsed[field]=value;if(preview)preview[field]=value;
+    }
+    function rememberPreviewEdits() {
+        if(!document.querySelectorAll)return;
+        for(const [selector,field] of [['.preview-admin-input','adminSJ'],['.preview-region-select','region'],['.preview-branch-select','originBranch']]) {
+            document.querySelectorAll(selector).forEach(input=>{
+                const raw=input.getAttribute('data-index');
+                if(raw!==null&&input.value!==undefined) updatePreviewRow(Number(raw),field,input.value);
+            });
+        }
+    }
+
     // Filter baris preview secara real-time
     function filterPreviewTable(query) {
+        rememberPreviewEdits();
         const q = (query || '').toLowerCase().trim();
         const tbody = document.getElementById('sj-import-preview-tbody');
         if (!tbody) return;
@@ -1489,54 +1588,70 @@
     function renderPreviewRows(rowsToRender) {
         const tbody = document.getElementById('sj-import-preview-tbody');
         if (!tbody) return;
+        if (window.WTRACK_LOCAL_SANDBOX) {
+            rowsToRender = rowsToRender.filter(row => !row.localDuplicateReason);
+        }
 
         if (rowsToRender.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="10" class="text-center py-5 text-muted" style="font-size: 0.85rem;">Tidak ada Surat Jalan yang sesuai dengan filter pencarian.</td></tr>`;
+            const allDuplicates = window.WTRACK_LOCAL_SANDBOX && currentPreviewRows.length > 0 && currentPreviewRows.every(row => row.localDuplicateReason);
+            const message = allDuplicates ? 'Semua SJ sudah pernah diimpor / duplikat. Tidak ada SJ baru untuk ditampilkan.' : 'Tidak ada Surat Jalan yang sesuai dengan filter pencarian.';
+            tbody.innerHTML = `<tr><td colspan="6" class="text-center py-5 text-muted" style="font-size: 0.85rem;">${message}</td></tr>`;
             return;
         }
 
+        const formatPreviewText = (value) => {
+            const text = String(value || '').trim();
+            if (!text) return '';
+            return text.toLocaleLowerCase('id-ID').replace(/\p{L}[\p{L}\p{N}]*/gu, word => {
+                if (/^(pt|cv|ud|pd|tb|rt|rw|dki|bsd|pik|pvc|mdf|wpb|hpl|acp|uv|do|sj|po|[ab]\d+)$/i.test(word)) return word.toUpperCase();
+                if (/^(cm|mm|m|kg|gsm|pcs|m2)$/.test(word)) return word;
+                return word.charAt(0).toLocaleUpperCase('id-ID') + word.slice(1);
+            });
+        };
+
         tbody.innerHTML = rowsToRender.map((r, i) => {
             const dataIdx = r.originalIndex !== undefined ? r.originalIndex : i;
+            const displayClient = escapePreviewText(formatPreviewText(r.clientName) || '-');
+            const displayAddr = escapePreviewText(formatPreviewText(r.address) || '-');
+            const displayItem = escapePreviewText(formatPreviewText(r.namaBarang || r.itemsSummary) || '-');
             return `
                 <tr>
                     <td class="text-center" style="width: 38px;">
-                        <input type="checkbox" class="form-check-input preview-row-checkbox" data-index="${dataIdx}" checked>
+                        <input type="checkbox" class="form-check-input preview-row-checkbox" data-index="${dataIdx}" ${r.localDuplicateReason ? 'disabled' : r.previewSelected===false ? '' : 'checked'} onchange="SJImportEngine.updatePreviewRow(${dataIdx},'previewSelected',this.checked)">
                     </td>
                     <td style="width: 140px;">
                         <a class="aerotrack-id-link font-monospace">${r.sjNumber}</a>
+                        ${r.localDuplicateReason ? `<small class="d-block text-warning">${r.localDuplicateReason} — dilewati</small>` : ''}
                     </td>
                     <td style="width: 110px;">
-                        <input type="text" class="form-control form-control-sm preview-admin-input py-0 px-2" data-index="${dataIdx}" placeholder="-" value="${r.adminSJ || ''}" style="width: 100px; font-size: 0.78rem; height: 32px;" title="Admin Penanggung Jawab SJ (Sementara kosong)">
-                    </td>
-                    <td style="width: 90px;">
-                        <span class="aerotrack-badge font-monospace">${r.shortCode}</span>
+                        <input type="text" class="form-control form-control-sm preview-admin-input py-0 px-2" data-index="${dataIdx}" placeholder="-" value="${escapePreviewText(formatPreviewText(r.adminSJ || ''))}" oninput="SJImportEngine.updatePreviewRow(${dataIdx},'adminSJ',this.value)" style="width: 100px; font-size: 0.78rem; height: 32px;" title="Admin SJ dari Excel/database customer; dapat diedit">
                     </td>
                     <td style="min-width: 180px;">
-                        <span class="fw-semibold text-dark text-truncate d-inline-block" style="max-width: 200px;" title="${r.clientName}">${r.clientName}</span>
+                        <span class="fw-medium text-dark text-truncate d-inline-block" style="max-width: 200px; text-transform: none;" title="${displayClient}">${displayClient}</span>
                     </td>
                     <td style="min-width: 220px;">
-                        <span class="text-muted text-truncate d-inline-block" style="max-width: 240px;" title="${r.address}">${r.address || '-'}</span>
+                        <span class="text-muted text-truncate d-inline-block" style="max-width: 240px; text-transform: none;" title="${displayAddr}">${displayAddr}</span>
                     </td>
                     <td style="width: 130px;">
-                        <select class="aerotrack-select preview-region-select py-0 px-2" data-index="${dataIdx}" style="width: 125px; font-size: 0.78rem; height: 32px;">
+                        <select class="aerotrack-select preview-region-select py-0 px-2" data-index="${dataIdx}" onchange="SJImportEngine.updatePreviewRow(${dataIdx},'region',this.value)" style="width: 125px; font-size: 0.78rem; height: 32px;">
                             ${JABODETABEK_REGIONS.map(reg => `<option value="${reg}" ${reg === r.region ? 'selected' : ''}>${reg}</option>`).join('')}
                         </select>
                     </td>
-                    <td style="width: 140px;">
-                        <select class="aerotrack-select preview-branch-select py-0 px-2" data-index="${dataIdx}" style="width: 135px; font-size: 0.78rem; height: 32px;">
+                    <td class="sj-import-col-detail" style="width: 140px;">
+                        <select class="aerotrack-select preview-branch-select py-0 px-2" data-index="${dataIdx}" onchange="SJImportEngine.updatePreviewRow(${dataIdx},'originBranch',this.value)" style="width: 135px; font-size: 0.78rem; height: 32px;">
                             <option value="pusat" ${r.originBranch === 'pusat' ? 'selected' : ''}>Pusat</option>
                             <option value="cikokol" ${r.originBranch === 'cikokol' ? 'selected' : ''}>Cikokol</option>
                         </select>
                     </td>
-                    <td style="min-width: 200px;">
-                        <span class="text-dark text-truncate d-inline-block" style="max-width: 220px; font-size: 0.8rem;" title="${r.namaBarang || r.itemsSummary || '-'}">
-                            ${r.namaBarang || r.itemsSummary || '-'}
+                    <td class="sj-import-col-detail" style="min-width: 200px;">
+                        <span class="text-dark text-truncate d-inline-block" style="max-width: 220px; font-size: 0.8rem; text-transform: none;" title="${displayItem}">
+                            ${displayItem}
                         </span>
                     </td>
-                    <td style="width: 110px;">
+                    <td class="sj-import-col-detail" style="width: 110px;">
                         <span class="text-muted font-monospace" style="font-size: 0.78rem;">${r.ukuran || '-'}</span>
                     </td>
-                    <td class="text-end" style="width: 80px;">
+                    <td class="sj-import-col-detail text-end" style="width: 80px;">
                         <span class="aerotrack-num">${r.qty || '1 Pcs'}</span>
                     </td>
                 </tr>
@@ -1546,6 +1661,9 @@
 
     // Render Preview Modal (AeroTrack ERP UI Style)
     function openImportPreviewModal(rows) {
+        if (window.WTRACK_LOCAL_SANDBOX) {
+            rows = classifyLocalImportRows(rows, JSON.parse(localStorage.getItem('wtrack_local_trips') || '[]'));
+        }
         const modalEl = document.getElementById('modal-sj-import-preview');
         if (!modalEl) {
             console.error("Modal preview import tidak ditemukan di DOM!");
@@ -1555,13 +1673,32 @@
         const countBadge = document.getElementById('sj-import-count-badge');
         const regionBreakdownEl = document.getElementById('sj-import-region-breakdown');
 
-        if (countBadge) countBadge.innerText = `${rows.length} Surat Jalan`;
+        if (countBadge) {
+            const skipped = rows.filter(row => row.localDuplicateReason).length;
+            countBadge.innerText = window.WTRACK_LOCAL_SANDBOX ?
+                `${rows.length} SJ terbaca · ${skipped} duplikat dilewati · ${rows.length - skipped} siap disimpan` : `${rows.length} Surat Jalan`;
+        }
+
+        if (window.WTRACK_LOCAL_SANDBOX) {
+            document.getElementById('sj-local-quantity-warning')?.remove();
+            const warnings = rows.filter(row => row.quantityWarning && !row.localDuplicateReason);
+            const body = modalEl.querySelector('.modal-body');
+            if (warnings.length && body) {
+                const note = document.createElement('div');
+                note.id = 'sj-local-quantity-warning';
+                note.className = 'alert alert-warning';
+                note.style.whiteSpace = 'pre-line';
+                note.textContent = `${warnings.length} SJ memiliki selisih Qty:\n` + warnings.slice(0, 10).map(row => `${row.sjNumber}: ${row.quantityWarning}`).join('\n');
+                body.prepend(note);
+            }
+        }
 
         currentPreviewRows = rows.map((r, i) => ({ ...r, originalIndex: i }));
 
         // Hitung rekapitulasi Region
         const regCounts = {};
         rows.forEach(r => {
+            if (window.WTRACK_LOCAL_SANDBOX && r.localDuplicateReason) return;
             regCounts[r.region] = (regCounts[r.region] || 0) + 1;
         });
 
@@ -1604,7 +1741,7 @@
 
     // Toggle Checkbox All di Preview
     function toggleAllPreview(checked) {
-        document.querySelectorAll('.preview-row-checkbox').forEach(cb => cb.checked = checked);
+        document.querySelectorAll('.preview-row-checkbox').forEach(cb => cb.checked = checked && !cb.disabled);
     }
 
     // Simpan Data Batch Hasil Import ke Firestore / Memory
@@ -1616,7 +1753,8 @@
 
         const checkboxes = document.querySelectorAll('.preview-row-checkbox:checked');
         if (checkboxes.length === 0) {
-            alert("Tidak ada Surat Jalan yang dicentang untuk di-import!");
+            const allDuplicates = window.WTRACK_LOCAL_SANDBOX && currentPreviewRows.length > 0 && currentPreviewRows.every(row => row.localDuplicateReason);
+            alert(allDuplicates ? 'Semua SJ duplikat / sudah pernah diimpor. Tidak ada SJ baru yang disimpan.' : 'Tidak ada Surat Jalan yang dicentang untuk di-import!');
             if (commitBtn) commitBtn.disabled = false;
             if (printBtn) printBtn.disabled = false;
             return;
@@ -1627,7 +1765,7 @@
         const dateFolder = todayDate.toISOString().slice(0, 10);
         const batchId = `BATCH_SJ_${dateFolder.replace(/-/g, '')}_${Date.now().toString().slice(-4)}`;
 
-        const tripsToSave = [];
+        let tripsToSave = [];
         const savedTripIds = [];
 
         checkboxes.forEach(cb => {
@@ -1660,8 +1798,15 @@
                 customer: item.clientName,
                 clientName: item.clientName,
                 address: item.address || '',
+                storeDestination: item.storeDestination || '',
                 qrPayload: qrPayload,
                 batchId: batchId,
+                sourceFile: item.sourceFile || currentImportFileName,
+                sourceDocumentDate: item.sourceDocumentDate || '',
+                importedAt: todayDate.toISOString(),
+                sourceQuantityTotal: item.sourceQuantityTotal ?? null,
+                itemQuantityTotal: item.itemQuantityTotal ?? null,
+                quantityWarning: item.quantityWarning || '',
                 dateFolder: dateFolder,
                 date: dateFolder,
                 status: 'pool', // Tetap di pool sampai di-assign admin atau di-scan kurir
@@ -1674,7 +1819,7 @@
                 deadlineAt: item.deadline || '',
                 courierId: '',
                 vehicleType: 'motor',
-                items: (item.items && item.items.length > 0) ? item.items : [{ nama: item.itemsSummary || 'Item Cetakan', qty: item.qty || '1 Koli' }],
+                items: (item.items && item.items.length > 0) ? item.items : [{ nama: item.namaBarang || item.itemsSummary || 'Item Cetakan', ukuran:item.ukuran || '-', qty: item.qty || '1 Koli', finishing:item.finishing || '' }],
                 destinations: [{
                     stopIndex: 1,
                     sjNumber: item.sjNumber,
@@ -1682,14 +1827,15 @@
                     adminSJ: finalAdminSJ,
                     shortCode: item.shortCode,
                     uniqueCode: item.shortCode,
-                    locationName: item.clientName,
+                    locationName: item.storeDestination || item.clientName || item.customer || item.address || 'Tujuan Pengantaran',
+                    storeDestination: item.storeDestination || '',
                     customer: item.clientName,
                     address: item.address,
                     itemsSummary: item.itemsSummary || 'Item Cetakan',
                     items: item.items || [],
                     qty: item.qty || '1 Koli',
-                    latitude: -6.2088,
-                    longitude: 106.8456,
+                    latitude: null,
+                    longitude: null,
                     status: 'pending',
                     proofPhotoUrl: ''
                 }]
@@ -1700,20 +1846,61 @@
 
         try {
             let savedToCloud = false;
+            let skippedDuplicateCount = 0;
 
-            // Coba simpan ke Firestore jika database aktif
-            if (activeDb) {
-                try {
-                    const batch = activeDb.batch();
-                    tripsToSave.forEach(t => {
-                        const ref = activeDb.collection('trips').doc(t.id);
-                        batch.set(ref, t);
-                    });
-                    await batch.commit();
-                    savedToCloud = true;
-                } catch (cloudErr) {
-                    console.warn("Firestore Cloud write ditolak (izin/offline), beralih ke penyimpanan lokal:", cloudErr);
+            if (window.WTRACK_LOCAL_SANDBOX) {
+                // Recheck at save time: another tab/PC may have imported an SJ after preview opened.
+                const existing = JSON.parse(localStorage.getItem('wtrack_local_trips') || '[]');
+                const classified = classifyLocalImportRows(tripsToSave, existing);
+                const previewDuplicates = classifyLocalImportRows(parsedPreviewList, existing).filter(t => t.localDuplicateReason).length;
+                skippedDuplicateCount = Math.max(previewDuplicates, classified.filter(t => t.localDuplicateReason).length);
+                tripsToSave = classified.filter(t => !t.localDuplicateReason).map(({localDuplicateReason, ...trip}) => trip);
+                savedTripIds.splice(0, savedTripIds.length, ...tripsToSave.map(t => t.id));
+                if (!tripsToSave.length) {
+                    alert('Semua SJ terpilih duplikat / sudah pernah diimpor. Tidak ada SJ baru yang disimpan.');
+                    openImportPreviewModal(parsedPreviewList);
+                    return;
                 }
+                const warnings = tripsToSave.filter(t => t.quantityWarning);
+                if (warnings.length && !confirm(`${warnings.length} SJ memiliki selisih Qty:\n${warnings.slice(0, 10).map(t => `${t.noSJ}: ${t.quantityWarning}`).join('\n')}\n\nLanjutkan uji lokal dengan angka asli dari file? File sumber tidak diubah.`)) return;
+
+
+            }
+
+            if (!window.WTRACK_LOCAL_SANDBOX) {
+                if(!activeDb) throw Error('Firebase belum terhubung. SJ belum disimpan.');
+                const snapshot=await activeDb.collection('trips').get({source:'server'});
+                const existing=snapshot.docs.map(doc=>doc.data());
+                const classified=classifyLocalImportRows(tripsToSave,existing);
+                skippedDuplicateCount=classified.filter(t=>t.localDuplicateReason).length;
+                const candidates=classified.filter(t=>!t.localDuplicateReason).map(({localDuplicateReason,...trip})=>trip);
+                const accepted=[];
+                // Registry prevents two PCs importing the same SJ concurrently.
+                for(let start=0;start<candidates.length;start+=120) {
+                    const group=candidates.slice(start,start+120);
+                    const saved=await activeDb.runTransaction(async tx=>{
+                        const refs=group.map(trip=>activeDb.collection('sj_import_keys').doc(encodeURIComponent(String(trip.noSJ).trim().toUpperCase())));
+                        const checks=await Promise.all(refs.map(ref=>tx.get(ref)));
+                        const inserted=[];
+                        group.forEach((trip,index)=>{
+                            if(checks[index].exists)return;
+                            tx.set(activeDb.collection('trips').doc(trip.id),trip);
+                            tx.set(refs[index],{noSJ:trip.noSJ,tripId:trip.id,importedAt:trip.importedAt});
+                            if(window.MaterialCloud) {
+                                const archive=window.MaterialCloud.usageRecord(trip);
+                                tx.set(activeDb.collection('material_usage_sources').doc(window.MaterialCloud.sourceId(trip.noSJ)),archive);
+                            }
+                            inserted.push(trip);
+                        });return inserted;
+                    });
+                    accepted.push(...saved);
+                }
+                skippedDuplicateCount+=candidates.length-accepted.length;
+                tripsToSave=accepted;
+                savedTripIds.splice(0,savedTripIds.length,...accepted.map(trip=>trip.id));
+                if(!accepted.length) {alert('Semua SJ sudah pernah diimpor. Tidak ada SJ baru disimpan.');return;}
+                savedToCloud=true;
+                if(window.MaterialCloud)window.MaterialCloud.acceptUsage(accepted.map(trip=>window.MaterialCloud.usageRecord(trip)));
             }
 
             // Simpan selalu ke LocalStorage agar persist antar refresh di browser
@@ -1725,9 +1912,20 @@
                         storedTrips.unshift(t);
                     }
                 });
-                localStorage.setItem('wtrack_local_trips', JSON.stringify(storedTrips.slice(0, 500)));
+                if (window.WTRACK_LOCAL_SANDBOX && typeof window.persistLocalSandboxTrips === 'function') {
+                    await window.persistLocalSandboxTrips(storedTrips);
+                } else {
+                    localStorage.setItem('wtrack_local_trips', JSON.stringify(window.WTRACK_LOCAL_SANDBOX ? storedTrips : storedTrips.slice(0, 500)));
+                }
             } catch (storageErr) {
+                if (window.WTRACK_LOCAL_LAN) throw storageErr;
+                if (window.WTRACK_LOCAL_SANDBOX) throw new Error('Penyimpanan browser penuh/tidak tersedia. Batch belum disimpan. Unduh backup dan kosongkan data uji lama sebelum mencoba lagi.');
                 console.warn("Gagal menyimpan ke LocalStorage:", storageErr);
+            }
+
+            if (window.WTRACK_LOCAL_SANDBOX) {
+                window.MaterialUsage?.capture(tripsToSave);
+                window.syncAllCurrentTrips?.(JSON.parse(localStorage.getItem('wtrack_local_trips') || '[]').filter(t => t.courierId || t.pickupStatus === 'collected'));
             }
 
             // Gabungkan ke window.allCurrentTrips
@@ -1741,7 +1939,7 @@
             // Gabungkan ke allPoolTrips
             if (!window.allPoolTrips) window.allPoolTrips = [];
             tripsToSave.forEach(t => {
-                if (!window.allPoolTrips.some(existing => existing.id === t.id)) {
+                if (!t.courierId && !window.allPoolTrips.some(existing => existing.id === t.id)) {
                     window.allPoolTrips.unshift(t);
                 }
             });
@@ -1756,7 +1954,8 @@
             });
 
             if (typeof window.showToast === 'function') {
-                window.showToast(`Berhasil mengimpor ${tripsToSave.length} Surat Jalan ke SJ Pool!`);
+                const assigned = tripsToSave.filter(t => t.courierId).length;
+                window.showToast(`Berhasil mengimpor ${tripsToSave.length} Surat Jalan!${assigned ? ` ${assigned} otomatis ditugaskan ke ${tripsToSave.find(t=>t.courierId).courierName}.` : ' Tersimpan di SJ Pool.'}${skippedDuplicateCount ? ` ${skippedDuplicateCount} SJ duplikat dilewati.` : ''}`);
             }
 
             // Kosongkan data preview import setelah berhasil disimpan ke pool
@@ -1772,7 +1971,7 @@
                 const searchInput = document.getElementById('preview-search-sj');
                 if (searchInput) searchInput.value = '';
                 const countBadge = document.getElementById('sj-import-count-badge');
-                if (countBadge) countBadge.innerText = '0 Surat Jalan';
+                if (countBadge) countBadge.innerText = '0 Delivery Order';
                 const regionBreakdown = document.getElementById('sj-import-region-breakdown');
                 if (regionBreakdown) regionBreakdown.innerHTML = '';
                 const tbody = document.getElementById('sj-import-preview-tbody');
@@ -1795,7 +1994,7 @@
             // Otomatis arahkan user ke SJ Pool & Hub untuk melihat hasilnya langsung
             try {
                 if (typeof window.switchTab === 'function') {
-                    window.switchTab('pool');
+                    window.switchTab(window.WTRACK_LOCAL_SANDBOX && tripsToSave.some(t=>t.courierId) ? 'dashboard' : 'pool');
                 }
                 if (typeof window.renderUnifiedPoolView === 'function') {
                     window.renderUnifiedPoolView();
@@ -1818,12 +2017,10 @@
 
         } catch (e) {
             console.error("Gagal memproses import batch SJ:", e);
-            if (tripsToSave && tripsToSave.length > 0) {
-                if (typeof window.showToast === 'function') {
-                    window.showToast(`✅ ${tripsToSave.length} Surat Jalan berhasil disimpan secara lokal.`);
-                }
+            if (window.WTRACK_LOCAL_SANDBOX) {
+                alert(e.message);
             } else {
-                alert("Terjadi kesalahan saat memproses import: " + e.message);
+                alert('Import belum selesai: ' + e.message + '. SJ yang sudah masuk Firebase tetap tersimpan. Ulangi file yang sama; nomor SJ yang sudah ada akan dilewati.');
             }
         } finally {
             if (commitBtn) commitBtn.disabled = false;
@@ -1866,6 +2063,7 @@
         const allRows = [];
         let successCount = 0;
         let failCount = 0;
+        const failedFiles = [];
 
         for (let i = 0; i < files.length; i++) {
             const f = files[i];
@@ -1888,9 +2086,14 @@
             } catch (err) {
                 console.warn(`Gagal membaca file "${f.name}":`, err);
                 failCount++;
+                failedFiles.push(f.name);
             }
         }
 
+        window.lastSJImportReport = {fileCount:files.length, successCount, failCount, rowCount:allRows.length, failedFiles};
+        if (window.WTRACK_LOCAL_SANDBOX && failCount) {
+            alert(`${failCount} dari ${files.length} file gagal dibaca: ${failedFiles.slice(0, 10).join(', ')}. Periksa jumlah SJ di preview sebelum menyimpan.`);
+        }
         if (allRows.length === 0) {
             alert("Tidak ada data Surat Jalan yang dapat dibaca dari file-file tersebut!");
             return;
@@ -2080,7 +2283,7 @@
         const clientName = 'PT ASPIRASI HIDUP INDONESIA TBK';
         const region = detectRegion(address, clientName);
 
-        const itemsSummary = items.map(it => `${it.no}. ${it.nama} (Uk: ${it.ukuran} | Qty: ${it.qty})`).join(' | ');
+        const itemsSummary = items.map(it => `${it.no}. ${it.nama} (Size: ${it.ukuran} | Qty: ${it.qty})`).join(' | ');
 
         return [{
             rowIndex: 1,
@@ -2091,7 +2294,7 @@
             address: address,
             region: region, // Depok
             namaBarang: `13 Items Cetakan (Total ${totalQty} Pcs)`,
-            ukuran: 'Multi Ukuran',
+            ukuran: 'Multi Size',
             qty: `${totalQty} Pcs`,
             finishing: '-',
             itemsSummary: itemsSummary,
@@ -2157,7 +2360,7 @@
                 address: s.address,
                 jobTitle: s.itemsSummary.split('|')[0].trim(),
                 namaProduk: s.itemsSummary.split('|')[0].trim(),
-                specs: `Uk: ${s.ukuran} | Fin: ${s.finishing}`,
+                specs: `Size: ${s.ukuran} | Fin: ${s.finishing}`,
                 qty: s.qty,
                 machineName: s.machine,
                 productionBranch: s.originBranch,
@@ -2451,6 +2654,7 @@
         parseWordFile,
         openImportPreviewModal,
         filterPreviewTable,
+        updatePreviewRow,
         openSJImportModal,
         openSPKImportModal,
         testWellenSampleImport,

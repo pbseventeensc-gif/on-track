@@ -77,55 +77,50 @@
         if (!document.getElementById('spk-table-body')) {
             viewContainer.innerHTML = `
                 <!-- HEADER SPK -->
-                <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
-                    <div>
-                        <div class="d-flex align-items-center gap-2">
-                            <h4 class="fw-bold mb-0 text-dark">Manajemen SPK Produksi</h4>
-                            <span class="badge bg-primary px-2.5 py-1 rounded-pill extra-small" id="spk-header-badge">${spkOrdersList.length} SPK Aktif</span>
-                        </div>
-                        <p class="text-muted small mb-0 mt-1">
-                            Alokasi mesin percetakan Pusat & Cikokol, pantau deadline pengerjaan & 1-klik konversi ke Surat Jalan.
-                        </p>
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="fw-semibold text-dark" style="font-size: 13.5px;">Antrian SPK Produksi</span>
+                        <span class="badge bg-primary px-2 py-0.5 rounded-pill extra-small fw-medium" id="spk-header-badge">${spkOrdersList.length} SPK Aktif</span>
                     </div>
                     <div class="d-flex align-items-center flex-wrap gap-2">
-                        <button class="btn btn-light border btn-sm px-2.5 py-2" style="border-radius:10px;" onclick="renderSPKView()" title="Refresh Data">
+                        <button class="btn btn-light border btn-sm px-2.5 py-1.5" style="border-radius:8px; font-size: 12px;" onclick="renderSPKView()" title="Refresh Data">
                             <i class="bi bi-arrow-clockwise"></i>
                         </button>
                     </div>
                 </div>
 
                 <!-- STATISTIK BADGES & CABANG FILTER -->
-                <div class="row g-3 mb-4">
+                <div class="row g-3 mb-3">
                     <div class="col-md-4">
-                        <div class="card border-0 shadow-sm p-3 bg-white h-100" style="border-radius: 14px;">
+                        <div class="card border p-3 bg-white h-100" style="border-radius: 10px; border-color: #eaecf0 !important; box-shadow: 0 1px 2px rgba(16,24,40,0.04);">
                             <div class="d-flex align-items-center justify-content-between">
                                 <div>
-                                    <div class="text-muted extra-small fw-bold text-uppercase">Total SPK Antrian</div>
-                                    <h3 class="fw-bold text-dark mt-1 mb-0" id="spk-stat-total">${spkOrdersList.length}</h3>
+                                    <div class="text-muted extra-small fw-medium text-uppercase">Total Antrian SPK</div>
+                                    <div class="fw-semibold text-dark mt-1 mb-0" style="font-size: 18px;" id="spk-stat-total">${spkOrdersList.length}</div>
                                 </div>
-                                <span class="p-3 rounded-3 bg-primary/10 text-primary fs-4"><i class="bi bi-printer"></i></span>
+                                <span class="p-2 rounded-2 bg-light text-primary" style="font-size: 15px;"><i class="bi bi-printer"></i></span>
                             </div>
                         </div>
                     </div>
                     <div class="col-md-4">
-                        <div class="card border-0 shadow-sm p-3 bg-white h-100" style="border-radius: 14px;">
+                        <div class="card border p-3 bg-white h-100" style="border-radius: 10px; border-color: #eaecf0 !important; box-shadow: 0 1px 2px rgba(16,24,40,0.04);">
                             <div class="d-flex align-items-center justify-content-between">
                                 <div>
-                                    <div class="text-muted extra-small fw-bold text-uppercase">Produksi Kantor Pusat</div>
-                                    <h3 class="fw-bold text-primary mt-1 mb-0" id="spk-stat-pusat">0</h3>
+                                    <div class="text-muted extra-small fw-medium text-uppercase">Pusat</div>
+                                    <div class="fw-semibold text-primary mt-1 mb-0" style="font-size: 18px;" id="spk-stat-pusat">0</div>
                                 </div>
-                                <span class="p-3 rounded-3 bg-primary/10 text-primary fs-4"><i class="bi bi-building"></i></span>
+                                <span class="p-2 rounded-2 bg-light text-primary" style="font-size: 15px;"><i class="bi bi-building"></i></span>
                             </div>
                         </div>
                     </div>
                     <div class="col-md-4">
-                        <div class="card border-0 shadow-sm p-3 bg-white h-100" style="border-radius: 14px;">
+                        <div class="card border p-3 bg-white h-100" style="border-radius: 10px; border-color: #eaecf0 !important; box-shadow: 0 1px 2px rgba(16,24,40,0.04);">
                             <div class="d-flex align-items-center justify-content-between">
                                 <div>
-                                    <div class="text-muted extra-small fw-bold text-uppercase">Produksi Cabang Cikokol</div>
-                                    <h3 class="fw-bold text-warning mt-1 mb-0" id="spk-stat-cikokol">0</h3>
+                                    <div class="text-muted extra-small fw-medium text-uppercase">cikokol</div>
+                                    <div class="fw-semibold text-warning-emphasis mt-1 mb-0" style="font-size: 18px;" id="spk-stat-cikokol">0</div>
                                 </div>
-                                <span class="p-3 rounded-3 bg-warning/10 text-warning fs-4"><i class="bi bi-cpu"></i></span>
+                                <span class="p-2 rounded-2 bg-light text-warning" style="font-size: 15px;"><i class="bi bi-cpu"></i></span>
                             </div>
                         </div>
                     </div>
@@ -161,10 +156,10 @@
                                     <th style="width: 44px;" class="text-center">No</th>
                                     <th style="width: 140px;">No. SPK & Cabang</th>
                                     <th style="min-width: 180px;">Customer / Klien</th>
-                                    <th style="min-width: 220px;">Nama Barang & Ukuran</th>
+                                    <th style="min-width: 220px;">Nama Barang & Size</th>
                                     <th style="width: 130px;">Qty & Mesin</th>
-                                    <th style="width: 150px;">Status Produksi</th>
-                                    <th style="width: 120px;" class="text-end">Aksi Konversi</th>
+                                    <th style="width: 150px;">Status</th>
+                                    <th style="width: 120px;" class="text-end">Aksi</th>
                                     <th style="width: 44px;" class="text-center"><i class="bi bi-trash text-muted"></i></th>
                                 </tr>
                             </thead>
@@ -217,7 +212,7 @@
                 <i class="bi bi-printer fs-2 d-block mb-2 text-muted"></i>
                 Tidak ada data SPK untuk filter cabang ini.<br>
                 <button class="btn btn-primary btn-sm mt-3 fw-bold" onclick="openSPKImportModal()">
-                    <i class="bi bi-file-earmark-excel me-1"></i> Import File SPK Sekarang
+                    <i class="bi bi-file-earmark-excel me-1"></i> Import SPK
                 </button>
             </td></tr>`;
             return;
@@ -225,7 +220,7 @@
 
         tbody.innerHTML = filtered.map((item, idx) => {
             let statusBadge = '<span class="aerotrack-badge">Antri Cetak</span>';
-            if (item.productionStatus === 'printing') statusBadge = '<span class="aerotrack-badge badge-primary"><i class="bi bi-printer-fill me-1"></i>Proses Cetak</span>';
+            if (item.productionStatus === 'printing') statusBadge = '<span class="aerotrack-badge badge-primary"><i class="bi bi-printer-fill me-1"></i>Cetak</span>';
             else if (item.productionStatus === 'finishing') statusBadge = '<span class="aerotrack-badge badge-purple"><i class="bi bi-scissors me-1"></i>Finishing</span>';
             else if (item.productionStatus === 'packing') statusBadge = '<span class="aerotrack-badge badge-warning"><i class="bi bi-box-seam me-1"></i>Packing Selesai</span>';
             else if (item.productionStatus === 'completed') statusBadge = '<span class="aerotrack-badge badge-success"><i class="bi bi-check2-circle me-1"></i>Siap Kirim</span>';
@@ -267,7 +262,7 @@
                     <td style="width: 150px;">
                         <select class="aerotrack-select py-0 px-2" style="width: 135px; font-size: 0.78rem; height: 32px;" onchange="window.spkManager.updateSPKStatus('${safeId}', this.value)">
                             <option value="received" ${item.productionStatus === 'received' ? 'selected' : ''}>Antri Cetak</option>
-                            <option value="printing" ${item.productionStatus === 'printing' ? 'selected' : ''}>Proses Cetak</option>
+                            <option value="printing" ${item.productionStatus === 'printing' ? 'selected' : ''}>Cetak</option>
                             <option value="finishing" ${item.productionStatus === 'finishing' ? 'selected' : ''}>Finishing/Cut</option>
                             <option value="packing" ${item.productionStatus === 'packing' ? 'selected' : ''}>Packing</option>
                             <option value="completed" ${item.productionStatus === 'completed' ? 'selected' : ''}>Selesai (Siap SJ)</option>
@@ -740,7 +735,7 @@
                 customer: s.customer || s.clientName || 'WELLEN DM',
                 jobTitle: s.namaBarang || s.jobTitle || 'Pekerjaan Cetak',
                 namaProduk: s.namaBarang || s.jobTitle || 'Pekerjaan Cetak',
-                specs: `Uk: ${s.ukuran || '-'} | Fin: ${s.finishing || '-'}`,
+                specs: `Size: ${s.ukuran || '-'} | Fin: ${s.finishing || '-'}`,
                 qty: s.qty || '1 Pcs',
                 machineName: s.machine || s.machineName || 'Mesin Cetak',
                 productionBranch: s.originBranch || s.branch,

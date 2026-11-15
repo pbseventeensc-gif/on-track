@@ -66,7 +66,7 @@ test('courier list keeps same-address clients and repeated SJ across different t
         syncLocalImportedTrips(){},renderHomeScreen(){},renderShipmentsScreen(){},console,
         firestoreDb:{collection:()=>({onSnapshot(callback){callback([{id:trip.id,data:()=>trip},{id:trip2.id,data:()=>trip2}]);return ()=>{};}})}
     });
-    const start = courierSource.indexOf('    function syncFirestoreTrips()');
+    const start = courierSource.indexOf('    function syncFirestoreTrips(');
     const end = courierSource.indexOf('    function syncLocalImportedTrips()',start);
     vm.runInContext(courierSource.slice(start,end),context);
     context.syncFirestoreTrips();
