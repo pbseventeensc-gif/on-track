@@ -46,6 +46,7 @@
         if (id.includes('status')) return 'Pilih Status Pengiriman';
         if (id.includes('branch')) return 'Pilih Cabang';
         if (id.includes('region')) return 'Pilih Wilayah';
+        if (id.includes('metric')) return 'Pilih Satuan Data';
         if (id.includes('vehicle') || id.includes('armada')) return 'Pilih Kendaraan';
         if (id.includes('category')) return 'Pilih Kategori';
         return 'Pilih Opsi';
@@ -604,7 +605,10 @@
             '#archive-courier-filter',
             '#archive-category-filter',
             '#fleet-input-category',
-            '#fleet-input-personil'
+            '#fleet-input-personil',
+            '#vol-courier-select',
+            '#vol-metric-select',
+            '#vol-region-select'
         ];
 
         targetSelectors.forEach(sel => {
