@@ -400,8 +400,11 @@
             const sjCounts = countSJ(dayItems);
             totalSJ = sjCounts.total;
             delivSJ = sjCounts.delivered;
+            const failedDest = Math.max(0, totalDest - delivDest);
+            const failedSJ = Math.max(0, totalSJ - delivSJ);
             const total = metric === 'destinations' ? totalDest : totalSJ;
             const delivered = metric === 'destinations' ? delivDest : delivSJ;
+            const failed = metric === 'destinations' ? failedDest : failedSJ;
 
             const isOvertime = dayName === 'Minggu' && total > 0;
 
@@ -413,10 +416,13 @@
                 isToday,
                 total,
                 delivered,
+                failed,
                 totalDest,
                 delivDest,
+                failedDest,
                 totalSJ,
                 delivSJ,
+                failedSJ,
                 isOvertime,
                 itemsCount: dayItems.length
             };
@@ -521,6 +527,7 @@
         buckets.forEach(b => {
             if (b.total > maxVal) maxVal = b.total;
             if (b.delivered > maxVal) maxVal = b.delivered;
+            if (b.failed > maxVal) maxVal = b.failed;
         });
 
         // Nice scale step
@@ -553,28 +560,30 @@
             `;
         }
 
-        const barWidth = 18;
-        const barGap = 5;
+        const barWidth = 13;
+        const barGap = 3.5;
         let barsHtml = '';
 
         buckets.forEach((b, idx) => {
             const slotCenter = plotStartX + idx * slotWidth + slotWidth / 2;
-            const barPairWidth = barWidth * 2 + barGap;
-            const groupX = slotCenter - barPairWidth / 2;
+            const barGroupWidth = barWidth * 3 + barGap * 2;
+            const groupX = slotCenter - barGroupWidth / 2;
             const barPairCenter = slotCenter;
 
             const totalHeight = b.total > 0 ? Math.max(6, (b.total / roundedMax) * plotHeight) : 0;
             const deliveredHeight = b.delivered > 0 ? Math.max(6, (b.delivered / roundedMax) * plotHeight) : 0;
+            const failedHeight = b.failed > 0 ? Math.max(6, (b.failed / roundedMax) * plotHeight) : 0;
 
             const totalY = zeroY - totalHeight;
             const deliveredY = zeroY - deliveredHeight;
+            const failedY = zeroY - failedHeight;
 
             const unitLabel = metric === 'destinations' ? 'Titik' : 'SJ';
             const isSunday = b.day === 'Minggu';
 
             barsHtml += `
                 <g class="cursor-pointer chart-day-group" data-idx="${idx}" role="button" tabindex="0" aria-label="Tampilkan pengiriman ${b.day}${b.dateFormatted ? ` (${b.dateFormatted})` : ''}" onclick="VolumeComparison.filterByDay(${idx}, event)" onkeydown="if(event.key === 'Enter' || event.key === ' '){event.preventDefault(); VolumeComparison.filterByDay(${idx}, event)}"
-                   onmouseenter="VolumeComparison.showTooltip(${idx}, ${barPairCenter}, ${Math.min(totalY, deliveredY)})"
+                   onmouseenter="VolumeComparison.showTooltip(${idx}, ${barPairCenter}, ${Math.min(totalY, deliveredY, failedY)})"
                    onmousemove="VolumeComparison.updateTooltipPos(event)"
                    onmouseleave="VolumeComparison.hideTooltip()">
                     
@@ -583,19 +592,28 @@
                     
                     <!-- Orange Bar: Total (Titik Pengantaran / Surat Jalan) -->
                     ${b.total > 0 ? `
-                        <rect x="${groupX}" y="${totalY}" width="${barWidth}" height="${totalHeight}" rx="4" fill="#CC6100" class="chart-bar-total"></rect>
-                        <text x="${groupX + barWidth / 2}" y="${totalY - 6}" text-anchor="middle" style="fill: #101828; font-size: 11px; font-weight: 700; font-family: monospace;">${b.total}</text>
+                        <rect x="${groupX}" y="${totalY}" width="${barWidth}" height="${totalHeight}" rx="3.5" fill="#CC6100" class="chart-bar-total"></rect>
+                        <text x="${groupX + barWidth / 2}" y="${totalY - 5}" text-anchor="middle" style="fill: #101828; font-size: 10.5px; font-weight: 700; font-family: monospace;">${b.total}</text>
                     ` : `
-                        <text x="${groupX + barWidth / 2}" y="${zeroY - 6}" text-anchor="middle" style="fill: #98A2B3; font-size: 10px; font-weight: 500; font-family: monospace;">0</text>
+                        <text x="${groupX + barWidth / 2}" y="${zeroY - 5}" text-anchor="middle" style="fill: #98A2B3; font-size: 10px; font-weight: 500; font-family: monospace;">0</text>
                     `}
                     
-                    <!-- Green Bar: Berhasil Diantar -->
+                    <!-- Green Bar: Berhasil Diantar (Sukses) -->
                     ${b.delivered > 0 ? `
-                        <rect x="${groupX + barWidth + barGap}" y="${deliveredY}" width="${barWidth}" height="${deliveredHeight}" rx="4" fill="#12B76A" class="chart-bar-delivered"></rect>
-                        <text class="chart-bar-delivered" x="${groupX + barWidth + barGap + barWidth / 2}" y="${deliveredY - 6}" text-anchor="middle" style="fill: #027A48; font-size: 11px; font-weight: 700; font-family: monospace;">${b.delivered}</text>
+                        <rect x="${groupX + barWidth + barGap}" y="${deliveredY}" width="${barWidth}" height="${deliveredHeight}" rx="3.5" fill="#12B76A" class="chart-bar-delivered"></rect>
+                        <text class="chart-bar-delivered" x="${groupX + barWidth + barGap + barWidth / 2}" y="${deliveredY - 5}" text-anchor="middle" style="fill: #027A48; font-size: 10.5px; font-weight: 700; font-family: monospace;">${b.delivered}</text>
                     ` : (b.total > 0 ? `
-                        <rect x="${groupX + barWidth + barGap}" y="${zeroY - 4}" width="${barWidth}" height="4" rx="2" fill="#D0D5DD"></rect>
-                        <text x="${groupX + barWidth + barGap + barWidth / 2}" y="${zeroY - 6}" text-anchor="middle" style="fill: #98A2B3; font-size: 10px; font-weight: 500; font-family: monospace;">0</text>
+                        <rect x="${groupX + barWidth + barGap}" y="${zeroY - 3}" width="${barWidth}" height="3" rx="1.5" fill="#D0D5DD"></rect>
+                        <text x="${groupX + barWidth + barGap + barWidth / 2}" y="${zeroY - 5}" text-anchor="middle" style="fill: #98A2B3; font-size: 10px; font-weight: 500; font-family: monospace;">0</text>
+                    ` : '')}
+
+                    <!-- Red Bar: Gagal Kirim -->
+                    ${b.failed > 0 ? `
+                        <rect x="${groupX + (barWidth + barGap) * 2}" y="${failedY}" width="${barWidth}" height="${failedHeight}" rx="3.5" fill="#D92D20" class="chart-bar-failed"></rect>
+                        <text class="chart-bar-failed" x="${groupX + (barWidth + barGap) * 2 + barWidth / 2}" y="${failedY - 5}" text-anchor="middle" style="fill: #B42318; font-size: 10.5px; font-weight: 700; font-family: monospace;">${b.failed}</text>
+                    ` : (b.total > 0 ? `
+                        <rect x="${groupX + (barWidth + barGap) * 2}" y="${zeroY - 3}" width="${barWidth}" height="3" rx="1.5" fill="#FEE4E2" class="chart-bar-failed"></rect>
+                        <text class="chart-bar-failed" x="${groupX + (barWidth + barGap) * 2 + barWidth / 2}" y="${zeroY - 5}" text-anchor="middle" style="fill: #FDA29B; font-size: 10px; font-weight: 500; font-family: monospace;">0</text>
                     ` : '')}
                     
                     <!-- X-Axis Day & Date Label -->
@@ -794,9 +812,11 @@
 
         let totalWeeklyVolume = 0;
         let deliveredWeeklyVolume = 0;
+        let failedWeeklyVolume = 0;
         dailyBuckets.forEach(b => {
             totalWeeklyVolume += b.total;
             deliveredWeeklyVolume += b.delivered;
+            failedWeeklyVolume += (b.failed || 0);
         });
 
         const metricTitle = currentMetric === 'destinations' ? 'Titik' : 'Surat Jalan';
@@ -817,7 +837,7 @@
                             </button>
                         </div>
                         <p class="m-0 mt-0.5" style="font-size: 12px; color: #667085;">
-                            ${fmtNum(totalWeeklyVolume)} ${unitName} total jadwal vs ${fmtNum(deliveredWeeklyVolume)} ${unitName} sukses ${currentVehicle !== 'all' ? `• Armada ${currentVehicle === 'mobil' ? 'Mobil' : 'Motor'} ` : ''}(${escapeHtml(startDate)} – ${escapeHtml(endDate)} WIB)
+                            ${fmtNum(totalWeeklyVolume)} ${unitName} total • ${fmtNum(deliveredWeeklyVolume)} ${unitName} sukses • ${fmtNum(failedWeeklyVolume)} ${unitName} gagal ${currentVehicle !== 'all' ? `• Armada ${currentVehicle === 'mobil' ? 'Mobil' : 'Motor'} ` : ''}(${escapeHtml(startDate)} – ${escapeHtml(endDate)} WIB)
                         </p>
                     </div>
 
@@ -887,6 +907,10 @@
                                 <span class="d-inline-flex align-items-center gap-1.5">
                                     <span class="rounded-1 d-inline-block" style="width: 12px; height: 12px; background: #12B76A;"></span>
                                     <span class="fw-medium text-dark">Sukses</span>
+                                </span>
+                                <span class="d-inline-flex align-items-center gap-1.5">
+                                    <span class="rounded-1 d-inline-block" style="width: 12px; height: 12px; background: #D92D20;"></span>
+                                    <span class="fw-medium text-dark">Gagal</span>
                                 </span>
                             </div>
                         </div>
@@ -958,7 +982,7 @@
         const regionLabel = currentRegion === 'all' ? 'Semua Region' : currentRegion;
         const vehicleLabel = currentVehicle === 'all' ? '' : (currentVehicle === 'mobil' ? ' • 🚗 Mobil' : ' • 🛵 Motor');
         const successRate = b.total > 0 ? Math.round((b.delivered / b.total) * 100) : 0;
-        const pending = Math.max(0, b.total - b.delivered);
+        const failed = b.failed !== undefined ? b.failed : Math.max(0, b.total - b.delivered);
         const unitName = currentMetric === 'destinations' ? 'Titik' : 'SJ';
 
         tooltipEl.innerHTML = `
@@ -983,13 +1007,13 @@
                     </span>
                     <span class="fw-bold" style="color: #027A48;">${fmtNum(b.delivered)} ${unitName} (${successRate}%)</span>
                 </div>
-                ${pending > 0 ? `
+                ${failed > 0 ? `
                 <div class="d-flex align-items-center justify-content-between gap-3">
                     <span class="d-inline-flex align-items-center gap-1.5" style="color: #475467;">
-                        <span class="rounded-1 d-inline-block" style="width: 8px; height: 8px; background: #98A2B3;"></span>
-                        Tertunda / Belum:
+                        <span class="rounded-1 d-inline-block" style="width: 8px; height: 8px; background: #D92D20;"></span>
+                        Gagal:
                     </span>
-                    <span class="fw-bold" style="color: #344054;">${fmtNum(pending)} ${unitName}</span>
+                    <span class="fw-bold" style="color: #B42318;">${fmtNum(failed)} ${unitName}</span>
                 </div>` : ''}
                 <div class="d-flex align-items-center justify-content-between gap-3 mt-1.5 pt-1.5 border-top" style="border-color: #F2F4F7 !important;">
                     <span style="color: #475467;">Persentase Selesai:</span>
@@ -1098,6 +1122,7 @@
         let rows = filterTripItems(collectTripData(), choice.region, choice.admin, choice.courier, choice.start, choice.end, choice.vehicle);
         rows = rows.filter(row => choice.kind === 'day' ? row.day === choice.value : row[choice.dim] === choice.value);
         if (choice.deliveredOnly) rows = rows.filter(row => row.deliveredDestinations > 0);
+        else if (choice.failedOnly) rows = rows.filter(row => row.deliveredDestinations === 0);
         return new Map(rows.map(row => [`${row.tripId}:${row.destinationIndex}`, row]));
     }
 
@@ -1107,7 +1132,7 @@
         const rows = [...selection.values()];
         const total = rows.length;
         const completed = rows.filter(row => row.deliveredDestinations > 0).length;
-        const returned = rows.filter(row => row.returned).length;
+        const returned = rows.filter(row => row.returned || row.deliveredDestinations === 0).length;
         let distance = 0;
         if (typeof root.calculateAccurateTripKM === 'function') {
             const seen = new Set();
@@ -1122,6 +1147,7 @@
         }
         const choice = shipmentSelection;
         let label = '';
+        const filterTag = choice.failedOnly ? ' • Gagal Kirim' : (choice.deliveredOnly ? ' • Selesai' : '');
         if (choice.kind === 'day') {
             let dayDate = choice.date;
             if (!dayDate) {
@@ -1139,20 +1165,21 @@
                 }
             }
             const dateStr = dayDate ? formatIndoDate(dayDate, true) : choice.value;
-            label = `${dateStr}${choice.deliveredOnly ? ' • Selesai' : ''}`;
+            label = `${dateStr}${filterTag}`;
         } else {
             const rangeStr = formatIndoDateRange(choice.start, choice.end);
-            label = `${choice.value}${choice.deliveredOnly ? ' • Selesai' : ''} • ${rangeStr}`;
+            label = `${choice.value}${filterTag} • ${rangeStr}`;
         }
 
         return {
             total,
             completed,
             returned,
-            inProgress: total - completed - returned,
+            inProgress: Math.max(0, total - completed - returned),
             distance,
             rate: total ? Math.round(completed / total * 100) : 0,
-            label
+            label,
+            failedOnly: !!choice.failedOnly
         };
     }
 
@@ -1160,7 +1187,7 @@
         const summary = getSelectionSummary();
         const card = root.document.getElementById('stat-active')?.closest?.('.stat-card');
         const title = card?.querySelector?.('.stat-label');
-        if (title) title.textContent = summary ? 'Total Shipments' : 'Total Shipments Today';
+        if (title) title.textContent = summary?.failedOnly ? 'Gagal Kirim' : (summary ? 'Total Shipments' : 'Total Shipments Today');
         const defaults = {'stat-active':'Hari Ini','stat-completed':'Hari Ini','stat-ontime':'Real-time',
             'stat-delayed':'Ke Kantor','stat-total-km':'Real-time'};
         Object.entries(defaults).forEach(([id,fallback]) => {
@@ -1209,7 +1236,8 @@
         if (banner) {
             banner.hidden = false;
             const displayChoice = choice.kind === 'day' && choice.date ? formatIndoDate(choice.date, true) : choice.value;
-            banner.innerHTML = `<span>Pilihan grafik: ${escapeHtml(displayChoice)}${choice.deliveredOnly ? ' • Selesai' : ''}</span><button type="button" class="btn btn-sm btn-light border ms-2" onclick="VolumeComparison.clearShipmentSelection()">Hapus pilihan</button>`;
+            const filterTag = choice.failedOnly ? ' • Gagal Kirim' : (choice.deliveredOnly ? ' • Selesai' : '');
+            banner.innerHTML = `<span>Pilihan grafik: ${escapeHtml(displayChoice)}${filterTag}</span><button type="button" class="btn btn-sm btn-light border ms-2" onclick="VolumeComparison.clearShipmentSelection()">Hapus pilihan</button>`;
         }
         root.renderRecentShipments?.('', true);
         root.document.getElementById('recent-shipments-total-badge')?.scrollIntoView?.({behavior:'smooth', block:'center'});
@@ -1218,12 +1246,14 @@
     function filterByDay(index, event) {
         const day = DAYS_ORDER[index];
         if (!day) return;
-        const deliveredOnly = !!event?.target?.classList?.contains('chart-bar-delivered');
+        const target = event?.target;
+        const deliveredOnly = !!target?.classList?.contains('chart-bar-delivered');
+        const failedOnly = !deliveredOnly && !!target?.classList?.contains('chart-bar-failed');
         const rawData = collectTripData();
         const buckets = computeDailyBuckets(rawData, currentMetric, currentRegion, currentAdmin, currentCourier, startDate, endDate, currentVehicle);
         const bucket = buckets[index];
         const date = bucket?.date || '';
-        applyShipmentSelection({kind:'day', value:day, deliveredOnly, date, dayIndex: index});
+        applyShipmentSelection({kind:'day', value:day, deliveredOnly, failedOnly, date, dayIndex: index});
     }
 
     function filterByRow(name) {

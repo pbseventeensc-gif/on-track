@@ -3020,10 +3020,19 @@ function updateGlobalStats() {
 
             if(t.destinations && t.destinations.length > 0) {
                 t.destinations.forEach((d, i) => {
-                    totalStops++;
                     const hasPodPhoto = !!(d.proofPhotoUrl || d.proofPhotoSj || (d.proofPhotoItems && d.proofPhotoItems.length > 0));
+                    const isDone = (d.status === 'done' || d.status === 'completed' || d.status === 'delivered' || hasPodPhoto || t.status === 'completed');
+                    if (filterStartMs > 0) {
+                        const parseFn = typeof parseCompletionTimestamp === 'function' ? parseCompletionTimestamp : (v => v ? (typeof v === 'number' ? v : (v.seconds ? v.seconds * 1000 : new Date(v).getTime() || 0)) : 0);
+                        const completedMs = parseFn(d.completedTime) || parseFn(d.completedAt);
+                        if (isDone && completedMs > 0 && (completedMs < filterStartMs || completedMs > filterEndMs)) {
+                            return;
+                        }
+                    }
+
+                    totalStops++;
                     const isAccPending = (d.status === 'pending' && d.pendingReason && d.pendingReason.length > 0) || d.status === 'returned' || d.status === 'failed';
-                    if (d.status === 'done' || hasPodPhoto || d.status === 'completed' || t.status === 'completed') {
+                    if (isDone) {
                         deliveredStops++;
                     } else if (isAccPending) {
                         returnedStops++;
@@ -3058,10 +3067,17 @@ function updateGlobalStats() {
             if (isTripInDateRange(t, todayDayMs, todayEndMs)) {
                 if (t.destinations && t.destinations.length > 0) {
                     t.destinations.forEach((d, i) => {
-                        totalStopsToday++;
                         const hasPodPhoto = !!(d.proofPhotoUrl || d.proofPhotoSj || (d.proofPhotoItems && d.proofPhotoItems.length > 0));
+                        const isDone = (d.status === 'done' || d.status === 'completed' || d.status === 'delivered' || hasPodPhoto || t.status === 'completed');
+                        const parseFn = typeof parseCompletionTimestamp === 'function' ? parseCompletionTimestamp : (v => v ? (typeof v === 'number' ? v : (v.seconds ? v.seconds * 1000 : new Date(v).getTime() || 0)) : 0);
+                        const completedMs = parseFn(d.completedTime) || parseFn(d.completedAt);
+                        if (isDone && completedMs > 0 && (completedMs < todayDayMs || completedMs > todayEndMs)) {
+                            return;
+                        }
+
+                        totalStopsToday++;
                         const isAccPending = (d.status === 'pending' && d.pendingReason && d.pendingReason.length > 0) || d.status === 'returned' || d.status === 'failed';
-                        if (d.status === 'done' || hasPodPhoto || d.status === 'completed' || t.status === 'completed') {
+                        if (isDone) {
                             deliveredStopsToday++;
                         } else if (isAccPending) {
                             returnedStopsToday++;
@@ -4612,6 +4628,16 @@ function executeRenderRecentShipments(filter = null) {
                 if (!d) return;
                 const selectedVolumeRow = volumeSelection?.get(`${t.id || t.tripId}:${idx}`);
                 if (volumeSelection && !selectedVolumeRow) return;
+
+                if (!volumeSelection && filterStartMs > 0) {
+                    const hasPodPhoto = !!(d.proofPhotoUrl || d.proofPhotoSj || (d.proofPhotoItems && d.proofPhotoItems.length > 0));
+                    const completed = (d.status === 'done' || d.status === 'completed' || d.status === 'delivered' || hasPodPhoto || t.status === 'completed');
+                    const compMs = typeof destinationCompletionMs === 'function' ? destinationCompletionMs(d, t) : (typeof parseCompletionTimestamp === 'function' ? (parseCompletionTimestamp(d.completedTime) || parseCompletionTimestamp(d.completedAt)) : 0);
+                    if (completed && compMs > 0 && (compMs < filterStartMs || compMs > filterEndMs)) {
+                        return;
+                    }
+                }
+
                 const customerName = d.customer || d.clientName || t.customer || t.clientName || '';
                 let locName = d.locationName || customerName || 'Destination';
                 if (locName === 'Tujuan Pengantaran' && customerName) {
@@ -5322,6 +5348,16 @@ async function exportRecentShipmentsToExcel() {
                 if (!d) return;
                 const selectedVolumeRow = volumeSelection?.get(`${t.id || t.tripId}:${idx}`);
                 if (volumeSelection && !selectedVolumeRow) return;
+
+                if (!volumeSelection && filterStartMs > 0) {
+                    const hasPodPhoto = !!(d.proofPhotoUrl || d.proofPhotoSj || (d.proofPhotoItems && d.proofPhotoItems.length > 0));
+                    const completed = (d.status === 'done' || d.status === 'completed' || d.status === 'delivered' || hasPodPhoto || t.status === 'completed');
+                    const compMs = typeof destinationCompletionMs === 'function' ? destinationCompletionMs(d, t) : (typeof parseCompletionTimestamp === 'function' ? (parseCompletionTimestamp(d.completedTime) || parseCompletionTimestamp(d.completedAt)) : 0);
+                    if (completed && compMs > 0 && (compMs < filterStartMs || compMs > filterEndMs)) {
+                        return;
+                    }
+                }
+
                 const locName = d.locationName || 'Destination';
                 const fullAddress = d.address || '-';
                 const stopIdx = d.stopIndex || (idx + 1);

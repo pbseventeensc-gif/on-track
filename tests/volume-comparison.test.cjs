@@ -203,3 +203,85 @@ test('supports DD/MM/YYYY dates and aligns today shipments with isTripInDateRang
     assert.equal(sundayRows.length,51);
     assert.equal(sundayRows.reduce((sum,r)=>sum+r.deliveredDestinations,0),49);
 });
+
+test('renders 3rd red bar for failed shipments and tooltip shows Gagal instead of Tertunda/Belum',()=>{
+    const container={innerHTML:''};
+    const tooltipEl={innerHTML:'',classList:{add(){},remove(){}},style:{}};
+    const api=setup([
+        {id:'trip-rabu',courierId:'c',date:'2026-11-11',destinations:[
+            {status:'done',address:'Alamat 1'},
+            {status:'done',address:'Alamat 2'},
+            {status:'pending',address:'Alamat 3'} // 1 failed/pending
+        ]}
+    ],[],{
+        document:{
+            addEventListener(){},
+            getElementById:id=>id==='dashboard-volume-comparison-container'?container:
+                (id==='esse-chart-tooltip'?tooltipEl:(id==='volume-svg-container'?{}:null))
+        }
+    });
+    api.setDateRange('2026-11-09','2026-11-15');
+    const rows=api.collectTripData();
+    const buckets=api.computeDailyBuckets(rows,'destinations','all','all','all','2026-11-09','2026-11-15');
+    const rabu=buckets.find(b=>b.day==='Rabu');
+    assert.equal(rabu.total,3);
+    assert.equal(rabu.delivered,2);
+    assert.equal(rabu.failed,1);
+
+    // SVG must render the 3rd red bar with class chart-bar-failed
+    assert.match(container.innerHTML,/class="[^"]*chart-bar-failed[^"]*"/);
+    assert.match(container.innerHTML,/#(?:EF4444|D92D20|F04438)/i);
+
+    // Tooltip must show Gagal instead of Tertunda / Belum
+    api.showTooltip(2, 200, 100); // idx 2 = Rabu
+    assert.match(tooltipEl.innerHTML,/Gagal:/);
+    assert.doesNotMatch(tooltipEl.innerHTML,/Tertunda \/ Belum/);
+});
+
+test('clicking the 3rd failed bar filters selection and stat cards dynamically to failed shipments only',()=>{
+    const statActive={innerText:''};
+    const statCompleted={innerText:''};
+    const statDelayed={innerText:''};
+    const filterBanner={innerHTML:'',hidden:true};
+    const elements={
+        'stat-active': statActive,
+        'stat-completed': statCompleted,
+        'stat-delayed': statDelayed,
+        'recent-volume-filter': filterBanner
+    };
+
+    const api=setup([
+        {id:'trip-rabu',courierId:'c',courierName:'Noval',date:'2026-11-11',destinations:[
+            {deliveryId:'s1',status:'done',address:'Jl. Sukses 1',km:2},
+            {deliveryId:'s2',status:'done',address:'Jl. Sukses 2',km:3},
+            {deliveryId:'s3',status:'pending',address:'Jl. Gagal 1',pendingReason:'Klien Tutup',km:4}
+        ]}
+    ],[],{
+        calculateAccurateTripKM:trip=>trip.destinations.reduce((n,d)=>n+(d.km||0),0),
+        document:{
+            addEventListener(){},
+            getElementById:id=>elements[id]||null
+        }
+    });
+
+    api.setDateRange('2026-11-09','2026-11-15');
+    // Click failed bar (idx 2 = Rabu)
+    api.filterByDay(2, {target: {classList: {contains: cls => cls === 'chart-bar-failed'}}});
+
+    const summary=api.getSelectionSummary();
+    assert.ok(summary);
+    assert.equal(summary.total, 1);
+    assert.equal(summary.completed, 0);
+    assert.equal(summary.returned, 1);
+    assert.match(summary.label, /Rabu, 11 Nov 2026 • Gagal Kirim/);
+
+    const selection=api.getShipmentSelection();
+    assert.equal(selection.size, 1);
+    assert.ok(selection.has('trip-rabu:2'));
+    assert.equal(selection.get('trip-rabu:2').courier, 'Noval');
+
+    api.applyStatCards();
+    assert.equal(statActive.innerText, 1);
+    assert.equal(statDelayed.innerText, 1);
+});
+
