@@ -197,38 +197,17 @@
                 const client = named || (uniqueNames.size === 1 ? matches[0] : null);
                 const customer = text(client?.name) || address || storedName || 'Alamat belum tersedia';
                 const completed = done(stop) || (!text(stop.status) && done(trip));
-                let date = '';
-                if (typeof root.isTripInDateRange === 'function') {
-                    const now = new Date();
-                    const todayDayMs = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-                    const todayEndMs = todayDayMs + 86400000 - 1;
-                    if (root.isTripInDateRange(trip, todayDayMs, todayEndMs)) {
-                        const stopDoneTime = completed ? (stop.completedTime || stop.completedAt) : null;
-                        const stopDate = dateKey(stopDoneTime);
-                        if (stopDate && stopDate !== dateKey(todayDayMs)) {
-                            date = stopDate;
-                        } else {
-                            date = dateKey(todayDayMs);
-                        }
-                    }
-                }
-                if (!date && completed) {
-                    date = dateKey(stop.completedTime || stop.completedAt || trip.completedTime || trip.completedAt);
-                }
+                let date = dateKey(
+                    trip.dateFolder ||
+                    trip.date ||
+                    trip.assignedAt ||
+                    trip.assignedTime ||
+                    trip.acceptedTime ||
+                    trip.createdAt ||
+                    (typeof trip.id === 'string' && trip.id.startsWith('TRIP_') ? trip.id : null)
+                );
                 if (!date) {
-                    date = dateKey(stop.arrivalTime || trip.arrivalTime || stop.assignedAt || stop.date);
-                }
-                if (!date) {
-                    date = dateKey(
-                        trip.dateFolder ||
-                        trip.date ||
-                        trip.assignedAt ||
-                        trip.assignedTime ||
-                        trip.acceptedTime ||
-                        trip.updatedAt ||
-                        trip.createdAt ||
-                        (typeof trip.id === 'string' && trip.id.startsWith('TRIP_') ? trip.id : null)
-                    );
+                    date = dateKey(stop.assignedAt || stop.date || stop.completedTime || stop.completedAt || trip.completedTime || trip.completedAt);
                 }
                 // A missing date cannot be assigned to an arbitrary weekday.
                 if (!date) return;

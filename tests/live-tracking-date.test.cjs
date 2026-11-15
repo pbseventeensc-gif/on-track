@@ -119,19 +119,14 @@ test('cards synchronize destination stops for carry-over multi-day trips active 
     vm.runInContext(source.slice(start, end) + 'return courierGroups;\n}', c);
 
     const groups = c.renderMonitorUI();
-    // c3 must not appear
-    assert.deepEqual(Object.keys(groups).sort(), ['c1', 'c2']);
-    // c1 has only today stops (1 done + 1 pending = 2 stops)
-    assert.equal(groups.c1.totalStops, 2);
-    assert.equal(groups.c1.doneStops, 1);
-    assert.equal(groups.c1.pendingStops, 1);
-    // c2 has 2 stops (2 done)
+    // Only today assigned trip (c2) appears; yesterday trips (c1, c3) never enter today monitor
+    assert.deepEqual(Object.keys(groups), ['c2']);
     assert.equal(groups.c2.totalStops, 2);
     assert.equal(groups.c2.doneStops, 2);
     assert.equal(groups.c2.pendingStops, 0);
 });
 
-test('Live Tracking cards synchronize exactly with Sunday reconcile dataset (30 Total / 28 Done)', () => {
+test('Live Tracking cards synchronize exactly with Sunday reconcile dataset by assignment date (27 Total / 26 Done)', () => {
     const sundayFile = require('node:path').join(__dirname, '../.artifacts/sunday-reconcile/trips.json');
     if (!fs.existsSync(sundayFile)) return;
     const trips = JSON.parse(fs.readFileSync(sundayFile, 'utf8'));
@@ -167,7 +162,8 @@ test('Live Tracking cards synchronize exactly with Sunday reconcile dataset (30 
 
     const groups = c.renderMonitorUI();
     const couriers = Object.keys(groups);
-    assert.equal(couriers.length, 3);
+    // On Sunday 15 Nov, only Husen and Firdaus were assigned (Romi was assigned on Saturday)
+    assert.equal(couriers.length, 2);
 
     let totalStops = 0, doneStops = 0, pendingStops = 0;
     for (const key of couriers) {
@@ -176,16 +172,15 @@ test('Live Tracking cards synchronize exactly with Sunday reconcile dataset (30 
         pendingStops += groups[key].pendingStops;
     }
 
-    assert.equal(totalStops, 30);
-    assert.equal(doneStops, 28);
-    assert.equal(pendingStops, 2);
+    assert.equal(totalStops, 27);
+    assert.equal(doneStops, 26);
+    assert.equal(pendingStops, 1);
     const husenGroup = Object.values(groups).find(g => g.name.toLowerCase().includes('husen'));
     const romiGroup = Object.values(groups).find(g => g.name.toLowerCase().includes('romi'));
     const firdausGroup = Object.values(groups).find(g => g.name.toLowerCase().includes('firdaus'));
-    assert.equal(husenGroup.totalStops, 19);
-    assert.equal(husenGroup.doneStops, 18);
-    assert.equal(romiGroup.totalStops, 2);
-    assert.equal(romiGroup.doneStops, 1);
+    assert.equal(husenGroup.totalStops, 18);
+    assert.equal(husenGroup.doneStops, 17);
     assert.equal(firdausGroup.totalStops, 9);
     assert.equal(firdausGroup.doneStops, 9);
+    assert.equal(romiGroup, undefined);
 });

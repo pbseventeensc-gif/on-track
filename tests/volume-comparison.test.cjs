@@ -169,39 +169,28 @@ test('drilldown day label formats concise Indonesian day name and date without w
     const completedSummary=api.getSelectionSummary();
     assert.match(completedSummary.label,/Sabtu, 14 Nov 2026 • Selesai/);
 });
-test('supports DD/MM/YYYY dates and aligns today shipments with isTripInDateRange',()=>{
-    const now=new Date();
-    const todayDayMs=new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime();
-    const todayEndMs=todayDayMs+86400000-1;
-
-    // Create 51 destinations across trips that match isTripInDateRange for today
+test('supports DD/MM/YYYY dates and aligns shipments by assignment date',()=>{
     const tripToday={id:'trip-today',courierId:'c',date:'15/11/2026',destinations:Array.from({length:27},(_,i)=>({
         deliveryId:`stop-${i}`,
         status: i<26 ? 'done' : 'pending',
         address:`Jl. Test ${i}`
     }))};
-    // Another trip assigned yesterday but active/completed today (24 destinations, 23 done)
-    const tripSpillover={id:'trip-spill',courierId:'c',date:'2026-11-14',destinations:Array.from({length:24},(_,i)=>({
+    const tripYesterday={id:'trip-yesterday',courierId:'c',date:'2026-11-14',destinations:Array.from({length:24},(_,i)=>({
         deliveryId:`spill-${i}`,
         status: i<23 ? 'done' : 'pending',
-        completedTime: todayDayMs + 3600000,
+        completedTime: Date.now(),
         address:`Jl. Spill ${i}`
     }))};
 
-    const isTripInDateRange=(t,sMs,eMs)=>{
-        if (sMs===todayDayMs) return true; // Both belong to today
-        return false;
-    };
-
-    const api=setup([tripToday,tripSpillover],[],{
-        isTripInDateRange
-    });
-
+    const api=setup([tripToday,tripYesterday],[]);
     const rows=api.collectTripData();
     assert.equal(rows.length,51);
     const sundayRows=rows.filter(r=>r.day==='Minggu');
-    assert.equal(sundayRows.length,51);
-    assert.equal(sundayRows.reduce((sum,r)=>sum+r.deliveredDestinations,0),49);
+    assert.equal(sundayRows.length,27);
+    assert.equal(sundayRows.reduce((sum,r)=>sum+r.deliveredDestinations,0),26);
+    const saturdayRows=rows.filter(r=>r.day==='Sabtu');
+    assert.equal(saturdayRows.length,24);
+    assert.equal(saturdayRows.reduce((sum,r)=>sum+r.deliveredDestinations,0),23);
 });
 
 test('renders 3rd red bar for failed shipments and tooltip shows Gagal instead of Tertunda/Belum',()=>{

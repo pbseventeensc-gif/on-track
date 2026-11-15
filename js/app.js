@@ -1057,53 +1057,22 @@ function isTripInDateRange(t, startMs, endMs) {
         return 0;
     };
 
-    let tripMs = parseMs(t.date) || parseMs(t.assignedAt) || parseMs(t.assignedTime) || parseMs(t.acceptedTime) || parseMs(t.updatedAt) || parseMs(t.completedTime);
+    let tripMs = parseMs(t.dateFolder) || parseMs(t.date) || parseMs(t.assignedAt) || parseMs(t.assignedTime) || parseMs(t.acceptedTime);
     if (!tripMs && t.id && t.id.startsWith('TRIP_')) {
         tripMs = parseInt(t.id.replace('TRIP_', '')) || 0;
+    }
+    if (!tripMs && t.destinations && t.destinations.length > 0) {
+        for (let i = 0; i < t.destinations.length; i++) {
+            const d = t.destinations[i];
+            const dMs = parseMs(d?.assignedAt) || parseMs(d?.date);
+            if (dMs > 0) { tripMs = dMs; break; }
+        }
     }
 
     const minMs = startMs || 0;
     const maxMs = endMs || Infinity;
 
-    // 1. Created/assigned/updated date is in range
-    if (tripMs > 0 && tripMs >= minMs && tripMs <= maxMs) {
-        return true;
-    }
-    const assignedMs = parseMs(t.assignedAt) || parseMs(t.assignedTime) || parseMs(t.acceptedTime);
-    if (assignedMs > 0 && assignedMs >= minMs && assignedMs <= maxMs) {
-        return true;
-    }
-    const updatedMs = parseMs(t.updatedAt) || parseMs(t.completedTime);
-    if (updatedMs > 0 && updatedMs >= minMs && updatedMs <= maxMs) {
-        return true;
-    }
-
-    // 2. Destination activity (completed, arrival, or photo uploaded) is in range
-    if (t.destinations && Array.isArray(t.destinations)) {
-        for (let i = 0; i < t.destinations.length; i++) {
-            const d = t.destinations[i];
-            if (!d) continue;
-
-            const completedMs = parseMs(d.completedTime);
-            const arrivalMs = parseMs(d.arrivalTime);
-
-            if (completedMs > 0 && completedMs >= minMs && completedMs <= maxMs) return true;
-            if (arrivalMs > 0 && arrivalMs >= minMs && arrivalMs <= maxMs) return true;
-
-            const hasPhoto = !!(d.proofPhotoUrl || d.proofPhotoSj || (d.proofPhotoItems && d.proofPhotoItems.length > 0) || d.pendingProofPhotoUrl);
-            if (hasPhoto && (d.status === 'done' || d.status === 'completed' || d.status === 'pending_approval')) {
-                if (completedMs > 0) {
-                    if (completedMs >= minMs && completedMs <= maxMs) return true;
-                } else if (arrivalMs > 0) {
-                    if (arrivalMs >= minMs && arrivalMs <= maxMs) return true;
-                } else {
-                    if (tripMs >= minMs - (3 * 86400000) && tripMs <= maxMs) return true;
-                }
-            }
-        }
-    }
-
-    return false;
+    return tripMs > 0 && tripMs >= minMs && tripMs <= maxMs;
 }
 window.isTripInDateRange = isTripInDateRange;
 
@@ -3069,11 +3038,6 @@ function updateGlobalStats() {
                     t.destinations.forEach((d, i) => {
                         const hasPodPhoto = !!(d.proofPhotoUrl || d.proofPhotoSj || (d.proofPhotoItems && d.proofPhotoItems.length > 0));
                         const isDone = (d.status === 'done' || d.status === 'completed' || d.status === 'delivered' || hasPodPhoto || t.status === 'completed');
-                        const parseFn = typeof parseCompletionTimestamp === 'function' ? parseCompletionTimestamp : (v => v ? (typeof v === 'number' ? v : (v.seconds ? v.seconds * 1000 : new Date(v).getTime() || 0)) : 0);
-                        const completedMs = parseFn(d.completedTime) || parseFn(d.completedAt);
-                        if (isDone && completedMs > 0 && (completedMs < todayDayMs || completedMs > todayEndMs)) {
-                            return;
-                        }
 
                         totalStopsToday++;
                         const isAccPending = (d.status === 'pending' && d.pendingReason && d.pendingReason.length > 0) || d.status === 'returned' || d.status === 'failed';
@@ -3693,10 +3657,7 @@ function renderMonitorUI(filter) {
 
     // Only today's deliveries; GPS/status updates must not revive old assignments.
     allCurrentTrips.forEach(t => {
-        if (!t || t.status === 'pool') return;
-        const isTodayTrip = isMonitorTripToday(t, refNow);
-        const inDateRange = typeof isTripInDateRange === 'function' && isTripInDateRange(t, todayDayMs, todayEndMs);
-        if (!isTodayTrip && !inDateRange) return;
+        if (!t || t.status === 'pool' || !isMonitorTripToday(t, refNow)) return;
 
         const cId = t.courierId;
         if (!cId) return;
@@ -3714,39 +3675,19 @@ function renderMonitorUI(filter) {
         const clients = t.destinations ? t.destinations.map(d => (d.locationName || '').toLowerCase()).join(" ") : "";
 
         if (displayName.toLowerCase().includes(search) || t.id.toLowerCase().includes(search) || clients.includes(search) || key.includes(search)) {
-            const parseFn = typeof parseCompletionTimestamp === 'function' ? parseCompletionTimestamp : (v => v ? (typeof v === 'number' ? v : (v.seconds ? v.seconds * 1000 : new Date(v).getTime() || 0)) : 0);
-            const tripDateMs = parseFn(t.date) || parseFn(t.assignedAt);
-            const isTripCreatedToday = isTodayTrip || (tripDateMs >= todayDayMs && tripDateMs <= todayEndMs);
-
             let todayTotalStops = 0;
             let todayDoneStops = 0;
 
             if (t.destinations && t.destinations.length > 0) {
                 t.destinations.forEach(d => {
-                    const completedMs = parseFn(d.completedTime) || parseFn(d.completedAt);
                     const hasProof = (typeof hasRealProofPhoto === 'function') ? hasRealProofPhoto(d) : !!(d.proofPhotoUrl || d.proofPhotoSj || (d.proofPhotoItems && d.proofPhotoItems.length > 0));
                     const isDone = (d.status === 'done' || d.status === 'completed' || hasProof || (t.status === 'completed' && !d.pendingReason));
-
-                    if (isDone) {
-                        if (completedMs >= todayDayMs && completedMs <= todayEndMs) {
-                            todayTotalStops++;
-                            todayDoneStops++;
-                        } else if (!completedMs && isTripCreatedToday) {
-                            todayTotalStops++;
-                            todayDoneStops++;
-                        }
-                    } else {
-                        // Pending / in progress / arrived
-                        if (isTripCreatedToday || t.status !== 'completed') {
-                            todayTotalStops++;
-                        }
-                    }
+                    todayTotalStops++;
+                    if (isDone) todayDoneStops++;
                 });
             } else {
-                if (isTripCreatedToday) {
-                    todayTotalStops = 1;
-                    if (t.status === 'completed' || t.status === 'done') todayDoneStops = 1;
-                }
+                todayTotalStops = 1;
+                if (t.status === 'completed' || t.status === 'done') todayDoneStops = 1;
             }
 
             if (todayTotalStops > 0) {
