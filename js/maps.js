@@ -458,9 +458,11 @@ function updateMapMarkers(filter = "") {
                 : (typeof getCourierDisplayName === 'function' ? getCourierDisplayName(t.courierId) : t.courierId.substring(0,8));
             const cColor = window.getCourierColor(t.courierId, cName);
             const tripMs = t.date?.seconds ? t.date.seconds * 1000 : (t.date ? new Date(t.date).getTime() : (t.id ? parseInt(t.id.replace('TRIP_', '')) || 0 : 0));
+            const isTodayTrip = (typeof isMonitorTripToday === 'function' && isMonitorTripToday(t)) || (tripMs >= todayDayMs && tripMs <= todayEndMs);
+            const inDateRange = typeof isTripInDateRange === 'function' && isTripInDateRange(t, todayDayMs, todayEndMs);
 
             // Clean map on new day (H+1): Only render map markers for TODAY'S active trips
-            if (tripMs < todayDayMs) {
+            if (!isTodayTrip && !inDateRange) {
                 return;
             }
 
@@ -468,6 +470,18 @@ function updateMapMarkers(filter = "") {
 
             if (t.destinations && t.destinations.length > 0) {
                 t.destinations.forEach((d, idx) => {
+                    const parseFn = typeof parseCompletionTimestamp === 'function' ? parseCompletionTimestamp : (v => v ? (typeof v === 'number' ? v : (v.seconds ? v.seconds * 1000 : new Date(v).getTime() || 0)) : 0);
+                    const completedMs = parseFn(d.completedTime) || parseFn(d.completedAt);
+                    const hasProof = (typeof hasRealProofPhoto === 'function') ? hasRealProofPhoto(d) : !!(d.proofPhotoUrl || d.proofPhotoSj || (d.proofPhotoItems && d.proofPhotoItems.length > 0));
+                    const isDone = (d.status === 'done' || d.status === 'completed' || hasProof || (t.status === 'completed' && !d.pendingReason));
+
+                    if (isDone && completedMs > 0 && completedMs < todayDayMs) {
+                        return;
+                    }
+                    if (!isTodayTrip && !isDone && t.status === 'completed') {
+                        return;
+                    }
+
                     let dLat = parseFloat(d.latitude !== undefined ? d.latitude : (d.lat !== undefined ? d.lat : 0));
                     let dLng = parseFloat(d.longitude !== undefined ? d.longitude : (d.lng !== undefined ? d.lng : 0));
 

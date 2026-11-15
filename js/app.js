@@ -3687,13 +3687,20 @@ function renderMonitorUI(filter) {
 
     const search = (typeof filter === 'string' ? filter : (document.getElementById('monitor-search')?.value || "")).toLowerCase().trim();
     const courierGroups = {};
+    const refNow = typeof now !== 'undefined' ? now : new Date();
+    const todayDayMs = new Date(refNow.getFullYear(), refNow.getMonth(), refNow.getDate()).getTime();
+    const todayEndMs = todayDayMs + 86400000 - 1;
 
     // Only today's deliveries; GPS/status updates must not revive old assignments.
     allCurrentTrips.forEach(t => {
-        if (!t || t.status === 'pool' || !isMonitorTripToday(t)) return;
+        if (!t || t.status === 'pool') return;
+        const isTodayTrip = isMonitorTripToday(t, refNow);
+        const inDateRange = typeof isTripInDateRange === 'function' && isTripInDateRange(t, todayDayMs, todayEndMs);
+        if (!isTodayTrip && !inDateRange) return;
+
         const cId = t.courierId;
         if (!cId) return;
-        const cName = registeredUsers[cId] || (typeof getCourierDisplayName === 'function' ? getCourierDisplayName(cId) : '');
+        const cName = registeredUsers[cId] || (typeof getCourierDisplayName === 'function' ? getCourierDisplayName(cId) : '') || t.driver || t.courierName || '';
         
         // HAPUS / HIDE NON-MASTER / ANONYMOUS "Carrier (...)"
         if (typeof isRecognizedCourier === 'function' && !isRecognizedCourier(cId, cName)) return;
@@ -3704,24 +3711,52 @@ function renderMonitorUI(filter) {
         const key = norm.canonicalId || cId.toLowerCase();
         const displayName = norm.displayName || cName || key;
 
-        const clients = t.destinations ? t.destinations.map(d => d.locationName.toLowerCase()).join(" ") : "";
+        const clients = t.destinations ? t.destinations.map(d => (d.locationName || '').toLowerCase()).join(" ") : "";
 
         if (displayName.toLowerCase().includes(search) || t.id.toLowerCase().includes(search) || clients.includes(search) || key.includes(search)) {
-            if (!courierGroups[key]) {
-                courierGroups[key] = { id: key, rawId: cId, name: displayName, trips: [], totalStops: 0, doneStops: 0 };
-            }
-            courierGroups[key].trips.push(t);
+            const parseFn = typeof parseCompletionTimestamp === 'function' ? parseCompletionTimestamp : (v => v ? (typeof v === 'number' ? v : (v.seconds ? v.seconds * 1000 : new Date(v).getTime() || 0)) : 0);
+            const tripDateMs = parseFn(t.date) || parseFn(t.assignedAt);
+            const isTripCreatedToday = isTodayTrip || (tripDateMs >= todayDayMs && tripDateMs <= todayEndMs);
+
+            let todayTotalStops = 0;
+            let todayDoneStops = 0;
+
             if (t.destinations && t.destinations.length > 0) {
-                courierGroups[key].totalStops += t.destinations.length;
-                courierGroups[key].doneStops += t.destinations.filter(d => {
-                    if (d.status === 'done' || d.status === 'completed') return true;
-                    if (hasRealProofPhoto(d)) return true;
-                    if (t.status === 'completed' && !d.pendingReason) return true;
-                    return false;
-                }).length;
+                t.destinations.forEach(d => {
+                    const completedMs = parseFn(d.completedTime) || parseFn(d.completedAt);
+                    const hasProof = (typeof hasRealProofPhoto === 'function') ? hasRealProofPhoto(d) : !!(d.proofPhotoUrl || d.proofPhotoSj || (d.proofPhotoItems && d.proofPhotoItems.length > 0));
+                    const isDone = (d.status === 'done' || d.status === 'completed' || hasProof || (t.status === 'completed' && !d.pendingReason));
+
+                    if (isDone) {
+                        if (completedMs >= todayDayMs && completedMs <= todayEndMs) {
+                            todayTotalStops++;
+                            todayDoneStops++;
+                        } else if (!completedMs && isTripCreatedToday) {
+                            todayTotalStops++;
+                            todayDoneStops++;
+                        }
+                    } else {
+                        // Pending / in progress / arrived
+                        if (isTripCreatedToday || t.status !== 'completed') {
+                            todayTotalStops++;
+                        }
+                    }
+                });
             } else {
-                courierGroups[key].totalStops += 1;
-                if (t.status === 'completed' || t.status === 'done') courierGroups[key].doneStops += 1;
+                if (isTripCreatedToday) {
+                    todayTotalStops = 1;
+                    if (t.status === 'completed' || t.status === 'done') todayDoneStops = 1;
+                }
+            }
+
+            if (todayTotalStops > 0) {
+                if (!courierGroups[key]) {
+                    courierGroups[key] = { id: key, rawId: cId, name: displayName, trips: [], totalStops: 0, doneStops: 0, pendingStops: 0 };
+                }
+                courierGroups[key].trips.push(t);
+                courierGroups[key].totalStops += todayTotalStops;
+                courierGroups[key].doneStops += todayDoneStops;
+                courierGroups[key].pendingStops += Math.max(0, todayTotalStops - todayDoneStops);
             }
         }
     });
