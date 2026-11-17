@@ -29,14 +29,15 @@ test('full Excel report aligns Region with each destination and preserves status
     vm.runInContext(source.slice(resolverStart,resolverEnd),context);
     vm.runInContext(source.slice(start,end),context);
     await context.exportFullReportsToExcel();
-    assert.equal(cell('4:12').value,'Region');
-    assert.equal(cell('5:12').value,'Bekasi');
-    assert.equal(cell('6:12').value,'Karawang');
-    assert.equal(cell('7:12').value,'Belum teridentifikasi');
-    assert.equal(cell('5:10').value,'done');
-    assert.equal(cell('5:11').value.hyperlink,'https://example.com/proof.jpg');
-    assert.equal(sheet.columns.length,12);
-    assert.equal(sheet.autoFilter.to.column,12);
+    assert.equal(cell('4:13').value,'Region');
+    assert.equal(cell('4:3').value,'No. SJ');
+    assert.equal(cell('5:13').value,'Bekasi');
+    assert.equal(cell('6:13').value,'Karawang');
+    assert.equal(cell('7:13').value,'Belum teridentifikasi');
+    assert.equal(cell('5:11').value,'done');
+    assert.equal(cell('5:12').value.hyperlink,'https://example.com/proof.jpg');
+    assert.equal(sheet.columns.length,13);
+    assert.equal(sheet.autoFilter.to.column,13);
 });
 
 test('Region follows each full destination address instead of stale destination/trip regions', () => {

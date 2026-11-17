@@ -5646,6 +5646,24 @@ async function exportRecentShipmentsToExcel() {
 }
 window.exportRecentShipmentsToExcel = exportRecentShipmentsToExcel;
 
+function reportTripSJNumbers(trip) {
+    const values = new Set();
+    const add = value => {
+        const text = String(value || '').replace(/^#/, '').trim();
+        if (text && text !== '-') values.add(text);
+    };
+    if (trip) {
+        add(trip.noSJ);
+        add(trip.sjNumber);
+        (trip.destinations || []).forEach(destination => {
+            if (!destination) return;
+            add(destination.noSJ);
+            add(destination.sjNumber);
+        });
+    }
+    return [...values].join(', ') || '-';
+}
+
 function loadFullHistory() {
     let tbody = document.getElementById('report-history-body');
     const historyList = document.getElementById('history-list');
@@ -5657,6 +5675,7 @@ function loadFullHistory() {
                     <thead class="bg-light">
                         <tr class="extra-small text-muted text-uppercase">
                             <th>Trip ID</th>
+                            <th>No. SJ</th>
                             <th>Kurir / Driver</th>
                             <th>Progres Titik</th>
                             <th>Tanggal</th>
@@ -5704,7 +5723,7 @@ function loadFullHistory() {
     lastLoadedHistory = filtered;
 
     if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-muted extra-small">Tidak ada riwayat pengantaran sesuai filter.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted extra-small">Tidak ada riwayat pengantaran sesuai filter.</td></tr>`;
         return;
     }
 
@@ -5716,6 +5735,7 @@ function loadFullHistory() {
 
         tbody.innerHTML += `<tr>
             <td class="fw-bold">${(t.id || '').substring(0,12)}</td>
+            <td class="font-monospace" style="font-size: 11.5px; white-space: nowrap;" title="${reportTripSJNumbers(t)}">${reportTripSJNumbers(t)}</td>
             <td>${cName}</td>
             <td><span class="fw-bold">${doneStops}</span> / ${totalStops} Titik</td>
             <td>${dateStr}</td>
@@ -5762,6 +5782,7 @@ async function exportFullReportsToExcel() {
                 if (!d) return;
                 exportData.push({
                     "Trip ID": t.id || t.tripId || '-',
+                    "No. SJ": d.sjNumber || d.noSJ || t.sjNumber || t.noSJ || '-',
                     "Courier": cName,
                     "Tipe Armada": vType === 'mobil' ? 'Mobil' : 'Motor',
                     "Plat Mobil": d.vehiclePlate || vPlate,
@@ -5793,7 +5814,7 @@ async function exportFullReportsToExcel() {
         });
 
         // 1. Title Row
-        sheet.mergeCells('A1:L1');
+        sheet.mergeCells('A1:M1');
         const titleCell = sheet.getCell('A1');
         titleCell.value = "LAPORAN LENGKAP PENGIRIMAN LOGISTIK - WTRACK";
         titleCell.font = { name: 'Calibri', size: 13, bold: true, color: { argb: 'FFFFFFFF' } };
@@ -5806,7 +5827,7 @@ async function exportFullReportsToExcel() {
         sheet.getRow(1).height = 26;
 
         // 2. Subtitle Row
-        sheet.mergeCells('A2:L2');
+        sheet.mergeCells('A2:M2');
         const subCell = sheet.getCell('A2');
         subCell.value = `Total Pengiriman: ${exportData.length} Titik  |  Dihasilkan Otomatis dari Database Terintegrasi Wtrack`;
         subCell.font = { name: 'Calibri', size: 9.5, italic: true, bold: true, color: { argb: 'FF1F4E79' } };
@@ -5828,7 +5849,7 @@ async function exportFullReportsToExcel() {
         // Header Row (Row 4)
         const headerRow = sheet.getRow(4);
         headerRow.height = 26;
-        const headers = ["No", "Trip ID", "Kurir / Driver", "Armada", "Plat Mobil", "Tanggal", "Stop #", "Tujuan / Toko", "Alamat Lengkap", "Status Stop", "Bukti Foto PoD", "Region"];
+        const headers = ["No", "Trip ID", "No. SJ", "Kurir / Driver", "Armada", "Plat Mobil", "Tanggal", "Stop #", "Tujuan / Toko", "Alamat Lengkap", "Status Stop", "Bukti Foto PoD", "Region"];
         headers.forEach((h, idx) => {
             const cell = headerRow.getCell(idx + 1);
             cell.value = h;
@@ -5863,6 +5884,7 @@ async function exportFullReportsToExcel() {
             const rowVals = [
                 idx + 1,
                 rowItem["Trip ID"],
+                rowItem["No. SJ"],
                 rowItem.Courier,
                 rowItem["Tipe Armada"],
                 rowItem["Plat Mobil"],
@@ -5888,23 +5910,23 @@ async function exportFullReportsToExcel() {
                     cell.value = val;
                     cell.font = { name: 'Calibri', size: 9.5, color: { argb: 'FF475569' } };
                     cell.alignment = { vertical: 'middle', horizontal: 'center' };
-                } else if (cIdx === 1 || cIdx === 3 || cIdx === 4 || cIdx === 5 || cIdx === 6) {
+                } else if (cIdx === 1 || cIdx === 2 || cIdx === 4 || cIdx === 5 || cIdx === 6 || cIdx === 7) {
                     cell.value = val;
                     cell.font = { name: 'Calibri', size: 9, color: { argb: 'FF334155' } };
                     cell.alignment = { vertical: 'middle', horizontal: 'center' };
-                } else if (cIdx === 2) {
+                } else if (cIdx === 3) {
                     cell.value = val;
                     cell.font = { name: 'Calibri', size: 9.5, bold: true, color: { argb: 'FF1E293B' } };
                     cell.alignment = { vertical: 'middle', horizontal: 'left' };
-                } else if (cIdx === 7) {
+                } else if (cIdx === 8) {
                     cell.value = val;
                     cell.font = { name: 'Calibri', size: 9.5, bold: true, color: { argb: 'FF0F172A' } };
                     cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
-                } else if (cIdx === 8) {
+                } else if (cIdx === 9) {
                     cell.value = val;
                     cell.font = { name: 'Calibri', size: 8.5, color: { argb: 'FF475569' } };
                     cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
-                } else if (cIdx === 9) {
+                } else if (cIdx === 10) {
                     cell.value = val;
                     cell.font = { name: 'Calibri', size: 9, bold: true };
                     cell.alignment = { vertical: 'middle', horizontal: 'center' };
@@ -5915,7 +5937,7 @@ async function exportFullReportsToExcel() {
                         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
                         cell.font.color = { argb: 'FF92400E' };
                     }
-                } else if (cIdx === 10) {
+                } else if (cIdx === 11) {
                     const firstPhoto = safeSplitPhotoUrls(val)[0];
                     if (firstPhoto && firstPhoto.startsWith('http')) {
                         cell.value = {
@@ -5931,7 +5953,7 @@ async function exportFullReportsToExcel() {
                         cell.font = { name: 'Calibri', size: 8.5, italic: true, color: { argb: 'FF94A3B8' } };
                     }
                     cell.alignment = { vertical: 'middle', horizontal: 'center' };
-                } else if (cIdx === 11) {
+                } else if (cIdx === 12) {
                     cell.value = val;
                     cell.font = { name: 'Calibri', size: 9, color: { argb: 'FF334155' } };
                     cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
@@ -5943,6 +5965,7 @@ async function exportFullReportsToExcel() {
         sheet.columns = [
             { width: 6 },   // No
             { width: 22 },  // Trip ID
+            { width: 22 },  // No. SJ
             { width: 22 },  // Kurir
             { width: 14 },  // Armada
             { width: 16 },  // Plat Mobil
