@@ -79,21 +79,27 @@ test('Region follows each full destination address instead of stale destination/
     assert.equal(context.resolveDestinationRegion({}, {region:'Jakarta Utara'}),'Belum teridentifikasi');
 });
 
-test('exportRecentShipmentsToExcel includes NO Surat Jalan / NO DO column in headers and data rows with 17 total columns', async () => {
-    const cells = new Map();
-    const cell = key => {
-        const normalized = key === 'A1' ? '1:1' : (key === 'A2' ? '2:1' : key);
-        if (!cells.has(normalized)) cells.set(normalized, {});
-        return cells.get(normalized);
-    };
-    const merged = [];
-    const sheet = {
-        mergeCells(range) { merged.push(range); },
-        getCell: cell,
-        getRow: row => ({
-            getCell: column => cell(`${row}:${column}`)
-        })
-    };
+test('exportRecentShipmentsToExcel removes unneeded columns (12 cols) and creates Pivot sheet', async () => {
+    const sheets = new Map();
+    function createMockSheet(name) {
+        const cells = new Map();
+        const cell = key => {
+            const normalized = key === 'A1' ? '1:1' : (key === 'A2' ? '2:1' : key);
+            if (!cells.has(normalized)) cells.set(normalized, {});
+            return cells.get(normalized);
+        };
+        const merged = [];
+        return {
+            name,
+            merged,
+            cell,
+            mergeCells(range) { merged.push(range); },
+            getCell: cell,
+            getRow: row => ({
+                getCell: column => cell(`${row}:${column}`)
+            })
+        };
+    }
     const trips = [
         {
             id: 'TRIP_1001_A',
@@ -115,13 +121,33 @@ test('exportRecentShipmentsToExcel includes NO Surat Jalan / NO DO column in hea
                     proofPhotoUrl: 'https://example.com/pod2.jpg'
                 }
             ]
+        },
+        {
+            id: 'TRIP_1002_B',
+            courierId: 'kurir-2',
+            date: { seconds: 1700000000 },
+            destinations: [
+                {
+                    locationName: 'Toko Makmur',
+                    address: 'Jl. Gatot Subroto, Jakarta',
+                    status: 'klien_tutup',
+                    pendingReason: 'Tutup hari libur',
+                    sjNumber: 'SJ-1126-00300'
+                },
+                {
+                    locationName: 'Toko Sejahtera',
+                    address: 'Jl. Thamrin, Jakarta',
+                    status: 'in_progress',
+                    sjNumber: 'SJ-1126-00301'
+                }
+            ]
         }
     ];
 
     const context = vm.createContext({
         allCurrentTrips: trips,
-        registeredUsers: { 'kurir-1': 'Budi Santoso' },
-        getCourierDisplayName: id => id === 'kurir-1' ? 'Budi Santoso' : id,
+        registeredUsers: { 'kurir-1': 'Budi Santoso', 'kurir-2': 'Ahmad Dahlan' },
+        getCourierDisplayName: id => id === 'kurir-1' ? 'Budi Santoso' : (id === 'kurir-2' ? 'Ahmad Dahlan' : id),
         getCourierVehicleType: () => 'mobil',
         normalizeCourierIdentity: (id, name) => ({ canonicalId: id || name }),
         isTripInActiveBranch: () => true,
@@ -131,12 +157,16 @@ test('exportRecentShipmentsToExcel includes NO Surat Jalan / NO DO column in hea
         destinationCompletionMs: () => 1700003600000,
         formatCompletionWIB: () => '14:30 WIB',
         resolveDestinationRegion: () => 'Bekasi',
-        extractDestinationPhotos: () => ({ allUrls: ['https://example.com/pod.jpg'] }),
+        extractDestinationPhotos: (d) => ({ allUrls: d.proofPhotoUrl ? [d.proofPhotoUrl] : [] }),
         safeSplitPhotoUrls: v => v ? [v] : [],
         Blob,
         ExcelJS: {
             Workbook: class {
-                addWorksheet() { return sheet; }
+                addWorksheet(name) {
+                    const s = createMockSheet(name);
+                    sheets.set(name, s);
+                    return s;
+                }
                 xlsx = { async writeBuffer() { return Buffer.from('test'); } };
             }
         },
@@ -163,34 +193,99 @@ test('exportRecentShipmentsToExcel includes NO Surat Jalan / NO DO column in hea
 
     await context.exportRecentShipmentsToExcel();
 
-    // Verification
-    assert.ok(merged.includes('A1:Q1'), 'Row 1 Title should merge A1:Q1');
-    assert.ok(merged.includes('A2:Q2'), 'Row 2 Subtitle should merge A2:Q2');
-    assert.equal(cell('1:1').value, 'LAPORAN HISTORIS PENGANTARAN LOGISTIK - WTRACK LOGISTICS');
+    // Verify both sheets exist
+    assert.ok(sheets.has('Recent_Shipments'), 'Recent_Shipments sheet must be present');
+    assert.ok(sheets.has('Pivot_Kurir'), 'Pivot_Kurir sheet must be present');
 
-    // Header checks (Row 4)
-    assert.equal(cell('4:1').value, 'No');
-    assert.equal(cell('4:2').value, 'Tanggal');
-    assert.equal(cell('4:3').value, 'Shipment ID');
-    assert.equal(cell('4:4').value, 'NO Surat Jalan / NO DO');
-    assert.equal(cell('4:5').value, 'Trip Full ID');
-    assert.equal(cell('4:6').value, 'Kurir / Driver');
-    assert.equal(cell('4:16').value, 'Bukti Foto PoD');
-    assert.equal(cell('4:17').value, 'Region');
+    const s1 = sheets.get('Recent_Shipments');
+    const s2 = sheets.get('Pivot_Kurir');
+
+    // === Sheet 1 Verifications ===
+    assert.ok(s1.merged.includes('A1:L1'), 'Sheet 1 Row 1 Title should merge A1:L1 (12 columns)');
+    assert.ok(s1.merged.includes('A2:L2'), 'Sheet 1 Row 2 Subtitle should merge A2:L2');
+    assert.equal(s1.cell('1:1').value, 'LAPORAN HISTORIS PENGANTARAN LOGISTIK - WTRACK LOGISTICS');
+
+    // Headers (Row 4) - Verify 12 columns
+    assert.equal(s1.cell('4:1').value, 'No');
+    assert.equal(s1.cell('4:2').value, 'Tanggal');
+    assert.equal(s1.cell('4:3').value, 'NO Surat Jalan / NO DO');
+    assert.equal(s1.cell('4:4').value, 'Kurir / Driver');
+    assert.equal(s1.cell('4:5').value, 'Tipe Armada');
+    assert.equal(s1.cell('4:6').value, 'Tujuan / Toko');
+    assert.equal(s1.cell('4:7').value, 'Alamat Lengkap');
+    assert.equal(s1.cell('4:8').value, 'Status');
+    assert.equal(s1.cell('4:9').value, 'Jam Selesai');
+    assert.equal(s1.cell('4:10').value, 'Alasan Pending / Catatan');
+    assert.equal(s1.cell('4:11').value, 'Bukti Foto PoD');
+    assert.equal(s1.cell('4:12').value, 'Region');
+
+    // Verify removed columns do NOT appear in headers
+    for (let c = 1; c <= 12; c++) {
+        const val = s1.cell(`4:${c}`).value;
+        assert.notEqual(val, 'Plat Mobil');
+        assert.notEqual(val, 'Jam Sampai');
+        assert.notEqual(val, 'Stop #');
+        assert.notEqual(val, 'Shipment ID');
+        assert.notEqual(val, 'Trip Full ID');
+    }
 
     // Data checks (Row 5 & 6)
-    assert.equal(cell('5:1').value, 1);
-    assert.equal(cell('5:4').value, 'SJ-1126-00248');
-    assert.equal(cell('5:6').value, 'Budi Santoso');
-    assert.equal(cell('5:10').value, 'Toko Bintang');
-    assert.equal(cell('5:17').value, 'Bekasi');
+    assert.equal(s1.cell('5:1').value, 1);
+    assert.equal(s1.cell('5:3').value, 'SJ-1126-00248');
+    assert.equal(s1.cell('5:4').value, 'Budi Santoso');
+    assert.equal(s1.cell('5:6').value, 'Toko Bintang');
+    assert.equal(s1.cell('5:8').value, 'completed');
+    assert.equal(s1.cell('5:12').value, 'Bekasi');
 
-    assert.equal(cell('6:1').value, 2);
-    assert.equal(cell('6:4').value, 'SJ-1126-00250, SJ-1126-00251');
-    assert.equal(cell('6:10').value, 'Toko Cahaya');
+    assert.equal(s1.cell('6:1').value, 2);
+    assert.equal(s1.cell('6:3').value, 'SJ-1126-00250, SJ-1126-00251');
+    assert.equal(s1.cell('6:4').value, 'Budi Santoso');
 
-    // Sheet structure checks
-    assert.equal(sheet.columns.length, 17, 'There should be exactly 17 column width configurations');
-    assert.equal(sheet.autoFilter.to.column, 17, 'AutoFilter should cover all 17 columns');
+    assert.equal(s1.columns.length, 12, 'Sheet 1 should have exactly 12 columns');
+    assert.equal(s1.autoFilter.to.column, 12, 'Sheet 1 autoFilter should cover 12 columns');
+
+    // === Sheet 2 (Pivot) Verifications ===
+    assert.ok(s2.merged.includes('A1:F1'), 'Sheet 2 Row 1 Title should merge A1:F1 (6 columns)');
+    assert.ok(s2.merged.includes('A2:F2'), 'Sheet 2 Row 2 Subtitle should merge A2:F2');
+    assert.equal(s2.cell('1:1').value, 'RINGKASAN PIVOT PENGANTARAN KURIR - WTRACK LOGISTICS');
+
+    // Pivot Headers (Row 4)
+    assert.equal(s2.cell('4:1').value, 'No');
+    assert.equal(s2.cell('4:2').value, 'Nama Kurir');
+    assert.equal(s2.cell('4:3').value, 'Total Pengantaran');
+    assert.equal(s2.cell('4:4').value, 'Sukses');
+    assert.equal(s2.cell('4:5').value, 'Gagal');
+    assert.equal(s2.cell('4:6').value, 'Pending');
+
+    // Pivot Data Rows (Row 5 & 6)
+    // Both couriers have 2 shipments each, sorted alphabetically or by total
+    const row5Name = s2.cell('5:2').value;
+    const row6Name = s2.cell('6:2').value;
+    const courierNames = [row5Name, row6Name].sort();
+    assert.deepEqual(courierNames, ['Ahmad Dahlan', 'Budi Santoso']);
+
+    // Check stats for Budi Santoso (2 total, 2 sukses, 0 gagal, 0 pending)
+    const budiRow = row5Name === 'Budi Santoso' ? 5 : 6;
+    assert.equal(s2.cell(`${budiRow}:3`).value, 2);
+    assert.equal(s2.cell(`${budiRow}:4`).value, 2);
+    assert.equal(s2.cell(`${budiRow}:5`).value, 0);
+    assert.equal(s2.cell(`${budiRow}:6`).value, 0);
+
+    // Check stats for Ahmad Dahlan (2 total, 0 sukses, 1 gagal (klien_tutup), 1 pending (in_progress))
+    const ahmadRow = row5Name === 'Ahmad Dahlan' ? 5 : 6;
+    assert.equal(s2.cell(`${ahmadRow}:3`).value, 2);
+    assert.equal(s2.cell(`${ahmadRow}:4`).value, 0);
+    assert.equal(s2.cell(`${ahmadRow}:5`).value, 1);
+    assert.equal(s2.cell(`${ahmadRow}:6`).value, 1);
+
+    // Total Row (Row 7)
+    assert.equal(s2.cell('7:1').value, 'TOTAL KESELURUHAN');
+    assert.equal(s2.cell('7:3').value, 4, 'Total keseluruhan pengantaran');
+    assert.equal(s2.cell('7:4').value, 2, 'Total sukses');
+    assert.equal(s2.cell('7:5').value, 1, 'Total gagal');
+    assert.equal(s2.cell('7:6').value, 1, 'Total pending');
+
+    assert.equal(s2.columns.length, 6, 'Sheet 2 should have exactly 6 columns');
+    assert.equal(s2.autoFilter.to.column, 6, 'Sheet 2 autoFilter should cover 6 columns');
 });
 

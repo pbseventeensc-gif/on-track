@@ -5368,10 +5368,10 @@ async function exportRecentShipmentsToExcel() {
                 const photos = extractDestinationPhotos(d, t);
                 const hasAnyPhoto = photos.allUrls.length > 0;
                 const rawStatus = d.status || 'pending';
-                const isKlienTutupApproved = (rawStatus === 'pending' && d.pendingReason && d.pendingReason.length > 0);
+                const isKlienTutupApproved = (rawStatus === 'pending' && d.pendingReason && d.pendingReason.length > 0) || rawStatus === 'klien_tutup';
                 const isPendingApproval = (rawStatus === 'pending_approval');
                 const isDoneOrHasPhoto = selectedVolumeRow ? selectedVolumeRow.deliveredDestinations > 0 : (d.status === 'done' || d.status === 'completed' || d.status === 'delivered' || hasAnyPhoto);
-                const status = selectedVolumeRow && !isDoneOrHasPhoto ? (d.status === 'arrived' ? 'in_progress' : (d.status || 'in_progress')) : isDoneOrHasPhoto ? 'completed' : (d.status === 'arrived' ? 'in_progress' : (isPendingApproval ? 'pending_approval' : (isKlienTutupApproved ? 'klien_tutup' : (t.status || 'pending'))));
+                const status = selectedVolumeRow && !isDoneOrHasPhoto ? (d.status === 'arrived' ? 'in_progress' : (d.status || 'in_progress')) : isDoneOrHasPhoto ? 'completed' : (d.status === 'arrived' ? 'in_progress' : (isPendingApproval ? 'pending_approval' : (isKlienTutupApproved ? 'klien_tutup' : (d.status === 'returned' || d.status === 'failed' ? d.status : (t.status || 'pending')))));
 
                 const searchableText = `${uniqueShipmentId} ${tripIdShort} ${tripIdStr} ${cName} ${locName} ${fullAddress} ${window.SJLinks?.label(d, t) || ''} ${status} ${d.pendingReason || ''} ${tripDateStr}`.toLowerCase();
                 const terms = rawSearch.split(/\s+/).filter(x => x.length > 0);
@@ -5400,27 +5400,18 @@ async function exportRecentShipmentsToExcel() {
                 }
 
                 if (matchSearch && matchStatus) {
-                    const arrivalStr = formatCompletionWIB(parseCompletionTimestamp(d.arrivalTime), true);
                     const completedStr = formatCompletionWIB(destinationCompletionMs(d, t), true);
                     const vType = d.vehicleType || t.vehicleType || getCourierVehicleType(courierIdStr, cName);
-                    const vPlate = d.vehiclePlate || t.vehiclePlate || '-';
                     const sjLabel = (window.SJLinks?.label(d, t) || (typeof getRealSJNumber === 'function' ? getRealSJNumber(d, t) : '') || d.sjNumber || d.noSJ || t.sjNumber || t.noSJ || '-').trim() || '-';
 
                     exportData.push({
                         "Tanggal": tripDateStr,
-                        "Shipment ID": uniqueShipmentId,
                         "NO Surat Jalan / NO DO": sjLabel,
-                        "No. SJ": sjLabel,
-                        "Admin SJ": d.adminSJ || t.adminSJ || window.CustomerMaster?.resolveName(d.customer || d.clientName || t.customer || t.clientName || d.locationName) || '-',
-                        "Trip Full ID": tripIdStr,
                         "Courier": cName,
                         "Tipe Armada": vType === 'mobil' ? 'Mobil' : 'Motor',
-                        "Plat Mobil": vPlate,
-                        "Stop #": stopIdx,
                         "Destination Name": locName,
                         "Full Address": fullAddress,
                         "Status": status,
-                        "Arrival Time": arrivalStr,
                         "Completed Time": completedStr,
                         "Pending Reason": d.pendingReason || '-',
                         "Region": resolveDestinationRegion(d),
@@ -5446,8 +5437,8 @@ async function exportRecentShipmentsToExcel() {
             views: [{ showGridLines: true }]
         });
 
-        // 1. Title Row (Row 1)
-        sheet.mergeCells('A1:Q1');
+        // 1. Title Row (Row 1) - 12 Kolom (A1:L1)
+        sheet.mergeCells('A1:L1');
         const titleCell = sheet.getCell('A1');
         titleCell.value = "LAPORAN HISTORIS PENGANTARAN LOGISTIK - WTRACK LOGISTICS";
         titleCell.font = { name: 'Calibri', size: 13, bold: true, color: { argb: 'FFFFFFFF' } };
@@ -5460,7 +5451,7 @@ async function exportRecentShipmentsToExcel() {
         sheet.getRow(1).height = 26;
 
         // 2. Subtitle Row (Row 2)
-        sheet.mergeCells('A2:Q2');
+        sheet.mergeCells('A2:L2');
         const subCell = sheet.getCell('A2');
         subCell.value = `Periode: ${periodStr}  |  Kurir/Driver: ${carrierLabel}  |  Total Data: ${exportData.length} Titik Pengiriman`;
         subCell.font = { name: 'Calibri', size: 9.5, italic: true, bold: true, color: { argb: 'FF1F4E79' } };
@@ -5479,13 +5470,13 @@ async function exportRecentShipmentsToExcel() {
         // Row 3: Blank separator
         sheet.getRow(3).height = 8;
 
-        // 3. Header Row (Row 4)
+        // 3. Header Row (Row 4) - Kolom Plat Mobil, Jam Sampai, Stop #, Shipment ID, Trip Full ID dihapus
         const headerRow = sheet.getRow(4);
         headerRow.height = 26;
         const headers = [
-            "No", "Tanggal", "Shipment ID", "NO Surat Jalan / NO DO", "Trip Full ID", "Kurir / Driver", "Tipe Armada", 
-            "Plat Mobil", "Stop #", "Tujuan / Toko", "Alamat Lengkap", "Status", 
-            "Jam Sampai", "Jam Selesai", "Alasan Pending / Catatan", "Bukti Foto PoD", "Region"
+            "No", "Tanggal", "NO Surat Jalan / NO DO", "Kurir / Driver", "Tipe Armada", 
+            "Tujuan / Toko", "Alamat Lengkap", "Status", 
+            "Jam Selesai", "Alasan Pending / Catatan", "Bukti Foto PoD", "Region"
         ];
         headers.forEach((h, idx) => {
             const cell = headerRow.getCell(idx + 1);
@@ -5521,20 +5512,15 @@ async function exportRecentShipmentsToExcel() {
             const rowVals = [
                 idx + 1,
                 rowItem.Tanggal,
-                rowItem["Shipment ID"],
                 rowItem["NO Surat Jalan / NO DO"] || rowItem["No. SJ"] || '-',
-                rowItem["Trip Full ID"],
-                rowItem.Courier,
+                rowItem.Courier || rowItem["Kurir / Driver"] || '-',
                 rowItem["Tipe Armada"],
-                rowItem["Plat Mobil"],
-                rowItem["Stop #"],
-                rowItem["Destination Name"],
-                rowItem["Full Address"],
+                rowItem["Destination Name"] || rowItem["Tujuan / Toko"] || '-',
+                rowItem["Full Address"] || rowItem["Alamat Lengkap"] || '-',
                 rowItem.Status,
-                rowItem["Arrival Time"],
-                rowItem["Completed Time"],
-                rowItem["Pending Reason"],
-                rowItem["Proof Photo URL"],
+                rowItem["Completed Time"] || rowItem["Jam Selesai"] || '-',
+                rowItem["Pending Reason"] || rowItem["Alasan Pending / Catatan"] || '-',
+                rowItem["Proof Photo URL"] || rowItem["Bukti Foto PoD"] || '-',
                 rowItem.Region
             ];
 
@@ -5551,27 +5537,27 @@ async function exportRecentShipmentsToExcel() {
                     cell.value = val;
                     cell.font = { name: 'Calibri', size: 9.5, color: { argb: 'FF475569' } };
                     cell.alignment = { vertical: 'middle', horizontal: 'center' };
-                } else if (cIdx === 1 || cIdx === 2 || cIdx === 4 || cIdx === 6 || cIdx === 7 || cIdx === 8 || cIdx === 12 || cIdx === 13) {
+                } else if (cIdx === 1 || cIdx === 4 || cIdx === 8) {
                     cell.value = val;
                     cell.font = { name: 'Calibri', size: 9, color: { argb: 'FF334155' } };
                     cell.alignment = { vertical: 'middle', horizontal: 'center' };
-                } else if (cIdx === 3) {
+                } else if (cIdx === 2) {
                     cell.value = val;
                     cell.font = { name: 'Calibri', size: 9.5, bold: true, color: { argb: 'FF0F172A' } };
                     cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
-                } else if (cIdx === 5) {
+                } else if (cIdx === 3) {
                     cell.value = val;
                     cell.font = { name: 'Calibri', size: 9.5, bold: true, color: { argb: 'FF1E293B' } };
                     cell.alignment = { vertical: 'middle', horizontal: 'left' };
-                } else if (cIdx === 9) {
+                } else if (cIdx === 5) {
                     cell.value = val;
                     cell.font = { name: 'Calibri', size: 9.5, bold: true, color: { argb: 'FF0F172A' } };
                     cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
-                } else if (cIdx === 10) {
+                } else if (cIdx === 6) {
                     cell.value = val;
                     cell.font = { name: 'Calibri', size: 8.5, color: { argb: 'FF475569' } };
                     cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
-                } else if (cIdx === 11) {
+                } else if (cIdx === 7) {
                     cell.value = val;
                     cell.font = { name: 'Calibri', size: 9, bold: true };
                     cell.alignment = { vertical: 'middle', horizontal: 'center' };
@@ -5585,11 +5571,11 @@ async function exportRecentShipmentsToExcel() {
                         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
                         cell.font.color = { argb: 'FF92400E' };
                     }
-                } else if (cIdx === 14) {
+                } else if (cIdx === 9) {
                     cell.value = val;
                     cell.font = { name: 'Calibri', size: 8.5, color: { argb: 'FF475569' } };
                     cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
-                } else if (cIdx === 15) {
+                } else if (cIdx === 10) {
                     if (val && typeof val === 'string' && val.startsWith('http')) {
                         const photoArr = val.split(',').map(s => s.trim()).filter(Boolean);
                         cell.value = {
@@ -5602,7 +5588,7 @@ async function exportRecentShipmentsToExcel() {
                         cell.font = { name: 'Calibri', size: 8.5, italic: true, color: { argb: 'FF94A3B8' } };
                     }
                     cell.alignment = { vertical: 'middle', horizontal: 'center' };
-                } else if (cIdx === 16) {
+                } else if (cIdx === 11) {
                     cell.value = val;
                     cell.font = { name: 'Calibri', size: 9, color: { argb: 'FF334155' } };
                     cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
@@ -5614,21 +5600,207 @@ async function exportRecentShipmentsToExcel() {
         sheet.columns = [
             { width: 6 },   // No
             { width: 14 },  // Tanggal
-            { width: 16 },  // Shipment ID
             { width: 22 },  // NO Surat Jalan / NO DO
-            { width: 22 },  // Trip Full ID
-            { width: 22 },  // Kurir
+            { width: 22 },  // Kurir / Driver
             { width: 14 },  // Tipe Armada
-            { width: 16 },  // Plat Mobil
-            { width: 8 },   // Stop #
-            { width: 28 },  // Tujuan
-            { width: 36 },  // Alamat
+            { width: 28 },  // Tujuan / Toko
+            { width: 36 },  // Alamat Lengkap
             { width: 18 },  // Status
-            { width: 16 },  // Jam Sampai
             { width: 16 },  // Jam Selesai
-            { width: 28 },  // Alasan Pending
+            { width: 28 },  // Alasan Pending / Catatan
             { width: 20 },  // Bukti Foto PoD
             { width: 22 }   // Region
+        ];
+
+        // ==========================================
+        // SHEET 2: Ringkasan Pivot Kurir
+        // ==========================================
+        const sheetPivot = workbook.addWorksheet("Pivot_Kurir", {
+            views: [{ showGridLines: true }]
+        });
+
+        // 1. Aggregation for Pivot
+        const pivotMap = new Map();
+        exportData.forEach(item => {
+            const courierName = item.Courier || item["Kurir / Driver"] || 'Tanpa Kurir';
+            if (!pivotMap.has(courierName)) {
+                pivotMap.set(courierName, { courier: courierName, total: 0, sukses: 0, gagal: 0, pending: 0 });
+            }
+            const stat = pivotMap.get(courierName);
+            stat.total++;
+            const s = String(item.Status || '').toLowerCase().trim();
+            if (s === 'completed' || s === 'done' || s === 'delivered') {
+                stat.sukses++;
+            } else if (s === 'returned' || s === 'failed' || s === 'klien_tutup') {
+                stat.gagal++;
+            } else {
+                stat.pending++;
+            }
+        });
+
+        const pivotRows = Array.from(pivotMap.values()).sort((a, b) => {
+            if (b.total !== a.total) return b.total - a.total;
+            return a.courier.localeCompare(b.courier);
+        });
+
+        // 2. Title Row (Row 1)
+        sheetPivot.mergeCells('A1:F1');
+        const pivotTitle = sheetPivot.getCell('A1');
+        pivotTitle.value = "RINGKASAN PIVOT PENGANTARAN KURIR - WTRACK LOGISTICS";
+        pivotTitle.font = { name: 'Calibri', size: 13, bold: true, color: { argb: 'FFFFFFFF' } };
+        pivotTitle.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FF1F4E79' }
+        };
+        pivotTitle.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+        sheetPivot.getRow(1).height = 26;
+
+        // 3. Subtitle Row (Row 2)
+        sheetPivot.mergeCells('A2:F2');
+        const pivotSub = sheetPivot.getCell('A2');
+        pivotSub.value = `Periode: ${periodStr}  |  Total Kurir: ${pivotRows.length} Personil  |  Total Pengantaran: ${exportData.length} Titik`;
+        pivotSub.font = { name: 'Calibri', size: 9.5, italic: true, bold: true, color: { argb: 'FF1F4E79' } };
+        pivotSub.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFEBF3FA' }
+        };
+        pivotSub.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+        pivotSub.border = {
+            top: { style: 'thin', color: { argb: 'FF94A3B8' } },
+            bottom: { style: 'thin', color: { argb: 'FF94A3B8' } }
+        };
+        sheetPivot.getRow(2).height = 20;
+
+        // Row 3: Blank separator
+        sheetPivot.getRow(3).height = 8;
+
+        // 4. Header Row (Row 4)
+        const pivotHeaderRow = sheetPivot.getRow(4);
+        pivotHeaderRow.height = 26;
+        const pivotHeaders = ["No", "Nama Kurir", "Total Pengantaran", "Sukses", "Gagal", "Pending"];
+        pivotHeaders.forEach((h, idx) => {
+            const cell = pivotHeaderRow.getCell(idx + 1);
+            cell.value = h;
+            cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+            cell.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'FF1F4E79' }
+            };
+            cell.alignment = { vertical: 'middle', horizontal: idx === 1 ? 'left' : 'center', wrapText: true };
+            cell.border = {
+                top: { style: 'thin', color: { argb: 'FF1F4E79' } },
+                left: { style: 'thin', color: { argb: 'FF94A3B8' } },
+                bottom: { style: 'medium', color: { argb: 'FF0F2C59' } },
+                right: { style: 'thin', color: { argb: 'FF94A3B8' } }
+            };
+        });
+
+        let sumTotal = 0, sumSukses = 0, sumGagal = 0, sumPending = 0;
+        pivotRows.forEach((r, idx) => {
+            sumTotal += r.total;
+            sumSukses += r.sukses;
+            sumGagal += r.gagal;
+            sumPending += r.pending;
+
+            const row = sheetPivot.getRow(idx + 5);
+            row.height = 22;
+            const isEven = (idx % 2 === 0);
+            const bgArgb = isEven ? 'FFFFFFFF' : 'FFF8FAFC';
+
+            const vals = [
+                idx + 1,
+                r.courier,
+                r.total,
+                r.sukses,
+                r.gagal,
+                r.pending
+            ];
+
+            vals.forEach((val, cIdx) => {
+                const cell = row.getCell(cIdx + 1);
+                cell.border = thinBorder;
+                cell.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: bgArgb }
+                };
+
+                if (cIdx === 0) {
+                    cell.value = val;
+                    cell.font = { name: 'Calibri', size: 9.5, color: { argb: 'FF475569' } };
+                    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                } else if (cIdx === 1) {
+                    cell.value = val;
+                    cell.font = { name: 'Calibri', size: 9.5, bold: true, color: { argb: 'FF1E293B' } };
+                    cell.alignment = { vertical: 'middle', horizontal: 'left' };
+                } else if (cIdx === 2) {
+                    cell.value = val;
+                    cell.font = { name: 'Calibri', size: 9.5, bold: true, color: { argb: 'FF0F172A' } };
+                    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                } else if (cIdx === 3) {
+                    cell.value = val;
+                    cell.font = { name: 'Calibri', size: 9.5, bold: true, color: { argb: 'FF166534' } };
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCFCE7' } };
+                    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                } else if (cIdx === 4) {
+                    cell.value = val;
+                    cell.font = { name: 'Calibri', size: 9.5, bold: true, color: val > 0 ? { argb: 'FF991B1B' } : { argb: 'FF64748B' } };
+                    if (val > 0) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } };
+                    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                } else if (cIdx === 5) {
+                    cell.value = val;
+                    cell.font = { name: 'Calibri', size: 9.5, bold: true, color: val > 0 ? { argb: 'FF92400E' } : { argb: 'FF64748B' } };
+                    if (val > 0) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
+                    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+                }
+            });
+        });
+
+        // 5. Total Row at bottom
+        const totalRowIdx = pivotRows.length + 5;
+        const totalRow = sheetPivot.getRow(totalRowIdx);
+        totalRow.height = 24;
+
+        sheetPivot.mergeCells(`A${totalRowIdx}:B${totalRowIdx}`);
+        const totalLabelCell = totalRow.getCell(1);
+        totalLabelCell.value = "TOTAL KESELURUHAN";
+        totalLabelCell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF0F172A' } };
+        totalLabelCell.alignment = { vertical: 'middle', horizontal: 'center' };
+        totalLabelCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
+        totalLabelCell.border = {
+            top: { style: 'medium', color: { argb: 'FF94A3B8' } },
+            bottom: { style: 'double', color: { argb: 'FF0F2C59' } },
+            left: { style: 'thin', color: { argb: 'FF94A3B8' } },
+            right: { style: 'thin', color: { argb: 'FF94A3B8' } }
+        };
+        totalRow.getCell(2).border = totalLabelCell.border;
+
+        const totalValues = [sumTotal, sumSukses, sumGagal, sumPending];
+        totalValues.forEach((val, i) => {
+            const cell = totalRow.getCell(i + 3);
+            cell.value = val;
+            cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF0F172A' } };
+            cell.alignment = { vertical: 'middle', horizontal: 'center' };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
+            cell.border = {
+                top: { style: 'medium', color: { argb: 'FF94A3B8' } },
+                bottom: { style: 'double', color: { argb: 'FF0F2C59' } },
+                left: { style: 'thin', color: { argb: 'FF94A3B8' } },
+                right: { style: 'thin', color: { argb: 'FF94A3B8' } }
+            };
+        });
+
+        sheetPivot.autoFilter = { from: { row: 4, column: 1 }, to: { row: 4, column: 6 } };
+        sheetPivot.columns = [
+            { width: 6 },   // No
+            { width: 28 },  // Nama Kurir
+            { width: 20 },  // Total Pengantaran
+            { width: 16 },  // Sukses
+            { width: 16 },  // Gagal
+            { width: 16 }   // Pending
         ];
 
         const buffer = await workbook.xlsx.writeBuffer();
@@ -5647,9 +5819,26 @@ async function exportRecentShipmentsToExcel() {
 
     // Fallback: SheetJS
     if (typeof XLSX !== 'undefined') {
-        const ws = XLSX.utils.json_to_sheet(exportData);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Recent Shipments");
+        const wsDetail = XLSX.utils.json_to_sheet(exportData);
+        XLSX.utils.book_append_sheet(wb, wsDetail, "Recent Shipments");
+
+        const pivotMap = new Map();
+        exportData.forEach(item => {
+            const courierName = item.Courier || item["Kurir / Driver"] || 'Tanpa Kurir';
+            if (!pivotMap.has(courierName)) {
+                pivotMap.set(courierName, { "Nama Kurir": courierName, "Total Pengantaran": 0, "Sukses": 0, "Gagal": 0, "Pending": 0 });
+            }
+            const stat = pivotMap.get(courierName);
+            stat["Total Pengantaran"]++;
+            const s = String(item.Status || '').toLowerCase().trim();
+            if (s === 'completed' || s === 'done' || s === 'delivered') stat["Sukses"]++;
+            else if (s === 'returned' || s === 'failed' || s === 'klien_tutup') stat["Gagal"]++;
+            else stat["Pending"]++;
+        });
+        const wsPivot = XLSX.utils.json_to_sheet(Array.from(pivotMap.values()));
+        XLSX.utils.book_append_sheet(wb, wsPivot, "Pivot Kurir");
+
         XLSX.writeFile(wb, `Wtrack_Recent_Shipments_${periodStr.replace(/[\/\s:]/g, '_')}.xlsx`);
     }
 }
