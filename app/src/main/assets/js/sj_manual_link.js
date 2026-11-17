@@ -10,6 +10,7 @@
         poolTrips: [],
         date: '',
         query: '',
+        courier: '',
         targets: [],
         selected: '',
         activePoolId: '',
@@ -125,8 +126,9 @@
         }).join('');
 
         const activePool = poolById.get(STATE.activePoolId);
+        const couriers = [...new Set(STATE.targets.map(row => row.courier).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'id'));
         const query = STATE.query.trim().toLowerCase();
-        const visible = STATE.targets.filter(row => !query || row.text.includes(query));
+        const visible = STATE.targets.filter(row => (!STATE.courier || row.courier === STATE.courier) && (!query || row.text.includes(query)));
         const rows = visible.length ? visible.map(row => {
             const assignedPoolId = STATE.pairs.get(row.id) || '';
             const assignedPool = assignedPoolId ? poolById.get(assignedPoolId) : null;
@@ -155,6 +157,13 @@
                 </div>
             </div>
             <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                <select class="form-control form-control-sm" id="sj-manual-link-courier" style="width:190px;height:31px;font-size:12px;" onchange="SJManualLink.setCourier(this.value)">
+                    <option value="">Semua Kurir</option>
+                    ${couriers.map(name => `<option value="${esc(name)}" ${STATE.courier === name ? 'selected' : ''}>${esc(name)}</option>`).join('')}
+                </select>
+                <button type="button" class="btn btn-sm btn-primary" style="height:31px;font-size:12px;border-radius:7px;" onclick="SJManualLink.autoPair()" ${STATE.courier ? '' : 'disabled'} title="Pasangkan semua SJ terpilih ke tujuan kurir ini secara berurutan">
+                    <i class="bi bi-magic me-1"></i> Tautkan Otomatis
+                </button>
                 <div class="position-relative flex-grow-1" style="min-width:220px;max-width:420px;">
                     <i class="bi bi-search position-absolute top-50 translate-middle-y text-muted" style="left:10px;font-size:12px;"></i>
                     <input type="text" class="form-control form-control-sm" id="sj-manual-link-search" value="${esc(STATE.query)}" placeholder="Cari kurir, toko, alamat, atau ID trip..." style="padding-left:30px;font-size:12px;" oninput="SJManualLink.setQuery(this.value)">
@@ -245,6 +254,7 @@
         STATE.selected = '';
         STATE.pairs.clear();
         STATE.query = '';
+        STATE.courier = '';
         STATE.date = todayWib();
         STATE.targets = collectTargets(STATE.date);
         const dateInput = document.getElementById('sj-manual-link-date');
@@ -407,6 +417,39 @@
         window.allCurrentTrips = update(window.allCurrentTrips);
     }
 
+    function setCourier(value) {
+        STATE.courier = value || '';
+        render();
+    }
+
+    function autoPair() {
+        if (!STATE.courier) {
+            alert('Pilih kurir terlebih dahulu.');
+            return;
+        }
+        const targets = STATE.targets.filter(row => row.courier === STATE.courier && !STATE.pairs.has(row.id));
+        const availablePools = STATE.poolTrips.map(poolIdOf).filter(id => ![...STATE.pairs.values()].includes(id));
+        if (!targets.length) {
+            alert('Tidak ada tujuan kosong untuk kurir ini.');
+            return;
+        }
+        if (!availablePools.length) {
+            alert('Semua SJ terpilih sudah dipasangkan.');
+            return;
+        }
+        const count = Math.min(targets.length, availablePools.length);
+        for (let index = 0; index < count; index++) {
+            STATE.pairs.set(targets[index].id, availablePools[index]);
+        }
+        STATE.activePoolId = STATE.poolTrips.map(poolIdOf).find(id => ![...STATE.pairs.values()].includes(id)) || '';
+        render();
+        if (availablePools.length > targets.length) {
+            alert(`${availablePools.length - targets.length} SJ belum punya tujuan kosong pada kurir ini.`);
+        } else if (targets.length > availablePools.length) {
+            alert(`${targets.length - availablePools.length} tujuan belum mendapat SJ karena jumlah SJ terpilih lebih sedikit.`);
+        }
+    }
+
     function setActiveSJ(poolId) {
         if (!poolId) return;
         if ([...STATE.pairs.values()].includes(String(poolId))) {
@@ -514,5 +557,5 @@
         }
     }
 
-    root.SJManualLink = {openByTrip, openBulkFromSelection, setQuery, setDate, selectTarget, setActiveSJ, assignActive, unassignTarget, apply, get state() { return {...STATE}; }};
+    root.SJManualLink = {openByTrip, openBulkFromSelection, setQuery, setDate, selectTarget, setActiveSJ, assignActive, unassignTarget, setCourier, autoPair, apply, get state() { return {...STATE}; }};
 })(window);

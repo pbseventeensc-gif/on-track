@@ -190,13 +190,29 @@ Alurnya:
 1. Centang beberapa SJ di SJ Pool.
 2. Klik **Tautkan Manual**.
 3. Dialog menampilkan semua SJ terpilih di bagian atas sebagai kartu.
-4. SJ pertama otomatis menjadi **SJ aktif**.
-5. Klik baris tujuan manual yang sesuai; SJ aktif langsung dipasangkan dan
-   otomatis berpindah ke SJ berikutnya.
-6. Untuk mengganti pasangan, klik SJ lain lalu klik tujuan; tombol **Lepas**
-   tersedia pada tujuan yang sudah terpasang.
+4. Pilih **kurir** pada dropdown di atas tabel.
+5. Klik **Tautkan Otomatis**. SJ terpilih dipasangkan berurutan ke tujuan
+   manual kurir tersebut yang belum punya SJ.
+6. Periksa hasilnya. Jika ada yang tidak sesuai, klik **Lepas** atau pasangkan
+   ulang dengan mengklik SJ aktif lalu baris tujuan.
 7. Klik **Tautkan N SJ**.
+
+Pasangan otomatis mengikuti urutan kartu SJ dan urutan tujuan pada tabel.
+Karena itu, periksa tabel sebelum menekan tombol terapkan.
 
 Setelah diterapkan, setiap SJ dihapus dari Pool dan nomornya masuk ke tujuan
 manual yang dipilih. Aturan tetap **satu tujuan = satu SJ** dan **satu SJ = satu
 tujuan**.
+
+
+### Auto-pair per kurir
+
+Jika semua SJ dicentang dan tujuannya milik satu kurir:
+
+- pilih nama kurir pada dropdown **Semua Kurir**,
+- klik **Tautkan Otomatis**,
+- sistem memasangkan SJ ke tujuan kurir tersebut secara berurutan,
+- jumlah yang dipasangkan mengikuti jumlah tujuan/SJ yang tersedia,
+- klik **Tautkan N SJ** untuk menyimpan.
+
+Tidak perlu menekan tombol **Pasang** satu per satu.
