@@ -763,6 +763,10 @@ window.UnifiedPoolUI = (function () {
             ` : `
               <button class="btn btn-sm btn-outline-warning text-dark py-1 px-2 aerotrack-input extra-small text-nowrap" style="font-weight: 400 !important;" onclick="UnifiedPoolUI.toggleReadyStatus('${t.id}', false)" title="Tandai Belum Ready">Belum Ready</button>
             `}
+            ${rawSJ && !rawSJ.startsWith('TRIP_') ? `
+            <button class="btn btn-sm btn-light border py-1 px-2 text-primary aerotrack-input" data-trip="${escapePoolHtml(t.tripId || t.id)}" onclick="window.SJManualLink && window.SJManualLink.openByTrip(this.dataset.trip)" title="Tautkan SJ ini ke pengiriman manual" aria-label="Tautkan SJ ke pengiriman manual">
+              <i class="bi bi-link-45deg"></i>
+            </button>` : ''}
             ${(t.printLocation === 'cikokol' || t.originBranch === 'cikokol') ? `
             <button class="btn btn-sm btn-light border py-1 px-2 text-dark aerotrack-input" onclick="UnifiedPoolUI.printSingleSJ('${t.id}')" title="Cetak Surat Jalan (Cikokol)">
               <i class="bi bi-printer text-primary"></i>

@@ -137,3 +137,34 @@ set `window.WTRACK_ENABLE_SJ_RECONCILE = true` sebelum dashboard dirender
 
 Bulk SJ photo tetap tersedia lewat kartu Live Tracking / Manual Dispatch:
 pilih satu atau beberapa foto, upload, lalu buka Audit Bulk SJ untuk melihatnya.
+
+## Alur manual (dictation) — fitur utama
+
+Sesuai keputusan operasional, pencocokan otomatis disembunyikan. Yang dipakai
+adalah tautan manual dari SJ Pool:
+
+1. Admin menerima info lisan, misalnya **“kurir Ahmad, SJ-1126-03248”**.
+2. Cari SJ tersebut di tabel **SJ Pool**.
+3. Klik ikon **Tautkan** (rantai) pada kolom Aksi baris SJ.
+4. Di dialog:
+   - SJ yang dipilih tampil di atas,
+   - ketik nama kurir/toko/alamat untuk mencari tujuan manual,
+   - pilih satu tujuan (radio).
+5. Klik **Tautkan & Sinkronkan**.
+6. Hasil:
+   - nomor SJ muncul di dashboard pengiriman manual,
+   - SJ dihapus dari Pool,
+   - `sj_import_keys` diarahkan ke trip manual,
+   - audit `sj_reconciliations` mencatat sumber `admin-manual-link`.
+
+Aturan:
+
+- satu SJ hanya untuk satu tujuan,
+- satu tujuan hanya untuk satu SJ,
+- tujuan yang sudah punya nomor SJ tidak ditampilkan lagi,
+- target bisa berupa pengiriman aktif maupun yang sudah selesai pada tanggal tersebut,
+- tanggal tujuan dapat diganti di dialog,
+- tidak ada pencocokan otomatis/fuzzy.
+
+Tombol global **Sinkronkan SJ** tetap disembunyikan (`WTRACK_ENABLE_SJ_RECONCILE`).
+Aksi **Tautkan** per baris inilah yang muncul di SJ Pool.

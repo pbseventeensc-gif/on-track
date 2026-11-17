@@ -3380,6 +3380,35 @@
     </div>
 </div>
 
+<!-- MODAL: TAUTKAN SJ POOL KE PENGIRIMAN MANUAL -->
+<div class="modal fade" id="modal-sj-manual-link" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg overflow-hidden" style="border-radius:12px;border:1px solid #EAECF0 !important;">
+            <div class="modal-header border-bottom py-3 px-4 bg-white" style="border-color:#EAECF0 !important;">
+                <div>
+                    <h5 class="modal-title fw-bold text-dark m-0" style="font-size:16px;">Tautkan SJ ke Pengiriman Manual</h5>
+                    <small class="text-muted" style="font-size:11.5px;">Pilih satu SJ dari Pool, lalu pilih tujuan manual/kurir yang sesuai.</small>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-3" style="background:#F9FAFB;">
+                <div id="sj-manual-link-body">
+                    <div class="text-center text-muted py-5"><span class="spinner-border spinner-border-sm me-2"></span>Memuat tujuan manual…</div>
+                </div>
+            </div>
+            <div class="modal-footer border-top py-3 px-4 bg-white d-flex justify-content-between" style="border-color:#EAECF0 !important;">
+                <span class="text-muted" style="font-size:11.5px;">SJ akan dihapus dari Pool setelah ditautkan.</span>
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="btn btn-sm bg-white border fw-medium" style="height:34px;border-radius:8px;border-color:#D0D5DD !important;color:#344054;font-size:13px;padding:0 14px;" data-bs-dismiss="modal">Tutup</button>
+                    <button type="button" id="sj-manual-link-apply" class="btn btn-sm btn-wellen-action" style="height:34px;border-radius:8px;font-size:13px;padding:0 14px;" disabled onclick="window.SJManualLink && window.SJManualLink.apply()">
+                        <i class="bi bi-link-45deg me-1"></i> Pilih Tujuan
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- MODAL: SINKRONKAN SJ MANUAL DENGAN SJ POOL -->
 <div class="modal fade" id="modal-sj-reconcile" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
@@ -3760,9 +3789,10 @@
 <script src="/js/material_usage.js?v=20261114.1"></script>
 <script src="/js/dispatch_workflow.js?v=20261114.1"></script>
 <script src="/js/sj_assignment.js?v=20261115.3"></script>
-<script src="/js/unified_pool_ui.js?v=20261117.4"></script>
+<script src="/js/unified_pool_ui.js?v=20261117.5"></script>
 <script src="/js/sj_reconcile_core.js?v=20261117.1"></script>
 <script src="/js/sj_reconcile.js?v=20261117.1"></script>
+<script src="/js/sj_manual_link.js?v=20261117.1"></script>
 <script src="/js/erp_sidebar.js?v=20261114.1"></script>
 <script src="/js/vendor/lottie.min.js?v=20261115.1"></script>
 <script src="/js/useanimations_icons.js?v=20261115.1"></script>
