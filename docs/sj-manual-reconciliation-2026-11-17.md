@@ -107,3 +107,19 @@ di Pool.
 - Preview dengan data produksi (read-only): 416 Pool, 158 tujuan manual,
   15 cocok, 5 ambigu, 138 tidak cocok.
 - Belum menulis data produksi.
+
+## Deployment produksi
+
+- Commit: `5d554f1` — `feat(admin): reconcile SJ Pool with manual delivery destinations`
+- Branch `main` sudah di-push ke GitHub.
+- Vercel auto-deploy: **success**
+- Deployment reference: `DGFsUaTpZRnHV4czZwxRhSd98E14`
+- Production alias: https://on-track-indol.vercel.app
+- Script production:
+  - `app.js?v=20261117.3`
+  - `unified_pool_ui.js?v=20261117.3`
+  - `sj_reconcile_core.js?v=20261117.1`
+  - `sj_reconcile.js?v=20261117.1`
+- Smoke test production: `SJReconcile`, `SJReconcileCore`, modal, dan handler tombol tersedia; tidak ada error JavaScript.
+- Preview data produksi saat deploy: 416 SJ di Pool, 158 tujuan manual, **15 cocok**, **5 ambigu**, **138 tidak cocok**.
+- Tidak ada dokumen produksi yang diubah saat pengembangan/fitur ini dipasang. Penerapan hanya terjadi jika admin menekan **Terapkan**.
