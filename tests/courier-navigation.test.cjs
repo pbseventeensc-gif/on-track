@@ -38,3 +38,22 @@ test('a multi-destination route never gives a missing pin the coordinates of ano
  vm.runInContext(html.slice(html.indexOf('    function syncLocalImportedTrips()'),html.indexOf('    function ',html.indexOf('    function syncLocalImportedTrips()')+20)),c);
  c.syncLocalImportedTrips();assert.equal(c.masterShipments.length,2);assert.equal(c.masterShipments.find(s=>s.noSJ==='#SJ-A').latitude,-6.2);const b=c.masterShipments.find(s=>s.noSJ==='#SJ-B');assert.equal(b.latitude,null);assert.equal(destination(b),'Alamat B');
 });
+
+test('Maps navigation uses the same WebView on old APK and the native bridge when available',()=>{
+ let opened='';
+ let prevented=false;
+ const event={preventDefault(){prevented=true;}};
+ assert.equal(context.openMapsNavigation(event,'https://www.google.com/maps/dir/?api=1&destination=Jakarta'),true);
+ assert.equal(prevented,false);
+ context.AndroidBridge={openExternal(url){opened=url;}};
+ assert.equal(context.openMapsNavigation(event,'https://www.google.com/maps/dir/?api=1&destination=Bekasi'),false);
+ assert.equal(prevented,true);
+ assert.match(opened,/destination=Bekasi/);
+ assert.equal(context.openMapsNavigation(event,'#'),false);
+});
+
+test('courier Maps links never rely on target=_blank inside Android WebView',()=>{
+ const source=fs.readFileSync(require.resolve('../kurir.html'),'utf8');
+ assert.equal((source.match(/target="_blank"/g)||[]).length,0);
+ assert.match(source,/onclick="return openMapsNavigation\(event, this\.href\)"/);
+});

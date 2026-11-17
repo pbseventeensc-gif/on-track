@@ -16,6 +16,35 @@ window.UnifiedPoolUI = (function () {
   let activeDeliveryStatusFilter = 'ALL'; // 'ALL' or 'PENDING_FAILED'
   let currentSearchQuery = '';
 
+  // Paging + cross-page selection keeps the DOM small on Windows PCs while
+  // still allowing "select all filtered, then assign" workflows.
+  let poolPage = 1;
+  let poolPageSize = 50;
+  const selectedPoolIds = new Set();
+  let lastPoolTrips = [];
+  let lastFilteredTrips = [];
+  let poolSearchTimer = null;
+  let poolRenderTimer = null;
+
+  const poolKey = trip => String(trip?.id || trip?.tripId || trip?.noSJ || trip?.sjNumber || '');
+  function escapePoolHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+  }
+  function assignmentBlockReason(trip) {
+    if (!trip) return 'Tidak ditemukan';
+    if (trip.pickupStatus === 'waiting' || trip.deliveryMethod === 'customer_pickup') return 'Pickup by Customer';
+    if (trip.readyStatus === 'not_ready') return 'Belum Ready';
+    if (trip.courierId || trip.assignedTo) return 'Sudah ditugaskan';
+    return '';
+  }
+  function selectedTripsFromPool() {
+    return lastPoolTrips.filter(trip => selectedPoolIds.has(poolKey(trip)));
+  }
+  function prunePoolSelection() {
+    const valid = new Set(lastPoolTrips.map(poolKey));
+    for (const id of [...selectedPoolIds]) if (!valid.has(id)) selectedPoolIds.delete(id);
+  }
+
   function displayPoolText(value) {
     const text = String(value || '-').trim().toLocaleLowerCase('id-ID');
     const normal = text.replace(/\p{L}[\p{L}\p{N}]*/gu, word => {
@@ -377,6 +406,18 @@ window.UnifiedPoolUI = (function () {
       return (b.date || '').localeCompare(a.date || '');
     });
 
+    lastPoolTrips = allTrips;
+    lastFilteredTrips = filtered;
+    prunePoolSelection();
+
+    const totalFiltered = filtered.length;
+    const totalPages = Math.max(1, Math.ceil(totalFiltered / poolPageSize));
+    if (poolPage > totalPages) poolPage = totalPages;
+    if (poolPage < 1) poolPage = 1;
+    const pageStart = (poolPage - 1) * poolPageSize;
+    const pageRows = filtered.slice(pageStart, pageStart + poolPageSize);
+    const pageEnd = Math.min(totalFiltered, pageStart + poolPageSize);
+
     container.innerHTML = `
       <div class="aerotrack-table-container bg-white mb-4" style="border: 1px solid #EAECF0; border-radius: 12px; box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);">
         <!-- Underline Tabs (Esse style) -->
@@ -409,7 +450,7 @@ window.UnifiedPoolUI = (function () {
           <div class="d-flex align-items-center flex-wrap" style="gap: 8px;">
             <div class="position-relative" style="width: 210px;">
               <i class="bi bi-search position-absolute top-50 translate-middle-y text-muted" style="left: 11px; font-size: 13px; pointer-events: none;"></i>
-              <input type="text" id="pool-unified-search" class="form-control form-control-sm" placeholder="Cari No. DO, Customer..." style="padding-left: 34px; width: 100%;" value="${currentSearchQuery}" oninput="UnifiedPoolUI.setSearchQuery(this.value)">
+              <input type="text" id="pool-unified-search" class="form-control form-control-sm" placeholder="Cari No. DO, Customer..." style="padding-left: 34px; width: 100%;" value="${escapePoolHtml(currentSearchQuery)}" oninput="UnifiedPoolUI.scheduleSearch(this.value)">
             </div>
             <div style="width: 165px;">
               <select id="pool-region-filter" class="form-select form-select-sm" onchange="UnifiedPoolUI.setRegionFilter(this.value)">
@@ -451,16 +492,15 @@ window.UnifiedPoolUI = (function () {
 
         <!-- Baris Aksi Terpilih (Contextual: tampil saat ada SJ dicentang) -->
         <div id="pool-bulk-bar" class="d-none align-items-center justify-content-between px-3 border-bottom flex-wrap" style="border-color: #FFE3C2 !important; background: #FFF9F2; padding-top: 8px; padding-bottom: 8px; gap: 8px;">
-          <span id="pool-selected-count" style="font-size: 12.5px; font-weight: 600; color: #B05500;">0 dipilih</span>
+          <div class="d-flex align-items-center flex-wrap" style="gap: 8px; min-width: 0;">
+            <span id="pool-selected-count" style="font-size: 12.5px; font-weight: 600; color: #B05500;">0 dipilih</span>
+            <span id="pool-selection-regions" class="d-inline-flex align-items-center flex-wrap" style="gap:4px;"></span>
+            <span id="pool-selection-warning" class="text-danger" style="font-size:11.5px;"></span>
+          </div>
           <div class="d-flex align-items-center flex-wrap ms-auto" style="gap: 6px;">
-            <div style="width: 220px; flex-shrink: 0;">
-              <select id="pool-bulk-courier" class="form-select form-select-sm">
-                ${UnifiedPoolUI.buildCourierOptionsHtml()}
-              </select>
-            </div>
-            <button class="btn btn-sm text-white fw-semibold d-inline-flex align-items-center" style="height: 32px; border-radius: 8px; background: #CC6100; font-size: 12.5px; padding: 0 12px; gap: 6px;" onclick="UnifiedPoolUI.assignSelectedToCourier()">
+            <button class="btn btn-sm text-white fw-semibold d-inline-flex align-items-center" style="height: 32px; border-radius: 8px; background: #CC6100; font-size: 12.5px; padding: 0 12px; gap: 6px;" onclick="UnifiedPoolUI.openAssignmentModal()">
               <i class="bi bi-send-check"></i>
-              <span>Tugaskan</span>
+              <span>Lanjut Tugaskan</span>
             </button>
             <button class="btn btn-sm bg-white border d-inline-flex align-items-center" style="height: 32px; border-radius: 8px; border-color: #D0D5DD !important; color: #344054; font-size: 12.5px; padding: 0 10px; gap: 6px;" onclick="UnifiedPoolUI.bulkSetReadyStatus(false)">
               <i class="bi bi-clock-history"></i>
@@ -474,10 +514,12 @@ window.UnifiedPoolUI = (function () {
               <i class="bi bi-printer"></i>
               <span>Cetak</span>
             </button>
-            <button class="btn btn-sm bg-white border text-danger d-inline-flex align-items-center justify-content-center" style="height: 32px; width: 32px; border-radius: 8px; border-color: #D0D5DD !important;" onclick="UnifiedPoolUI.deleteSelectedPool()" title="Hapus Terpilih">
+            <button class="btn btn-sm bg-white border d-inline-flex align-items-center justify-content-center" style="height: 32px; width: 32px; border-radius: 8px; border-color: #D0D5DD !important;" onclick="UnifiedPoolUI.deleteSelectedPool()" title="Hapus Terpilih">
               <i class="bi bi-trash"></i>
             </button>
+            <button class="btn btn-sm btn-link text-muted text-decoration-none" style="font-size:12px;padding:0 4px;" onclick="UnifiedPoolUI.clearPoolSelection()" title="Bersihkan pilihan">Bersihkan</button>
           </div>
+          <div id="pool-selection-preview" class="w-100 text-muted" style="font-size:11.5px;line-height:1.4;"></div>
         </div>
 
         <div class="table-responsive">
@@ -498,7 +540,7 @@ window.UnifiedPoolUI = (function () {
             <thead>
               <tr>
                 <th class="text-center">
-                  <input type="checkbox" class="form-check-input" id="select-all-pool" onchange="UnifiedPoolUI.toggleAllCheckbox(this)">
+                  <input type="checkbox" class="form-check-input" id="select-all-pool" title="Pilih semua SJ pada hasil filter ini" onchange="UnifiedPoolUI.toggleAllCheckbox(this)">
                 </th>
                 <th>No. DO</th>
                 <th>Admin</th>
@@ -518,9 +560,24 @@ window.UnifiedPoolUI = (function () {
                   <i class="bi bi-inbox fs-3 d-block mb-2 text-muted"></i>
                   Belum ada Delivery Order di pool.
                 </td></tr>
-              ` : filtered.map(t => renderTableRow(t)).join('')}
+              ` : pageRows.map(t => renderTableRow(t)).join('')}
             </tbody>
           </table>
+        </div>
+        <div id="pool-pagination" class="d-flex align-items-center justify-content-between flex-wrap gap-2 px-3 py-2 border-top" style="border-color:#EAECF0 !important;background:#fff;font-size:12px;">
+          <span class="text-muted">Menampilkan ${totalFiltered ? pageStart + 1 : 0}–${pageEnd} dari <strong>${totalFiltered}</strong> SJ${totalFiltered > poolPageSize ? ` · ${poolPageSize} per halaman` : ''}</span>
+          <div class="d-flex align-items-center gap-2">
+            <label for="pool-page-size" class="text-muted mb-0" style="font-size:12px;">Baris</label>
+            <select id="pool-page-size" class="form-select form-select-sm" style="width:76px;height:30px;font-size:12px;" onchange="UnifiedPoolUI.setPoolPageSize(this.value)">
+              <option value="25" ${poolPageSize===25?'selected':''}>25</option>
+              <option value="50" ${poolPageSize===50?'selected':''}>50</option>
+              <option value="100" ${poolPageSize===100?'selected':''}>100</option>
+              <option value="200" ${poolPageSize===200?'selected':''}>200</option>
+            </select>
+            <button type="button" class="btn btn-sm bg-white border" style="height:30px;border-radius:6px;border-color:#D0D5DD !important;color:#344054;font-size:12px;padding:0 10px;" ${poolPage<=1?'disabled':''} onclick="UnifiedPoolUI.setPoolPage(${poolPage - 1})" aria-label="Halaman sebelumnya"><i class="bi bi-chevron-left"></i></button>
+            <span class="text-muted" style="font-size:12px;white-space:nowrap;">Halaman ${poolPage} / ${totalPages}</span>
+            <button type="button" class="btn btn-sm bg-white border" style="height:30px;border-radius:6px;border-color:#D0D5DD !important;color:#344054;font-size:12px;padding:0 10px;" ${poolPage>=totalPages?'disabled':''} onclick="UnifiedPoolUI.setPoolPage(${poolPage + 1})" aria-label="Halaman berikutnya"><i class="bi bi-chevron-right"></i></button>
+          </div>
         </div>
       </div>
     `;
@@ -562,7 +619,7 @@ window.UnifiedPoolUI = (function () {
     return `
       <tr ${rowBgStyle}>
         <td class="text-center" style="width: 38px;">
-          <input type="checkbox" class="form-check-input pool-checkbox" value="${t.id}" ${t.pickupStatus==='waiting'?'disabled':''} onchange="UnifiedPoolUI.updateSelectionCount()">
+          <input type="checkbox" class="form-check-input pool-checkbox" value="${escapePoolHtml(t.id)}" data-id="${escapePoolHtml(t.id)}" ${selectedPoolIds.has(poolKey(t)) ? 'checked' : ''} ${t.pickupStatus==='waiting'?'disabled':''} onchange="UnifiedPoolUI.togglePoolSelection(this.checked, this.dataset.id)">
         </td>
         <td class="text-nowrap" style="width: 130px;">
           ${displayId !== '-' ? `
@@ -699,7 +756,11 @@ window.UnifiedPoolUI = (function () {
 
   let assignmentBusy = false;
   async function saveAssignments(targets, courierSelect, options = {}) {
-    if (assignmentBusy) return;
+    if (assignmentBusy) return null;
+    if (targets.length > 400) {
+      alert(`Maksimal 400 SJ sekali penugasan. Pilihan saat ini ${targets.length} SJ; kurangi pilihan lalu ulangi.`);
+      return null;
+    }
     assignmentBusy = true;
     try {
       const option = courierSelect.options[courierSelect.selectedIndex];
@@ -709,9 +770,11 @@ window.UnifiedPoolUI = (function () {
       let assigned;
       if (window.WTRACK_LOCAL_SANDBOX) {
         const stored = JSON.parse(localStorage.getItem('wtrack_local_trips') || '[]');
+        const byId = new Map();
+        stored.forEach(t => [t.id, t.tripId].filter(Boolean).forEach(key => byId.set(key, t)));
         const now = new Date().toISOString();
         assigned = ids.map(id => {
-          const source = stored.find(t => (t.id || t.tripId) === id);
+          const source = byId.get(id);
           if (!source) throw Error('SJ tidak ditemukan. Muat ulang.');
           return window.SJAssignment.assignTrip(source,courier,options,now);
         });
@@ -735,6 +798,7 @@ window.UnifiedPoolUI = (function () {
       return assigned;
     } catch (error) {
       alert('Penugasan belum disimpan: ' + error.message);
+      return null;
     } finally { assignmentBusy = false; }
   }
 
@@ -753,6 +817,7 @@ window.UnifiedPoolUI = (function () {
 
   function setDateFolder(date) {
     activeDateFolder = date;
+    poolPage = 1;
     renderUnifiedPoolView();
   }
 
@@ -760,30 +825,120 @@ window.UnifiedPoolUI = (function () {
     activeRegionFilter = region;
     const sel = document.getElementById('quick-dispatch-region');
     if (sel && region !== 'ALL') sel.value = region;
+    poolPage = 1;
     renderUnifiedPoolView();
   }
 
   function setPrintFilter(loc) {
     activePrintLocationFilter = loc;
+    poolPage = 1;
     renderUnifiedPoolView();
   }
 
+  function setPoolPage(page) {
+    const totalPages = Math.max(1, Math.ceil(lastFilteredTrips.length / poolPageSize));
+    poolPage = Math.max(1, Math.min(totalPages, Number(page) || 1));
+    renderUnifiedPoolView();
+    const top = document.querySelector('#view-pool .aerotrack-table-container');
+    top?.scrollIntoView({behavior:'smooth', block:'start'});
+  }
+
+  function setPoolPageSize(size) {
+    poolPageSize = [25, 50, 100, 200].includes(Number(size)) ? Number(size) : 50;
+    poolPage = 1;
+    renderUnifiedPoolView();
+  }
+
+  function togglePoolSelection(checked, id) {
+    const key = String(id || '');
+    if (!key) return;
+    if (checked) selectedPoolIds.add(key);
+    else selectedPoolIds.delete(key);
+    updateSelectionCount();
+  }
+
+  function clearPoolSelection() {
+    selectedPoolIds.clear();
+    document.querySelectorAll('.pool-checkbox').forEach(cb => { cb.checked = false; });
+    updateSelectionCount();
+  }
+
   function toggleAllCheckbox(source) {
-    document.querySelectorAll('.pool-checkbox').forEach(cb => cb.checked = source.checked && !cb.disabled);
+    // Selects every SJ in the current filter (all pages), not only the
+    // 50 rows that are currently rendered.
+    lastFilteredTrips.forEach(t => {
+      if (t.pickupStatus === 'waiting') return;
+      if (source.checked) selectedPoolIds.add(poolKey(t));
+      else selectedPoolIds.delete(poolKey(t));
+    });
+    document.querySelectorAll('.pool-checkbox').forEach(cb => { cb.checked = source.checked && !cb.disabled; });
     updateSelectionCount();
   }
 
   function updateSelectionCount() {
-    const checked = document.querySelectorAll('.pool-checkbox:checked').length;
+    const selectedTrips = selectedTripsFromPool();
+    const checked = selectedTrips.length;
     const countEl = document.getElementById('pool-selected-count');
-    if (countEl) {
-      countEl.innerText = `${checked} dipilih`;
+    if (countEl) countEl.innerText = `${checked} SJ dipilih`;
+
+    const regionsEl = document.getElementById('pool-selection-regions');
+    if (regionsEl) {
+      const regions = {};
+      selectedTrips.forEach(t => { const r = t.region || 'Lainnya'; regions[r] = (regions[r] || 0) + 1; });
+      regionsEl.innerHTML = Object.entries(regions)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 4)
+        .map(([region, count]) => `<span class="badge" style="background:#FFF4E5;color:#B05500;border:1px solid #FFE3C2;font-size:10.5px;font-weight:600;">${escapePoolHtml(region)} ${count}</span>`)
+        .join('') + (Object.keys(regions).length > 4 ? `<span class="text-muted" style="font-size:11px;">+${Object.keys(regions).length - 4} region</span>` : '');
     }
+
+    const warningEl = document.getElementById('pool-selection-warning');
+    if (warningEl) {
+      const blocked = selectedTrips.filter(t => assignmentBlockReason(t));
+      const reasons = [...new Set(blocked.map(t => assignmentBlockReason(t)))];
+      warningEl.textContent = blocked.length ? `${blocked.length} SJ belum bisa ditugaskan (${reasons.join(', ')})` : (checked > 400 ? 'Maksimal 400 SJ per penugasan' : '');
+    }
+
+    const previewEl = document.getElementById('pool-selection-preview');
+    if (previewEl) {
+      const numbers = selectedTrips.slice(0, 6).map(t => t.noSJ || t.sjNumber || t.id);
+      previewEl.textContent = checked
+        ? `Dipilih: ${numbers.join(' · ')}${checked > numbers.length ? ` · +${checked - numbers.length} SJ lainnya` : ''}`
+        : '';
+    }
+
     const bulkBar = document.getElementById('pool-bulk-bar');
     if (bulkBar) {
       bulkBar.classList.toggle('d-none', checked === 0);
       bulkBar.classList.toggle('d-flex', checked > 0);
     }
+
+    const all = document.getElementById('select-all-pool');
+    if (all) {
+      const eligible = lastFilteredTrips.filter(t => t.pickupStatus !== 'waiting');
+      const chosen = eligible.filter(t => selectedPoolIds.has(poolKey(t))).length;
+      all.checked = eligible.length > 0 && chosen === eligible.length;
+      all.indeterminate = chosen > 0 && chosen < eligible.length;
+    }
+  }
+
+  function scheduleSearch(value) {
+    if (typeof setTimeout !== 'function') { setSearchQuery(value); return; }
+    if (poolSearchTimer) clearTimeout(poolSearchTimer);
+    poolSearchTimer = setTimeout(() => {
+      poolSearchTimer = null;
+      setSearchQuery(value);
+    }, 250);
+  }
+
+  // Coalesce bursty Firestore snapshots into one table render.
+  function scheduleRender(delay = 120) {
+    if (typeof setTimeout !== 'function') { renderUnifiedPoolView(); return; }
+    if (poolRenderTimer) return;
+    poolRenderTimer = setTimeout(() => {
+      poolRenderTimer = null;
+      renderUnifiedPoolView();
+    }, delay);
   }
 
   function printSingleSJ(id) {
@@ -830,28 +985,221 @@ window.UnifiedPoolUI = (function () {
 
   async function assignSelectedToCourier() {
     const select = document.getElementById('pool-bulk-courier');
-    if (!select?.value) { alert('Pilih kurir terlebih dahulu.'); return; }
-    const checked = Array.from(document.querySelectorAll('.pool-checkbox:checked')).map(cb => String(cb.value).trim());
-    const targets = getTripsSource().filter(t => matchesTripIdentifier(t,checked));
-    if (!targets.length) { alert('Pilih minimal satu SJ.'); return; }
-    return saveAssignments(targets,select);
+    if (!select?.value) { alert('Pilih kurir terlebih dahulu.'); select?.focus(); return; }
+    if (document.getElementById('modal-pool-assign')) return confirmAssignment();
+    const trips = selectedTripsFromPool();
+    const eligible = trips.filter(t => !assignmentBlockReason(t));
+    if (!eligible.length) { alert('Tidak ada SJ terpilih yang siap ditugaskan.'); return; }
+    return saveAssignments(eligible, select);
+  }
+
+  function assignmentCitySummary(trips) {
+    const regions = {};
+    trips.forEach(t => { const r = t.region || 'Lainnya'; regions[r] = (regions[r] || 0) + 1; });
+    return Object.entries(regions).sort((a, b) => b[1] - a[1]);
+  }
+
+  function renderAssignmentSelection(trips) {
+    const body = document.getElementById('pool-assign-body');
+    if (!body) return;
+    const eligible = trips.filter(t => !assignmentBlockReason(t));
+    const blocked = trips.filter(t => assignmentBlockReason(t));
+    const countBadge = document.getElementById('pool-assign-count-badge');
+    if (countBadge) countBadge.textContent = `${trips.length} SJ`;
+    const confirm = document.getElementById('pool-assign-confirm');
+    if (confirm) {
+      confirm.classList.remove('d-none');
+      confirm.disabled = eligible.length === 0;
+      confirm.innerHTML = `<i class="bi bi-send-check me-1"></i> Tugaskan ${eligible.length} SJ`;
+    }
+    document.getElementById('pool-assign-back')?.classList.add('d-none');
+
+    const regionChips = assignmentCitySummary(eligible)
+      .map(([region, count]) => `<span class="badge" style="background:#FFF4E5;color:#B05500;border:1px solid #FFE3C2;font-size:11px;font-weight:600;">${escapePoolHtml(region)} ${count}</span>`)
+      .join('');
+
+    const rows = trips.map(t => {
+      const reason = assignmentBlockReason(t);
+      return `<tr>
+        <td class="font-monospace" style="font-size:12px;white-space:nowrap;">${escapePoolHtml(t.noSJ || t.sjNumber || t.id)}</td>
+        <td style="font-size:12px;white-space:normal;min-width:160px;">${escapePoolHtml(t.customer || '-')}</td>
+        <td style="font-size:11.5px;white-space:nowrap;">${escapePoolHtml(t.region || '-')}</td>
+        <td style="font-size:11.5px;white-space:nowrap;">${reason ? `<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle" style="font-size:10.5px;">${escapePoolHtml(reason)}</span>` : '<span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size:10.5px;">Siap</span>'}</td>
+        <td class="text-end"><button type="button" class="btn btn-link btn-sm p-0 text-muted" data-id="${escapePoolHtml(t.id)}" onclick="UnifiedPoolUI.removeAssignmentSelection(this.dataset.id)" title="Hapus dari pilihan" aria-label="Hapus ${escapePoolHtml(t.noSJ || t.id)} dari pilihan"><i class="bi bi-x-lg" style="font-size:11px;"></i></button></td>
+      </tr>`;
+    }).join('');
+
+    body.innerHTML = `
+      <div class="d-flex align-items-center flex-wrap gap-2 mb-3">
+        <span class="badge bg-white text-dark border" style="font-size:11.5px;font-weight:600;">${trips.length} SJ dipilih</span>
+        <span class="badge bg-white text-success border border-success-subtle" style="font-size:11.5px;">${eligible.length} siap ditugaskan</span>
+        ${blocked.length ? `<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle" style="font-size:11.5px;">${blocked.length} dilewati</span>` : ''}
+        ${regionChips}
+      </div>
+      <div class="row g-3">
+        <div class="col-lg-8">
+          <div class="bg-white border rounded-3 overflow-hidden" style="border-color:#EAECF0 !important;">
+            <div class="px-3 py-2 border-bottom d-flex align-items-center justify-content-between" style="border-color:#EAECF0 !important;">
+              <strong style="font-size:12.5px;">Daftar Surat Jalan Terpilih</strong>
+              <span class="text-muted" style="font-size:11.5px;">Tutup dialog untuk menambah SJ lain</span>
+            </div>
+            <div class="table-responsive" style="max-height:340px;">
+              <table class="table align-middle mb-0" style="font-size:12px;">
+                <thead class="sticky-top" style="background:#F9FAFB;">
+                  <tr>
+                    <th style="font-weight:500;color:#667085;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;">No. DO</th>
+                    <th style="font-weight:500;color:#667085;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;">Customer</th>
+                    <th style="font-weight:500;color:#667085;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;">Region</th>
+                    <th style="font-weight:500;color:#667085;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;">Status</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>${rows || '<tr><td colspan="5" class="text-center text-muted py-4">Tidak ada SJ terpilih.</td></tr>'}</tbody>
+              </table>
+            </div>
+          </div>
+          ${blocked.length ? `<div class="alert alert-warning mt-2 mb-0 py-2" style="font-size:11.5px;">SJ yang belum siap tidak akan diikutkan. Selesaikan status Ready / Pickup terlebih dahulu, lalu buka dialog ini lagi.</div>` : ''}
+        </div>
+        <div class="col-lg-4">
+          <div class="bg-white border rounded-3 p-3" style="border-color:#EAECF0 !important;">
+            <label for="pool-bulk-courier" class="form-label fw-semibold" style="font-size:12px;">Kurir / Driver <span class="text-danger">*</span></label>
+            <select id="pool-bulk-courier" class="form-select form-select-sm mb-2" style="font-size:12.5px;">
+              ${buildCourierOptionsHtml()}
+            </select>
+            <label for="pool-assign-vehicle" class="form-label fw-semibold" style="font-size:12px;">Plat / Armada <span class="text-muted fw-normal">(opsional)</span></label>
+            <input id="pool-assign-vehicle" class="form-control form-control-sm mb-2" placeholder="Contoh: B 1234 XYZ" style="font-size:12.5px;">
+            <div class="rounded-3 p-2" style="background:#F9FAFB;border:1px solid #EAECF0;font-size:11.5px;color:#475467;">
+              <div class="d-flex justify-content-between"><span>Total dipilih</span><strong>${trips.length} SJ</strong></div>
+              <div class="d-flex justify-content-between"><span>Siap ditugaskan</span><strong class="text-success">${eligible.length} SJ</strong></div>
+              ${blocked.length ? `<div class="d-flex justify-content-between"><span>Dilewati</span><strong class="text-warning-emphasis">${blocked.length} SJ</strong></div>` : ''}
+            </div>
+            <p class="text-muted mt-2 mb-0" style="font-size:11px;">Setelah dikonfirmasi, SJ langsung masuk ke tugas kurir dan hilang dari Pool.</p>
+          </div>
+        </div>
+      </div>
+    `;
+    if (window.wtrackDropdown?.initAll) window.wtrackDropdown.initAll();
+  }
+
+  function openAssignmentModal(preselectedCourier) {
+    const trips = selectedTripsFromPool();
+    if (!trips.length) { alert('Pilih minimal satu SJ terlebih dahulu.'); return; }
+    if (trips.length > 400) { alert(`Maksimal 400 SJ sekali penugasan. Pilihan saat ini ${trips.length} SJ; kurangi pilihan lalu ulangi.`); return; }
+    const modal = document.getElementById('modal-pool-assign');
+    if (!modal) { alert('Dialog penugasan tidak tersedia. Muat ulang halaman.'); return; }
+    renderAssignmentSelection(trips);
+    const select = document.getElementById('pool-bulk-courier');
+    if (select && preselectedCourier) select.value = preselectedCourier;
+    if (typeof bootstrap !== 'undefined') {
+      const bsModal = bootstrap.Modal.getOrCreateInstance(modal);
+      bsModal.show();
+    }
+  }
+
+  function removeAssignmentSelection(id) {
+    selectedPoolIds.delete(String(id || ''));
+    updateSelectionCount();
+    const trips = selectedTripsFromPool();
+    if (!trips.length) {
+      const body = document.getElementById('pool-assign-body');
+      if (body) body.innerHTML = `<div class="text-center text-muted py-5"><i class="bi bi-inbox fs-3 d-block mb-2"></i>Tidak ada SJ terpilih. Tutup dialog lalu centang SJ kembali.</div>`;
+      const confirm = document.getElementById('pool-assign-confirm');
+      if (confirm) confirm.disabled = true;
+      return;
+    }
+    renderAssignmentSelection(trips);
+  }
+
+  function reopenAssignmentSelection() {
+    const trips = selectedTripsFromPool();
+    if (!trips.length) { alert('Tidak ada SJ terpilih.'); return; }
+    renderAssignmentSelection(trips);
+  }
+
+  function renderAssignmentResult(assigned, courierName, skippedCount) {
+    const body = document.getElementById('pool-assign-body');
+    if (!body) return;
+    const countBadge = document.getElementById('pool-assign-count-badge');
+    if (countBadge) countBadge.textContent = `${assigned.length} SJ ditugaskan`;
+    const rows = assigned.map(t => `<tr>
+      <td class="font-monospace" style="font-size:12px;white-space:nowrap;">${escapePoolHtml(t.noSJ || t.sjNumber || t.id)}</td>
+      <td style="font-size:12px;white-space:normal;">${escapePoolHtml(t.customer || t.clientName || '-')}</td>
+      <td style="font-size:11.5px;white-space:nowrap;">${escapePoolHtml(t.region || '-')}</td>
+      <td style="font-size:11.5px;white-space:nowrap;">${escapePoolHtml(t.destinations?.[0]?.locationName || t.address || '-')}</td>
+    </tr>`).join('');
+    body.innerHTML = `
+      <div class="text-center py-3">
+        <div class="d-inline-flex align-items-center justify-content-center rounded-circle mb-2" style="width:52px;height:52px;background:#ECFDF3;color:#067647;font-size:24px;"><i class="bi bi-check2"></i></div>
+        <h6 class="fw-bold mb-1" style="font-size:15px;">${assigned.length} Surat Jalan berhasil ditugaskan</h6>
+        <div class="text-muted" style="font-size:12.5px;">Kurir / Driver: <strong class="text-dark">${escapePoolHtml(courierName || '-')}</strong></div>
+        ${skippedCount ? `<div class="text-warning-emphasis mt-1" style="font-size:11.5px;">${skippedCount} SJ dilewati karena Belum Ready / Pickup / sudah ditugaskan.</div>` : ''}
+      </div>
+      <div class="bg-white border rounded-3 overflow-hidden" style="border-color:#EAECF0 !important;">
+        <div class="table-responsive" style="max-height:300px;">
+          <table class="table align-middle mb-0" style="font-size:12px;">
+            <thead class="sticky-top" style="background:#F9FAFB;">
+              <tr>
+                <th style="font-weight:500;color:#667085;font-size:10.5px;text-transform:uppercase;">No. DO</th>
+                <th style="font-weight:500;color:#667085;font-size:10.5px;text-transform:uppercase;">Customer</th>
+                <th style="font-weight:500;color:#667085;font-size:10.5px;text-transform:uppercase;">Region</th>
+                <th style="font-weight:500;color:#667085;font-size:10.5px;text-transform:uppercase;">Tujuan</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>
+      <p class="text-muted text-center mt-3 mb-0" style="font-size:11.5px;">SJ sudah masuk ke Pengantaran Aktif kurir. Halaman Pool diperbarui otomatis.</p>
+    `;
+    const confirm = document.getElementById('pool-assign-confirm');
+    if (confirm) confirm.classList.add('d-none');
+    document.getElementById('pool-assign-back')?.classList.add('d-none');
+  }
+
+  async function confirmAssignment() {
+    const select = document.getElementById('pool-bulk-courier');
+    if (!select?.value) { alert('Pilih kurir / driver terlebih dahulu.'); select?.focus(); return; }
+    const trips = selectedTripsFromPool();
+    const eligible = trips.filter(t => !assignmentBlockReason(t));
+    if (!eligible.length) { alert('Tidak ada SJ yang siap ditugaskan pada pilihan ini.'); return; }
+    const button = document.getElementById('pool-assign-confirm');
+    const original = button?.innerHTML;
+    if (button) { button.disabled = true; button.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Menyimpan…'; }
+    try {
+      const assigned = await saveAssignments(eligible, select, {
+        fromModal: true,
+        vehiclePlate: document.getElementById('pool-assign-vehicle')?.value?.trim() || ''
+      });
+      if (assigned?.length) {
+        const courierName = select.options[select.selectedIndex]?.text?.replace(/^[^\wA-Za-z]+/, '').trim();
+        selectedPoolIds.clear();
+        updateSelectionCount();
+        renderAssignmentResult(assigned, courierName, trips.length - eligible.length);
+      } else if (button) {
+        button.innerHTML = original;
+        button.disabled = false;
+      }
+    } finally {
+      if (button && !button.classList.contains('d-none') && !button.innerHTML.includes('Menyimpan')) {
+        button.disabled = false;
+      }
+    }
   }
 
   function printSelectedSuratJalan() {
-    const checked = Array.from(document.querySelectorAll('.pool-checkbox:checked')).map(cb => cb.value);
-    if (checked.length === 0) {
+    const trips = selectedTripsFromPool();
+    if (trips.length === 0) {
       alert("Pilih minimal 1 Surat Jalan dengan mencentang checkbox terlebih dahulu!");
       return;
     }
-
-    const trips = getTripsSource().filter(t => checked.includes(t.id));
     if (window.QRPrintDispatch) {
       window.QRPrintDispatch.printDeliverySheet(trips);
     }
   }
 
   function deleteSelectedPool() {
-    const checked = Array.from(document.querySelectorAll('.pool-checkbox:checked')).map(cb => cb.value);
+    const selectedTrips = selectedTripsFromPool();
+    const checked = selectedTrips.map(t => String(t.id));
     if (checked.length === 0) {
       alert("Pilih minimal 1 Surat Jalan dengan mencentang kotak centang (checkbox) untuk dihapus!");
       return;
@@ -859,9 +1207,18 @@ window.UnifiedPoolUI = (function () {
 
     if (!confirm(`Hapus ${checked.length} Surat Jalan terpilih dari Plan Shipment? Tindakan ini tidak dapat dibatalkan.`)) return;
 
-    const checkedSet = new Set(checked);
+    // Raw trips use TRIP_* document IDs while the pool row uses the SJ number.
+    // Keep both so deletion works for imported and pending trips.
+    const checkedSet = new Set();
+    selectedTrips.forEach(t => [t.id, t.tripId, t.noSJ, t.sjNumber, t.originalTripId]
+      .filter(Boolean).forEach(value => checkedSet.add(String(value))));
+    const rawMatches = trip => [trip.id, trip.tripId, trip.noSJ, trip.sjNumber]
+      .filter(Boolean).some(value => checkedSet.has(String(value)));
     window.__deletedSJIds = window.__deletedSJIds || new Set();
     checked.forEach(id => window.__deletedSJIds.add(String(id)));
+    selectedTrips.forEach(t => {
+      [t.tripId, t.originalTripId].filter(Boolean).forEach(id => window.__deletedSJIds.add(String(id)));
+    });
 
     // Simpan ke localStorage agar permanen tersimpan
     try {
@@ -870,7 +1227,7 @@ window.UnifiedPoolUI = (function () {
 
     // 1. Hapus dari window.allPoolTrips
     if (Array.isArray(window.allPoolTrips)) {
-      window.allPoolTrips = window.allPoolTrips.filter(t => !checkedSet.has(String(t.id || t.tripId || t.noSJ || t.sjNumber)));
+      window.allPoolTrips = window.allPoolTrips.filter(t => !rawMatches(t));
     }
 
     // 2. Hapus dari localStorage wtrack_local_trips
@@ -879,7 +1236,7 @@ window.UnifiedPoolUI = (function () {
       if (rawStored) {
         const storedTrips = JSON.parse(rawStored);
         if (Array.isArray(storedTrips)) {
-          const updated = storedTrips.filter(t => !checkedSet.has(String(t.id || t.tripId || t.noSJ || t.sjNumber)));
+          const updated = storedTrips.filter(t => !rawMatches(t));
           localStorage.setItem('wtrack_local_trips', JSON.stringify(updated));
         }
       }
@@ -891,7 +1248,7 @@ window.UnifiedPoolUI = (function () {
       if (rawStored2) {
         const storedTrips2 = JSON.parse(rawStored2);
         if (Array.isArray(storedTrips2)) {
-          const updated2 = storedTrips2.filter(t => !checkedSet.has(String(t.id || t.tripId || t.noSJ || t.sjNumber)));
+          const updated2 = storedTrips2.filter(t => !rawMatches(t));
           localStorage.setItem('wellen_local_trips', JSON.stringify(updated2));
         }
       }
@@ -899,9 +1256,10 @@ window.UnifiedPoolUI = (function () {
 
     // 4. Hapus dari window.mockDatabase.suratJalanList
     if (window.mockDatabase && Array.isArray(window.mockDatabase.suratJalanList)) {
-      window.mockDatabase.suratJalanList = window.mockDatabase.suratJalanList.filter(t => !checkedSet.has(String(t.id || t.tripId || t.noSJ || t.sjNumber)));
+      window.mockDatabase.suratJalanList = window.mockDatabase.suratJalanList.filter(t => !rawMatches(t));
     }
 
+    selectedPoolIds.clear();
     if (typeof window.showToast === 'function') {
       window.showToast(`Berhasil menghapus ${checked.length} Surat Jalan dari Plan Shipment!`, 'info');
     }
@@ -913,14 +1271,19 @@ window.UnifiedPoolUI = (function () {
   function deleteSingleSJ(id) {
     if (!id) return;
     const trips = getTripsSource();
-    const t = trips.find(x => String(x.id || x.tripId || x.noSJ || x.sjNumber) === String(id));
+    const targetId = String(id);
+    const t = trips.find(x => [x.id, x.tripId, x.noSJ, x.sjNumber]
+      .filter(Boolean).some(value => String(value) === targetId));
     const label = t ? (t.noSJ || t.sjNumber || t.id) : id;
-
     if (!confirm(`Hapus Surat Jalan "${label}" dari Plan Shipment? Tindakan ini tidak dapat dibatalkan.`)) return;
 
-    const targetId = String(id);
+    const keys = new Set([targetId]);
+    if (t) [t.id, t.tripId, t.noSJ, t.sjNumber, t.originalTripId].filter(Boolean).forEach(value => keys.add(String(value)));
+    const rawMatches = trip => [trip.id, trip.tripId, trip.noSJ, trip.sjNumber]
+      .filter(Boolean).some(value => keys.has(String(value)));
+
     window.__deletedSJIds = window.__deletedSJIds || new Set();
-    window.__deletedSJIds.add(targetId);
+    keys.forEach(value => window.__deletedSJIds.add(value));
 
     // Simpan ke localStorage agar permanen tersimpan
     try {
@@ -928,7 +1291,7 @@ window.UnifiedPoolUI = (function () {
     } catch (e) {}
 
     if (Array.isArray(window.allPoolTrips)) {
-      window.allPoolTrips = window.allPoolTrips.filter(x => String(x.id || x.tripId || x.noSJ || x.sjNumber) !== targetId);
+      window.allPoolTrips = window.allPoolTrips.filter(x => !rawMatches(x));
     }
 
     try {
@@ -936,7 +1299,7 @@ window.UnifiedPoolUI = (function () {
       if (rawStored) {
         const storedTrips = JSON.parse(rawStored);
         if (Array.isArray(storedTrips)) {
-          const updated = storedTrips.filter(x => String(x.id || x.tripId || x.noSJ || x.sjNumber) !== targetId);
+          const updated = storedTrips.filter(x => !rawMatches(x));
           localStorage.setItem('wtrack_local_trips', JSON.stringify(updated));
         }
       }
@@ -947,14 +1310,14 @@ window.UnifiedPoolUI = (function () {
       if (rawStored2) {
         const storedTrips2 = JSON.parse(rawStored2);
         if (Array.isArray(storedTrips2)) {
-          const updated2 = storedTrips2.filter(x => String(x.id || x.tripId || x.noSJ || x.sjNumber) !== targetId);
+          const updated2 = storedTrips2.filter(x => !rawMatches(x));
           localStorage.setItem('wellen_local_trips', JSON.stringify(updated2));
         }
       }
     } catch (e) {}
 
     if (window.mockDatabase && Array.isArray(window.mockDatabase.suratJalanList)) {
-      window.mockDatabase.suratJalanList = window.mockDatabase.suratJalanList.filter(x => String(x.id || x.tripId || x.noSJ || x.sjNumber) !== targetId);
+      window.mockDatabase.suratJalanList = window.mockDatabase.suratJalanList.filter(x => !rawMatches(x));
     }
 
     if (typeof window.showToast === 'function') {
@@ -967,6 +1330,7 @@ window.UnifiedPoolUI = (function () {
 
   function clearAllPlanShipments() {
     if (!confirm("Bersihkan seluruh data Surat Jalan di Plan Shipment?")) return;
+    selectedPoolIds.clear();
     window.allPoolTrips = [];
     try {
       localStorage.removeItem('wtrack_local_trips');
@@ -980,18 +1344,12 @@ window.UnifiedPoolUI = (function () {
   }
 
   function quickAssignSingle(id) {
-    const courierSelect = document.getElementById('pool-bulk-courier');
-    const courierVal = courierSelect?.value;
-    if (!courierVal) {
-      alert("Silakan pilih Kurir Motor / Driver Mobil pada dropdown di toolbar terlebih dahulu, lalu klik tombol Tugaskan ini.");
-      courierSelect?.focus();
-      return;
-    }
-
-    document.querySelectorAll('.pool-checkbox').forEach(cb => {
-      cb.checked = (String(cb.value) === String(id));
-    });
-    assignSelectedToCourier();
+    // Pilih satu SJ lalu buka dialog penugasan: langkah kurir menjadi jelas
+    // dan hasil pilihan langsung terlihat sebelum disimpan.
+    selectedPoolIds.clear();
+    selectedPoolIds.add(String(id));
+    updateSelectionCount();
+    openAssignmentModal();
   }
 
   function quickPreviewQR(id) {
@@ -1008,7 +1366,9 @@ window.UnifiedPoolUI = (function () {
 
   function setSearchQuery(val) {
     currentSearchQuery = (val || '').trim();
+    poolPage = 1;
     renderUnifiedPoolView();
+    if (typeof setTimeout !== 'function') return;
     setTimeout(() => {
       const input = document.getElementById('pool-unified-search');
       if (input) {
@@ -1028,7 +1388,7 @@ window.UnifiedPoolUI = (function () {
   }
 
   async function saveReadyStatuses(targets, isReady) {
-    if (assignmentBusy) return;
+    if (assignmentBusy) return null;
     assignmentBusy = true;
     try {
       const ids = [...new Set(targets.map(t => t.workflowRef?.tripId || t.originalTripId || t.tripId || t.id))];
@@ -1036,11 +1396,18 @@ window.UnifiedPoolUI = (function () {
       let updates;
       if (window.WTRACK_LOCAL_SANDBOX) {
         const stored = JSON.parse(localStorage.getItem('wtrack_local_trips') || '[]');
+        const byId = new Map();
+        stored.forEach(t => [t.id, t.tripId].filter(Boolean).forEach(key => byId.set(key, t)));
+        const notFound = [];
         updates = ids.map(id => {
-          const trip = stored.find(t => (t.id || t.tripId) === id);
-          if (!trip || trip.courierId || ['completed','done','delivered'].includes(trip.status)) throw Error('SJ tidak tersedia atau sudah ditugaskan.');
+          const trip = byId.get(id);
+          if (!trip || trip.courierId || ['completed','done','delivered'].includes(trip.status)) {
+            notFound.push(id);
+            return null;
+          }
           return {...trip,readyStatus:isReady ? 'ready' : 'not_ready'};
-        });
+        }).filter(Boolean);
+        if (notFound.length) throw Error('SJ tidak tersedia atau sudah ditugaskan.');
         const map = new Map(updates.map(t => [t.id || t.tripId,t]));
         const next = stored.map(t => map.get(t.id || t.tripId) || t);
         if (window.persistLocalSandboxTrips) await window.persistLocalSandboxTrips(next);
@@ -1061,12 +1428,13 @@ window.UnifiedPoolUI = (function () {
   }
 
   async function bulkSetReadyStatus(isReady) {
-    const checked = Array.from(document.querySelectorAll('.pool-checkbox:checked')).map(cb => cb.value);
-    return saveReadyStatuses(getTripsSource().filter(t => checked.some(id => matchesTripId(t,id))),isReady);
+    const ids = selectedTripsFromPool().map(t => String(t.id));
+    return saveReadyStatuses(getTripsSource().filter(t => ids.some(id => matchesTripId(t,id))),isReady);
   }
 
   function setDeliveryStatusFilter(filter) {
     activeDeliveryStatusFilter = filter || 'ALL';
+    poolPage = 1;
     // Sync state to pill sub-nav buttons
     const pillAll = document.getElementById('pill-all-plan');
     const pillNotReady = document.getElementById('pill-not-ready-plan');
@@ -1091,8 +1459,18 @@ window.UnifiedPoolUI = (function () {
     setPrintFilter,
     setDeliveryStatusFilter,
     setSearchQuery,
+    scheduleSearch,
+    scheduleRender,
+    setPoolPage,
+    setPoolPageSize,
     toggleAllCheckbox,
+    togglePoolSelection,
+    clearPoolSelection,
     updateSelectionCount,
+    openAssignmentModal,
+    confirmAssignment,
+    removeAssignmentSelection,
+    reopenAssignmentSelection,
     buildCourierOptionsHtml,
     onCourierSelectionChange,
     executeQuickDispatch,

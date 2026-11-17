@@ -52,6 +52,18 @@
         return Math.floor(100000 + Math.random() * 900000).toString();
     }
 
+    // Trip IDs must be unique even when thousands of SJ are created in the same
+    // millisecond. A 4-character random suffix occasionally collided on large
+    // batches, which silently dropped one SJ when the browser cache was merged.
+    let importTripSequence = 0;
+    function generateTripId() {
+        importTripSequence = (importTripSequence + 1) % 1679616;
+        const random = (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
+            ? crypto.randomUUID().replace(/-/g, '').slice(0, 12).toUpperCase()
+            : Math.random().toString(36).substring(2, 10).toUpperCase();
+        return `TRIP_${Date.now()}_${importTripSequence.toString(36).toUpperCase()}_${random}`;
+    }
+
     // Deteksi Region berdasarkan Master Database & Pencocokan Alamat
     function detectRegion(address, clientName = '') {
         const addrLower = (address || '').toLowerCase();
@@ -390,7 +402,9 @@
     }
 
     // Baca dan parse file Excel (Mendukung format standar SJ dan Format SPK Wellen Print Gambar 1)
-    async function parseExcelFile(file) {
+    // Admin lookup is fetched once per upload batch. Fetching the full customer
+    // master for every file was the main reason 100-file imports froze Windows PCs.
+    async function parseExcelFile(file, adminSJLookupOverride) {
         if (!file) throw new Error("File tidak ditemukan.");
         if (typeof XLSX === 'undefined') throw new Error("Pustaka SheetJS (XLSX) belum dimuat.");
 
@@ -402,9 +416,11 @@
                 try {
                     const data = new Uint8Array(e.target.result);
                     const workbook = XLSX.read(data, { type: 'array' });
-                    const adminSJLookup = typeof window.getCustomerAdminSJLookup === 'function'
-                        ? await window.getCustomerAdminSJLookup()
-                        : null;
+                    const adminSJLookup = adminSJLookupOverride !== undefined
+                        ? adminSJLookupOverride
+                        : (typeof window.getCustomerAdminSJLookup === 'function'
+                            ? await window.getCustomerAdminSJLookup()
+                            : null);
 
                     // A. Periksa apakah ada sheet yang menggunakan Format Layout Resmi Surat Jalan Wellen
                     const wellenSjRows = [];
@@ -1536,6 +1552,12 @@
     }
 
     let currentPreviewRows = [];
+    // Preview is paged. Rendering thousands of rows (each with two <select>
+    // controls) in one innerHTML call exhausted memory on Windows Chrome.
+    let previewVisibleRows = [];
+    let previewPage = 1;
+    let previewPageSize = 100;
+    let previewSearchQuery = '';
 
     // Only the local sandbox skips duplicate SJ numbers. Keep the first new SJ in each upload.
     function classifyLocalImportRows(rows, existing) {
@@ -1552,9 +1574,18 @@
     }
 
     const escapePreviewText = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const previewFormatText = (value) => {
+        const text = String(value || '').trim();
+        if (!text) return '';
+        return text.toLocaleLowerCase('id-ID').replace(/\p{L}[\p{L}\p{N}]*/gu, word => {
+            if (/^(pt|cv|ud|pd|tb|rt|rw|dki|bsd|pik|pvc|mdf|wpb|hpl|acp|uv|do|sj|po|[ab]\d+)$/i.test(word)) return word.toUpperCase();
+            if (/^(cm|mm|m|kg|gsm|pcs|m2)$/.test(word)) return word;
+            return word.charAt(0).toLocaleUpperCase('id-ID') + word.slice(1);
+        });
+    };
     function updatePreviewRow(index, field, value) {
         if(!['adminSJ','region','originBranch','previewSelected'].includes(field)) return;
-        const parsed=parsedPreviewList[index],preview=currentPreviewRows.find(row=>row.originalIndex===index);
+        const parsed=parsedPreviewList[index],preview=currentPreviewRows[index] || currentPreviewRows.find(row=>row.originalIndex===index);
         if(parsed)parsed[field]=value;if(preview)preview[field]=value;
     }
     function rememberPreviewEdits() {
@@ -1565,66 +1596,83 @@
                 if(raw!==null&&input.value!==undefined) updatePreviewRow(Number(raw),field,input.value);
             });
         }
+        // Checkbox state must survive pagination and filtering too.
+        document.querySelectorAll('.preview-row-checkbox').forEach(input=>{
+            if(typeof input.checked !== 'boolean')return;
+            const raw=input.getAttribute('data-index');
+            if(raw!==null) updatePreviewRow(Number(raw),'previewSelected',input.checked);
+        });
     }
 
-    // Filter baris preview secara real-time
-    function filterPreviewTable(query) {
-        rememberPreviewEdits();
-        const q = (query || '').toLowerCase().trim();
-        const tbody = document.getElementById('sj-import-preview-tbody');
-        if (!tbody) return;
-
-        const filtered = q ? currentPreviewRows.filter(r => 
-            (r.sjNumber || '').toLowerCase().includes(q) ||
-            (r.clientName || '').toLowerCase().includes(q) ||
-            (r.customer || '').toLowerCase().includes(q) ||
-            (r.address || '').toLowerCase().includes(q) ||
-            (r.region || '').toLowerCase().includes(q)
-        ) : currentPreviewRows;
-
-        renderPreviewRows(filtered);
+    function previewPageCount(total = previewVisibleRows.length) {
+        return Math.max(1, Math.ceil(total / previewPageSize));
     }
 
-    function renderPreviewRows(rowsToRender) {
+    function updatePreviewPagination() {
+        const total = previewVisibleRows.length;
+        const pages = previewPageCount(total);
+        if (previewPage > pages) previewPage = pages;
+        if (previewPage < 1) previewPage = 1;
+        const start = total ? (previewPage - 1) * previewPageSize + 1 : 0;
+        const end = Math.min(total, previewPage * previewPageSize);
+        const info = document.getElementById('sj-import-page-info');
+        if (info) info.textContent = total ? `Menampilkan ${start}–${end} dari ${total} SJ` : 'Tidak ada SJ untuk ditampilkan';
+        const label = document.getElementById('sj-import-page-label');
+        if (label) label.textContent = `Halaman ${previewPage} / ${pages}`;
+        const prev = document.getElementById('sj-import-prev-page');
+        const next = document.getElementById('sj-import-next-page');
+        if (prev) prev.disabled = previewPage <= 1;
+        if (next) next.disabled = previewPage >= pages;
+        const size = document.getElementById('sj-import-page-size');
+        if (size) size.value = String(previewPageSize);
+        updatePreviewSelectionIndicators();
+    }
+
+    function updatePreviewSelectionIndicators() {
+        const all = document.getElementById('check-all-preview-sj');
+        if (!all) return;
+        const rows = previewVisibleRows.filter(row => !row.localDuplicateReason);
+        const selected = rows.filter(row => row.previewSelected !== false).length;
+        all.disabled = rows.length === 0;
+        all.checked = rows.length > 0 && selected === rows.length;
+        all.indeterminate = selected > 0 && selected < rows.length;
+    }
+
+    function paintPreviewPage() {
         const tbody = document.getElementById('sj-import-preview-tbody');
         if (!tbody) return;
-        if (window.WTRACK_LOCAL_SANDBOX) {
-            rowsToRender = rowsToRender.filter(row => !row.localDuplicateReason);
-        }
+        const total = previewVisibleRows.length;
 
-        if (rowsToRender.length === 0) {
+        if (total === 0) {
             const allDuplicates = window.WTRACK_LOCAL_SANDBOX && currentPreviewRows.length > 0 && currentPreviewRows.every(row => row.localDuplicateReason);
             const message = allDuplicates ? 'Semua SJ sudah pernah diimpor / duplikat. Tidak ada SJ baru untuk ditampilkan.' : 'Tidak ada Surat Jalan yang sesuai dengan filter pencarian.';
-            tbody.innerHTML = `<tr><td colspan="6" class="text-center py-5 text-muted" style="font-size: 0.85rem;">${message}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="10" class="text-center py-5 text-muted" style="font-size: 0.85rem;">${message}</td></tr>`;
+            updatePreviewPagination();
             return;
         }
 
-        const formatPreviewText = (value) => {
-            const text = String(value || '').trim();
-            if (!text) return '';
-            return text.toLocaleLowerCase('id-ID').replace(/\p{L}[\p{L}\p{N}]*/gu, word => {
-                if (/^(pt|cv|ud|pd|tb|rt|rw|dki|bsd|pik|pvc|mdf|wpb|hpl|acp|uv|do|sj|po|[ab]\d+)$/i.test(word)) return word.toUpperCase();
-                if (/^(cm|mm|m|kg|gsm|pcs|m2)$/.test(word)) return word;
-                return word.charAt(0).toLocaleUpperCase('id-ID') + word.slice(1);
-            });
-        };
+        const pages = previewPageCount(total);
+        if (previewPage > pages) previewPage = pages;
+        if (previewPage < 1) previewPage = 1;
+        const start = (previewPage - 1) * previewPageSize;
+        const pageRows = previewVisibleRows.slice(start, start + previewPageSize);
 
-        tbody.innerHTML = rowsToRender.map((r, i) => {
-            const dataIdx = r.originalIndex !== undefined ? r.originalIndex : i;
-            const displayClient = escapePreviewText(formatPreviewText(r.clientName) || '-');
-            const displayAddr = escapePreviewText(formatPreviewText(r.address) || '-');
-            const displayItem = escapePreviewText(formatPreviewText(r.namaBarang || r.itemsSummary) || '-');
+        tbody.innerHTML = pageRows.map((r, i) => {
+            const dataIdx = r.originalIndex !== undefined ? r.originalIndex : (start + i);
+            const displayClient = escapePreviewText(previewFormatText(r.clientName) || '-');
+            const displayAddr = escapePreviewText(previewFormatText(r.address) || '-');
+            const displayItem = escapePreviewText(previewFormatText(r.namaBarang || r.itemsSummary) || '-');
             return `
                 <tr>
                     <td class="text-center" style="width: 38px;">
-                        <input type="checkbox" class="form-check-input preview-row-checkbox" data-index="${dataIdx}" ${r.localDuplicateReason ? 'disabled' : r.previewSelected===false ? '' : 'checked'} onchange="SJImportEngine.updatePreviewRow(${dataIdx},'previewSelected',this.checked)">
+                        <input type="checkbox" class="form-check-input preview-row-checkbox" data-index="${dataIdx}" ${r.localDuplicateReason ? 'disabled' : r.previewSelected===false ? '' : 'checked'} onchange="SJImportEngine.updatePreviewRow(${dataIdx},'previewSelected',this.checked);SJImportEngine.updatePreviewSelectionIndicators()">
                     </td>
                     <td style="width: 140px;">
                         <a class="aerotrack-id-link font-monospace">${r.sjNumber}</a>
                         ${r.localDuplicateReason ? `<small class="d-block text-warning">${r.localDuplicateReason} — dilewati</small>` : ''}
                     </td>
                     <td style="width: 110px;">
-                        <input type="text" class="form-control form-control-sm preview-admin-input py-0 px-2" data-index="${dataIdx}" placeholder="-" value="${escapePreviewText(formatPreviewText(r.adminSJ || ''))}" oninput="SJImportEngine.updatePreviewRow(${dataIdx},'adminSJ',this.value)" style="width: 100px; font-size: 0.78rem; height: 32px;" title="Admin SJ dari Excel/database customer; dapat diedit">
+                        <input type="text" class="form-control form-control-sm preview-admin-input py-0 px-2" data-index="${dataIdx}" placeholder="-" value="${escapePreviewText(previewFormatText(r.adminSJ || ''))}" oninput="SJImportEngine.updatePreviewRow(${dataIdx},'adminSJ',this.value)" style="width: 100px; font-size: 0.78rem; height: 32px;" title="Admin SJ dari Excel/database customer; dapat diedit">
                     </td>
                     <td style="min-width: 180px;">
                         <span class="fw-medium text-dark text-truncate d-inline-block" style="max-width: 200px; text-transform: none;" title="${displayClient}">${displayClient}</span>
@@ -1657,10 +1705,60 @@
                 </tr>
             `;
         }).join('');
+        updatePreviewPagination();
     }
+
+    function renderPreviewRows(rowsToRender) {
+        previewPage = 1;
+        previewVisibleRows = window.WTRACK_LOCAL_SANDBOX
+            ? (rowsToRender || []).filter(row => !row.localDuplicateReason)
+            : (rowsToRender || []).slice();
+        paintPreviewPage();
+    }
+
+    // Filter baris preview secara real-time
+    function filterPreviewTable(query) {
+        rememberPreviewEdits();
+        previewSearchQuery = query || '';
+        const q = previewSearchQuery.toLowerCase().trim();
+        const tbody = document.getElementById('sj-import-preview-tbody');
+        if (!tbody) return;
+
+        const filtered = q ? currentPreviewRows.filter(r =>
+            (r.sjNumber || '').toLowerCase().includes(q) ||
+            (r.clientName || '').toLowerCase().includes(q) ||
+            (r.customer || '').toLowerCase().includes(q) ||
+            (r.address || '').toLowerCase().includes(q) ||
+            (r.region || '').toLowerCase().includes(q)
+        ) : currentPreviewRows;
+
+        renderPreviewRows(filtered);
+    }
+
+    // Debounced search keeps typing smooth even with thousands of SJ.
+    let previewSearchTimer = null;
+    function schedulePreviewSearch(query) {
+        if (typeof setTimeout !== 'function') { filterPreviewTable(query); return; }
+        if (previewSearchTimer) clearTimeout(previewSearchTimer);
+        previewSearchTimer = setTimeout(() => { previewSearchTimer = null; filterPreviewTable(query); }, 250);
+    }
+
+    function setPreviewPage(page) {
+        previewPage = Math.max(1, Math.min(previewPageCount(), Number(page) || 1));
+        paintPreviewPage();
+    }
+    function prevPreviewPage() { setPreviewPage(previewPage - 1); }
+    function nextPreviewPage() { setPreviewPage(previewPage + 1); }
+    function setPreviewPageSize(size) {
+        previewPageSize = Math.max(25, Math.min(500, Number(size) || 100));
+        previewPage = 1;
+        paintPreviewPage();
+    }
+
 
     // Render Preview Modal (AeroTrack ERP UI Style)
     function openImportPreviewModal(rows) {
+        if (previewSearchTimer) { clearTimeout(previewSearchTimer); previewSearchTimer = null; }
         if (window.WTRACK_LOCAL_SANDBOX) {
             rows = classifyLocalImportRows(rows, JSON.parse(localStorage.getItem('wtrack_local_trips') || '[]'));
         }
@@ -1694,6 +1792,10 @@
         }
 
         currentPreviewRows = rows.map((r, i) => ({ ...r, originalIndex: i }));
+        previewSearchQuery = '';
+        previewPage = 1;
+        const searchInput = document.getElementById('preview-search-sj');
+        if (searchInput) searchInput.value = '';
 
         // Hitung rekapitulasi Region
         const regCounts = {};
@@ -1723,25 +1825,36 @@
 
     // Set Lokasi Print Massal di Preview
     function setBulkPrintBranch(targetBranch) {
-        const checkboxes = document.querySelectorAll('.preview-row-checkbox:checked');
-        if (checkboxes.length === 0) {
+        rememberPreviewEdits();
+        const selected = parsedPreviewList.map((row, idx) => ({row, idx}))
+            .filter(({row}) => row && row.previewSelected !== false && !row.localDuplicateReason);
+        if (selected.length === 0) {
             alert("Pilih minimal satu Surat Jalan terlebih dahulu!");
             return;
         }
-        checkboxes.forEach(cb => {
-            const idx = parseInt(cb.getAttribute('data-index'), 10);
+        selected.forEach(({idx}) => {
+            if (parsedPreviewList[idx]) parsedPreviewList[idx].originBranch = targetBranch;
+            if (currentPreviewRows[idx]) currentPreviewRows[idx].originBranch = targetBranch;
             const branchSelect = document.querySelector(`.preview-branch-select[data-index="${idx}"]`);
             if (branchSelect) branchSelect.value = targetBranch;
-            if (parsedPreviewList[idx]) parsedPreviewList[idx].originBranch = targetBranch;
         });
         if (typeof window.showToast === 'function') {
-            window.showToast(`${checkboxes.length} Surat Jalan diatur Print di ${targetBranch === 'cikokol' ? 'Cikokol' : 'Pusat'}.`);
+            window.showToast(`${selected.length} Surat Jalan diatur Print di ${targetBranch === 'cikokol' ? 'Cikokol' : 'Pusat'}.`);
         }
     }
 
-    // Toggle Checkbox All di Preview
+    // Toggle Checkbox All di Preview. Selection applies to every filtered SJ,
+    // including rows on other preview pages.
     function toggleAllPreview(checked) {
+        rememberPreviewEdits();
+        previewVisibleRows.forEach(row => {
+            if (row.localDuplicateReason) return;
+            row.previewSelected = checked;
+            const idx = row.originalIndex;
+            if (idx !== undefined && parsedPreviewList[idx]) parsedPreviewList[idx].previewSelected = checked;
+        });
         document.querySelectorAll('.preview-row-checkbox').forEach(cb => cb.checked = checked && !cb.disabled);
+        updatePreviewSelectionIndicators();
     }
 
     // Simpan Data Batch Hasil Import ke Firestore / Memory
@@ -1750,10 +1863,14 @@
         const printBtn = document.getElementById('btn-commit-import-and-print');
         if (commitBtn) commitBtn.disabled = true;
         if (printBtn) printBtn.disabled = true;
+        setImportProgress(true, 'Menyiapkan penyimpanan…', 3);
 
-        const checkboxes = document.querySelectorAll('.preview-row-checkbox:checked');
-        if (checkboxes.length === 0) {
+        // Read selections and edits from the model, not from the visible DOM page.
+        rememberPreviewEdits();
+        const selectedRows = parsedPreviewList.filter(row => row && row.previewSelected !== false);
+        if (selectedRows.length === 0) {
             const allDuplicates = window.WTRACK_LOCAL_SANDBOX && currentPreviewRows.length > 0 && currentPreviewRows.every(row => row.localDuplicateReason);
+            setImportProgress(false);
             alert(allDuplicates ? 'Semua SJ duplikat / sudah pernah diimpor. Tidak ada SJ baru yang disimpan.' : 'Tidak ada Surat Jalan yang dicentang untuk di-import!');
             if (commitBtn) commitBtn.disabled = false;
             if (printBtn) printBtn.disabled = false;
@@ -1768,20 +1885,12 @@
         let tripsToSave = [];
         const savedTripIds = [];
 
-        checkboxes.forEach(cb => {
-            const idx = parseInt(cb.getAttribute('data-index'), 10);
-            const item = parsedPreviewList[idx];
-            if (!item) return;
+        selectedRows.forEach(item => {
+            const finalRegion = item.region;
+            const finalBranch = item.originBranch;
+            const finalAdminSJ = String(item.adminSJ || '').trim();
 
-            // Baca update terakhir dari input tabel preview
-            const regSel = document.querySelector(`.preview-region-select[data-index="${idx}"]`);
-            const branchSel = document.querySelector(`.preview-branch-select[data-index="${idx}"]`);
-            const adminInput = document.querySelector(`.preview-admin-input[data-index="${idx}"]`);
-            const finalRegion = regSel ? regSel.value : item.region;
-            const finalBranch = branchSel ? branchSel.value : item.originBranch;
-            const finalAdminSJ = adminInput ? adminInput.value.trim() : (item.adminSJ || '');
-
-            const tripId = `TRIP_${Date.now()}_${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+            const tripId = generateTripId();
             savedTripIds.push(tripId);
 
             const qrPayload = `WTRACK|SJ|${tripId}|${item.sjNumber}|${item.shortCode}`;
@@ -1870,8 +1979,35 @@
 
             if (!window.WTRACK_LOCAL_SANDBOX) {
                 if(!activeDb) throw Error('Firebase belum terhubung. SJ belum disimpan.');
-                const snapshot=await activeDb.collection('trips').get({source:'server'});
-                const existing=snapshot.docs.map(doc=>doc.data());
+                // Duplicate check only needs the SJ numbers. Reading all trips
+                // (including items/destinations) grows every month and caused
+                // memory spikes on large imports, so query only candidate SJs.
+                let existing;
+                try {
+                    const numbers = [...new Set(tripsToSave.map(t => String(t.noSJ || '').trim().toUpperCase()).filter(Boolean))];
+                    const found = new Set();
+                    const chunkSize = 30; // Firestore "in" query limit
+                    for (let index = 0; index < numbers.length; index += chunkSize) {
+                        const chunk = numbers.slice(index, index + chunkSize);
+                        const snapshot = await activeDb.collection('trips')
+                            .where('noSJ', 'in', chunk)
+                            .get({source: 'server'});
+                        snapshot.forEach(doc => {
+                            const data = doc.data() || {};
+                            const key = String(data.noSJ || data.sjNumber || '').trim().toUpperCase();
+                            if (key) found.add(key);
+                        });
+                        if (index % 300 === 0) {
+                            setImportProgress(true, `Memeriksa duplikat ${Math.min(index + chunkSize, numbers.length)}/${numbers.length} SJ…`, 10 + (index / Math.max(1, numbers.length)) * 20);
+                            await yieldToUI();
+                        }
+                    }
+                    existing = [...found].map(noSJ => ({noSJ}));
+                } catch (duplicateCheckError) {
+                    console.warn('Pemeriksaan nomor SJ bertahap gagal, memakai pembacaan penuh:', duplicateCheckError);
+                    const snapshot = await activeDb.collection('trips').get({source:'server'});
+                    existing = snapshot.docs.map(doc => doc.data());
+                }
                 const classified=classifyLocalImportRows(tripsToSave,existing);
                 skippedDuplicateCount=classified.filter(t=>t.localDuplicateReason).length;
                 const candidates=classified.filter(t=>!t.localDuplicateReason).map(({localDuplicateReason,...trip})=>trip);
@@ -1879,6 +2015,8 @@
                 // Registry prevents two PCs importing the same SJ concurrently.
                 for(let start=0;start<candidates.length;start+=120) {
                     const group=candidates.slice(start,start+120);
+                    setImportProgress(true, `Menyimpan ${Math.min(start + group.length, candidates.length)}/${candidates.length} SJ…`, 45 + (start / Math.max(1, candidates.length)) * 50);
+                    await yieldToUI();
                     const saved=await activeDb.runTransaction(async tx=>{
                         const refs=group.map(trip=>activeDb.collection('sj_import_keys').doc(encodeURIComponent(String(trip.noSJ).trim().toUpperCase())));
                         const checks=await Promise.all(refs.map(ref=>tx.get(ref)));
@@ -1908,11 +2046,13 @@
             try {
                 const rawStored = localStorage.getItem('wtrack_local_trips');
                 let storedTrips = rawStored ? JSON.parse(rawStored) : [];
-                tripsToSave.forEach(t => {
-                    if (!storedTrips.some(existing => existing.id === t.id)) {
-                        storedTrips.unshift(t);
+                const storedIds = new Set(storedTrips.map(t => t.id));
+                for (const trip of tripsToSave) {
+                    if (!storedIds.has(trip.id)) {
+                        storedTrips.unshift(trip);
+                        storedIds.add(trip.id);
                     }
-                });
+                }
                 if (window.WTRACK_LOCAL_SANDBOX && typeof window.persistLocalSandboxTrips === 'function') {
                     await window.persistLocalSandboxTrips(storedTrips);
                 } else {
@@ -1929,31 +2069,31 @@
                 window.syncAllCurrentTrips?.(JSON.parse(localStorage.getItem('wtrack_local_trips') || '[]').filter(t => t.courierId || t.pickupStatus === 'collected'));
             }
 
-            // Gabungkan ke window.allCurrentTrips
-            if (!window.allCurrentTrips) window.allCurrentTrips = [];
-            tripsToSave.forEach(t => {
-                if (!window.allCurrentTrips.some(existing => existing.id === t.id)) {
-                    window.allCurrentTrips.unshift(t);
+            // Gabungkan ke window.allCurrentTrips / allPoolTrips / mockDatabase
+            // memakai Set agar impor ribuan SJ tidak menjadi O(n x m).
+            const mergeNewest = (target, shouldInclude = () => true) => {
+                if (!Array.isArray(target)) return [];
+                const known = new Set(target.map(t => t.id));
+                for (const trip of tripsToSave) {
+                    if (!known.has(trip.id) && shouldInclude(trip)) {
+                        target.unshift(trip);
+                        known.add(trip.id);
+                    }
                 }
-            });
-
-            // Gabungkan ke allPoolTrips
-            if (!window.allPoolTrips) window.allPoolTrips = [];
-            tripsToSave.forEach(t => {
-                if (!t.courierId && !window.allPoolTrips.some(existing => existing.id === t.id)) {
-                    window.allPoolTrips.unshift(t);
-                }
-            });
-
-            // Gabungkan ke window.mockDatabase.suratJalanList
+                return target;
+            };
+            window.allCurrentTrips = mergeNewest(window.allCurrentTrips || []);
+            window.allPoolTrips = mergeNewest(window.allPoolTrips || [], t => !t.courierId);
             if (!window.mockDatabase) window.mockDatabase = {};
             if (!window.mockDatabase.suratJalanList) window.mockDatabase.suratJalanList = [];
-            tripsToSave.forEach(t => {
-                if (!window.mockDatabase.suratJalanList.some(existing => existing.id === t.id)) {
-                    window.mockDatabase.suratJalanList.unshift(t);
-                }
-            });
+            window.mockDatabase.suratJalanList = mergeNewest(window.mockDatabase.suratJalanList);
 
+            window.lastSJImportReport = {
+                ...(window.lastSJImportReport || {}),
+                selectedCount: selectedRows.length,
+                duplicateSkipped: skippedDuplicateCount,
+                savedCount: tripsToSave.length
+            };
             if (typeof window.showToast === 'function') {
                 const assigned = tripsToSave.filter(t => t.courierId).length;
                 window.showToast(`Berhasil mengimpor ${tripsToSave.length} Surat Jalan!${assigned ? ` ${assigned} otomatis ditugaskan ke ${tripsToSave.find(t=>t.courierId).courierName}.` : ' Tersimpan di SJ Pool.'}${skippedDuplicateCount ? ` ${skippedDuplicateCount} SJ duplikat dilewati.` : ''}`);
@@ -1962,6 +2102,10 @@
             // Kosongkan data preview import setelah berhasil disimpan ke pool
             parsedPreviewList = [];
             currentPreviewRows = [];
+            previewVisibleRows = [];
+            previewPage = 1;
+            previewSearchQuery = '';
+            if (previewSearchTimer) { clearTimeout(previewSearchTimer); previewSearchTimer = null; }
 
             // Reset input file dan tampilan tabel import
             try {
@@ -2024,6 +2168,7 @@
                 alert('Import belum selesai: ' + e.message + '. SJ yang sudah masuk Firebase tetap tersimpan. Ulangi file yang sama; nomor SJ yang sudah ada akan dilewati.');
             }
         } finally {
+            setImportProgress(false);
             if (commitBtn) commitBtn.disabled = false;
             if (printBtn) printBtn.disabled = false;
         }
@@ -2033,6 +2178,44 @@
     function triggerExcelFileInput() {
         const fileInput = document.getElementById('sj-excel-native-input') || document.getElementById('sj-excel-file-input');
         if (fileInput) fileInput.click();
+    }
+
+    // ---------------------------------------------------------------------
+    // Import progress utilities. Reading 100+ Excel files is CPU-heavy, so we
+    // yield to the browser between files and show progress instead of freezing.
+    // ---------------------------------------------------------------------
+    let importCancelled = false;
+    let importRunning = false;
+
+    function setImportProgress(visible, text, percent) {
+        const box = document.getElementById('sj-import-progress');
+        if (!box) return;
+        box.classList.toggle('d-none', !visible);
+        const label = document.getElementById('sj-import-progress-text');
+        if (label && text !== undefined) label.textContent = text;
+        const bar = document.getElementById('sj-import-progress-bar');
+        if (bar && percent !== undefined) {
+            const value = Math.max(0, Math.min(100, Math.round(percent)));
+            bar.style.width = value + '%';
+            bar.setAttribute('aria-valuenow', String(value));
+        }
+    }
+
+    function yieldToUI() {
+        return new Promise(resolve => {
+            if (typeof requestAnimationFrame === 'function' && typeof setTimeout === 'function') {
+                requestAnimationFrame(() => setTimeout(resolve, 0));
+                return;
+            }
+            if (typeof setTimeout === 'function') { setTimeout(resolve, 0); return; }
+            resolve();
+        });
+    }
+
+    function cancelImport() {
+        if (!importRunning) return;
+        importCancelled = true;
+        setImportProgress(true, 'Membatalkan setelah file yang sedang dibaca…', 100);
     }
 
     // Proses Banyak File Excel & Word (Mendukung Multi-file & Folder Upload hingga 100+ File)
@@ -2057,6 +2240,9 @@
             return;
         }
 
+        importCancelled = false;
+        importRunning = true;
+        setImportProgress(true, `Menyiapkan ${files.length} file…`, 0);
         if (typeof window.showToast === 'function') {
             window.showToast(`Membaca ${files.length} file Surat Jalan...`, "info");
         }
@@ -2065,23 +2251,45 @@
         let successCount = 0;
         let failCount = 0;
         const failedFiles = [];
+        const startedAt = typeof performance !== 'undefined' ? performance.now() : Date.now();
+
+        // Fetch the customer master once for the whole batch. Previously every
+        // single file triggered another full customer database read.
+        let sharedAdminLookup;
+        try {
+            if (typeof window.getCustomerAdminSJLookup === 'function') {
+                sharedAdminLookup = await window.getCustomerAdminSJLookup();
+            }
+        } catch (lookupError) {
+            console.warn('Master Admin SJ tidak dapat dimuat; import tetap berjalan tanpa lookup:', lookupError);
+            sharedAdminLookup = null;
+        }
+        if (sharedAdminLookup === undefined) sharedAdminLookup = null;
+        if (importCancelled) {
+            importRunning = false;
+            setImportProgress(false);
+            if (typeof window.showToast === 'function') window.showToast('Import dibatalkan.', 'info');
+            return;
+        }
 
         for (let i = 0; i < files.length; i++) {
+            if (importCancelled) break;
             const f = files[i];
+            setImportProgress(true, `Membaca file ${i + 1}/${files.length}: ${f.name} · ${allRows.length} SJ terbaca`, (i / files.length) * 100);
             try {
                 const name = (f.name || '').toLowerCase().trim();
                 let rows = [];
                 if (name.endsWith('.docx') || name.endsWith('.doc') || name.endsWith('.docm') || name.endsWith('.rtf') || name.endsWith('.dotx') || name.endsWith('.dot')) {
                     rows = await parseWordFile(f);
                 } else {
-                    rows = await parseExcelFile(f);
+                    rows = await parseExcelFile(f, sharedAdminLookup);
                 }
                 if (Array.isArray(rows) && rows.length > 0) {
-                    rows.forEach(r => {
-                        r.sourceFile = f.name;
-                        r.rowIndex = allRows.length + 1;
-                        allRows.push(r);
-                    });
+                    for (const row of rows) {
+                        row.sourceFile = f.name;
+                        row.rowIndex = allRows.length + 1;
+                        allRows.push(row);
+                    }
                     successCount++;
                 }
             } catch (err) {
@@ -2089,9 +2297,20 @@
                 failCount++;
                 failedFiles.push(f.name);
             }
+            await yieldToUI();
         }
 
-        window.lastSJImportReport = {fileCount:files.length, successCount, failCount, rowCount:allRows.length, failedFiles};
+        const elapsedMs = Math.round((typeof performance !== 'undefined' ? performance.now() : Date.now()) - startedAt);
+        importRunning = false;
+        setImportProgress(false);
+        window.lastSJImportReport = {fileCount:files.length, successCount, failCount, rowCount:allRows.length, failedFiles, elapsedMs, cancelled:importCancelled};
+
+        if (importCancelled) {
+            if (typeof window.showToast === 'function') {
+                window.showToast(`Import dibatalkan setelah ${allRows.length} SJ dari ${successCount} file.`, 'info');
+            }
+            return;
+        }
         if (window.WTRACK_LOCAL_SANDBOX && failCount) {
             alert(`${failCount} dari ${files.length} file gagal dibaca: ${failedFiles.slice(0, 10).join(', ')}. Periksa jumlah SJ di preview sebelum menyimpan.`);
         }
@@ -2104,7 +2323,7 @@
         openImportPreviewModal(allRows);
 
         if (typeof window.showToast === 'function') {
-            window.showToast(`✅ Berhasil memuat total ${allRows.length} Surat Jalan dari ${successCount} file!`, "success");
+            window.showToast(`✅ Berhasil memuat total ${allRows.length} Surat Jalan dari ${successCount} file dalam ${(elapsedMs / 1000).toFixed(1)} detik!`, "success");
         }
     }
 
@@ -2655,7 +2874,14 @@
         parseWordFile,
         openImportPreviewModal,
         filterPreviewTable,
+        schedulePreviewSearch,
+        setPreviewPage,
+        setPreviewPageSize,
+        prevPreviewPage,
+        nextPreviewPage,
+        updatePreviewSelectionIndicators,
         updatePreviewRow,
+        cancelImport,
         openSJImportModal,
         openSPKImportModal,
         testWellenSampleImport,

@@ -348,7 +348,7 @@
     </script>
 
     <!-- Custom CSS Styles -->
-    <link rel="stylesheet" href="/css/style.css?v=20261114.1">
+    <link rel="stylesheet" href="/css/style.css?v=20261117.1">
     <link rel="stylesheet" href="/css/material_master.css?v=20261114.1">
     <link rel="stylesheet" href="/css/dispatch_workflow.css?v=20261114.1">
     <style>
@@ -1881,35 +1881,35 @@
                 <!-- Alert Stats Cards -->
                 <div class="row g-2 mb-3">
                     <div class="col-6 col-lg">
-                        <div class="stat-card shadow-2fs p-2.5 px-3 bg-white border rounded-3 h-100" style="border-color: #EAECF0 !important;">
+                        <div role="button" tabindex="0" data-fleet-card="total" onclick="window.fleetModule.filterFleetByCard('total')" onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); this.click(); }" class="stat-card shadow-2fs p-2.5 px-3 bg-white border rounded-3 h-100" style="border-color: #EAECF0 !important;">
                             <div class="stat-label text-uppercase text-muted" style="font-size: 11px; font-weight: 500;">Total Armada</div>
                             <div class="stat-value text-dark" style="font-size: 16px; font-weight: 600;" id="fleet-stat-total">12</div>
-                            <div class="text-muted mt-0.5" style="font-size: 11px;"><i class="bi bi-truck me-1 text-primary"></i>12 Unit</div>
+                            <div class="text-muted mt-0.5" style="font-size: 11px;"><i class="bi bi-truck me-1 text-primary"></i><span id="fleet-stat-total-units">12 Unit</span></div>
                         </div>
                     </div>
                     <div class="col-6 col-lg">
-                        <div class="stat-card shadow-2fs p-2.5 px-3 bg-white border rounded-3 h-100" style="border-color: #EAECF0 !important;">
+                        <div role="button" tabindex="0" data-fleet-card="granmax" onclick="window.fleetModule.filterFleetByCard('granmax')" onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); this.click(); }" class="stat-card shadow-2fs p-2.5 px-3 bg-white border rounded-3 h-100" style="border-color: #EAECF0 !important;">
                             <div class="stat-label text-uppercase" style="color: #4f46e5; font-size: 11px; font-weight: 500;">Granmax</div>
                             <div class="stat-value" style="color: #4f46e5; font-size: 16px; font-weight: 600;" id="fleet-stat-granmax">6</div>
                             <div class="text-muted mt-0.5" style="font-size: 11px;"><i class="bi bi-truck-front me-1"></i>Armada Granmax</div>
                         </div>
                     </div>
                     <div class="col-6 col-lg">
-                        <div class="stat-card shadow-2fs p-2.5 px-3 bg-white border rounded-3 h-100" style="border-color: #EAECF0 !important;">
+                        <div role="button" tabindex="0" data-fleet-card="truckbox" onclick="window.fleetModule.filterFleetByCard('truckbox')" onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); this.click(); }" class="stat-card shadow-2fs p-2.5 px-3 bg-white border rounded-3 h-100" style="border-color: #EAECF0 !important;">
                             <div class="stat-label text-uppercase" style="color: #d97706; font-size: 11px; font-weight: 500;">Truk Box</div>
                             <div class="stat-value" style="color: #d97706; font-size: 16px; font-weight: 600;" id="fleet-stat-truckbox">4</div>
                             <div class="text-muted mt-0.5" style="font-size: 11px;"><i class="bi bi-box-seam me-1"></i>Armada Box</div>
                         </div>
                     </div>
                     <div class="col-6 col-lg">
-                        <div class="stat-card shadow-2fs p-2.5 px-3 bg-white border rounded-3 h-100" style="border-color: #EAECF0 !important;">
+                        <div role="button" tabindex="0" data-fleet-card="pickupl300" onclick="window.fleetModule.filterFleetByCard('pickupl300')" onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); this.click(); }" class="stat-card shadow-2fs p-2.5 px-3 bg-white border rounded-3 h-100" style="border-color: #EAECF0 !important;">
                             <div class="stat-label text-uppercase" style="color: #059669; font-size: 11px; font-weight: 500;">Pick Up &amp; L 300</div>
                             <div class="stat-value" style="color: #059669; font-size: 16px; font-weight: 600;" id="fleet-stat-pickupl300">2</div>
                             <div class="text-muted mt-0.5" style="font-size: 11px;"><i class="bi bi-truck-flatbed me-1"></i>Gudang</div>
                         </div>
                     </div>
                     <div class="col-12 col-lg">
-                        <div class="stat-card shadow-2fs p-2.5 px-3 bg-white border rounded-3 h-100" style="border-color: #EAECF0 !important;">
+                        <div role="button" tabindex="0" data-fleet-card="attention" onclick="window.fleetModule.filterFleetByCard('attention')" onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); this.click(); }" class="stat-card shadow-2fs p-2.5 px-3 bg-white border rounded-3 h-100" style="border-color: #EAECF0 !important;">
                             <div class="stat-label text-uppercase text-danger" style="font-size: 11px; font-weight: 500;">Perlu Perhatian</div>
                             <div class="stat-value text-danger" style="font-size: 16px; font-weight: 600;" id="fleet-stat-attention">0</div>
                             <div class="text-danger mt-0.5" style="font-size: 11px;"><i class="bi bi-exclamation-triangle me-1"></i>Pajak / KIR / Servis</div>
@@ -1927,6 +1927,7 @@
                                     <option value="all">Semua Armada</option>
                                     <option value="granmax">Granmax (6 Unit)</option>
                                     <option value="truck_box">Truk Box (4 Unit)</option>
+                                    <option value="pickup_l300">Pick Up &amp; L 300</option>
                                     <option value="pickup">Pick Up (1 Unit)</option>
                                     <option value="l300">L 300 (1 Unit)</option>
                                 </select>
@@ -3290,6 +3291,16 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
 
+            <div id="sj-import-progress" class="d-none px-4 py-2 border-bottom bg-white" style="border-color:#EAECF0 !important;">
+                <div class="d-flex align-items-center justify-content-between gap-2 mb-1">
+                    <span id="sj-import-progress-text" class="text-muted" style="font-size:12px;">Menyiapkan impor…</span>
+                    <button type="button" class="btn btn-link btn-sm p-0 text-danger text-decoration-none" style="font-size:12px;" onclick="window.SJImportEngine && window.SJImportEngine.cancelImport()">Batal</button>
+                </div>
+                <div class="progress" style="height:6px;border-radius:9999px;background:#F2F4F7;">
+                    <div id="sj-import-progress-bar" class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" style="width:0%;background:#CC6100;"></div>
+                </div>
+            </div>
+
             <div class="px-4 py-2.5 border-bottom bg-white d-flex align-items-center justify-content-between flex-wrap" style="border-color: #EAECF0 !important; gap: 8px; padding-top: 10px; padding-bottom: 10px;">
                 <div class="d-flex align-items-center flex-wrap" style="gap: 8px;">
                     <input type="file" id="sj-excel-native-input" class="d-none" accept=".xlsx, .xls, .csv, .docx, .doc, .rtf, .docm, .dotx, .dot" multiple onchange="window.sjImportEngine && window.sjImportEngine.handleExcelFileSelected(event)">
@@ -3302,7 +3313,7 @@
                     </button>
                     <div class="position-relative" style="width: 210px;">
                         <i class="bi bi-search position-absolute top-50 translate-middle-y text-muted" style="left: 11px; font-size: 13px; pointer-events: none;"></i>
-                        <input type="text" id="preview-search-sj" class="form-control form-control-sm" placeholder="Cari No. DO / Customer..." style="padding-left: 34px; width: 100%;" oninput="window.sjImportEngine && window.sjImportEngine.filterPreviewTable(this.value)">
+                        <input type="text" id="preview-search-sj" class="form-control form-control-sm" placeholder="Cari No. DO / Customer..." style="padding-left: 34px; width: 100%;" oninput="window.sjImportEngine && window.sjImportEngine.schedulePreviewSearch(this.value)">
                     </div>
                 </div>
                 <div class="d-flex align-items-center flex-wrap" style="gap: 6px;">
@@ -3340,6 +3351,20 @@
                             </tbody>
                         </table>
                     </div>
+                    <div id="sj-import-pagination" class="d-flex align-items-center justify-content-between flex-wrap gap-2 px-3 py-2 border-top" style="border-color:#EAECF0 !important;font-size:12px;">
+                        <span id="sj-import-page-info" class="text-muted">Belum ada SJ untuk ditampilkan</span>
+                        <div class="d-flex align-items-center gap-2">
+                            <label for="sj-import-page-size" class="text-muted mb-0" style="font-size:12px;">Baris</label>
+                            <select id="sj-import-page-size" class="form-select form-select-sm" style="width:74px;height:30px;font-size:12px;" onchange="window.SJImportEngine && window.SJImportEngine.setPreviewPageSize(this.value)">
+                                <option value="50">50</option>
+                                <option value="100" selected>100</option>
+                                <option value="250">250</option>
+                            </select>
+                            <button type="button" id="sj-import-prev-page" class="btn btn-sm bg-white border" style="height:30px;border-radius:6px;border-color:#D0D5DD !important;color:#344054;font-size:12px;padding:0 10px;" onclick="window.SJImportEngine && window.SJImportEngine.prevPreviewPage()" aria-label="Halaman sebelumnya"><i class="bi bi-chevron-left"></i></button>
+                            <span id="sj-import-page-label" class="text-muted" style="font-size:12px;white-space:nowrap;">Halaman 1 / 1</span>
+                            <button type="button" id="sj-import-next-page" class="btn btn-sm bg-white border" style="height:30px;border-radius:6px;border-color:#D0D5DD !important;color:#344054;font-size:12px;padding:0 10px;" onclick="window.SJImportEngine && window.SJImportEngine.nextPreviewPage()" aria-label="Halaman berikutnya"><i class="bi bi-chevron-right"></i></button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -3348,6 +3373,34 @@
                 <div class="d-flex align-items-center" style="gap: 8px;">
                     <button type="button" class="btn btn-sm btn-wellen-action" id="btn-commit-import-sj" style="height: 34px; border-radius: 8px; font-size: 13px; padding: 0 14px;" onclick="window.sjImportEngine && window.sjImportEngine.commitImportBatch(false)">
                         <i class="bi bi-box-arrow-in-down me-1"></i> Simpan ke Pool
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: TUGASKAN SJ TERPILIH KE KURIR / DRIVER -->
+<div class="modal fade" id="modal-pool-assign" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg overflow-hidden" style="border-radius: 12px; border: 1px solid #EAECF0 !important;">
+            <div class="modal-header border-bottom py-3 px-4 bg-white d-flex align-items-center justify-content-between" style="border-color: #EAECF0 !important;">
+                <div class="d-flex align-items-center gap-2">
+                    <h5 class="modal-title fw-bold text-dark m-0" style="font-size: 16px;">Tugaskan Surat Jalan</h5>
+                    <span id="pool-assign-count-badge" style="background:#FFF4E5;color:#CC6100;border:1px solid rgba(204,97,0,.25);font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:9999px;">0 SJ</span>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-3" style="background:#F9FAFB;">
+                <div id="pool-assign-body"></div>
+            </div>
+            <div class="modal-footer border-top py-3 px-4 bg-white d-flex justify-content-between" style="border-color:#EAECF0 !important;">
+                <button type="button" id="pool-assign-back" class="btn btn-sm bg-white border fw-medium d-none" style="height:34px;border-radius:8px;border-color:#D0D5DD !important;color:#344054;font-size:13px;padding:0 14px;" onclick="UnifiedPoolUI.reopenAssignmentSelection()">Kembali pilih SJ</button>
+                <span></span>
+                <div class="d-flex align-items-center" style="gap:8px;">
+                    <button type="button" class="btn btn-sm bg-white border fw-medium" style="height:34px;border-radius:8px;border-color:#D0D5DD !important;color:#344054;font-size:13px;padding:0 14px;" data-bs-dismiss="modal">Tutup</button>
+                    <button type="button" id="pool-assign-confirm" class="btn btn-sm btn-wellen-action" style="height:34px;border-radius:8px;font-size:13px;padding:0 14px;" onclick="UnifiedPoolUI.confirmAssignment()">
+                        <i class="bi bi-send-check me-1"></i> Tugaskan
                     </button>
                 </div>
             </div>
@@ -3654,9 +3707,10 @@
 <script src="js/maps_destination.js?v=20261114.1"></script>
 <script src="js/destination_search.js?v=20261114.1"></script>
 <script src="/js/maps.js?v=20261115.7"></script>
-<script src="/js/fleet_vehicles.js?v=20261114.1"></script>
+<script src="js/fleet_service.js?v=20261116.1"></script>
+<script src="/js/fleet_vehicles.js?v=20261116.1"></script>
 <script src="js/delivery_identity.js?v=20261114.1"></script>
-<script src="/js/app.js?v=20261115.7"></script>
+<script src="/js/app.js?v=20261117.1"></script>
 <script src="/js/customer_master.js?v=20261114.1"></script>
 <script src="/js/bulk_assignment.js?v=20261114.1"></script>
 <script src="/js/kpi.js?v=20261114.1"></script>
@@ -3664,7 +3718,7 @@
 <script src="/js/custom_dropdown.js?v=20261114.1"></script>
 <script src="/js/vendor/qrcode.js?v=20261114.1"></script>
 <script src="/js/qr_print_dispatch.js?v=20261114.1"></script>
-<script src="/js/sj_import_engine.js?v=20261115.2"></script>
+<script src="/js/sj_import_engine.js?v=20261117.1"></script>
 <script src="/js/branch_workstation.js?v=20261114.1"></script>
 <script src="/js/spk_manager.js?v=20261114.1"></script>
 <script src="/js/web_qr_scanner_sim.js?v=20261114.1"></script>
@@ -3675,7 +3729,7 @@
 <script src="/js/material_usage.js?v=20261114.1"></script>
 <script src="/js/dispatch_workflow.js?v=20261114.1"></script>
 <script src="/js/sj_assignment.js?v=20261115.3"></script>
-<script src="/js/unified_pool_ui.js?v=20261115.3"></script>
+<script src="/js/unified_pool_ui.js?v=20261117.1"></script>
 <script src="/js/erp_sidebar.js?v=20261114.1"></script>
 <script src="/js/vendor/lottie.min.js?v=20261115.1"></script>
 <script src="/js/useanimations_icons.js?v=20261115.1"></script>

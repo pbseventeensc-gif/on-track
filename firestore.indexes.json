@@ -1,0 +1,25 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "fleet_service_requests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "requesterUid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    }
+  ],
+  "fieldOverrides": [
+    {
+      "collectionGroup": "fleet_service_photos",
+      "fieldPath": "data",
+      "indexes": []
+    }
+  ]
+}

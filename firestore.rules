@@ -2,9 +2,10 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     match /{collection}/{document}/{rest=**} {
-      allow read: if true;
+      allow read: if !(collection in ['fleet_service_requests', 'fleet_service_photos', 'fleet_service_config']);
       // Deletion markers are server-owned. Older app versions must not restore users.
-      allow write: if collection != 'account_deletions'
+      allow write: if !(collection in ['fleet_service_requests', 'fleet_service_photos', 'fleet_service_config'])
+        && collection != 'account_deletions'
         && (collection != 'users'
           || !exists(/databases/$(database)/documents/account_deletions/$(document)));
     }

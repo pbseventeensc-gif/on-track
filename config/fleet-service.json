@@ -1,0 +1,211 @@
+{
+  "testingUid": "uP70R51x7CbR5ggHEyeXfsjSTfO2",
+  "accounts": [
+    {
+      "id": "ahmad",
+      "uid": "9dhFtf5QTQW8zmb8cZW5YFgZfmH3",
+      "name": "Ahmad",
+      "driver": false
+    },
+    {
+      "id": "beto",
+      "uid": "l6fLsN7ijQdq5m2tcUs2xpmMFv63",
+      "name": "Beto",
+      "driver": false
+    },
+    {
+      "id": "eri",
+      "uid": "CkRWbGxehCfVOi4iMWvnm66W9NM2",
+      "name": "Eri",
+      "driver": false
+    },
+    {
+      "id": "irfan",
+      "uid": "gQyw0Ot9pWY9DuWugNK7IpwaM352",
+      "name": "Irfan",
+      "driver": false
+    },
+    {
+      "id": "baihaqi",
+      "uid": "xONhqVSNSYcEcGCZyW2cLGJWQt92",
+      "name": "Baihaqi",
+      "driver": false
+    },
+    {
+      "id": "haris",
+      "uid": "uWA0dLFxj0MsGe3YXHuvHjg1GZs1",
+      "name": "Haris",
+      "driver": false
+    },
+    {
+      "id": "umar",
+      "uid": "eRg9WzDaEgPPl6jcEzo0ERYNyI82",
+      "name": "Umar",
+      "driver": false
+    },
+    {
+      "id": "noval",
+      "uid": "D9hmxHZ2SJa2BgZN8DO2cT6lgGh1",
+      "name": "Noval",
+      "driver": false
+    },
+    {
+      "id": "jay",
+      "uid": "XFAoplNpgjc0QzqE6gcTIa5OA0r2",
+      "name": "Jay",
+      "driver": false
+    },
+    {
+      "id": "ferdi",
+      "uid": "BOMM2Wmk9LXs90qO3RWskGyIOk72",
+      "name": "Ferdi",
+      "driver": false
+    },
+    {
+      "id": "jagat",
+      "uid": "kwpGbShXoog9kFiRmevZpwTgVxv2",
+      "name": "Jagatbaru",
+      "driver": false
+    },
+    {
+      "id": "pbseventeensc",
+      "uid": "uP70R51x7CbR5ggHEyeXfsjSTfO2",
+      "name": "pbseventeensc",
+      "driver": false
+    },
+    {
+      "id": "soleh",
+      "uid": "G1g9fwjcLSclVmg77ZfrVfT9dzY2",
+      "name": "Soleh",
+      "driver": true
+    },
+    {
+      "id": "romi",
+      "uid": "oC2EvdhruFMaKC10jmMUyYbmdtp1",
+      "name": "Romi",
+      "driver": true
+    },
+    {
+      "id": "firdaus",
+      "uid": "KgKbQdpUHmcQzu2o8N6czx0N7EP2",
+      "name": "Firdaus",
+      "driver": true
+    },
+    {
+      "id": "alan",
+      "uid": "unNGSiqnOifJSXyQDRiiqlWd83q2",
+      "name": "Alan",
+      "driver": true
+    },
+    {
+      "id": "yakub",
+      "uid": "17zXKPw8SFXDhW6Z6lc547R4TEE2",
+      "name": "Yakub",
+      "driver": true
+    },
+    {
+      "id": "iwan",
+      "uid": "J3wejohLG5dXbX0im5ozeGzpjzt2",
+      "name": "Iwan",
+      "driver": true
+    },
+    {
+      "id": "agung",
+      "uid": "RLLeIifIbmVj1HHKALY40n1lKRr1",
+      "name": "Agung",
+      "driver": true
+    },
+    {
+      "id": "husen",
+      "uid": "juHUuOWS4FOVpHxE59t4xf0ld1z1",
+      "name": "Husen",
+      "driver": true
+    }
+  ],
+  "vehicles": [
+    {
+      "id": "FLT-GMX-001",
+      "plate_number": "B 9227 SCH",
+      "vehicle_category": "granmax",
+      "assigned_person_id": "agung",
+      "assigned_person_name": "Agung"
+    },
+    {
+      "id": "FLT-GMX-002",
+      "plate_number": "B 9939 SCH",
+      "vehicle_category": "granmax",
+      "assigned_person_id": "soleh",
+      "assigned_person_name": "Soleh"
+    },
+    {
+      "id": "FLT-GMX-003",
+      "plate_number": "B 9158 SCE",
+      "vehicle_category": "granmax",
+      "assigned_person_id": "romi",
+      "assigned_person_name": "Romi"
+    },
+    {
+      "id": "FLT-GMX-004",
+      "plate_number": "B 9278 SCD",
+      "vehicle_category": "granmax",
+      "assigned_person_id": "alan",
+      "assigned_person_name": "Alan"
+    },
+    {
+      "id": "FLT-GMX-005",
+      "plate_number": "B 9107 SCE",
+      "vehicle_category": "granmax",
+      "assigned_person_id": "yakub",
+      "assigned_person_name": "Yakub"
+    },
+    {
+      "id": "FLT-GMX-006",
+      "plate_number": "B 1004 BKP",
+      "vehicle_category": "granmax",
+      "assigned_person_id": "gudang",
+      "assigned_person_name": "Gudang"
+    },
+    {
+      "id": "FLT-TRK-001",
+      "plate_number": "B 9032 SCG",
+      "vehicle_category": "truck_box",
+      "assigned_person_id": "iwan",
+      "assigned_person_name": "Iwan"
+    },
+    {
+      "id": "FLT-TRK-002",
+      "plate_number": "B 9177 SCH",
+      "vehicle_category": "truck_box",
+      "assigned_person_id": "husen",
+      "assigned_person_name": "Husen"
+    },
+    {
+      "id": "FLT-TRK-003",
+      "plate_number": "B 9842 NCC",
+      "vehicle_category": "truck_box",
+      "assigned_person_id": "",
+      "assigned_person_name": "Cadangan Gudang"
+    },
+    {
+      "id": "FLT-TRK-004",
+      "plate_number": "B 9084 SCH",
+      "vehicle_category": "truck_box",
+      "assigned_person_id": "",
+      "assigned_person_name": ""
+    },
+    {
+      "id": "FLT-PKP-001",
+      "plate_number": "B 9463 SAJ",
+      "vehicle_category": "pickup",
+      "assigned_person_id": "gudang",
+      "assigned_person_name": "Gudang"
+    },
+    {
+      "id": "FLT-L30-001",
+      "plate_number": "B 9243 PCJ",
+      "vehicle_category": "l300",
+      "assigned_person_id": "gudang",
+      "assigned_person_name": "Gudang"
+    }
+  ]
+}

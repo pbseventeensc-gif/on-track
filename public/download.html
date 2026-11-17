@@ -119,14 +119,19 @@
 
     <div class="mb-4">
         <span class="badge-version">
-            <i class="bi bi-patch-check-fill"></i> Versi Terbaru 7 (v7.0) • 34 MB
+            <i class="bi bi-patch-check-fill"></i> Versi 1.1 • Pengajuan Servis • 35 MB
         </span>
     </div>
 
-    <!-- Big Download Button -->
-    <a href="KurirKita-Terbaru_7.apk" download="KurirKita-Terbaru_7.apk" id="download-btn" class="btn-download-main mb-3">
+    <div class="alert alert-info text-start small mb-3">
+        <strong>Sudah memakai aplikasi?</strong> Cukup tutup lalu buka kembali saat online.
+        Fitur terbaru dimuat otomatis, tanpa instal ulang.
+    </div>
+
+    <!-- Installer for new installations -->
+    <a href="KurirKita-Servis-1.1.apk" download="KurirKita-Servis-1.1.apk" id="download-btn" class="btn-download-main mb-3">
         <i class="bi bi-cloud-arrow-down-fill fs-4"></i>
-        <span>DOWNLOAD APK SEKARANG</span>
+        <span>UNDUH UNTUK PEMASANGAN BARU</span>
     </a>
 
     <div class="d-flex justify-content-between text-muted extra-small px-1 mb-4" style="font-size: 0.78rem;">
@@ -137,27 +142,27 @@
     <!-- Update Highlights -->
     <div class="mb-4">
         <h6 class="fw-bold text-dark text-start mb-2.5" style="font-size: 0.88rem;">
-            <i class="bi bi-stars text-warning me-1.5"></i> Pembaruan di Versi 7:
+            <i class="bi bi-stars text-warning me-1.5"></i> Pembaruan Servis Kendaraan:
         </h6>
         <div class="feature-item">
             <i class="bi bi-qr-code-scan feature-icon"></i>
             <div style="font-size: 0.82rem;">
-                <div class="fw-bold text-dark">Scan QR Ambil Tugas (In Transit)</div>
-                <span class="text-secondary">Scan Surat Jalan otomatis memindahkan tugas ke In Transit (bukan langsung selesai).</span>
+                <div class="fw-bold text-dark">Pengajuan Servis Kendaraan</div>
+                <span class="text-secondary">Form pengajuan khusus driver, personel Fleet Inventory, dan akun testing pbseventeensc.</span>
             </div>
         </div>
         <div class="feature-item">
             <i class="bi bi-geo-alt-fill feature-icon"></i>
             <div style="font-size: 0.82rem;">
-                <div class="fw-bold text-dark">Navigasi Google Maps Presisi</div>
-                <span class="text-secondary">Peta langsung membaca titik toko &amp; alamat lengkap pelanggan.</span>
+                <div class="fw-bold text-dark">Foto Kerusakan dari Beberapa Sudut</div>
+                <span class="text-secondary">Unggah 2–6 foto kerusakan, dengan kompresi otomatis sebelum dikirim.</span>
             </div>
         </div>
         <div class="feature-item">
             <i class="bi bi-check2-circle feature-icon text-success"></i>
             <div style="font-size: 0.82rem;">
-                <div class="fw-bold text-dark">Sinkronisasi Dashboard Admin</div>
-                <span class="text-secondary">Otomatis berpindah dari Plan Shipment ke Status Pengiriman Terkini.</span>
+                <div class="fw-bold text-dark">Persetujuan Super Admin</div>
+                <span class="text-secondary">Pantau status pengajuan dan catatan persetujuan atau penolakan langsung di aplikasi.</span>
             </div>
         </div>
     </div>
@@ -167,7 +172,7 @@
         <small class="text-muted fw-bold d-block mb-2" style="font-size: 0.78rem;">
             <i class="bi bi-camera me-1"></i> Scan dengan Kamera HP untuk Unduh Langsung:
         </small>
-        <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://on-track-indol.vercel.app/KurirKita-Terbaru_7.apk" alt="QR Download" class="rounded-3 shadow-xs" style="width: 140px; height: 140px; background: #fff; padding: 6px; border: 1px solid #e2e8f0;">
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=https://on-track-indol.vercel.app/KurirKita-Servis-1.1.apk" alt="QR Download" class="rounded-3 shadow-xs" style="width: 140px; height: 140px; background: #fff; padding: 6px; border: 1px solid #e2e8f0;">
     </div>
 
     <!-- Navigation links -->
@@ -178,18 +183,7 @@
     </div>
 </div>
 
-<script>
-    // Trigger download otomatis setelah 1 detik
-    window.addEventListener('DOMContentLoaded', () => {
-        setTimeout(() => {
-            const btn = document.getElementById('download-btn');
-            if (btn && !window.hasDownloaded) {
-                window.hasDownloaded = true;
-                btn.click();
-            }
-        }, 1200);
-    });
-</script>
+
 
 </body>
 </html>

@@ -11,9 +11,12 @@ import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Message
 import android.os.Environment
 import android.provider.MediaStore
 import android.util.Base64
@@ -30,9 +33,15 @@ import java.io.File
 
 class MainActivity : ComponentActivity() {
 
+    companion object {
+        private const val COURIER_URL = "https://on-track-indol.vercel.app/kurir.html"
+        private const val OFFLINE_COURIER_URL = "file:///android_asset/kurir.html"
+    }
+
     private lateinit var webView: WebView
     private var fileUploadCallback: ValueCallback<Array<Uri>>? = null
     private var cameraPhotoUri: Uri? = null
+    private var mainFrameRetryUsed = false
 
     private val fileChooserLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -107,6 +116,14 @@ class MainActivity : ComponentActivity() {
         onBackPressedDispatcher.addCallback(this) {
             if (::webView.isInitialized && webView.canGoBack()) {
                 webView.goBack()
+                return@addCallback
+            }
+            if (::webView.isInitialized) {
+                webView.evaluateJavascript(
+                    "(function(){try{return !!(window.kurirHandleBack&&window.kurirHandleBack());}catch(e){return false;}})()"
+                ) { result ->
+                    if (result != "true") finish()
+                }
             } else {
                 finish()
             }
@@ -136,6 +153,78 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun isExternalAppUrl(url: String): Boolean {
+        val value = url.trim()
+        return value.startsWith("tel:") ||
+            value.startsWith("whatsapp:") ||
+            value.startsWith("https://wa.me") ||
+            value.startsWith("https://api.whatsapp.com") ||
+            value.startsWith("geo:") ||
+            value.startsWith("google.navigation:") ||
+            value.startsWith("intent:") ||
+            value.startsWith("https://www.google.com/maps") ||
+            value.startsWith("https://maps.google.com") ||
+            value.startsWith("https://maps.app.goo.gl") ||
+            value.startsWith("https://goo.gl/maps")
+    }
+
+    private fun openExternalLink(url: String) {
+        val value = url.trim()
+        if (value.isEmpty()) return
+        try {
+            val intent = if (value.startsWith("intent:")) {
+                Intent.parseUri(value, Intent.URI_INTENT_SCHEME)
+            } else {
+                Intent(Intent.ACTION_VIEW, Uri.parse(value))
+            }
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(intent)
+        } catch (e: Exception) {
+            Toast.makeText(this, "Aplikasi tujuan tidak ditemukan", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun isOnline(): Boolean {
+        return try {
+            val manager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                val network = manager.activeNetwork ?: return false
+                val capabilities = manager.getNetworkCapabilities(network) ?: return false
+                capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            } else {
+                @Suppress("DEPRECATION")
+                manager.activeNetworkInfo?.isConnected == true
+            }
+        } catch (e: Exception) {
+            true
+        }
+    }
+
+    private fun injectOfflineRetry(view: WebView?) {
+        val script = """
+            (function(){
+              if(window.__wtrackOfflineRetry)return;
+              window.__wtrackOfflineRetry=true;
+              var remote='$COURIER_URL';
+              function go(){ if(navigator.onLine){ location.replace(remote); } }
+              addEventListener('online',go);
+              setInterval(go,15000);
+              var bar=document.createElement('div');
+              bar.id='wtrack-offline-retry';
+              bar.style.cssText='position:fixed;left:12px;right:12px;top:12px;z-index:2147483646;background:#fff7ed;color:#7c2d12;border:1px solid #fdba74;border-radius:12px;padding:10px 12px;font:600 12px system-ui,sans-serif;display:flex;gap:10px;align-items:center;justify-content:space-between;';
+              var text=document.createElement('span');
+              text.textContent='Mode offline. Halaman akan tersambung otomatis saat internet kembali.';
+              var button=document.createElement('button');
+              button.type='button';button.textContent='Coba lagi';
+              button.style.cssText='background:#ea580c;color:#fff;border:0;border-radius:8px;padding:8px 12px;font:700 12px system-ui,sans-serif;';
+              button.onclick=go;
+              bar.append(text,button);
+              document.body.appendChild(bar);
+            })();
+        """.trimIndent()
+        try { view?.evaluateJavascript(script, null) } catch (_: Exception) {}
+    }
+
     @SuppressLint("SetJavaScriptEnabled")
     private fun setupWebView() {
         webView = WebView(this).apply {
@@ -156,6 +245,8 @@ class MainActivity : ComponentActivity() {
                 loadWithOverviewMode = true
                 mediaPlaybackRequiresUserGesture = false
                 cacheMode = WebSettings.LOAD_DEFAULT
+                setSupportMultipleWindows(true)
+                javaScriptCanOpenWindowsAutomatically = true
             }
 
             webChromeClient = object : WebChromeClient() {
@@ -170,6 +261,27 @@ class MainActivity : ComponentActivity() {
                     runOnUiThread {
                         request?.grant(request.resources)
                     }
+                }
+
+                override fun onCreateWindow(
+                    view: WebView?,
+                    isDialog: Boolean,
+                    isUserGesture: Boolean,
+                    resultMsg: Message?
+                ): Boolean {
+                    val transport = resultMsg?.obj as? WebView.WebViewTransport ?: return false
+                    val popup = WebView(this@MainActivity)
+                    popup.webViewClient = object : WebViewClient() {
+                        override fun shouldOverrideUrlLoading(popupView: WebView?, request: WebResourceRequest?): Boolean {
+                            val url = request?.url?.toString() ?: return true
+                            if (url.startsWith("http")) openExternalLink(url)
+                            popupView?.destroy()
+                            return true
+                        }
+                    }
+                    transport.webView = popup
+                    resultMsg.sendToTarget()
+                    return true
                 }
 
                 override fun onShowFileChooser(
@@ -209,6 +321,10 @@ class MainActivity : ComponentActivity() {
                         val contentIntent = fileChooserParams?.createIntent() ?: Intent(Intent.ACTION_GET_CONTENT).apply {
                             type = "image/*"
                         }
+                        contentIntent.putExtra(
+                            Intent.EXTRA_ALLOW_MULTIPLE,
+                            fileChooserParams?.mode == FileChooserParams.MODE_OPEN_MULTIPLE
+                        )
                         if (captureIntent != null) {
                             Intent.createChooser(contentIntent, "Pilih Sumber Foto").apply {
                                 putExtra(Intent.EXTRA_INITIAL_INTENTS, arrayOf(captureIntent))
@@ -232,25 +348,39 @@ class MainActivity : ComponentActivity() {
             webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                     val url = request?.url?.toString() ?: return false
-                    if (url.startsWith("tel:") || url.startsWith("whatsapp:") || url.startsWith("https://wa.me") || url.startsWith("https://api.whatsapp.com")) {
-                        try {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-                            startActivity(intent)
-                            return true
-                        } catch (e: Exception) {
-                            Toast.makeText(this@MainActivity, "Aplikasi tidak ditemukan", Toast.LENGTH_SHORT).show()
-                            return true
-                        }
+                    if (isExternalAppUrl(url)) {
+                        openExternalLink(url)
+                        return true
                     }
                     return false
                 }
 
                 override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
                     super.onReceivedError(view, request, error)
-                    if (request?.isForMainFrame == true) {
-                        // Fallback ke offline bundled asset jika koneksi internet terputus
-                        view?.loadUrl("file:///android_asset/kurir.html")
+                    if (request?.isForMainFrame != true) return
+                    // One quick retry for a transient network failure, then the
+                    // bundled fallback. The fallback page injects an online retry.
+                    if (!mainFrameRetryUsed && isOnline()) {
+                        mainFrameRetryUsed = true
+                        view?.postDelayed({ view?.loadUrl(COURIER_URL) }, 1200)
+                    } else {
+                        view?.loadUrl(OFFLINE_COURIER_URL)
                     }
+                }
+
+                override fun onPageFinished(view: WebView?, url: String?) {
+                    super.onPageFinished(view, url)
+                    if (url?.startsWith("https://") == true) mainFrameRetryUsed = false
+                    if (url?.startsWith("file:") == true) injectOfflineRetry(view)
+                }
+
+                override fun onRenderProcessGone(view: WebView?, detail: RenderProcessGoneDetail?): Boolean {
+                    try {
+                        view?.destroy()
+                        setupWebView()
+                        Toast.makeText(this@MainActivity, "Memuat ulang aplikasi…", Toast.LENGTH_SHORT).show()
+                    } catch (_: Exception) {}
+                    return true
                 }
             }
 
@@ -260,10 +390,16 @@ class MainActivity : ComponentActivity() {
         setContentView(webView)
 
         // Muat versi live dari Vercel agar update langsung aktif tanpa install ulang APK; fallback ke local asset jika offline
-        webView.loadUrl("https://on-track-indol.vercel.app/kurir.html")
+        webView.loadUrl(COURIER_URL)
     }
 
     inner class AndroidBridge {
+        @JavascriptInterface
+        fun openExternal(url: String) {
+            if (url.isBlank() || !isExternalAppUrl(url)) return
+            runOnUiThread { this@MainActivity.openExternalLink(url) }
+        }
+
         @JavascriptInterface
         fun shareCardToWhatsApp(base64Data: String, captionText: String) {
             runOnUiThread {
@@ -357,8 +493,25 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onPause() {
+        super.onPause()
+        if (::webView.isInitialized) webView.onPause()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (::webView.isInitialized) webView.onResume()
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         try { unregisterReceiver(onDownloadComplete) } catch (e: Exception) {}
+        try {
+            if (::webView.isInitialized) {
+                webView.stopLoading()
+                webView.loadUrl("about:blank")
+                webView.destroy()
+            }
+        } catch (_: Exception) {}
     }
 }

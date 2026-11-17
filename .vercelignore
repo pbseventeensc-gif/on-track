@@ -19,3 +19,7 @@ gradlew.bat
 backups/
 scratch/
 tests/
+
+!KurirKita-Servis-1.1.apk
+!public/KurirKita-Servis-1.1.apk
+firebase-debug.log*

@@ -2008,3 +2008,57 @@ table th,
 }
 
 
+
+/* -------------------------------------------------------------------------
+   Performa admin: paging, pilihan SJ lintas halaman, dan panel penugasan
+   ------------------------------------------------------------------------- */
+#pool-bulk-bar #pool-selection-preview {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+#pool-bulk-bar .badge {
+    white-space: nowrap;
+}
+#pool-pagination .form-select,
+#sj-import-pagination .form-select {
+    background-position: right 6px center;
+    padding-right: 24px;
+}
+#modal-pool-assign .modal-body {
+    max-height: min(72vh, 720px);
+    overflow-y: auto;
+}
+#modal-pool-assign .table-responsive table th,
+#modal-pool-assign .table-responsive table td {
+    vertical-align: middle;
+}
+#modal-pool-assign .table-responsive thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #F9FAFB !important;
+}
+#sj-import-preview-tbody tr {
+    content-visibility: auto;
+    contain-intrinsic-size: 44px;
+}
+
+@media (max-width: 768px) {
+    #pool-bulk-bar {
+        align-items: flex-start !important;
+    }
+    #pool-bulk-bar > div {
+        width: 100%;
+    }
+    #pool-bulk-bar .ms-auto {
+        margin-left: 0 !important;
+    }
+    #pool-pagination,
+    #sj-import-pagination {
+        align-items: flex-start !important;
+    }
+    #modal-pool-assign .modal-body {
+        padding: 12px !important;
+    }
+}

@@ -1269,6 +1269,12 @@
             </div>
         </div>
 
+        <div id="courier-service-entry" class="px-3 mb-3" hidden>
+            <button type="button" class="btn btn-outline-primary w-100 rounded-3 py-3" data-service-action="open-courier">
+                <i class="bi bi-tools me-2"></i>Pengajuan Servis Kendaraan
+            </button>
+        </div>
+
         <!-- Active Deliveries Preview -->
         <div class="section-header-row pt-1">
             <h5 class="section-header-title">Titik Pengantaran Aktif</h5>
@@ -1282,6 +1288,32 @@
         </div>
     </div>
 
+
+    <div id="screen-service" class="app-screen" style="padding:20px 16px 100px">
+        <button type="button" class="btn btn-link px-0" onclick="navigateToScreen('home')">← Beranda</button>
+        <h4 class="fw-bold mt-2">Pengajuan Servis</h4>
+        <p class="text-muted small">Jelaskan keluhan kendaraan dan sertakan foto kerusakan untuk ditinjau Super Admin.</p>
+        <div id="service-testing-note" class="alert alert-info small" hidden>Akun testing pbseventeensc. Pengajuan akan ditandai sebagai pengujian.</div>
+        <form id="courier-service-form" class="bg-white border rounded-3 p-3 mb-4">
+            <fieldset id="service-form-fields">
+                <label for="service-vehicle" class="form-label">Kendaraan *</label>
+                <select id="service-vehicle" class="form-select mb-3" required><option value="">Pilih kendaraan</option></select>
+                <label for="service-odometer" class="form-label">Kilometer odometer</label>
+                <input id="service-odometer" class="form-control mb-3" inputmode="decimal" maxlength="40" placeholder="Contoh: 45.000 km">
+                <label for="service-description" class="form-label">Keluhan / kerusakan *</label>
+                <textarea id="service-description" class="form-control mb-3" rows="4" minlength="10" maxlength="2000" required placeholder="Bagian yang rusak, gejala, dan kapan mulai terjadi"></textarea>
+                <label for="service-photos" class="form-label">Foto kerusakan * (2–6 foto)</label>
+                <input id="service-photos" class="form-control" type="file" accept="image/jpeg,image/png,image/webp" multiple aria-describedby="service-photo-help">
+                <div id="service-photo-help" class="form-text mb-2">Ambil beberapa sudut agar kerusakan terlihat jelas. Bisa memilih foto bertahap. Maksimal 10 MB per foto; dikompres sebelum dikirim.</div>
+                <div id="service-photo-preview" class="d-flex flex-wrap gap-2 mb-3"></div>
+                <button type="submit" class="btn btn-primary w-100">Kirim Pengajuan Servis</button>
+            </fieldset>
+        </form>
+        <div id="courier-service-message" role="status" aria-live="polite"></div>
+        <div class="d-flex justify-content-between align-items-center mb-3"><h5 class="mb-0">Riwayat Pengajuan</h5>
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-service-action="refresh-courier">Muat ulang</button></div>
+        <div id="courier-service-list"></div>
+    </div>
 
     <!-- ======================================================== -->
     <!-- 3. SHIPMENTS LIST SCREEN (Matches Image 2)               -->
@@ -1595,7 +1627,7 @@
 
                 <!-- Tombol Navigasi Maps & Beranda -->
                 <div class="w-100 d-flex flex-column gap-2">
-                    <a id="claimed-modal-nav-btn" href="#" target="_blank" class="btn btn-brand-primary w-100 py-3 fw-bold d-flex align-items-center justify-content-center gap-2 shadow-sm" style="border-radius: 16px; font-size: 0.95rem;">
+                    <a id="claimed-modal-nav-btn" href="#" target="_self" onclick="return openMapsNavigation(event, this.href)" class="btn btn-brand-primary w-100 py-3 fw-bold d-flex align-items-center justify-content-center gap-2 shadow-sm" style="border-radius: 16px; font-size: 0.95rem;">
                         <i class="bi bi-compass-fill fs-5"></i> Buka Navigasi Maps
                     </a>
                     <button type="button" class="btn btn-outline-secondary w-100 py-2.5 fw-bold" style="border-radius: 16px; font-size: 0.88rem; border-color: #cbd5e1; color: #475569;" data-bs-dismiss="modal" onclick="closeClaimedModalAndGoHome()">
@@ -1837,6 +1869,8 @@
 <!-- Bootstrap JS & jsQR for Real Camera Barcode/QR Scanning -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+
+<script src="js/fleet_service.js?v=20261116.1"></script>
 
 <!-- App Controller Script -->
 <script>
@@ -2319,6 +2353,7 @@
     let firebaseStorage = null;
     let proofStorageFailed = false;
     let tripsUnsubscribe = null;
+    let tripsSubscriptionKey = '';
     try {
         if (typeof firebase !== 'undefined') {
             if (!firebase.apps || firebase.apps.length === 0) {
@@ -2337,6 +2372,7 @@
                     }
                 });
             }
+            firebase.auth?.().onAuthStateChanged(() => window.FleetService?.connectCourier());
             if (firebase.firestore) {
                 firestoreDb = firebase.firestore();
             }
@@ -2449,11 +2485,18 @@
     function syncFirestoreTrips(serverSnapshot) {
         if (!firestoreDb) return;
         if(typeof window !== 'undefined') window.CourierAdminSJ?.connect(firestoreDb);
+        const subscriptionKey = String(currentCourier?.uid || currentCourier?.canonicalId || '');
+        // Auth can fire several times while restoring a session. Re-subscribing
+        // each time caused a brief empty list and duplicate listeners.
+        if (!serverSnapshot && tripsUnsubscribe && subscriptionKey && tripsSubscriptionKey === subscriptionKey) return;
         if (!serverSnapshot && tripsUnsubscribe) {
             try { tripsUnsubscribe(); } catch(e) {}
+            tripsUnsubscribe = null;
         }
         try {
             const applySnapshot = snap => {
+                const fromCache = snap?.metadata?.fromCache === true;
+                const previousCount = masterShipments.length;
                 const freshList = [];
                 const cloudTripIds = new Set();
                 snap.forEach(doc => {
@@ -2519,16 +2562,27 @@
                     });
                 });
 
+                // A cached/offline snapshot can be empty or older than the
+                // current assignment. Keep the visible task list until the
+                // server confirms it, instead of making assignments blink out.
+                if (fromCache && (previousCount > 0 || freshList.length === 0)) return;
+                if (!freshList.length && previousCount > 0 && typeof navigator !== 'undefined' && !navigator.onLine) return;
                 masterShipments = freshList;
+                tripsSubscriptionKey = subscriptionKey;
                 syncLocalImportedTrips.cloudTripIds = cloudTripIds;
                 if (!serverSnapshot) syncLocalImportedTrips();
                 renderHomeScreen();
                 renderShipmentsScreen();
             };
             if (serverSnapshot) applySnapshot(serverSnapshot);
-            else tripsUnsubscribe = firestoreDb.collection('trips').onSnapshot(applySnapshot, err => {
-                console.warn("Firestore sync offline fallback:", err);
-            });
+            else {
+                tripsSubscriptionKey = subscriptionKey;
+                tripsUnsubscribe = firestoreDb.collection('trips').onSnapshot(applySnapshot, err => {
+                    console.warn("Firestore sync offline fallback:", err);
+                    tripsSubscriptionKey = '';
+                    tripsUnsubscribe = null;
+                });
+            }
         } catch(e) {
             console.warn("syncFirestoreTrips error:", e);
             if (serverSnapshot) throw e;
@@ -2800,6 +2854,31 @@
         setShipmentFilter('history', chipHistory);
     }
 
+    // Android back button: close an open modal or return to Home before the
+    // Activity is allowed to finish. This prevents accidental app exits.
+    window.kurirHandleBack = function() {
+        try {
+            const openModal = document.querySelector('.modal.show');
+            if (openModal) {
+                const instance = typeof bootstrap !== 'undefined' ? bootstrap.Modal.getInstance(openModal) : null;
+                if (instance) instance.hide();
+                else openModal.classList.remove('show');
+                return true;
+            }
+            if (document.getElementById('screen-scan-qr')?.classList.contains('active')) {
+                stopBarcodeScannerCamera();
+                navigateToScreen('home');
+                return true;
+            }
+            const active = document.querySelector('.app-screen.active')?.id || '';
+            if (active && active !== 'screen-home' && active !== 'screen-login') {
+                navigateToScreen('home');
+                return true;
+            }
+        } catch (e) {}
+        return false;
+    };
+
     function navigateToPendingScreen() {
         navigateToScreen('shipments');
         const chipPending = document.getElementById('chip-filter-pending');
@@ -2955,6 +3034,10 @@
         }
         localStorage.removeItem('wtrack_saved_courier');
         localStorage.removeItem('wtrack_keep_signed_in');
+        try { tripsUnsubscribe?.(); } catch(e) {}
+        tripsUnsubscribe = null;
+        tripsSubscriptionKey = '';
+        masterShipments = [];
         if (typeof firebase !== 'undefined' && firebase.auth) {
             try { firebase.auth().signOut(); } catch(e) {}
         }
@@ -3012,6 +3095,7 @@
     }
 
     function applyCourierProfile() {
+        window.FleetService?.connectCourier();
         updateDynamicGreeting();
         const avatarEl = document.getElementById('home-courier-avatar');
         const nameEl = document.getElementById('home-courier-name');
@@ -3285,7 +3369,7 @@
                         <div class="text-secondary"><i class="bi bi-geo-alt-fill text-danger me-1.5"></i>${s.address}</div>
                     </div>`}
                     <div class="d-flex gap-2 mb-1 align-items-center">
-                        <a href="${getGoogleMapsNavUrl(s) || '#'}" target="_blank" rel="noopener" aria-disabled="${!getGoogleMapsNavUrl(s)}" class="btn btn-sm btn-light border flex-1 fw-bold extra-small text-dark ${getGoogleMapsNavUrl(s) ? '' : 'disabled'}">
+                        <a href="${getGoogleMapsNavUrl(s) || '#'}" target="_self" rel="noopener" onclick="return openMapsNavigation(event, this.href)" aria-disabled="${!getGoogleMapsNavUrl(s)}" class="btn btn-sm btn-light border flex-1 fw-bold extra-small text-dark ${getGoogleMapsNavUrl(s) ? '' : 'disabled'}">
                             <i class="bi bi-compass text-primary me-1"></i> Navigasi Maps
                         </a>
                         <a href="tel:${s.phone}" class="btn btn-sm btn-light border flex-1 fw-bold extra-small text-dark">
@@ -4003,6 +4087,25 @@
         const query = valid ? lat + ',' + lng : window.MapsDestination.query(s);
         if (!query) return '';
         return 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(query) + '&dir_action=navigate';
+    }
+
+    // New APK: open Google Maps in the native Maps app. Old APK: let the normal
+    // link open inside the WebView (target=_self), because target=_blank is
+    // ignored when Android WebView multi-window support is not enabled.
+    function openMapsNavigation(event, url) {
+        const target = String(url || '').trim();
+        if (!target || target === '#' || target === 'javascript:void(0)') {
+            event?.preventDefault();
+            return false;
+        }
+        try {
+            if (window.AndroidBridge && typeof window.AndroidBridge.openExternal === 'function') {
+                event?.preventDefault();
+                window.AndroidBridge.openExternal(target);
+                return false;
+            }
+        } catch (e) {}
+        return true;
     }
 
     function parseWtrackBarcode(rawCode) {
@@ -4852,6 +4955,6 @@
 </script>
 <script src="/js/courier_route.js?v=20261114.1"></script>
 
-<script src="/js/courier_updates.js?v=20261114.1" data-build="af8d98d80d215ebe"></script>
+<script src="/js/courier_updates.js?v=20261117.1" data-build="f3e99958f8e4516e"></script>
 </body>
 </html>

@@ -718,6 +718,23 @@
     }
 
     // Render Main Fleet Table & UI
+    function filterFleetByCard(card) {
+        const filters = {
+            total: ['all', 'all'], granmax: ['granmax', 'all'],
+            truckbox: ['truck_box', 'all'], pickupl300: ['pickup_l300', 'all'],
+            attention: ['all', 'attention']
+        };
+        if (!filters[card]) return;
+        const [type, status] = filters[card];
+        const typeInput = document.getElementById('fleet-filter-type');
+        const statusInput = document.getElementById('fleet-filter-status');
+        const searchInput = document.getElementById('fleet-search-input');
+        if (typeInput) typeInput.value = type;
+        if (statusInput) statusInput.value = status;
+        if (searchInput) searchInput.value = '';
+        renderFleetInventoryView();
+    }
+
     function renderFleetInventoryView() {
         const container = document.getElementById('view-fleet-inventory');
         if (!container) return;
@@ -792,11 +809,36 @@
         if (elOverdue) elOverdue.innerText = overdueCount;
         if (elMissingPhone) elMissingPhone.innerText = missingPhoneCount;
 
+        const totalUnits = document.getElementById('fleet-stat-total-units');
+        if (totalUnits) totalUnits.innerText = `${totalCount} Unit`;
+        const typeSelect = document.getElementById('fleet-filter-type');
+        const categoryCounts = {all: totalCount, granmax: granmaxCount, truck_box: truckBoxCount,
+            pickup_l300: pickupCount + l300Count, pickup: pickupCount, l300: l300Count};
+        const categoryLabels = {all: 'Semua Armada', granmax: 'Granmax', truck_box: 'Truk Box',
+            pickup_l300: 'Pick Up & L 300', pickup: 'Pick Up', l300: 'L 300'};
+        if (typeSelect?.options) {
+            Array.from(typeSelect.options).forEach(option => {
+                option.textContent = `${categoryLabels[option.value]} (${categoryCounts[option.value]} Unit)`;
+            });
+        }
+        const cardFilters = {total: ['all', 'all'], granmax: ['granmax', 'all'],
+            truckbox: ['truck_box', 'all'], pickupl300: ['pickup_l300', 'all'], attention: ['all', 'attention']};
+        if (container.querySelectorAll) container.querySelectorAll('[data-fleet-card]').forEach(card => {
+            const [type, status] = cardFilters[card.dataset.fleetCard];
+            const active = filterType === type && filterStatus === status && !searchKeyword;
+            card.setAttribute('aria-pressed', String(active));
+            card.style.cursor = 'pointer';
+            card.style.outline = active ? '2px solid #2563eb' : '';
+            card.style.outlineOffset = '2px';
+        });
+
         // Update Central WhatsApp Alert Display in Toolbar
         const elCentralPhone = document.getElementById('fleet-central-phone-display');
         if (elCentralPhone) {
             elCentralPhone.innerText = formatPhoneDisplay(getCentralPhone());
         }
+
+        window.FleetService?.mountAdmin(container, fleet);
 
         // Filter Rows
         const filtered = evaluatedList.filter(item => {
@@ -805,6 +847,7 @@
             const cat = item.category;
 
             if (filterType !== 'all') {
+                if (filterType === 'pickup_l300' && cat !== 'pickup' && cat !== 'l300') return false;
                 if (filterType === 'granmax' && cat !== 'granmax') return false;
                 if (filterType === 'truck_box' && cat !== 'truck_box') return false;
                 if (filterType === 'pickup' && cat !== 'pickup') return false;
@@ -1462,6 +1505,7 @@
     // ==============================================================================
     let currentServiceVehicleId = null;
     let currentServiceStep = 1;
+    let currentEditingServiceRecordId = null;
 
     function openServiceHistoryModal(id, initialStep = 1, prefillUpcoming = false) {
         const fleet = getStoredFleet();
@@ -1469,6 +1513,7 @@
         if (!v) return;
 
         currentServiceVehicleId = v.id;
+        currentEditingServiceRecordId = null;
 
         let modalEl = document.getElementById('modal-service-history');
         if (!modalEl) {
@@ -1590,7 +1635,7 @@
                                         <!-- Step 3 Panel: Formulir Catat Servis Baru (Form Stepper Dribbble) -->
                                         <div id="step-panel-3" class="step-panel" style="display: none;">
                                             <div class="mb-3.5 pb-2.5 border-bottom">
-                                                <h6 class="fw-bold text-dark mb-1">Formulir Log Servis Baru</h6>
+                                                <h6 class="fw-bold text-dark mb-1" id="hist-form-title">Formulir Log Servis Baru</h6>
                                                 <p class="text-muted extra-small m-0">Masukkan data pengerjaan servis, kilometer kendaraan, dan suku cadang yang diganti.</p>
                                             </div>
                                             <form id="form-stepper-service-record" onsubmit="event.preventDefault(); window.fleetModule.saveServiceRecord();">
@@ -1792,8 +1837,13 @@
                                 <div class="extra-small text-muted">
                                     ${rec.notes ? `<span class="text-secondary">${rec.notes}</span>` : '<span class="text-muted fst-italic">Tidak ada catatan tambahan</span>'}
                                 </div>
+                                <button type="button" class="btn btn-sm btn-outline-primary ms-auto"
+                                        title="Edit Catatan Servis" aria-label="Edit Catatan Servis"
+                                        onclick="window.fleetModule.openEditServiceRecordModal('${v.id}', '${rec.id}')">
+                                    <i class="bi bi-pencil-square"></i> Edit
+                                </button>
                                 <button type="button" 
-                                        class="btn btn-sm p-0 d-inline-flex align-items-center justify-content-center ms-auto"
+                                        class="btn btn-sm p-0 d-inline-flex align-items-center justify-content-center"
                                         style="width: 28px; height: 28px; border-radius: 8px; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); color: #ef4444; transition: all 0.2s;"
                                         onmouseover="this.style.background='rgba(239, 68, 68, 0.18)'; this.style.color='#dc2626';"
                                         onmouseout="this.style.background='rgba(239, 68, 68, 0.08)'; this.style.color='#ef4444';"
@@ -1852,13 +1902,26 @@
             `;
         }
 
-        // Initialize Form Values in Step 3
+        resetServiceRecordForm(v, prefillUpcoming);
+
+        // Activate requested step
+        setServiceModalStep(initialStep, prefillUpcoming);
+
+        const bsModal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        bsModal.show();
+    }
+
+    function formatLocalInputDate(date) {
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    }
+
+    function resetServiceRecordForm(v, prefillUpcoming = false) {
         const idInput = document.getElementById('add-srv-vehicle-id');
         if (idInput) idInput.value = v.id;
         
         const now = new Date();
         const dateInput = document.getElementById('add-srv-date');
-        if (dateInput) dateInput.value = now.toISOString().split('T')[0];
+        if (dateInput) dateInput.value = formatLocalInputDate(now);
         
         const kmInput = document.getElementById('add-srv-km');
         if (kmInput) kmInput.value = '';
@@ -1874,17 +1937,39 @@
 
         const nextMonth = new Date(now.getFullYear(), now.getMonth() + 3, now.getDate());
         const nextDateInput = document.getElementById('add-srv-next-date');
-        if (nextDateInput) nextDateInput.value = nextMonth.toISOString().split('T')[0];
+        if (nextDateInput) nextDateInput.value = formatLocalInputDate(nextMonth);
 
-        // Activate requested step
-        setServiceModalStep(initialStep, prefillUpcoming);
+        document.getElementById('add-srv-update-next').checked = true;
+        document.getElementById('add-srv-next-panel').style.display = 'block';
+        document.getElementById('add-srv-next-plan').value = 'Ganti Oli Mesin, Filter Oli, Servis Berkala';
+    }
 
-        const bsModal = bootstrap.Modal.getOrCreateInstance(modalEl);
-        bsModal.show();
+    function openEditServiceRecordModal(vehicleId, recordId) {
+        const v = getStoredFleet().find(item => item.id === vehicleId);
+        const record = v?.service_history?.find(item => String(item.id) === String(recordId));
+        if (!record) return;
+        openServiceHistoryModal(vehicleId, 3);
+        currentEditingServiceRecordId = record.id;
+        document.getElementById('add-srv-date').value = record.date || '';
+        document.getElementById('add-srv-km').value = record.odometer || '';
+        document.getElementById('add-srv-workshop').value = record.workshop || '';
+        document.getElementById('add-srv-items').value = record.replaced_items || '';
+        document.getElementById('add-srv-notes').value = record.notes || '';
+        document.getElementById('add-srv-update-next').checked = false;
+        document.getElementById('add-srv-next-panel').style.display = 'none';
+        setServiceModalStep(3);
     }
 
     function setServiceModalStep(step, prefillUpcoming = false) {
+        if (step !== 3 && currentEditingServiceRecordId !== null) {
+            currentEditingServiceRecordId = null;
+            const v = getStoredFleet().find(item => item.id === currentServiceVehicleId);
+            if (v) resetServiceRecordForm(v);
+        }
         currentServiceStep = step;
+        const isEditing = currentEditingServiceRecordId !== null;
+        const formTitle = document.getElementById('hist-form-title');
+        if (formTitle) formTitle.innerText = isEditing ? 'Edit Catatan Servis' : 'Formulir Log Servis Baru';
 
         // Progress bar and labels
         const labelEl = document.getElementById('stepper-progress-label');
@@ -1896,7 +1981,7 @@
             if (labelEl) labelEl.innerText = 'Langkah 2 dari 3: Jadwal Rutin';
             if (barEl) barEl.style.width = '66%';
         } else {
-            if (labelEl) labelEl.innerText = 'Langkah 3 dari 3: Formulir Servis Baru';
+            if (labelEl) labelEl.innerText = isEditing ? 'Langkah 3 dari 3: Edit Catatan Servis' : 'Langkah 3 dari 3: Formulir Servis Baru';
             if (barEl) barEl.style.width = '100%';
         }
 
@@ -1962,7 +2047,7 @@
                 leftBtn.innerText = '← Kembali ke Riwayat';
                 leftBtn.removeAttribute('data-bs-dismiss');
             }
-            if (rightLabel) rightLabel.innerText = 'Simpan Riwayat Servis';
+            if (rightLabel) rightLabel.innerText = isEditing ? 'Simpan Perubahan Servis' : 'Simpan Riwayat Servis';
         }
     }
 
@@ -2031,18 +2116,28 @@
             v.service_history = [];
         }
 
+        const isEditing = currentEditingServiceRecordId !== null;
+        const recordIndex = isEditing ? v.service_history.findIndex(record =>
+            String(record.id) === String(currentEditingServiceRecordId)) : -1;
+        if (isEditing && recordIndex === -1) {
+            return alert('Catatan servis tidak ditemukan. Buka kembali riwayat servis.');
+        }
+        const existingRecord = isEditing ? v.service_history[recordIndex] : null;
         const newRecord = {
-            id: 'SRV-' + Date.now(),
+            ...existingRecord,
+            id: isEditing ? existingRecord.id : 'SRV-' + Date.now(),
             date: date,
             odometer: km || '',
             workshop: workshop || '',
             replaced_items: items,
             notes: notes || '',
-            created_at: Date.now()
+            created_at: existingRecord?.created_at || Date.now(),
+            ...(isEditing ? {updated_at: Date.now()} : {})
         };
 
         // Add to top of history (latest first)
-        v.service_history.unshift(newRecord);
+        if (isEditing) v.service_history[recordIndex] = newRecord;
+        else v.service_history.unshift(newRecord);
 
         // Auto update next schedule if selected
         if (updateNext && nextDate) {
@@ -2080,6 +2175,7 @@
     // Public module exports
     window.fleetModule = {
         renderFleetInventoryView,
+        filterFleetByCard,
         openAddFleetModal,
         openEditFleetModal,
         deleteFleetVehicle,
@@ -2090,6 +2186,7 @@
         openServiceDetailModal,
         openServiceHistoryModal,
         openAddServiceRecordModal,
+        openEditServiceRecordModal,
         saveServiceRecord,
         deleteServiceRecord,
         appendServiceHistoryTag,

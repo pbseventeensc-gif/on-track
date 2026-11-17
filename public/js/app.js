@@ -2857,7 +2857,10 @@ function initTripsSnapshot() {
         window.allPoolTrips = pool;
         allCurrentTrips = trips;
         window.allCurrentTrips = trips;
-        window.UnifiedPoolUI?.renderUnifiedPoolView();
+        // Coalesce bursts of Firestore snapshots into one render. Full pool
+        // re-renders after every courier update caused jank on large datasets.
+        if (window.UnifiedPoolUI?.scheduleRender) window.UnifiedPoolUI.scheduleRender();
+        else window.UnifiedPoolUI?.renderUnifiedPoolView?.();
         if (typeof initDefaultDateFilters === 'function') initDefaultDateFilters();
         updateGlobalStats();
         renderRecentShipments();
