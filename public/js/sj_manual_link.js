@@ -12,6 +12,7 @@
         query: '',
         targets: [],
         selected: '',
+        activePoolId: '',
         pairs: new Map(),
         busy: false
     };
@@ -100,47 +101,54 @@
         const body = document.getElementById('sj-manual-link-body');
         if (!body) return;
         const applyButton = document.getElementById('sj-manual-link-apply');
-        const used = new Set([...STATE.pairs.values()]);
+        if (!STATE.activePoolId || !STATE.poolTrips.some(pool => poolIdOf(pool) === STATE.activePoolId)) {
+            STATE.activePoolId = STATE.poolTrips.map(poolIdOf).find(id => ![...STATE.pairs.values()].includes(id)) || '';
+        }
+        const poolById = new Map(STATE.poolTrips.map(pool => [poolIdOf(pool), pool]));
+        const targetByPool = new Map();
+        STATE.pairs.forEach((poolId, targetId) => targetByPool.set(poolId, targetId));
         if (applyButton) {
             applyButton.disabled = STATE.pairs.size === 0 || STATE.busy;
             applyButton.innerHTML = STATE.pairs.size
                 ? `<i class="bi bi-link-45deg me-1"></i> Tautkan ${STATE.pairs.size} SJ`
                 : '<i class="bi bi-link-45deg me-1"></i> Pilih Tujuan';
         }
-        const query = STATE.query.trim().toLowerCase();
-        const visible = STATE.targets.filter(row => !query || row.text.includes(query));
         const cards = STATE.poolTrips.map(pool => {
             const id = poolIdOf(pool);
-            const linked = used.has(id);
-            return `<span class="badge ${linked ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-white text-dark border'}" style="font-size:10.5px;font-weight:600;white-space:nowrap;">${esc(pool.noSJ || pool.sjNumber || id)}${linked ? ' ✓' : ''}</span>`;
+            const active = id === STATE.activePoolId;
+            const targetId = targetByPool.get(id);
+            const target = targetId ? STATE.targets.find(row => row.id === targetId) : null;
+            return `<button type="button" class="btn btn-sm ${active ? 'btn-warning' : target ? 'btn-success' : 'btn-light border'}" data-pool="${esc(id)}" onclick="SJManualLink.setActiveSJ(this.dataset.pool)" style="font-size:10.5px;font-weight:600;border-radius:8px;text-align:left;white-space:normal;max-width:270px;">
+                <span class="font-monospace">${esc(pool.noSJ || pool.sjNumber || id)}</span>
+                <span class="d-block fw-normal" style="font-size:9.5px;opacity:.9;">${target ? `✓ ${esc(target.courier)} · ${esc((target.store || target.address || '').slice(0, 32))}` : `${esc(pool.customer || pool.clientName || '')} · ${esc((pool.storeDestination || pool.destinations?.[0]?.locationName || '').slice(0, 32))}`}</span>
+            </button>`;
         }).join('');
+
+        const query = STATE.query.trim().toLowerCase();
+        const visible = STATE.targets.filter(row => !query || row.text.includes(query));
         const rows = visible.length ? visible.map(row => {
-            const current = STATE.pairs.get(row.id) || '';
-            const options = STATE.poolTrips.map(pool => {
-                const id = poolIdOf(pool);
-                const usedByOther = [...STATE.pairs.entries()].some(([targetId, poolId]) => targetId !== row.id && poolId === id);
-                return `<option value="${esc(id)}" ${current === id ? 'selected' : ''} ${usedByOther ? 'disabled' : ''}>${esc(poolLabel(pool))}</option>`;
-            }).join('');
-            return `<tr class="${current ? 'table-success' : ''}">
-                <td style="min-width:170px;">
-                    <select class="form-select form-select-sm" style="font-size:10.5px;min-width:165px;" data-row="${esc(row.id)}" onchange="SJManualLink.assignPair(this.dataset.row,this.value)">
-                        <option value="">— Pilih No. SJ —</option>
-                        ${options}
-                    </select>
-                </td>
+            const assignedPoolId = STATE.pairs.get(row.id) || '';
+            const assignedPool = assignedPoolId ? poolById.get(assignedPoolId) : null;
+            const cell = assignedPool
+                ? `<span class="badge bg-success-subtle text-success border border-success-subtle font-monospace" style="font-size:10.5px;">${esc(assignedPool.noSJ || assignedPool.sjNumber || assignedPoolId)}</span>
+                   <button type="button" class="btn btn-link btn-sm text-danger p-0 ms-1" data-row="${esc(row.id)}" onclick="event.stopPropagation();SJManualLink.unassignTarget(this.dataset.row)" title="Lepas tautan"><i class="bi bi-x-lg" style="font-size:10px;"></i></button>`
+                : `<button type="button" class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size:10.5px;" data-row="${esc(row.id)}" onclick="event.stopPropagation();SJManualLink.assignActive(this.dataset.row)">Pilih</button>`;
+            return `<tr class="${assignedPool ? 'table-success' : ''}" style="cursor:pointer;" data-row="${esc(row.id)}" onclick="SJManualLink.assignActive(this.dataset.row)">
+                <td style="min-width:130px;">${cell}</td>
                 <td style="font-size:11.5px;white-space:nowrap;">${esc(row.courier)}</td>
-                <td style="font-size:11.5px;white-space:normal;"><strong>${esc(row.store || '-')}</strong><div class="text-muted" style="font-size:10.5px;">${esc((row.address || '-').slice(0, 90))}</div></td>
+                <td style="font-size:11.5px;white-space:normal;"><strong>${esc(row.store || '-')}</strong><div class="text-muted" style="font-size:10.5px;">${esc((row.address || '-').slice(0, 95))}</div></td>
                 <td style="font-size:11px;white-space:nowrap;">${esc(row.status || '-')}</td>
             </tr>`;
         }).join('') : '<tr><td colspan="4" class="text-center text-muted py-4">Tidak ada tujuan manual yang cocok.</td></tr>';
 
         body.innerHTML = `
-            <div class="d-flex align-items-start justify-content-between gap-2 flex-wrap mb-3 p-3 bg-white border rounded-3">
-                <div>
+            <div class="mb-3 p-3 bg-white border rounded-3">
+                <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-2">
                     <div class="text-muted" style="font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;">SJ terpilih dari Pool</div>
-                    <div class="d-flex flex-wrap gap-1 mt-1">${cards}</div>
+                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle" style="font-size:11px;">${STATE.poolTrips.length} SJ · ${STATE.pairs.size} ditautkan</span>
                 </div>
-                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle" style="font-size:11px;">${STATE.poolTrips.length} SJ · ${STATE.pairs.size} ditautkan</span>
+                <div class="d-flex flex-wrap gap-1">${cards}</div>
+                <div class="text-muted mt-2" style="font-size:11px;">SJ yang disorot adalah SJ aktif. Klik tujuan di tabel untuk menautkannya; SJ aktif otomatis berpindah ke SJ berikutnya.</div>
             </div>
             <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
                 <div class="position-relative flex-grow-1" style="min-width:220px;max-width:420px;">
@@ -158,7 +166,7 @@
                     <tbody>${rows}</tbody>
                 </table>
             </div>
-            <div class="text-muted mt-2" style="font-size:11px;">Pilih nomor SJ pada baris tujuan yang sesuai. Satu SJ hanya bisa dipakai untuk satu tujuan. SJ yang sudah dipasangkan akan hilang dari Pool setelah diterapkan.</div>
+            <div class="text-muted mt-2" style="font-size:11px;">Pilih SJ di atas, lalu klik baris tujuan yang sesuai. Satu SJ hanya bisa dipakai untuk satu tujuan. SJ yang sudah dipasangkan akan hilang dari Pool setelah diterapkan.</div>
         `;
     }
 
@@ -268,6 +276,7 @@
         STATE.pool = null;
         STATE.poolTrips = poolTrips;
         STATE.selected = '';
+        STATE.activePoolId = poolIdOf(poolTrips[0]);
         STATE.pairs.clear();
         STATE.query = '';
         STATE.date = todayWib();
@@ -292,6 +301,7 @@
         if (STATE.mode === 'bulk') {
             const valid = new Set(STATE.targets.map(row => row.id));
             for (const key of [...STATE.pairs.keys()]) if (!valid.has(key)) STATE.pairs.delete(key);
+            if (!STATE.poolTrips.some(pool => poolIdOf(pool) === STATE.activePoolId)) STATE.activePoolId = STATE.poolTrips.map(poolIdOf).find(id => ![...STATE.pairs.values()].includes(id)) || '';
         }
         render();
     }
@@ -393,17 +403,38 @@
         window.allCurrentTrips = update(window.allCurrentTrips);
     }
 
-    function assignPair(targetId, poolId) {
+    function setActiveSJ(poolId) {
+        if (!poolId) return;
+        if ([...STATE.pairs.values()].includes(String(poolId))) {
+            const targetId = [...STATE.pairs.entries()].find(([, id]) => id === String(poolId))?.[0];
+            if (targetId) STATE.pairs.delete(targetId);
+        }
+        STATE.activePoolId = String(poolId);
+        render();
+    }
+
+    function assignActive(targetId) {
         if (!targetId) return;
-        if (!poolId) {
-            STATE.pairs.delete(String(targetId));
-            render();
+        if (!STATE.activePoolId) {
+            alert('Pilih SJ di bagian atas terlebih dahulu.');
             return;
         }
-        for (const [otherTarget, otherPool] of [...STATE.pairs.entries()]) {
-            if (otherTarget !== targetId && otherPool === poolId) STATE.pairs.delete(otherTarget);
+        const target = STATE.targets.find(row => row.id === targetId);
+        if (!target) return;
+        // One target has one SJ. Replacing here is explicit.
+        for (const [otherTarget, poolId] of [...STATE.pairs.entries()]) {
+            if (otherTarget === targetId || poolId === STATE.activePoolId) STATE.pairs.delete(otherTarget);
         }
-        STATE.pairs.set(String(targetId), String(poolId));
+        STATE.pairs.set(String(targetId), String(STATE.activePoolId));
+        STATE.activePoolId = STATE.poolTrips.map(poolIdOf).find(id => ![...STATE.pairs.values()].includes(id)) || '';
+        render();
+    }
+
+    function unassignTarget(targetId) {
+        if (!targetId) return;
+        const poolId = STATE.pairs.get(String(targetId));
+        STATE.pairs.delete(String(targetId));
+        if (poolId) STATE.activePoolId = poolId;
         render();
     }
 
@@ -479,5 +510,5 @@
         }
     }
 
-    root.SJManualLink = {openByTrip, openBulkFromSelection, setQuery, setDate, selectTarget, assignPair, apply, get state() { return {...STATE}; }};
+    root.SJManualLink = {openByTrip, openBulkFromSelection, setQuery, setDate, selectTarget, setActiveSJ, assignActive, unassignTarget, apply, get state() { return {...STATE}; }};
 })(window);

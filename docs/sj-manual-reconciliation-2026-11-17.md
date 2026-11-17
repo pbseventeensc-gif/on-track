@@ -189,10 +189,12 @@ Alurnya:
 
 1. Centang beberapa SJ di SJ Pool.
 2. Klik **Tautkan Manual**.
-3. Dialog menampilkan semua SJ terpilih di bagian atas.
-4. Tabel tujuan manual memiliki kolom **No. SJ** berupa dropdown.
-5. Pada baris tujuan yang sesuai, pilih nomor SJ.
-6. SJ yang sudah dipakai di baris lain otomatis dinonaktifkan/berpindah.
+3. Dialog menampilkan semua SJ terpilih di bagian atas sebagai kartu.
+4. SJ pertama otomatis menjadi **SJ aktif**.
+5. Klik baris tujuan manual yang sesuai; SJ aktif langsung dipasangkan dan
+   otomatis berpindah ke SJ berikutnya.
+6. Untuk mengganti pasangan, klik SJ lain lalu klik tujuan; tombol **Lepas**
+   tersedia pada tujuan yang sudah terpasang.
 7. Klik **Tautkan N SJ**.
 
 Setelah diterapkan, setiap SJ dihapus dari Pool dan nomornya masuk ke tujuan
