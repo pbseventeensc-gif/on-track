@@ -207,7 +207,10 @@
                 <td data-label="Total Berat KG" class="pool-line-number fw-semibold" style="font-size:12px;">${result.weightKg===null?'—':fmtWeight(result.weightKg)}</td>
             </tr>`;
         }).join('');
-        return `<tr><td colspan="11" class="p-2.5 pool-line-detail" style="background:#F8F9FA;white-space:normal">
+        const colSpan = (root.UnifiedPoolUI && typeof root.UnifiedPoolUI.getVisibleColumnCount === 'function')
+            ? root.UnifiedPoolUI.getVisibleColumnCount()
+            : 12;
+        return `<tr><td colspan="${colSpan}" class="p-2.5 pool-line-detail" style="background:#F8F9FA;white-space:normal">
             <div class="d-flex justify-content-between align-items-center gap-2 mb-2 px-1">
                 <div class="d-flex align-items-center gap-2">
                     <span class="d-inline-block bg-primary rounded-pill me-1" style="width:3px;height:13px;vertical-align:middle;"></span>

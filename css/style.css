@@ -1700,6 +1700,33 @@ table th,
     font-weight: 500 !important;
 }
 
+/* Column Visibility Controls for SJ Pool Table */
+.aerotrack-table .pool-col-weight {
+    display: none !important;
+}
+.aerotrack-table.show-weight .pool-col-weight {
+    display: table-cell !important;
+}
+.aerotrack-table col.pool-col-weight {
+    display: none !important;
+}
+.aerotrack-table.show-weight col.pool-col-weight {
+    display: table-column !important;
+}
+
+.aerotrack-table .pool-col-branch {
+    display: none !important;
+}
+.aerotrack-table.show-branch .pool-col-branch {
+    display: table-cell !important;
+}
+.aerotrack-table col.pool-col-branch {
+    display: none !important;
+}
+.aerotrack-table.show-branch col.pool-col-branch {
+    display: table-column !important;
+}
+
 /* Esse Reference Table & Modal Styles */
 .pool-lines-table {
     border-collapse: separate;

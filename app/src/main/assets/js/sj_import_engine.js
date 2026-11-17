@@ -210,6 +210,7 @@
         let customer = '';
         let storeDestination = '';
         let dateStr = '';
+        let inputSJDate = '';
         let dibuatOleh = '';
         let totalQty = '';
         const items = [];
@@ -303,11 +304,32 @@
                 }
             }
 
-            // 5. Detect Date
-            if (/Tgl\s*[,:]/i.test(fullRowText) || /Tanggal/i.test(fullRowText)) {
-                const dateMatch = fullRowText.match(/(\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4})/i) || fullRowText.match(/(\d{4}[-/]\d{1,2}[-/]\d{1,2})/);
+            // 5. Detect Date & Input SJ Date
+            if (/Tgl\s*[,:]/i.test(fullRowText) || /Tanggal/i.test(fullRowText) || /Tgl\b/i.test(fullRowText)) {
+                for (let c = 0; c < row.length; c++) {
+                    const cell = String(row[c] || '').trim();
+                    if (!cell || cell.includes('___')) continue;
+                    const cellMatch = cell.match(/(\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4}(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?)/i)
+                        || cell.match(/(\d{4}[-/]\d{1,2}[-/]\d{1,2}(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?)/)
+                        || cell.match(/(\d{1,2}[-/]\d{1,2}[-/]\d{4}(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?)/);
+                    if (cellMatch && !cell.toUpperCase().includes('DITERIMA')) {
+                        if (!inputSJDate || cellMatch[1].length > inputSJDate.length) {
+                            inputSJDate = cellMatch[1].trim();
+                        }
+                    }
+                }
+
+                const cleanRowText = fullRowText.replace(/DITERIMA\s+TGL[^,]*/i, '');
+                const dtMatch = cleanRowText.match(/(\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4}(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?)/i)
+                    || cleanRowText.match(/(\d{4}[-/]\d{1,2}[-/]\d{1,2}(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?)/)
+                    || cleanRowText.match(/(\d{1,2}[-/]\d{1,2}[-/]\d{4}(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?)/);
+                if (dtMatch && (!inputSJDate || dtMatch[1].length > inputSJDate.length)) {
+                    inputSJDate = dtMatch[1].trim();
+                }
+
+                const dateMatch = cleanRowText.match(/(\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4})/i) || cleanRowText.match(/(\d{4}[-/]\d{1,2}[-/]\d{1,2})/);
                 if (dateMatch) {
-                    dateStr = dateMatch[1];
+                    dateStr = dateMatch[1].trim();
                 }
             }
 
@@ -369,7 +391,9 @@
             itemQuantityTotal,
             quantityWarning,
             dateFolder: dateFolder,
-            sourceDocumentDate: normalizeSJDocumentDate(dateStr),
+            sourceDocumentDate: normalizeSJDocumentDate(dateStr || inputSJDate),
+            sourceDocumentDateTime: inputSJDate || dateStr || '',
+            inputSJDate: inputSJDate || dateStr || '',
             dibuatOleh: dibuatOleh || '',
             adminSJ,
             readyStatus: 'ready'
@@ -399,6 +423,11 @@
     function extractDocumentDate(text) {
         const match=String(text || '').match(/\b(?:TGL\.?|TANGGAL)\s*[:,-]?\s*(\d{4}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}[-/]\d{1,2}[-/]\d{4}|\d{1,2}\s+[A-Za-z]+\s+\d{4})/i);
         return match?normalizeSJDocumentDate(match[1]):'';
+    }
+    function extractDocumentDateTime(text) {
+        const cleaned = String(text || '').replace(/DITERIMA\s+TGL[^,]*/i, '');
+        const match = cleaned.match(/\b(?:TGL\.?|TANGGAL)\s*[:,-]?\s*(\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4}(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?|\d{4}[-/]\d{1,2}[-/]\d{1,2}(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?|\d{1,2}[-/]\d{1,2}[-/]\d{4}(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?)/i);
+        return match ? match[1].trim() : '';
     }
 
     // Baca dan parse file Excel (Mendukung format standar SJ dan Format SPK Wellen Print Gambar 1)
@@ -572,6 +601,8 @@
                             deadline: getVal('deadline') || '17:00 WIB',
                             spkNumber: getVal('spkNumber') || `SPK-${mesinVal || 'WL'}-${normalizedRows.length + 1}`,
                             sourceDocumentDate: normalizeSJDocumentDate(getVal('dateStr')),
+                            sourceDocumentDateTime: getVal('dateStr') || '',
+                            inputSJDate: getVal('dateStr') || '',
                             dateFolder: defaultDateFolder,
                             machine: mesinVal || 'Digital Print'
                         });
@@ -1081,7 +1112,9 @@
                     items: items,
                     sourceFile: file.name,
                     sourceType: 'word_rtf',
-                    sourceDocumentDate: extractDocumentDate(cleanText)
+                    sourceDocumentDate: extractDocumentDate(cleanText),
+                    sourceDocumentDateTime: extractDocumentDateTime(cleanText),
+                    inputSJDate: extractDocumentDateTime(cleanText) || extractDocumentDate(cleanText)
                 });
 
                 return normalizedRows;
@@ -1233,7 +1266,9 @@
                     items: items,
                     sourceFile: file.name,
                     sourceType: 'word_docx',
-                    sourceDocumentDate: extractDocumentDate(allLines.join(' '))
+                    sourceDocumentDate: extractDocumentDate(allLines.join(' ')),
+                    sourceDocumentDateTime: extractDocumentDateTime(allLines.join(' ')),
+                    inputSJDate: extractDocumentDateTime(allLines.join(' ')) || extractDocumentDate(allLines.join(' '))
                 });
 
                 return normalizedRows;
@@ -1318,7 +1353,9 @@
                         items: items,
                         sourceFile: file.name,
                         sourceType: 'word_docx',
-                        sourceDocumentDate: extractDocumentDate(lines.join(' '))
+                        sourceDocumentDate: extractDocumentDate(lines.join(' ')),
+                        sourceDocumentDateTime: extractDocumentDateTime(lines.join(' ')),
+                        inputSJDate: extractDocumentDateTime(lines.join(' ')) || extractDocumentDate(lines.join(' '))
                     });
                 }
 
@@ -1395,7 +1432,9 @@
                         items: items,
                         sourceFile: file.name,
                         sourceType: 'word_html',
-                        sourceDocumentDate: extractDocumentDate(allLines.join(' '))
+                        sourceDocumentDate: extractDocumentDate(allLines.join(' ')),
+                        sourceDocumentDateTime: extractDocumentDateTime(allLines.join(' ')),
+                        inputSJDate: extractDocumentDateTime(allLines.join(' ')) || extractDocumentDate(allLines.join(' '))
                     });
 
                     return normalizedRows;
@@ -1491,7 +1530,9 @@
                             machine: 'Digital Print',
                             sourceFile: file.name,
                             sourceType: 'word_binary_doc',
-                            sourceDocumentDate: extractDocumentDate(rawStrings.join(' '))
+                            sourceDocumentDate: extractDocumentDate(rawStrings.join(' ')),
+                            sourceDocumentDateTime: extractDocumentDateTime(rawStrings.join(' ')),
+                            inputSJDate: extractDocumentDateTime(rawStrings.join(' ')) || extractDocumentDate(rawStrings.join(' '))
                         });
 
                         return normalizedRows;
@@ -1534,7 +1575,9 @@
                         machine: 'Digital Print',
                         sourceFile: file.name,
                         sourceType: 'word_mammoth',
-                        sourceDocumentDate: extractDocumentDate(text)
+                        sourceDocumentDate: extractDocumentDate(text),
+                        sourceDocumentDateTime: extractDocumentDateTime(text),
+                        inputSJDate: extractDocumentDateTime(text) || extractDocumentDate(text)
                     });
 
                     return normalizedRows;
@@ -1914,6 +1957,8 @@
                 batchId: batchId,
                 sourceFile: item.sourceFile || currentImportFileName,
                 sourceDocumentDate: item.sourceDocumentDate || '',
+                sourceDocumentDateTime: item.sourceDocumentDateTime || item.inputSJDate || item.sourceDocumentDate || '',
+                inputSJDate: item.inputSJDate || item.sourceDocumentDateTime || item.sourceDocumentDate || '',
                 importedAt: todayDate.toISOString(),
                 sourceQuantityTotal: item.sourceQuantityTotal ?? null,
                 itemQuantityTotal: item.itemQuantityTotal ?? null,
@@ -1937,6 +1982,9 @@
                     sjNumber: item.sjNumber,
                     noSJ: item.sjNumber,
                     adminSJ: finalAdminSJ,
+                    sourceDocumentDate: item.sourceDocumentDate || '',
+                    sourceDocumentDateTime: item.sourceDocumentDateTime || item.inputSJDate || item.sourceDocumentDate || '',
+                    inputSJDate: item.inputSJDate || item.sourceDocumentDateTime || item.sourceDocumentDate || '',
                     shortCode: item.shortCode,
                     uniqueCode: item.shortCode,
                     locationName: item.storeDestination || item.clientName || item.customer || item.address || 'Tujuan Pengantaran',

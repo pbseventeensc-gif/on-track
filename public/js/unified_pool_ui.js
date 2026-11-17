@@ -16,6 +16,39 @@ window.UnifiedPoolUI = (function () {
   let activeDeliveryStatusFilter = 'ALL'; // 'ALL' or 'PENDING_FAILED'
   let currentSearchQuery = '';
 
+  let showWeight = false;
+  try {
+    showWeight = (typeof localStorage !== 'undefined' && localStorage.getItem('wtrack_pool_show_weight') === 'true');
+  } catch (e) {}
+
+  let showBranch = false;
+  try {
+    showBranch = (typeof localStorage !== 'undefined' && localStorage.getItem('wtrack_pool_show_branch') === 'true');
+  } catch (e) {}
+
+  function toggleWeightColumn(force) {
+    showWeight = (typeof force === 'boolean') ? force : !showWeight;
+    try {
+      if (typeof localStorage !== 'undefined') localStorage.setItem('wtrack_pool_show_weight', showWeight ? 'true' : 'false');
+    } catch (e) {}
+    renderUnifiedPoolView();
+  }
+
+  function toggleBranchColumn(force) {
+    showBranch = (typeof force === 'boolean') ? force : !showBranch;
+    try {
+      if (typeof localStorage !== 'undefined') localStorage.setItem('wtrack_pool_show_branch', showBranch ? 'true' : 'false');
+    } catch (e) {}
+    renderUnifiedPoolView();
+  }
+
+  function getVisibleColumnCount() {
+    let count = 10; // Checkbox, No. DO, Admin, Import, Input SJ, Customer, Alamat, Region, Status, Aksi
+    if (window.PoolLineItems && showWeight) count++;
+    if (showBranch) count++;
+    return count;
+  }
+
   // Paging + cross-page selection keeps the DOM small on Windows PCs while
   // still allowing "select all filtered, then assign" workflows.
   let poolPage = 1;
@@ -243,6 +276,10 @@ window.UnifiedPoolUI = (function () {
       if (!cleanSJ) return;
 
       // Normalisasi field agar aman ditampilkan di antarmuka
+      const rawInputSJ = t.inputSJDate || t.sourceDocumentDateTime || t.sourceDocumentDate
+        || (t.destinations && (t.destinations[0]?.inputSJDate || t.destinations[0]?.sourceDocumentDateTime || t.destinations[0]?.sourceDocumentDate))
+        || '';
+
       const normalized = {
         id: tid,
         tripId: t.tripId || t.id || tid,
@@ -261,6 +298,9 @@ window.UnifiedPoolUI = (function () {
         printLocation: t.printLocation || t.originBranch || 'pusat',
         originBranch: t.originBranch || t.printLocation || 'pusat',
         date: dDate,
+        inputSJDate: rawInputSJ || '-',
+        sourceDocumentDate: t.sourceDocumentDate || '',
+        sourceDocumentDateTime: t.sourceDocumentDateTime || '',
         status: isFailed ? 'failed' : 'pending',
         deliveryStatus: isFailed ? 'failed' : 'pending',
         isPendingRollover: !!isPendingRollover,
@@ -349,6 +389,9 @@ window.UnifiedPoolUI = (function () {
                   printLocation: t.printLocation || t.originBranch || 'pusat',
                   originBranch: t.originBranch || t.printLocation || 'pusat',
                   date: dDate,
+                  inputSJDate: d.inputSJDate || d.sourceDocumentDateTime || d.sourceDocumentDate || t.inputSJDate || t.sourceDocumentDateTime || t.sourceDocumentDate || '-',
+                  sourceDocumentDate: d.sourceDocumentDate || t.sourceDocumentDate || '',
+                  sourceDocumentDateTime: d.sourceDocumentDateTime || t.sourceDocumentDateTime || '',
                   status: 'failed',
                   deliveryStatus: 'failed',
                   isPendingRollover: true,
@@ -560,6 +603,14 @@ window.UnifiedPoolUI = (function () {
                 <option value="cikokol" ${activePrintLocationFilter === 'cikokol' ? 'selected' : ''}>Cikokol (${totalCikokol})</option>
               </select>
             </div>
+            <div class="d-flex align-items-center" style="gap: 4px;">
+              <button type="button" id="btn-pool-toggle-weight" class="btn btn-sm ${showWeight ? 'btn-primary text-white' : 'bg-white border text-muted'}" style="height: 32px; border-radius: 8px; font-size: 12px; padding: 0 10px; border-color: #D0D5DD !important;" onclick="UnifiedPoolUI.toggleWeightColumn()" title="${showWeight ? 'Sembunyikan Kolom Berat' : 'Tampilkan Kolom Berat'}">
+                <i class="bi ${showWeight ? 'bi-check2' : 'bi-eye'} me-1"></i>Berat
+              </button>
+              <button type="button" id="btn-pool-toggle-branch" class="btn btn-sm ${showBranch ? 'btn-primary text-white' : 'bg-white border text-muted'}" style="height: 32px; border-radius: 8px; font-size: 12px; padding: 0 10px; border-color: #D0D5DD !important;" onclick="UnifiedPoolUI.toggleBranchColumn()" title="${showBranch ? 'Sembunyikan Kolom Branch' : 'Tampilkan Kolom Branch'}">
+                <i class="bi ${showBranch ? 'bi-check2' : 'bi-eye'} me-1"></i>Branch
+              </button>
+            </div>
           </div>
           <div class="d-flex align-items-center ms-auto" style="gap: 8px;">
             ${sjReconcileEnabled() ? `
@@ -623,18 +674,19 @@ window.UnifiedPoolUI = (function () {
         </div>
 
         <div class="table-responsive">
-          <table class="table aerotrack-table align-middle mb-0 text-nowrap ${window.PoolLineItems ? 'pool-local-table' : ''}">
+          <table class="table aerotrack-table align-middle mb-0 text-nowrap ${window.PoolLineItems ? 'pool-local-table' : ''} ${showWeight ? 'show-weight' : ''} ${showBranch ? 'show-branch' : ''}">
             <colgroup>
               <col style="width: 36px;">
               <col style="width: 130px;">
               <col style="width: 70px;">
               <col style="width: 100px;">
+              <col style="width: 135px;">
               <col style="width: 170px;">
               <col>
               <col style="width: 110px;">
-              ${window.PoolLineItems ? '<col style="width: 95px;">' : ''}
+              ${(window.PoolLineItems && showWeight) ? '<col style="width: 95px;" class="pool-col-weight">' : ''}
               <col style="width: 90px;">
-              <col style="width: 75px;">
+              ${showBranch ? '<col style="width: 75px;" class="pool-col-branch">' : ''}
               <col style="width: 210px;">
             </colgroup>
             <thead>
@@ -644,19 +696,20 @@ window.UnifiedPoolUI = (function () {
                 </th>
                 <th>No. DO</th>
                 <th>Admin</th>
-                <th>Tanggal</th>
+                <th>Import</th>
+                <th>Input SJ</th>
                 <th>Customer</th>
                 <th>Alamat</th>
                 <th>Region</th>
-                ${window.PoolLineItems ? '<th>Berat</th>' : ''}
+                ${(window.PoolLineItems && showWeight) ? '<th class="pool-col-weight">Berat</th>' : ''}
                 <th class="text-center">Status</th>
-                <th class="text-center">Branch</th>
+                ${showBranch ? '<th class="text-center pool-col-branch">Branch</th>' : ''}
                 <th class="text-end">Aksi</th>
               </tr>
             </thead>
             <tbody id="pool-table-body">
               ${filtered.length === 0 ? `
-                <tr><td colspan="${window.PoolLineItems ? 11 : 10}" class="text-center py-5 text-muted" style="font-size: 13px;">
+                <tr><td colspan="${getVisibleColumnCount()}" class="text-center py-5 text-muted" style="font-size: 13px;">
                   <i class="bi bi-inbox fs-3 d-block mb-2 text-muted"></i>
                   Belum ada Delivery Order di pool.
                 </td></tr>
@@ -752,13 +805,19 @@ window.UnifiedPoolUI = (function () {
             <span class="text-muted font-monospace" style="font-weight: 400 !important;">-</span>
           `}
         </td>
-        <td style="width: 105px;">
+        <td style="width: 70px;">
           <span class="text-muted extra-small font-monospace" style="font-weight: 400 !important;">${String(t.adminSJ || '-').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}</span>
         </td>
-        <td style="width: 105px;">
+        <td class="pool-col-import text-nowrap" style="width: 100px;">
           <div class="font-monospace text-dark extra-small d-flex align-items-center gap-1" style="font-weight: 400 !important;">
             <i class="bi bi-calendar3 text-muted"></i>
             <span>${t.date || '-'}</span>
+          </div>
+        </td>
+        <td class="pool-col-input-sj text-nowrap" style="width: 135px;">
+          <div class="font-monospace text-dark extra-small d-flex align-items-center gap-1" style="font-weight: 400 !important;" title="${escapePoolHtml(t.inputSJDate || '-')}">
+            <i class="bi bi-clock text-muted"></i>
+            <span>${t.inputSJDate || '-'}</span>
           </div>
         </td>
         <td style="min-width: 170px; max-width: 250px;">
@@ -773,7 +832,7 @@ window.UnifiedPoolUI = (function () {
         <td style="width: 110px;">
           <span class="aerotrack-badge badge-primary" style="font-weight: 400 !important;">${t.region || 'Jabodetabek'}</span>
         </td>
-        ${lineItems ? `<td style="font-weight: 400 !important;">${lineItems.renderWeight(t)}</td>` : ''}
+        ${(lineItems && showWeight) ? `<td class="pool-col-weight" style="font-weight: 400 !important;">${lineItems.renderWeight(t)}</td>` : ''}
         <td class="text-center" style="width: 120px;">
           ${t.priority==='urgent'?'<span class="badge bg-danger text-white mb-1" style="font-weight: 400 !important;">Urgent</span>':''}
           ${t.pickupStatus==='waiting'?'<span class="badge bg-primary-subtle text-primary border" style="font-weight: 400 !important;">Menunggu Pickup</span>':t.readyStatus === 'not_ready' ? `
@@ -788,10 +847,10 @@ window.UnifiedPoolUI = (function () {
             <span class="badge bg-success-subtle text-success border border-success-subtle extra-small px-2 py-1 text-nowrap" style="font-weight: 400 !important;">Ready</span>
           `)}
         </td>
-        <td class="text-center" style="width: 75px;">
+        ${showBranch ? `<td class="text-center pool-col-branch" style="width: 75px;">
           ${locBadge}
           ${branchState ? `<div class="mt-1" style="font-weight: 400 !important;">${branchState}</div>` : ''}
-        </td>
+        </td>` : ''}
         <td class="text-end text-nowrap" style="width: 210px;">
           <div class="d-inline-flex align-items-center justify-content-end gap-1 flex-nowrap">
             ${workflow ? `<button type="button" class="workflow-icon ${t.priority==='urgent'?'text-danger':''}" title="${t.priority==='urgent'?'Kembalikan prioritas normal':'Tandai Urgent'}" aria-label="${t.priority==='urgent'?'Kembalikan prioritas normal':'Tandai Urgent'}" onclick="DispatchWorkflow.toggleUrgent(this,${workflowRef},${t.priority!=='urgent'})">${workflow.icon('urgent')}</button>${t.pickupStatus==='waiting'?`<button type="button" class="btn btn-sm btn-outline-success extra-small text-nowrap" style="font-weight: 400 !important;" onclick="DispatchWorkflow.confirmPickup(${workflowRef})">Diambil</button><button type="button" class="workflow-icon" title="Batalkan pickup" aria-label="Batalkan pickup" onclick="DispatchWorkflow.cancelPickup(this,${workflowRef})">${workflow.icon('close')}</button>`:`<button type="button" class="workflow-icon" title="Pickup by Customer" aria-label="Pickup by Customer" onclick="DispatchWorkflow.requestPickup(this,${workflowRef})">${workflow.icon('pickup')}</button>`}` : ''}
@@ -1556,6 +1615,11 @@ window.UnifiedPoolUI = (function () {
     bulkSetReadyStatus,
     quickAssignSingle,
     quickPreviewQR,
+    toggleWeightColumn,
+    toggleBranchColumn,
+    getVisibleColumnCount,
+    getShowWeight: () => showWeight,
+    getShowBranch: () => showBranch,
     refresh
   };
 })();
