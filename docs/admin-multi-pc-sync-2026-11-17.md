@@ -53,3 +53,18 @@ sama-sama bersih dan SJ dapat diimpor ulang.
   dan cache lokal ikut bersih.
 - Uji online memakai Firestore tiruan; transaksi nyata dan dua PC fisik belum
   diuji pada tahap ini.
+
+## Deployment produksi
+
+- Commit perbaikan: `a114b2f` — `fix(admin): sync pool deletions and import registry across PCs`
+- Commit cache bust admin: `dd54b6a` — `chore: bust admin script cache after multi-PC sync fix`
+- Branch `main` sudah di-push ke GitHub.
+- Deploy otomatis Vercel berhasil:
+  - referensi deployment terbaru: `26otLespikVJKmLXS93HsPXm7gD4`
+  - production alias: https://on-track-indol.vercel.app
+- URL script admin di production: `?v=20261117.2`
+- Verifikasi production:
+  - `/` → 200
+  - `unified_pool_ui.js?v=20261117.2` memuat `deleteTripsFromCloud`
+  - `sj_import_engine.js?v=20261117.2` memuat pemeriksaan `registeredTrips`
+- Langkah setelah deploy: muat ulang dashboard admin di **kedua PC**. SJ yang sebelumnya hanya disembunyikan lokal akan muncul kembali di PC yang menghapus; hapus/bersihkan sekali lagi dengan versi baru agar `trips` dan `sj_import_keys` terhapus di server. Setelah itu kedua PC sinkron dan SJ bisa diimpor ulang.
