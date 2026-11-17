@@ -2079,12 +2079,25 @@ function renderPoolTable() {
     updatePoolSelectionCount();
 }
 
+async function deleteTripWithImportKey(activeDb, tripId) {
+    if (!activeDb || !tripId) return false;
+    const ref = activeDb.collection('trips').doc(tripId);
+    const snap = await ref.get();
+    if (!snap.exists) return false;
+    if (window.UnifiedPoolUI && typeof window.UnifiedPoolUI.deleteTripsFromCloud === 'function') {
+        await window.UnifiedPoolUI.deleteTripsFromCloud([{...snap.data(), id: tripId}]);
+    } else {
+        await ref.delete();
+    }
+    return true;
+}
+
 async function deleteSinglePoolTrip(tripId) {
     if (!confirm("Hapus Surat Jalan ini dari Pool?")) return;
     try {
         const activeDb = getDb();
         if (activeDb) {
-            await activeDb.collection('trips').doc(tripId).delete();
+            await deleteTripWithImportKey(activeDb, tripId);
         }
         allPoolTrips = allPoolTrips.filter(t => t.id !== tripId);
         try {
@@ -2195,15 +2208,18 @@ async function clearAllPoolTrips() {
     try {
         const activeDb = getDb();
         if (activeDb) {
-            try {
-                const batch = activeDb.batch();
-                poolTrips.forEach(t => {
-                    const ref = activeDb.collection('trips').doc(t.id);
-                    batch.delete(ref);
-                });
-                await batch.commit();
-            } catch (dbErr) {
-                console.warn("Firestore delete failed / offline:", dbErr);
+            if (window.UnifiedPoolUI && typeof window.UnifiedPoolUI.deleteTripsFromCloud === 'function') {
+                await window.UnifiedPoolUI.deleteTripsFromCloud(poolTrips);
+            } else {
+                for (let start = 0; start < poolTrips.length; start += 200) {
+                    const batch = activeDb.batch();
+                    poolTrips.slice(start, start + 200).forEach(t => {
+                        batch.delete(activeDb.collection('trips').doc(t.id));
+                        const noSJ = String(t.noSJ || t.sjNumber || '').trim();
+                        if (noSJ) batch.delete(activeDb.collection('sj_import_keys').doc(encodeURIComponent(noSJ.toUpperCase())));
+                    });
+                    await batch.commit();
+                }
             }
         }
 
@@ -3558,7 +3574,7 @@ async function deleteTrip(tripId) {
     try {
         const activeDb = getDb();
         if (!activeDb) return;
-        await activeDb.collection('trips').doc(tripId).delete();
+        await deleteTripWithImportKey(activeDb, tripId);
         showToast("Tugas berhasil dihapus.");
         if (document.getElementById('view-reports')?.classList.contains('active')) loadFullHistory();
     } catch(e) {
@@ -6896,7 +6912,11 @@ async function deleteDestinationStop(tripId, stopIndex, locationName) {
         const updatedDests = currentDests.filter(d => d.stopIndex !== stopIndex && d.locationName !== locationName);
 
         if (updatedDests.length === 0) {
-            await tripRef.delete();
+            if (window.UnifiedPoolUI && typeof window.UnifiedPoolUI.deleteTripsFromCloud === 'function') {
+                await window.UnifiedPoolUI.deleteTripsFromCloud([{...tData, id: tripId}]);
+            } else {
+                await tripRef.delete();
+            }
             showToast("Titik pengantaran terakhir dihapus, pengiriman dibatalkan.");
         } else {
             updatedDests.forEach((d, idx) => d.stopIndex = idx + 1);

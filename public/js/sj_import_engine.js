@@ -2020,9 +2020,20 @@
                     const saved=await activeDb.runTransaction(async tx=>{
                         const refs=group.map(trip=>activeDb.collection('sj_import_keys').doc(encodeURIComponent(String(trip.noSJ).trim().toUpperCase())));
                         const checks=await Promise.all(refs.map(ref=>tx.get(ref)));
+                        // A registry key can outlive its trip (old local-only deletes,
+                        // manual cleanup). Verify the referenced trip before treating
+                        // the SJ as a duplicate; otherwise re-import is blocked forever.
+                        const registeredTrips=await Promise.all(checks.map(check=>{
+                            if(!check.exists)return null;
+                            const tripId=String(check.data()?.tripId||'').trim();
+                            return tripId ? tx.get(activeDb.collection('trips').doc(tripId)) : null;
+                        }));
                         const inserted=[];
                         group.forEach((trip,index)=>{
-                            if(checks[index].exists)return;
+                            if(checks[index].exists) {
+                                const registered=registeredTrips[index];
+                                if(!registered || registered.exists) return;
+                            }
                             tx.set(activeDb.collection('trips').doc(trip.id),trip);
                             tx.set(refs[index],{noSJ:trip.noSJ,tripId:trip.id,importedAt:trip.importedAt});
                             if(window.MaterialCloud) {

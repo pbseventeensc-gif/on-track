@@ -45,6 +45,78 @@ window.UnifiedPoolUI = (function () {
     for (const id of [...selectedPoolIds]) if (!valid.has(id)) selectedPoolIds.delete(id);
   }
 
+  let poolMutationBusy = false;
+
+  function poolCloudDb() {
+    try {
+      return (typeof getDb === 'function' ? getDb() : window.getDb?.()) || null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function importKeyId(trip) {
+    const noSJ = String(trip?.noSJ || trip?.sjNumber || '').trim();
+    return noSJ ? encodeURIComponent(noSJ.toUpperCase()) : '';
+  }
+
+  // Firestore is the shared source of truth for online admin PCs. A local-only
+  // hide made the other PC keep the SJ forever and blocked re-import because the
+  // sj_import_keys registry was never removed.
+  async function deleteTripsFromCloud(trips) {
+    const db = poolCloudDb();
+    if (!db) throw new Error('Database belum terhubung. Data belum dihapus.');
+    const unique = new Map();
+    (trips || []).forEach(trip => {
+      const tripId = String(trip.tripId || trip.originalTripId || trip.id || '').trim();
+      if (tripId && !unique.has(tripId)) unique.set(tripId, trip);
+    });
+    const list = [...unique.values()];
+    for (let start = 0; start < list.length; start += 200) {
+      const batch = db.batch();
+      list.slice(start, start + 200).forEach(trip => {
+        const tripId = String(trip.tripId || trip.originalTripId || trip.id || '').trim();
+        if (tripId) batch.delete(db.collection('trips').doc(tripId));
+        const keyId = importKeyId(trip);
+        if (keyId) batch.delete(db.collection('sj_import_keys').doc(keyId));
+      });
+      await batch.commit();
+    }
+    return list.length;
+  }
+
+  function removeTripsLocally(trips) {
+    const keys = new Set();
+    (trips || []).forEach(trip => {
+      [trip.id, trip.tripId, trip.originalTripId, trip.noSJ, trip.sjNumber]
+        .filter(Boolean).forEach(value => keys.add(String(value)));
+    });
+    const matches = item => [item.id, item.tripId, item.originalTripId, item.noSJ, item.sjNumber]
+      .filter(Boolean).some(value => keys.has(String(value)));
+    if (Array.isArray(window.allPoolTrips)) window.allPoolTrips = window.allPoolTrips.filter(item => !matches(item));
+    if (Array.isArray(window.allCurrentTrips)) window.allCurrentTrips = window.allCurrentTrips.filter(item => !matches(item));
+    for (const storageKey of ['wtrack_local_trips', 'wellen_local_trips']) {
+      try {
+        const raw = localStorage.getItem(storageKey);
+        if (!raw) continue;
+        const stored = JSON.parse(raw);
+        if (Array.isArray(stored)) localStorage.setItem(storageKey, JSON.stringify(stored.filter(item => !matches(item))));
+      } catch (_) {}
+    }
+    if (window.mockDatabase && Array.isArray(window.mockDatabase.suratJalanList)) {
+      window.mockDatabase.suratJalanList = window.mockDatabase.suratJalanList.filter(item => !matches(item));
+    }
+    // The local-only hide list is for the sandbox. Online deletions are
+    // authoritative in Firestore and must not hide a future re-import.
+    if (window.WTRACK_LOCAL_SANDBOX) {
+      window.__deletedSJIds = window.__deletedSJIds || new Set();
+      keys.forEach(value => window.__deletedSJIds.add(value));
+      try {
+        localStorage.setItem('wtrack_deleted_pool_ids', JSON.stringify(Array.from(window.__deletedSJIds)));
+      } catch (_) {}
+    }
+  }
+
   function displayPoolText(value) {
     const text = String(value || '-').trim().toLocaleLowerCase('id-ID');
     const normal = text.replace(/\p{L}[\p{L}\p{N}]*/gu, word => {
@@ -92,17 +164,21 @@ window.UnifiedPoolUI = (function () {
     const combined = [];
     const seenIds = new Set();
     
-    // Ambil deletedSet dari localStorage agar permanen tersimpan
+    // The local-only hide list is a sandbox fallback. Online deletion is
+    // authoritative in Firestore; keeping old SJ numbers here would hide a
+    // legitimately re-imported SJ on another admin PC.
     let deletedSet = new Set();
-    try {
-      const rawDel = localStorage.getItem('wtrack_deleted_pool_ids');
-      if (rawDel) {
-        const arrDel = JSON.parse(rawDel);
-        if (Array.isArray(arrDel)) deletedSet = new Set(arrDel);
+    if (window.WTRACK_LOCAL_SANDBOX) {
+      try {
+        const rawDel = localStorage.getItem('wtrack_deleted_pool_ids');
+        if (rawDel) {
+          const arrDel = JSON.parse(rawDel);
+          if (Array.isArray(arrDel)) deletedSet = new Set(arrDel);
+        }
+      } catch (e) {}
+      if (window.__deletedSJIds instanceof Set) {
+        window.__deletedSJIds.forEach(id => deletedSet.add(id));
       }
-    } catch (e) {}
-    if (window.__deletedSJIds instanceof Set) {
-      window.__deletedSJIds.forEach(id => deletedSet.add(id));
     }
     window.__deletedSJIds = deletedSet;
 
@@ -1197,149 +1273,94 @@ window.UnifiedPoolUI = (function () {
     }
   }
 
-  function deleteSelectedPool() {
+  async function deleteSelectedPool() {
+    if (poolMutationBusy) return;
     const selectedTrips = selectedTripsFromPool();
-    const checked = selectedTrips.map(t => String(t.id));
-    if (checked.length === 0) {
+    if (selectedTrips.length === 0) {
       alert("Pilih minimal 1 Surat Jalan dengan mencentang kotak centang (checkbox) untuk dihapus!");
       return;
     }
+    if (!confirm(`Hapus ${selectedTrips.length} Surat Jalan terpilih dari Plan Shipment? Tindakan ini tidak dapat dibatalkan.`)) return;
 
-    if (!confirm(`Hapus ${checked.length} Surat Jalan terpilih dari Plan Shipment? Tindakan ini tidak dapat dibatalkan.`)) return;
-
-    // Raw trips use TRIP_* document IDs while the pool row uses the SJ number.
-    // Keep both so deletion works for imported and pending trips.
-    const checkedSet = new Set();
-    selectedTrips.forEach(t => [t.id, t.tripId, t.noSJ, t.sjNumber, t.originalTripId]
-      .filter(Boolean).forEach(value => checkedSet.add(String(value))));
-    const rawMatches = trip => [trip.id, trip.tripId, trip.noSJ, trip.sjNumber]
-      .filter(Boolean).some(value => checkedSet.has(String(value)));
-    window.__deletedSJIds = window.__deletedSJIds || new Set();
-    checked.forEach(id => window.__deletedSJIds.add(String(id)));
-    selectedTrips.forEach(t => {
-      [t.tripId, t.originalTripId].filter(Boolean).forEach(id => window.__deletedSJIds.add(String(id)));
-    });
-
-    // Simpan ke localStorage agar permanen tersimpan
+    poolMutationBusy = true;
     try {
-      localStorage.setItem('wtrack_deleted_pool_ids', JSON.stringify(Array.from(window.__deletedSJIds)));
-    } catch (e) {}
-
-    // 1. Hapus dari window.allPoolTrips
-    if (Array.isArray(window.allPoolTrips)) {
-      window.allPoolTrips = window.allPoolTrips.filter(t => !rawMatches(t));
-    }
-
-    // 2. Hapus dari localStorage wtrack_local_trips
-    try {
-      const rawStored = localStorage.getItem('wtrack_local_trips');
-      if (rawStored) {
-        const storedTrips = JSON.parse(rawStored);
-        if (Array.isArray(storedTrips)) {
-          const updated = storedTrips.filter(t => !rawMatches(t));
-          localStorage.setItem('wtrack_local_trips', JSON.stringify(updated));
-        }
+      if (!window.WTRACK_LOCAL_SANDBOX) {
+        window.showToast?.(`Menghapus ${selectedTrips.length} SJ dari server…`, 'info');
+        await deleteTripsFromCloud(selectedTrips);
       }
-    } catch (e) {}
-
-    // 3. Hapus dari localStorage wellen_local_trips
-    try {
-      const rawStored2 = localStorage.getItem('wellen_local_trips');
-      if (rawStored2) {
-        const storedTrips2 = JSON.parse(rawStored2);
-        if (Array.isArray(storedTrips2)) {
-          const updated2 = storedTrips2.filter(t => !rawMatches(t));
-          localStorage.setItem('wellen_local_trips', JSON.stringify(updated2));
-        }
+      removeTripsLocally(selectedTrips);
+      selectedPoolIds.clear();
+      if (typeof window.showToast === 'function') {
+        window.showToast(`Berhasil menghapus ${selectedTrips.length} Surat Jalan dari Plan Shipment!`, 'info');
       }
-    } catch (e) {}
-
-    // 4. Hapus dari window.mockDatabase.suratJalanList
-    if (window.mockDatabase && Array.isArray(window.mockDatabase.suratJalanList)) {
-      window.mockDatabase.suratJalanList = window.mockDatabase.suratJalanList.filter(t => !rawMatches(t));
+      renderUnifiedPoolView();
+      if (typeof window.updateGlobalStats === 'function') window.updateGlobalStats();
+    } catch (error) {
+      alert('Gagal menghapus SJ: ' + (error.message || 'Database tidak merespons. Data belum dihapus.'));
+    } finally {
+      poolMutationBusy = false;
     }
-
-    selectedPoolIds.clear();
-    if (typeof window.showToast === 'function') {
-      window.showToast(`Berhasil menghapus ${checked.length} Surat Jalan dari Plan Shipment!`, 'info');
-    }
-
-    renderUnifiedPoolView();
-    if (typeof window.updateGlobalStats === 'function') window.updateGlobalStats();
   }
 
-  function deleteSingleSJ(id) {
-    if (!id) return;
+  async function deleteSingleSJ(id) {
+    if (!id || poolMutationBusy) return;
     const trips = getTripsSource();
     const targetId = String(id);
     const t = trips.find(x => [x.id, x.tripId, x.noSJ, x.sjNumber]
       .filter(Boolean).some(value => String(value) === targetId));
-    const label = t ? (t.noSJ || t.sjNumber || t.id) : id;
+    if (!t) {
+      alert('SJ tidak ditemukan. Muat ulang halaman.');
+      return;
+    }
+    const label = t.noSJ || t.sjNumber || t.id;
     if (!confirm(`Hapus Surat Jalan "${label}" dari Plan Shipment? Tindakan ini tidak dapat dibatalkan.`)) return;
 
-    const keys = new Set([targetId]);
-    if (t) [t.id, t.tripId, t.noSJ, t.sjNumber, t.originalTripId].filter(Boolean).forEach(value => keys.add(String(value)));
-    const rawMatches = trip => [trip.id, trip.tripId, trip.noSJ, trip.sjNumber]
-      .filter(Boolean).some(value => keys.has(String(value)));
-
-    window.__deletedSJIds = window.__deletedSJIds || new Set();
-    keys.forEach(value => window.__deletedSJIds.add(value));
-
-    // Simpan ke localStorage agar permanen tersimpan
+    poolMutationBusy = true;
     try {
-      localStorage.setItem('wtrack_deleted_pool_ids', JSON.stringify(Array.from(window.__deletedSJIds)));
-    } catch (e) {}
-
-    if (Array.isArray(window.allPoolTrips)) {
-      window.allPoolTrips = window.allPoolTrips.filter(x => !rawMatches(x));
-    }
-
-    try {
-      const rawStored = localStorage.getItem('wtrack_local_trips');
-      if (rawStored) {
-        const storedTrips = JSON.parse(rawStored);
-        if (Array.isArray(storedTrips)) {
-          const updated = storedTrips.filter(x => !rawMatches(x));
-          localStorage.setItem('wtrack_local_trips', JSON.stringify(updated));
-        }
+      if (!window.WTRACK_LOCAL_SANDBOX) {
+        window.showToast?.(`Menghapus SJ ${label} dari server…`, 'info');
+        await deleteTripsFromCloud([t]);
       }
-    } catch (e) {}
-
-    try {
-      const rawStored2 = localStorage.getItem('wellen_local_trips');
-      if (rawStored2) {
-        const storedTrips2 = JSON.parse(rawStored2);
-        if (Array.isArray(storedTrips2)) {
-          const updated2 = storedTrips2.filter(x => !rawMatches(x));
-          localStorage.setItem('wellen_local_trips', JSON.stringify(updated2));
-        }
+      removeTripsLocally([t]);
+      selectedPoolIds.delete(poolKey(t));
+      if (typeof window.showToast === 'function') {
+        window.showToast(`Surat Jalan ${label} berhasil dihapus!`, 'info');
       }
-    } catch (e) {}
-
-    if (window.mockDatabase && Array.isArray(window.mockDatabase.suratJalanList)) {
-      window.mockDatabase.suratJalanList = window.mockDatabase.suratJalanList.filter(x => !rawMatches(x));
+      renderUnifiedPoolView();
+      if (typeof window.updateGlobalStats === 'function') window.updateGlobalStats();
+    } catch (error) {
+      alert('Gagal menghapus SJ: ' + (error.message || 'Database tidak merespons. Data belum dihapus.'));
+    } finally {
+      poolMutationBusy = false;
     }
-
-    if (typeof window.showToast === 'function') {
-      window.showToast(`Surat Jalan ${label} berhasil dihapus!`, 'info');
-    }
-
-    renderUnifiedPoolView();
-    if (typeof window.updateGlobalStats === 'function') window.updateGlobalStats();
   }
 
-  function clearAllPlanShipments() {
-    if (!confirm("Bersihkan seluruh data Surat Jalan di Plan Shipment?")) return;
-    selectedPoolIds.clear();
-    window.allPoolTrips = [];
+  async function clearAllPlanShipments() {
+    if (poolMutationBusy) return;
+    const trips = getTripsSource();
+    if (!trips.length) {
+      alert('Tidak ada Surat Jalan di Plan Shipment untuk dibersihkan.');
+      return;
+    }
+    if (!confirm(`Bersihkan seluruh ${trips.length} Surat Jalan di Plan Shipment? Tindakan ini tidak dapat dibatalkan.`)) return;
+
+    poolMutationBusy = true;
     try {
-      localStorage.removeItem('wtrack_local_trips');
-      localStorage.removeItem('wellen_local_trips');
-    } catch (e) {}
-    if (window.mockDatabase) window.mockDatabase.suratJalanList = [];
-    renderUnifiedPoolView();
-    if (typeof window.showToast === 'function') {
-      window.showToast("Plan Shipment telah dibersihkan sepenuhnya.", "info");
+      if (!window.WTRACK_LOCAL_SANDBOX) {
+        window.showToast?.(`Membersihkan ${trips.length} SJ di server…`, 'info');
+        await deleteTripsFromCloud(trips);
+      }
+      removeTripsLocally(trips);
+      selectedPoolIds.clear();
+      if (typeof window.showToast === 'function') {
+        window.showToast(`Plan Shipment dibersihkan (${trips.length} SJ).`, 'info');
+      }
+      renderUnifiedPoolView();
+      if (typeof window.updateGlobalStats === 'function') window.updateGlobalStats();
+    } catch (error) {
+      alert('Gagal membersihkan Plan Shipment: ' + (error.message || 'Database tidak merespons. Data belum dihapus.'));
+    } finally {
+      poolMutationBusy = false;
     }
   }
 
@@ -1481,6 +1502,7 @@ window.UnifiedPoolUI = (function () {
     deleteSelectedPool,
     deleteSingleSJ,
     clearAllPlanShipments,
+    deleteTripsFromCloud,
     toggleReadyStatus,
     bulkSetReadyStatus,
     quickAssignSingle,

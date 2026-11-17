@@ -161,3 +161,60 @@ test('online import checks only candidate SJ numbers and still skips duplicates'
     assert.equal([...savedTrips.values()][0].noSJ, 'SJ-ONLINE-2');
     assert.ok(messages.some(message => /1 SJ duplikat dilewati/.test(message)));
 });
+
+test('a stale import registry key does not block re-import when its trip was deleted', async () => {
+    const rows = [
+        ['No SJ', 'Customer', 'Alamat', 'Nama Barang', 'Qty'],
+        ['SJ-STALE-1', 'Klien A', 'Jakarta Barat', 'Poster', 1]
+    ];
+    const savedTrips = new Map();
+    const registry = new Map([['SJ-STALE-1', {tripId: 'TRIP_MISSING'}]]);
+    const messages = [];
+    const data = new Map([['wtrack_local_trips', '[]']]);
+    const collection = name => ({
+        where() {
+            return {async get() { return {forEach() {}}; }};
+        },
+        doc(id) { return {id, path: `${name}/${id}`, collection: name}; }
+    });
+    const db = {
+        collection,
+        async runTransaction(callback) {
+            const tx = {
+                async get(ref) {
+                    if (ref.collection === 'sj_import_keys') {
+                        const entry = registry.get(ref.id);
+                        return {exists: !!entry, data: () => entry || {}};
+                    }
+                    return {exists: false, data: () => ({})};
+                },
+                set(ref, value) {
+                    if (ref.collection === 'trips') savedTrips.set(ref.id, value);
+                    if (ref.collection === 'sj_import_keys') registry.set(ref.id, {tripId: value.tripId});
+                }
+            };
+            return callback(tx);
+        }
+    };
+    const window = {
+        WTRACK_LOCAL_SANDBOX: false, getDb: () => db, showToast: message => messages.push(message),
+        syncAllCurrentTrips() {}, renderRecentShipments() {}, updateGlobalStats() {}
+    };
+    const context = vm.createContext({
+        window,
+        document: {getElementById: () => null, querySelector: () => null, querySelectorAll: () => []},
+        alert: message => messages.push(message), console,
+        localStorage: {getItem: key => data.get(key) || null, setItem: (key, value) => data.set(key, value)},
+        XLSX: {read: () => ({SheetNames: ['SJ'], Sheets: {SJ: {}}}), utils: {sheet_to_json: () => rows}},
+        FileReader: class { readAsArrayBuffer() { this.onload({target: {result: new ArrayBuffer(0)}}); } },
+        performance: {now: () => 0}
+    });
+    vm.runInContext(fs.readFileSync('js/sj_import_engine.js', 'utf8'), context);
+    const api = window.SJImportEngine;
+    await api.parseExcelFile({name: 'stale.xlsx'}, new Map());
+    await api.commitImportBatch();
+    assert.equal(savedTrips.size, 1, 'the deleted trip must be replaceable by a new import');
+    assert.equal([...savedTrips.values()][0].noSJ, 'SJ-STALE-1');
+    assert.equal(registry.get('SJ-STALE-1').tripId, [...savedTrips.keys()][0]);
+    assert.ok(!messages.some(message => /Semua SJ sudah pernah diimpor/.test(message)));
+});
