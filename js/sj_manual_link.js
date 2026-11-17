@@ -124,6 +124,7 @@
             </button>`;
         }).join('');
 
+        const activePool = poolById.get(STATE.activePoolId);
         const query = STATE.query.trim().toLowerCase();
         const visible = STATE.targets.filter(row => !query || row.text.includes(query));
         const rows = visible.length ? visible.map(row => {
@@ -132,7 +133,7 @@
             const cell = assignedPool
                 ? `<span class="badge bg-success-subtle text-success border border-success-subtle font-monospace" style="font-size:10.5px;">${esc(assignedPool.noSJ || assignedPool.sjNumber || assignedPoolId)}</span>
                    <button type="button" class="btn btn-link btn-sm text-danger p-0 ms-1" data-row="${esc(row.id)}" onclick="event.stopPropagation();SJManualLink.unassignTarget(this.dataset.row)" title="Lepas tautan"><i class="bi bi-x-lg" style="font-size:10px;"></i></button>`
-                : `<button type="button" class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size:10.5px;" data-row="${esc(row.id)}" onclick="event.stopPropagation();SJManualLink.assignActive(this.dataset.row)">Pilih</button>`;
+                : `<button type="button" class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size:10.5px;" data-row="${esc(row.id)}" onclick="event.stopPropagation();SJManualLink.assignActive(this.dataset.row)">Pasang</button>`;
             return `<tr class="${assignedPool ? 'table-success' : ''}" style="cursor:pointer;" data-row="${esc(row.id)}" onclick="SJManualLink.assignActive(this.dataset.row)">
                 <td style="min-width:130px;">${cell}</td>
                 <td style="font-size:11.5px;white-space:nowrap;">${esc(row.courier)}</td>
@@ -148,7 +149,10 @@
                     <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle" style="font-size:11px;">${STATE.poolTrips.length} SJ · ${STATE.pairs.size} ditautkan</span>
                 </div>
                 <div class="d-flex flex-wrap gap-1">${cards}</div>
-                <div class="text-muted mt-2" style="font-size:11px;">SJ yang disorot adalah SJ aktif. Klik tujuan di tabel untuk menautkannya; SJ aktif otomatis berpindah ke SJ berikutnya.</div>
+                <div class="alert alert-warning border py-2 px-3 mt-2 mb-0" style="font-size:11.5px;">
+                    SJ aktif: <strong class="font-monospace">${esc(activePool?.noSJ || activePool?.sjNumber || 'Semua SJ sudah dipasangkan')}</strong>.
+                    Klik baris tujuan untuk memasang. <strong>Tidak perlu memilih nomor SJ lagi</strong> — daftar SJ sudah berasal dari ${STATE.poolTrips.length} pilihan awal.
+                </div>
             </div>
             <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
                 <div class="position-relative flex-grow-1" style="min-width:220px;max-width:420px;">
@@ -161,12 +165,12 @@
             <div class="table-responsive border rounded-3" style="max-height:360px;background:#fff;">
                 <table class="table table-sm align-middle mb-0" style="font-size:11.5px;">
                     <thead class="sticky-top" style="background:#F9FAFB;">
-                        <tr><th>No. SJ</th><th>Kurir</th><th>Tujuan</th><th>Status</th></tr>
+                        <tr><th>No. SJ terpasang</th><th>Kurir</th><th>Tujuan</th><th>Status</th></tr>
                     </thead>
                     <tbody>${rows}</tbody>
                 </table>
             </div>
-            <div class="text-muted mt-2" style="font-size:11px;">Pilih SJ di atas, lalu klik baris tujuan yang sesuai. Satu SJ hanya bisa dipakai untuk satu tujuan. SJ yang sudah dipasangkan akan hilang dari Pool setelah diterapkan.</div>
+            <div class="text-muted mt-2" style="font-size:11px;">Klik baris tujuan untuk memasang SJ aktif. Satu SJ hanya bisa dipakai untuk satu tujuan. SJ yang sudah dipasangkan akan hilang dari Pool setelah diterapkan.</div>
         `;
     }
 
