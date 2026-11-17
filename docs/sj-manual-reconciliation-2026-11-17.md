@@ -168,3 +168,14 @@ Aturan:
 
 Tombol global **Sinkronkan SJ** tetap disembunyikan (`WTRACK_ENABLE_SJ_RECONCILE`).
 Aksi **Tautkan** per baris inilah yang muncul di SJ Pool.
+
+## Deployment tautan manual
+
+- Commit: `d2fb572` — `feat(admin): manually link an SJ Pool record to a manual delivery`
+- Vercel auto-deploy: **success**
+- Deployment reference: `AP5nAZ8XKMY1iM8ozNSMyXB9pQ35`
+- Production: https://on-track-indol.vercel.app
+- Script SJ Pool: `unified_pool_ui.js?v=20261117.5`
+- Script tautan manual: `sj_manual_link.js?v=20261117.1`
+- Smoke test: `SJManualLink`, modal, dan halaman tersedia tanpa error JavaScript.
+- Pencocokan otomatis tetap tersembunyi; aksi **Tautkan** per baris SJ Pool yang aktif.
