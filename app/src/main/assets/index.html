@@ -3380,6 +3380,37 @@
     </div>
 </div>
 
+<!-- MODAL: SINKRONKAN SJ MANUAL DENGAN SJ POOL -->
+<div class="modal fade" id="modal-sj-reconcile" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg overflow-hidden" style="border-radius:12px;border:1px solid #EAECF0 !important;">
+            <div class="modal-header border-bottom py-3 px-4 bg-white" style="border-color:#EAECF0 !important;">
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <h5 class="modal-title fw-bold text-dark m-0" style="font-size:16px;">Sinkronkan SJ Manual</h5>
+                    <span id="sj-reconcile-count" class="badge" style="background:#FFF4E5;color:#CC6100;border:1px solid rgba(204,97,0,.25);font-size:11.5px;">0 cocok</span>
+                    <input type="date" id="sj-reconcile-date" class="form-control form-control-sm" style="width:145px;height:30px;font-size:12px;" onchange="window.SJReconcile && window.SJReconcile.setDate(this.value)">
+                    <button type="button" class="btn btn-sm bg-white border" style="height:30px;font-size:12px;border-color:#D0D5DD !important;" onclick="window.SJReconcile && window.SJReconcile.refresh()"><i class="bi bi-arrow-clockwise"></i></button>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-3" style="background:#F9FAFB;">
+                <div id="sj-reconcile-body">
+                    <div class="text-center text-muted py-5"><span class="spinner-border spinner-border-sm me-2"></span>Memuat data…</div>
+                </div>
+            </div>
+            <div class="modal-footer border-top py-3 px-4 bg-white d-flex justify-content-between" style="border-color:#EAECF0 !important;">
+                <span class="text-muted" style="font-size:11.5px;">Hanya SJ yang dicentang dan cocok yang dipindahkan dari Pool.</span>
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="btn btn-sm bg-white border fw-medium" style="height:34px;border-radius:8px;border-color:#D0D5DD !important;color:#344054;font-size:13px;padding:0 14px;" data-bs-dismiss="modal">Tutup</button>
+                    <button type="button" id="sj-reconcile-apply" class="btn btn-sm btn-wellen-action" style="height:34px;border-radius:8px;font-size:13px;padding:0 14px;" disabled onclick="window.SJReconcile && window.SJReconcile.applySelected()">
+                        <i class="bi bi-link-45deg me-1"></i> Terapkan 0 SJ
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- MODAL: TUGASKAN SJ TERPILIH KE KURIR / DRIVER -->
 <div class="modal fade" id="modal-pool-assign" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
@@ -3710,7 +3741,7 @@
 <script src="js/fleet_service.js?v=20261116.1"></script>
 <script src="/js/fleet_vehicles.js?v=20261116.1"></script>
 <script src="js/delivery_identity.js?v=20261114.1"></script>
-<script src="/js/app.js?v=20261117.2"></script>
+<script src="/js/app.js?v=20261117.3"></script>
 <script src="/js/customer_master.js?v=20261114.1"></script>
 <script src="/js/bulk_assignment.js?v=20261114.1"></script>
 <script src="/js/kpi.js?v=20261114.1"></script>
@@ -3718,7 +3749,7 @@
 <script src="/js/custom_dropdown.js?v=20261114.1"></script>
 <script src="/js/vendor/qrcode.js?v=20261114.1"></script>
 <script src="/js/qr_print_dispatch.js?v=20261114.1"></script>
-<script src="/js/sj_import_engine.js?v=20261117.2"></script>
+<script src="/js/sj_import_engine.js?v=20261117.3"></script>
 <script src="/js/branch_workstation.js?v=20261114.1"></script>
 <script src="/js/spk_manager.js?v=20261114.1"></script>
 <script src="/js/web_qr_scanner_sim.js?v=20261114.1"></script>
@@ -3729,7 +3760,9 @@
 <script src="/js/material_usage.js?v=20261114.1"></script>
 <script src="/js/dispatch_workflow.js?v=20261114.1"></script>
 <script src="/js/sj_assignment.js?v=20261115.3"></script>
-<script src="/js/unified_pool_ui.js?v=20261117.2"></script>
+<script src="/js/unified_pool_ui.js?v=20261117.3"></script>
+<script src="/js/sj_reconcile_core.js?v=20261117.1"></script>
+<script src="/js/sj_reconcile.js?v=20261117.1"></script>
 <script src="/js/erp_sidebar.js?v=20261114.1"></script>
 <script src="/js/vendor/lottie.min.js?v=20261115.1"></script>
 <script src="/js/useanimations_icons.js?v=20261115.1"></script>

@@ -2399,6 +2399,7 @@ async function loadClientsByRegion(region, forceRefresh = false) {
         htmlChunks.push(`
             <div class="d-flex align-items-center gap-2 mb-2 p-2 bg-white rounded border shadow-sm position-relative group-hover">
                 <input type="checkbox" class="client-checkbox"
+                    data-client-id="${escId}"
                     data-name="${escStore}"
                     data-pt="${escName}"
                     data-admin-sj="${escAdminSJ}"
@@ -2521,6 +2522,7 @@ function addSelectedClients() {
         const pt = cb.getAttribute('data-pt');
         const address = cb.getAttribute('data-address');
         const adminSJ = cb.getAttribute('data-admin-sj') || '';
+        const clientId = cb.getAttribute('data-client-id') || '';
         const lat = parseFloat(cb.getAttribute('data-lat'));
         const lng = parseFloat(cb.getAttribute('data-lng'));
 
@@ -2529,6 +2531,8 @@ function addSelectedClients() {
                 deliveryId: DeliveryIdentity.newId(),
                 name: name + (pt ? " (" + pt + ")" : ""),
                 adminSJ, customer: pt || name,
+                clientId,
+                storeId: window.SJReconcileCore?.storeCore(name) || name,
                 address,
                 lat,
                 lng
@@ -3483,6 +3487,8 @@ async function submitTrip() {
                 stopIndex: i + 1,
                 locationName: d.name || d.locationName || "Tujuan",
                 adminSJ: d.adminSJ || "", customer: d.customer || "",
+                clientId: d.clientId || "",
+                storeId: d.storeId || "",
                 address: d.address || "",
                 latitude: parseFloat(d.lat !== undefined ? d.lat : (d.latitude || -6.2088)),
                 longitude: parseFloat(d.lng !== undefined ? d.lng : (d.longitude || 106.8456)),

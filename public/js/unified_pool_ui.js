@@ -55,11 +55,6 @@ window.UnifiedPoolUI = (function () {
     }
   }
 
-  function importKeyId(trip) {
-    const noSJ = String(trip?.noSJ || trip?.sjNumber || '').trim();
-    return noSJ ? encodeURIComponent(noSJ.toUpperCase()) : '';
-  }
-
   // Firestore is the shared source of truth for online admin PCs. A local-only
   // hide made the other PC keep the SJ forever and blocked re-import because the
   // sj_import_keys registry was never removed.
@@ -77,8 +72,13 @@ window.UnifiedPoolUI = (function () {
       list.slice(start, start + 200).forEach(trip => {
         const tripId = String(trip.tripId || trip.originalTripId || trip.id || '').trim();
         if (tripId) batch.delete(db.collection('trips').doc(tripId));
-        const keyId = importKeyId(trip);
-        if (keyId) batch.delete(db.collection('sj_import_keys').doc(keyId));
+        const numbers = new Set([
+          trip.noSJ, trip.sjNumber,
+          ...((trip.destinations || []).flatMap(destination => [destination?.noSJ, destination?.sjNumber]))
+        ].filter(Boolean).map(value => String(value).trim().toUpperCase()));
+        numbers.forEach(noSJ => {
+          if (noSJ) batch.delete(db.collection('sj_import_keys').doc(encodeURIComponent(noSJ)));
+        });
       });
       await batch.commit();
     }
@@ -547,6 +547,10 @@ window.UnifiedPoolUI = (function () {
             </div>
           </div>
           <div class="d-flex align-items-center ms-auto" style="gap: 8px;">
+            <button class="btn btn-sm bg-white border text-dark fw-semibold d-inline-flex align-items-center text-nowrap" style="height: 32px; border-radius: 8px; font-size: 12.5px; padding: 0 12px; gap: 6px; border-color:#D0D5DD !important;" onclick="window.SJReconcile && window.SJReconcile.open()" title="Cocokkan pengiriman manual dengan nomor SJ import">
+              <i class="bi bi-link-45deg" style="font-size: 13px;"></i>
+              <span>Sinkronkan SJ</span>
+            </button>
             <button class="btn btn-sm btn-wellen-action text-white fw-semibold d-inline-flex align-items-center text-nowrap" style="height: 32px; border-radius: 8px; font-size: 12.5px; padding: 0 12px; gap: 6px;" onclick="document.getElementById('sj-excel-file-input').click()">
               <i class="bi bi-upload" style="font-size: 12px;"></i>
               <span>Import DO</span>
