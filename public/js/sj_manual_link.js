@@ -5,11 +5,14 @@
     if (!core) return;
 
     const STATE = {
+        mode: 'single',
         pool: null,
+        poolTrips: [],
         date: '',
         query: '',
         targets: [],
         selected: '',
+        pairs: new Map(),
         busy: false
     };
 
@@ -85,7 +88,82 @@
         return STATE.targets.find(row => row.id === STATE.selected) || null;
     }
 
+    function poolIdOf(pool) {
+        return String(pool?.id || pool?.tripId || '');
+    }
+
+    function poolLabel(pool) {
+        return `${pool.noSJ || pool.sjNumber || pool.id || '-'} — ${pool.customer || pool.clientName || '-'} / ${pool.storeDestination || pool.destinations?.[0]?.locationName || '-'}`;
+    }
+
+    function renderBulk() {
+        const body = document.getElementById('sj-manual-link-body');
+        if (!body) return;
+        const applyButton = document.getElementById('sj-manual-link-apply');
+        const used = new Set([...STATE.pairs.values()]);
+        if (applyButton) {
+            applyButton.disabled = STATE.pairs.size === 0 || STATE.busy;
+            applyButton.innerHTML = STATE.pairs.size
+                ? `<i class="bi bi-link-45deg me-1"></i> Tautkan ${STATE.pairs.size} SJ`
+                : '<i class="bi bi-link-45deg me-1"></i> Pilih Tujuan';
+        }
+        const query = STATE.query.trim().toLowerCase();
+        const visible = STATE.targets.filter(row => !query || row.text.includes(query));
+        const cards = STATE.poolTrips.map(pool => {
+            const id = poolIdOf(pool);
+            const linked = used.has(id);
+            return `<span class="badge ${linked ? 'bg-success-subtle text-success border border-success-subtle' : 'bg-white text-dark border'}" style="font-size:10.5px;font-weight:600;white-space:nowrap;">${esc(pool.noSJ || pool.sjNumber || id)}${linked ? ' ✓' : ''}</span>`;
+        }).join('');
+        const rows = visible.length ? visible.map(row => {
+            const current = STATE.pairs.get(row.id) || '';
+            const options = STATE.poolTrips.map(pool => {
+                const id = poolIdOf(pool);
+                const usedByOther = [...STATE.pairs.entries()].some(([targetId, poolId]) => targetId !== row.id && poolId === id);
+                return `<option value="${esc(id)}" ${current === id ? 'selected' : ''} ${usedByOther ? 'disabled' : ''}>${esc(poolLabel(pool))}</option>`;
+            }).join('');
+            return `<tr class="${current ? 'table-success' : ''}">
+                <td style="min-width:170px;">
+                    <select class="form-select form-select-sm" style="font-size:10.5px;min-width:165px;" data-row="${esc(row.id)}" onchange="SJManualLink.assignPair(this.dataset.row,this.value)">
+                        <option value="">— Pilih No. SJ —</option>
+                        ${options}
+                    </select>
+                </td>
+                <td style="font-size:11.5px;white-space:nowrap;">${esc(row.courier)}</td>
+                <td style="font-size:11.5px;white-space:normal;"><strong>${esc(row.store || '-')}</strong><div class="text-muted" style="font-size:10.5px;">${esc((row.address || '-').slice(0, 90))}</div></td>
+                <td style="font-size:11px;white-space:nowrap;">${esc(row.status || '-')}</td>
+            </tr>`;
+        }).join('') : '<tr><td colspan="4" class="text-center text-muted py-4">Tidak ada tujuan manual yang cocok.</td></tr>';
+
+        body.innerHTML = `
+            <div class="d-flex align-items-start justify-content-between gap-2 flex-wrap mb-3 p-3 bg-white border rounded-3">
+                <div>
+                    <div class="text-muted" style="font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;">SJ terpilih dari Pool</div>
+                    <div class="d-flex flex-wrap gap-1 mt-1">${cards}</div>
+                </div>
+                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle" style="font-size:11px;">${STATE.poolTrips.length} SJ · ${STATE.pairs.size} ditautkan</span>
+            </div>
+            <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                <div class="position-relative flex-grow-1" style="min-width:220px;max-width:420px;">
+                    <i class="bi bi-search position-absolute top-50 translate-middle-y text-muted" style="left:10px;font-size:12px;"></i>
+                    <input type="text" class="form-control form-control-sm" id="sj-manual-link-search" value="${esc(STATE.query)}" placeholder="Cari kurir, toko, alamat, atau ID trip..." style="padding-left:30px;font-size:12px;" oninput="SJManualLink.setQuery(this.value)">
+                </div>
+                <input type="date" id="sj-manual-link-date" class="form-control form-control-sm" style="width:145px;height:31px;font-size:12px;" value="${esc(STATE.date)}" onchange="SJManualLink.setDate(this.value)">
+                <span class="text-muted" style="font-size:11.5px;">${visible.length} tujuan</span>
+            </div>
+            <div class="table-responsive border rounded-3" style="max-height:360px;background:#fff;">
+                <table class="table table-sm align-middle mb-0" style="font-size:11.5px;">
+                    <thead class="sticky-top" style="background:#F9FAFB;">
+                        <tr><th>No. SJ</th><th>Kurir</th><th>Tujuan</th><th>Status</th></tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            </div>
+            <div class="text-muted mt-2" style="font-size:11px;">Pilih nomor SJ pada baris tujuan yang sesuai. Satu SJ hanya bisa dipakai untuk satu tujuan. SJ yang sudah dipasangkan akan hilang dari Pool setelah diterapkan.</div>
+        `;
+    }
+
     function render() {
+        if (STATE.mode === 'bulk') return renderBulk();
         const body = document.getElementById('sj-manual-link-body');
         if (!body) return;
         const pool = STATE.pool;
@@ -149,8 +227,11 @@
             alert('SJ tidak ditemukan di SJ Pool. Muat ulang halaman.');
             return;
         }
+        STATE.mode = 'single';
         STATE.pool = pool;
+        STATE.poolTrips = [pool];
         STATE.selected = '';
+        STATE.pairs.clear();
         STATE.query = '';
         STATE.date = todayWib();
         STATE.targets = collectTargets(STATE.date);
@@ -161,6 +242,38 @@
             alert('Dialog Tautkan SJ belum tersedia. Muat ulang halaman.');
             return;
         }
+        render();
+        if (typeof bootstrap !== 'undefined') bootstrap.Modal.getOrCreateInstance(modal).show();
+    }
+
+    async function openBulkFromSelection() {
+        const selected = root.UnifiedPoolUI?.getSelectedTrips?.() || [];
+        if (!selected.length) {
+            alert('Centang SJ di SJ Pool terlebih dahulu.');
+            return;
+        }
+        const ids = new Set(selected.map(trip => String(trip.noSJ || trip.sjNumber || trip.id || '').trim()));
+        const poolTrips = (Array.isArray(window.allPoolTrips) ? window.allPoolTrips : [])
+            .filter(trip => trip && (trip.noSJ || trip.sjNumber) && ids.has(String(trip.noSJ || trip.sjNumber || '').trim()));
+        if (!poolTrips.length) {
+            alert('SJ terpilih tidak lagi ada di Pool. Muat ulang halaman.');
+            return;
+        }
+        const modal = document.getElementById('modal-sj-manual-link');
+        if (!modal) {
+            alert('Dialog Tautkan SJ belum tersedia. Muat ulang halaman.');
+            return;
+        }
+        STATE.mode = 'bulk';
+        STATE.pool = null;
+        STATE.poolTrips = poolTrips;
+        STATE.selected = '';
+        STATE.pairs.clear();
+        STATE.query = '';
+        STATE.date = todayWib();
+        STATE.targets = collectTargets(STATE.date);
+        const dateInput = document.getElementById('sj-manual-link-date');
+        if (dateInput) dateInput.value = STATE.date;
         render();
         if (typeof bootstrap !== 'undefined') bootstrap.Modal.getOrCreateInstance(modal).show();
     }
@@ -176,6 +289,10 @@
         STATE.date = value || todayWib();
         STATE.targets = collectTargets(STATE.date);
         STATE.selected = '';
+        if (STATE.mode === 'bulk') {
+            const valid = new Set(STATE.targets.map(row => row.id));
+            for (const key of [...STATE.pairs.keys()]) if (!valid.has(key)) STATE.pairs.delete(key);
+        }
         render();
     }
 
@@ -276,7 +393,65 @@
         window.allCurrentTrips = update(window.allCurrentTrips);
     }
 
+    function assignPair(targetId, poolId) {
+        if (!targetId) return;
+        if (!poolId) {
+            STATE.pairs.delete(String(targetId));
+            render();
+            return;
+        }
+        for (const [otherTarget, otherPool] of [...STATE.pairs.entries()]) {
+            if (otherTarget !== targetId && otherPool === poolId) STATE.pairs.delete(otherTarget);
+        }
+        STATE.pairs.set(String(targetId), String(poolId));
+        render();
+    }
+
+    async function applyBulk() {
+        if (STATE.busy) return;
+        const pairs = [...STATE.pairs.entries()].map(([targetId, poolId]) => ({
+            target: STATE.targets.find(row => row.id === targetId),
+            pool: STATE.poolTrips.find(pool => poolIdOf(pool) === poolId)
+        })).filter(pair => pair.target && pair.pool);
+        if (!pairs.length) return;
+        if (new Set(pairs.map(pair => poolIdOf(pair.pool))).size !== pairs.length) {
+            alert('Ada SJ yang dipakai lebih dari satu tujuan. Perbaiki pilihan.');
+            return;
+        }
+        if (!confirm(`Tautkan ${pairs.length} SJ ke pengiriman manual? SJ terkait akan dihapus dari Pool.`)) return;
+        STATE.busy = true;
+        const applyButton = document.getElementById('sj-manual-link-apply');
+        if (applyButton) { applyButton.disabled = true; applyButton.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Menyimpan…'; }
+        const errors = [];
+        let applied = 0;
+        for (const [index, pair] of pairs.entries()) {
+            try {
+                const result = window.WTRACK_LOCAL_SANDBOX
+                    ? await applyLocal(pair.target, pair.pool)
+                    : await applyOnline(pair.target, pair.pool);
+                updateLocalArrays(result.manual, result.poolId);
+                applied++;
+                if (applyButton) applyButton.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span>${index + 1}/${pairs.length}…`;
+            } catch (error) {
+                errors.push(`${pair.pool.noSJ || pair.pool.sjNumber || pair.pool.id}: ${error.message || error}`);
+            }
+        }
+        STATE.busy = false;
+        if (typeof root.showToast === 'function') {
+            root.showToast(applied
+                ? `${applied} SJ ditautkan ke pengiriman manual. ${pairs.length - applied ? `${pairs.length - applied} gagal.` : ''}`
+                : 'Tidak ada SJ yang berhasil ditautkan.', applied ? 'success' : 'error');
+        }
+        if (errors.length) alert('Sebagian SJ gagal:\n' + errors.slice(0, 10).join('\n'));
+        try { bootstrap.Modal.getInstance(document.getElementById('modal-sj-manual-link'))?.hide(); } catch (_) {}
+        try { root.UnifiedPoolUI?.renderUnifiedPoolView?.(); } catch (_) {}
+        try { root.renderRecentShipments?.(); } catch (_) {}
+        try { root.updateGlobalStats?.(); } catch (_) {}
+        STATE.pairs.clear();
+    }
+
     async function apply() {
+        if (STATE.mode === 'bulk') return applyBulk();
         if (STATE.busy) return;
         const target = selectedTarget();
         if (!target || !STATE.pool) {
@@ -304,5 +479,5 @@
         }
     }
 
-    root.SJManualLink = {openByTrip, setQuery, setDate, selectTarget, apply, get state() { return {...STATE}; }};
+    root.SJManualLink = {openByTrip, openBulkFromSelection, setQuery, setDate, selectTarget, assignPair, apply, get state() { return {...STATE}; }};
 })(window);

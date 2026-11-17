@@ -589,6 +589,10 @@ window.UnifiedPoolUI = (function () {
               <i class="bi bi-send-check"></i>
               <span>Lanjut Tugaskan</span>
             </button>
+            <button class="btn btn-sm bg-white border text-dark fw-semibold d-inline-flex align-items-center" style="height: 32px; border-radius: 8px; border-color: #D0D5DD !important; font-size: 12.5px; padding: 0 10px; gap: 6px;" onclick="window.SJManualLink && window.SJManualLink.openBulkFromSelection()" title="Tautkan SJ terpilih ke pengiriman manual">
+              <i class="bi bi-link-45deg"></i>
+              <span>Tautkan Manual</span>
+            </button>
             <button class="btn btn-sm bg-white border d-inline-flex align-items-center" style="height: 32px; border-radius: 8px; border-color: #D0D5DD !important; color: #344054; font-size: 12.5px; padding: 0 10px; gap: 6px;" onclick="UnifiedPoolUI.bulkSetReadyStatus(false)">
               <i class="bi bi-clock-history"></i>
               <span>Belum Ready</span>
@@ -1502,6 +1506,7 @@ window.UnifiedPoolUI = (function () {
     toggleAllCheckbox,
     togglePoolSelection,
     clearPoolSelection,
+    getSelectedTrips: () => selectedTripsFromPool(),
     updateSelectionCount,
     openAssignmentModal,
     confirmAssignment,

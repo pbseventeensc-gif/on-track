@@ -179,3 +179,22 @@ Aksi **Tautkan** per baris inilah yang muncul di SJ Pool.
 - Script tautan manual: `sj_manual_link.js?v=20261117.1`
 - Smoke test: `SJManualLink`, modal, dan halaman tersedia tanpa error JavaScript.
 - Pencocokan otomatis tetap tersembunyi; aksi **Tautkan** per baris SJ Pool yang aktif.
+
+## Mode bulk (banyak SJ sekaligus)
+
+Jika beberapa SJ dicentang di SJ Pool, bilah aksi menampilkan tombol
+**Tautkan Manual** di samping **Lanjut Tugaskan**.
+
+Alurnya:
+
+1. Centang beberapa SJ di SJ Pool.
+2. Klik **Tautkan Manual**.
+3. Dialog menampilkan semua SJ terpilih di bagian atas.
+4. Tabel tujuan manual memiliki kolom **No. SJ** berupa dropdown.
+5. Pada baris tujuan yang sesuai, pilih nomor SJ.
+6. SJ yang sudah dipakai di baris lain otomatis dinonaktifkan/berpindah.
+7. Klik **Tautkan N SJ**.
+
+Setelah diterapkan, setiap SJ dihapus dari Pool dan nomornya masuk ke tujuan
+manual yang dipilih. Aturan tetap **satu tujuan = satu SJ** dan **satu SJ = satu
+tujuan**.
