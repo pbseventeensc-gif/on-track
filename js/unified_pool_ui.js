@@ -73,21 +73,26 @@ window.UnifiedPoolUI = (function () {
       if (tripId && !unique.has(tripId)) unique.set(tripId, trip);
     });
     const list = [...unique.values()];
-    for (let start = 0; start < list.length; start += 200) {
-      const batch = db.batch();
-      list.slice(start, start + 200).forEach(trip => {
-        const tripId = String(trip.tripId || trip.originalTripId || trip.id || '').trim();
-        if (tripId) batch.delete(db.collection('trips').doc(tripId));
-        const numbers = new Set([
-          trip.noSJ, trip.sjNumber,
-          ...((trip.destinations || []).flatMap(destination => [destination?.noSJ, destination?.sjNumber]))
-        ].filter(Boolean).map(value => String(value).trim().toUpperCase()));
-        numbers.forEach(noSJ => {
-          if (noSJ) batch.delete(db.collection('sj_import_keys').doc(encodeURIComponent(noSJ)));
-        });
-      });
-      await batch.commit();
+    let batch = db.batch(), writes = 0, tripsInBatch = 0;
+    for (const trip of list) {
+      const tripId = String(trip.tripId || trip.originalTripId || trip.id || '').trim();
+      const numbers = new Set([
+        trip.noSJ, trip.sjNumber, ...(window.SJLinks?.numbers(trip) || []),
+        ...((trip.destinations || []).flatMap(destination => [destination?.noSJ, destination?.sjNumber, ...(window.SJLinks?.numbers(destination) || [])]))
+      ].filter(Boolean).map(value => String(value).trim().toUpperCase()));
+      if (writes && (writes + 1 + numbers.size > 450 || tripsInBatch >= 200)) {
+        await batch.commit();
+        batch = db.batch(); writes = 0; tripsInBatch = 0;
+      }
+      if (tripId) { batch.delete(db.collection('trips').doc(tripId)); writes++; }
+      for (const noSJ of numbers) {
+        // Even a large manual route must remain below Firestore's write limit.
+        if (writes >= 450) { await batch.commit(); batch = db.batch(); writes = 0; tripsInBatch = 0; }
+        batch.delete(db.collection('sj_import_keys').doc(encodeURIComponent(noSJ))); writes++;
+      }
+      tripsInBatch++;
     }
+    if (writes) await batch.commit();
     return list.length;
   }
 
@@ -375,10 +380,13 @@ window.UnifiedPoolUI = (function () {
     return [];
   }
 
-  function renderUnifiedPoolView() {
+  function renderUnifiedPoolView(resultsOnly = false) {
     const container = document.getElementById('view-pool');
     if (!container) return;
 
+    const searchInput = document.getElementById('pool-unified-search');
+    const searchFocused = searchInput && document.activeElement === searchInput;
+    const selection = searchFocused ? [searchInput.selectionStart, searchInput.selectionEnd, searchInput.selectionDirection] : null;
     const allTrips = getTripsSource();
 
     // 1. Ekstrak Semua Folder Tanggal
@@ -462,13 +470,14 @@ window.UnifiedPoolUI = (function () {
       if (activePrintLocationFilter !== 'ALL') {
         if (t.printLocation !== activePrintLocationFilter) return false;
       }
-      if (currentSearchQuery) {
-        const q = currentSearchQuery.toLowerCase().trim();
-        const idMatch = (t.noSJ || t.sjNumber || t.id || '').toLowerCase().includes(q);
-        const custMatch = (t.customer || '').toLowerCase().includes(q);
-        const addrMatch = (t.address || '').toLowerCase().includes(q);
-        const codeMatch = (t.uniqueCode || '').toLowerCase().includes(q);
-        if (!idMatch && !custMatch && !addrMatch && !codeMatch) return false;
+      if (currentSearchQuery.trim()) {
+        const normalize = value => String(value || '').normalize('NFKC').toLowerCase().replace(/[‐‑‒–—−]/g, '-');
+        const query = normalize(currentSearchQuery).trim();
+        const text = [t.noSJ, t.sjNumber, t.id, t.customer, t.clientName, t.address, t.storeDestination, t.uniqueCode, t.shortCode].map(normalize).join(' ');
+        const compact = value => value.replace(/[^a-z0-9]/g, '');
+        const sjQuery = compact(query);
+        const sjMatch = sjQuery && [t.noSJ, t.sjNumber].some(value => compact(normalize(value)).includes(sjQuery));
+        if (!text.includes(query) && !sjMatch) return false;
       }
       return true;
     });
@@ -500,7 +509,7 @@ window.UnifiedPoolUI = (function () {
     const pageRows = filtered.slice(pageStart, pageStart + poolPageSize);
     const pageEnd = Math.min(totalFiltered, pageStart + poolPageSize);
 
-    container.innerHTML = `
+    const poolHtml = `
       <div class="aerotrack-table-container bg-white mb-4" style="border: 1px solid #EAECF0; border-radius: 12px; box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);">
         <!-- Underline Tabs (Esse style) -->
         <div class="d-flex align-items-center gap-4 px-3 border-bottom overflow-x-auto" style="border-color: #EAECF0 !important;">
@@ -532,7 +541,7 @@ window.UnifiedPoolUI = (function () {
           <div class="d-flex align-items-center flex-wrap" style="gap: 8px;">
             <div class="position-relative" style="width: 210px;">
               <i class="bi bi-search position-absolute top-50 translate-middle-y text-muted" style="left: 11px; font-size: 13px; pointer-events: none;"></i>
-              <input type="text" id="pool-unified-search" class="form-control form-control-sm" placeholder="Cari No. DO, Customer..." style="padding-left: 34px; width: 100%;" value="${escapePoolHtml(currentSearchQuery)}" oninput="UnifiedPoolUI.scheduleSearch(this.value)">
+              <input type="text" id="pool-unified-search" class="form-control form-control-sm" placeholder="Cari nomor SJ atau customer" aria-label="Cari nomor SJ atau customer" autocomplete="off" style="padding-left: 34px; width: 100%;" value="${escapePoolHtml(currentSearchQuery)}" oninput="UnifiedPoolUI.scheduleSearch(this.value)">
             </div>
             <div style="width: 165px;">
               <select id="pool-region-filter" class="form-select form-select-sm" onchange="UnifiedPoolUI.setRegionFilter(this.value)">
@@ -673,12 +682,36 @@ window.UnifiedPoolUI = (function () {
       </div>
     `;
 
+    let updatedResults = false;
+    if (resultsOnly === true && typeof document.createElement === 'function') {
+      const template = document.createElement('template');
+      template.innerHTML = poolHtml;
+      const ids = ['pool-table-body', 'pool-pagination'];
+      if (ids.every(id => document.getElementById(id) && template.content.querySelector('#' + id))) {
+        ids.forEach(id => { document.getElementById(id).innerHTML = template.content.querySelector('#' + id).innerHTML; });
+        updatedResults = true;
+      }
+    }
+    if (!updatedResults) container.innerHTML = poolHtml;
+
+    // Keep the live input node through searches and incoming Firestore updates.
+    // Replacing it used to lose typed characters, focus, and the editing caret.
+    const nextSearchInput = document.getElementById('pool-unified-search');
+    if (searchInput && searchInput.value !== currentSearchQuery) searchInput.value = currentSearchQuery;
+    if (searchInput && nextSearchInput && nextSearchInput !== searchInput && nextSearchInput.parentNode) {
+      if (searchInput.value !== currentSearchQuery) searchInput.value = currentSearchQuery;
+      nextSearchInput.parentNode.replaceChild(searchInput, nextSearchInput);
+      if (searchFocused) {
+        searchInput.focus({preventScroll: true});
+        if (selection) searchInput.setSelectionRange(...selection);
+      }
+    }
     updateSelectionCount();
-    if (window.wtrackDropdown) {
+    if (!updatedResults && window.wtrackDropdown) {
       if (typeof window.wtrackDropdown.close === 'function') window.wtrackDropdown.close();
       if (typeof window.wtrackDropdown.initAll === 'function') window.wtrackDropdown.initAll();
     }
-    if (window.lucide) lucide.createIcons();
+    if (!updatedResults && window.lucide) lucide.createIcons();
   }
 
   function renderTableRow(t) {
@@ -1018,12 +1051,15 @@ window.UnifiedPoolUI = (function () {
   }
 
   function scheduleSearch(value) {
+    // Store immediately so a realtime refresh cannot restore an older query.
+    currentSearchQuery = String(value || '');
+    poolPage = 1;
     if (typeof setTimeout !== 'function') { setSearchQuery(value); return; }
     if (poolSearchTimer) clearTimeout(poolSearchTimer);
     poolSearchTimer = setTimeout(() => {
       poolSearchTimer = null;
-      setSearchQuery(value);
-    }, 250);
+      renderUnifiedPoolView(true);
+    }, 100);
   }
 
   // Coalesce bursty Firestore snapshots into one table render.
@@ -1405,17 +1441,10 @@ window.UnifiedPoolUI = (function () {
   }
 
   function setSearchQuery(val) {
-    currentSearchQuery = (val || '').trim();
+    if (poolSearchTimer) { clearTimeout(poolSearchTimer); poolSearchTimer = null; }
+    currentSearchQuery = String(val || '');
     poolPage = 1;
-    renderUnifiedPoolView();
-    if (typeof setTimeout !== 'function') return;
-    setTimeout(() => {
-      const input = document.getElementById('pool-unified-search');
-      if (input) {
-        input.focus();
-        input.setSelectionRange(input.value.length, input.value.length);
-      }
-    }, 10);
+    renderUnifiedPoolView(true);
   }
 
   function matchesTripId(item, id) {

@@ -2,7 +2,8 @@
 (function (root) {
     'use strict';
     const core = root.SJReconcileCore;
-    if (!core) return;
+    const links = root.SJLinks;
+    if (!core || !links) return;
 
     const STATE = {
         mode: 'single',
@@ -65,7 +66,7 @@
             const tripDate = wibDate(trip.date || trip.assignedAt || trip.createdAt);
             if (date && tripDate && tripDate !== date) return;
             (trip.destinations || []).forEach((destination, index) => {
-                if (!destination || destination.sjNumber || destination.noSJ) return;
+                if (!destination) return;
                 const deliveryId = destination.deliveryId || `${trip.id}_STOP_${index}`;
                 const store = destination.locationName || destination.storeName || destination.customer || '';
                 const address = destination.address || '';
@@ -79,6 +80,7 @@
                     customer: destination.customer || trip.customer || trip.clientName || '',
                     courier: courierLabel(trip),
                     status: destination.status || trip.status || '',
+                    existingSJ: links.label(destination),
                     text: `${courierLabel(trip)} ${store} ${address} ${trip.id}`.toLowerCase()
                 });
             });
@@ -103,11 +105,11 @@
         if (!body) return;
         const applyButton = document.getElementById('sj-manual-link-apply');
         if (!STATE.activePoolId || !STATE.poolTrips.some(pool => poolIdOf(pool) === STATE.activePoolId)) {
-            STATE.activePoolId = STATE.poolTrips.map(poolIdOf).find(id => ![...STATE.pairs.values()].includes(id)) || '';
+            STATE.activePoolId = STATE.poolTrips.map(poolIdOf).find(id => !STATE.pairs.has(id)) || '';
         }
         const poolById = new Map(STATE.poolTrips.map(pool => [poolIdOf(pool), pool]));
         const targetByPool = new Map();
-        STATE.pairs.forEach((poolId, targetId) => targetByPool.set(poolId, targetId));
+        STATE.pairs.forEach((targetId, poolId) => targetByPool.set(poolId, targetId));
         if (applyButton) {
             applyButton.disabled = STATE.pairs.size === 0 || STATE.busy;
             applyButton.innerHTML = STATE.pairs.size
@@ -119,9 +121,9 @@
             const active = id === STATE.activePoolId;
             const targetId = targetByPool.get(id);
             const target = targetId ? STATE.targets.find(row => row.id === targetId) : null;
-            return `<button type="button" class="btn btn-sm ${active ? 'btn-warning' : target ? 'btn-success' : 'btn-light border'}" data-pool="${esc(id)}" onclick="SJManualLink.setActiveSJ(this.dataset.pool)" style="font-size:10.5px;font-weight:600;border-radius:8px;text-align:left;white-space:normal;max-width:270px;">
-                <span class="font-monospace">${esc(pool.noSJ || pool.sjNumber || id)}</span>
-                <span class="d-block fw-normal" style="font-size:9.5px;opacity:.9;">${target ? `✓ ${esc(target.courier)} · ${esc((target.store || target.address || '').slice(0, 32))}` : `${esc(pool.customer || pool.clientName || '')} · ${esc((pool.storeDestination || pool.destinations?.[0]?.locationName || '').slice(0, 32))}`}</span>
+            return `<button type="button" class="sj-link-card ${active ? 'is-active' : target ? 'is-linked' : ''}" data-pool="${esc(id)}" onclick="SJManualLink.setActiveSJ(this.dataset.pool)" style="max-width:270px;">
+                <span class="sj-link-number">${esc(pool.noSJ || pool.sjNumber || id)}</span>
+                <span class="sj-link-sub">${target ? `Tujuan: ${esc(target.courier)} · ${esc((target.store || target.address || '').slice(0, 30))}` : `${esc(pool.customer || pool.clientName || '')} · ${esc((pool.storeDestination || pool.destinations?.[0]?.locationName || '').slice(0, 30))}`}</span>
             </button>`;
         }).join('');
 
@@ -130,57 +132,57 @@
         const query = STATE.query.trim().toLowerCase();
         const visible = STATE.targets.filter(row => (!STATE.courier || row.courier === STATE.courier) && (!query || row.text.includes(query)));
         const rows = visible.length ? visible.map(row => {
-            const assignedPoolId = STATE.pairs.get(row.id) || '';
-            const assignedPool = assignedPoolId ? poolById.get(assignedPoolId) : null;
-            const cell = assignedPool
-                ? `<span class="badge bg-success-subtle text-success border border-success-subtle font-monospace" style="font-size:10.5px;">${esc(assignedPool.noSJ || assignedPool.sjNumber || assignedPoolId)}</span>
-                   <button type="button" class="btn btn-link btn-sm text-danger p-0 ms-1" data-row="${esc(row.id)}" onclick="event.stopPropagation();SJManualLink.unassignTarget(this.dataset.row)" title="Lepas tautan"><i class="bi bi-x-lg" style="font-size:10px;"></i></button>`
-                : `<button type="button" class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size:10.5px;" data-row="${esc(row.id)}" onclick="event.stopPropagation();SJManualLink.assignActive(this.dataset.row)">Pasang</button>`;
-            return `<tr class="${assignedPool ? 'table-success' : ''}" style="cursor:pointer;" data-row="${esc(row.id)}" onclick="SJManualLink.assignActive(this.dataset.row)">
+            const assignedPools = [...STATE.pairs.entries()].filter(([, targetId]) => targetId === row.id).map(([poolId]) => poolById.get(poolId)).filter(Boolean);
+            const assignedPool = assignedPools.length > 0;
+            const cell = `${row.existingSJ ? `<div class="text-muted sj-link-number mb-1">${esc(row.existingSJ)}</div>` : ''}` + assignedPools.map(pool =>
+                `<span class="sj-link-tag is-linked sj-link-number">${esc(pool.noSJ || pool.sjNumber)}
+                 <button type="button" class="btn btn-link btn-sm sj-link-muted p-0 ms-1" data-pool="${esc(poolIdOf(pool))}" onclick="event.stopPropagation();SJManualLink.unassignPool(this.dataset.pool)" title="Lepas pilihan SJ ini"><i class="bi bi-x-lg" style="font-size:10px;"></i></button></span>`
+            ).join(' ') + `<button type="button" class="btn btn-sm sj-link-secondary py-0 px-2" style="font-size:12px;" data-row="${esc(row.id)}" onclick="event.stopPropagation();SJManualLink.assignActive(this.dataset.row)">${row.existingSJ || assignedPool ? 'Tambah SJ' : 'Pasang'}</button>`;
+            return `<tr class="sj-link-row ${assignedPool ? 'is-linked' : ''}" style="cursor:pointer;" data-row="${esc(row.id)}" onclick="SJManualLink.assignActive(this.dataset.row)">
                 <td style="min-width:130px;">${cell}</td>
-                <td style="font-size:11.5px;white-space:nowrap;">${esc(row.courier)}</td>
-                <td style="font-size:11.5px;white-space:normal;"><strong>${esc(row.store || '-')}</strong><div class="text-muted" style="font-size:10.5px;">${esc((row.address || '-').slice(0, 95))}</div></td>
-                <td style="font-size:11px;white-space:nowrap;">${esc(row.status || '-')}</td>
+                <td style="font-size:12px;white-space:nowrap;">${esc(row.courier)}</td>
+                <td style="font-size:12px;white-space:normal;"><strong>${esc(row.store || '-')}</strong><div class="text-muted" style="font-size:12px;">${esc((row.address || '-').slice(0, 95))}</div></td>
+                <td style="font-size:12px;white-space:nowrap;">${esc(row.status || '-')}</td>
             </tr>`;
         }).join('') : '<tr><td colspan="4" class="text-center text-muted py-4">Tidak ada tujuan manual yang cocok.</td></tr>';
 
         body.innerHTML = `
-            <div class="mb-3 p-3 bg-white border rounded-3">
+            <div class="sj-link-panel mb-3">
                 <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap mb-2">
-                    <div class="text-muted" style="font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;">SJ terpilih dari Pool</div>
-                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle" style="font-size:11px;">${STATE.poolTrips.length} SJ · ${STATE.pairs.size} ditautkan</span>
+                    <div class="sj-link-label">Surat jalan terpilih</div>
+                    <span class="sj-link-count">${STATE.poolTrips.length} SJ · ${STATE.pairs.size} ditautkan</span>
                 </div>
                 <div class="d-flex flex-wrap gap-1">${cards}</div>
-                <div class="alert alert-warning border py-2 px-3 mt-2 mb-0" style="font-size:11.5px;">
-                    SJ aktif: <strong class="font-monospace">${esc(activePool?.noSJ || activePool?.sjNumber || 'Semua SJ sudah dipasangkan')}</strong>.
-                    Klik baris tujuan untuk memasang. <strong>Tidak perlu memilih nomor SJ lagi</strong> — daftar SJ sudah berasal dari ${STATE.poolTrips.length} pilihan awal.
+                <div class="sj-link-banner mt-2">
+                    ${activePool ? `Pilih tujuan untuk <strong class="sj-link-number">${esc(activePool.noSJ || activePool.sjNumber)}</strong>` : 'Semua SJ sudah dipasangkan. Periksa tujuan sebelum menyimpan.'}
                 </div>
             </div>
             <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
-                <select class="form-control form-control-sm" id="sj-manual-link-courier" style="width:190px;height:31px;font-size:12px;" onchange="SJManualLink.setCourier(this.value)">
+                <select class="form-select sj-link-courier" id="sj-manual-link-courier" aria-label="Filter kurir" style="width:220px;height:36px;font-size:12.5px;border-radius:8px;" onchange="SJManualLink.setCourier(this.value)">
                     <option value="">Semua Kurir</option>
                     ${couriers.map(name => `<option value="${esc(name)}" ${STATE.courier === name ? 'selected' : ''}>${esc(name)}</option>`).join('')}
                 </select>
-                <button type="button" class="btn btn-sm btn-primary" style="height:31px;font-size:12px;border-radius:7px;" onclick="SJManualLink.autoPair()" ${STATE.courier ? '' : 'disabled'} title="Pasangkan semua SJ terpilih ke tujuan kurir ini secara berurutan">
-                    <i class="bi bi-magic me-1"></i> Tautkan Otomatis
+                <button type="button" class="btn btn-sm sj-link-secondary" style="height:31px;font-size:12px;border-radius:7px;" onclick="SJManualLink.autoPair()" ${STATE.courier ? '' : 'disabled'} title="Pasangkan semua SJ terpilih ke tujuan kurir ini secara berurutan">
+                    Pasangkan berurutan
                 </button>
                 <div class="position-relative flex-grow-1" style="min-width:220px;max-width:420px;">
                     <i class="bi bi-search position-absolute top-50 translate-middle-y text-muted" style="left:10px;font-size:12px;"></i>
-                    <input type="text" class="form-control form-control-sm" id="sj-manual-link-search" value="${esc(STATE.query)}" placeholder="Cari kurir, toko, alamat, atau ID trip..." style="padding-left:30px;font-size:12px;" oninput="SJManualLink.setQuery(this.value)">
+                    <input type="text" class="form-control form-control-sm" id="sj-manual-link-search" value="${esc(STATE.query)}" placeholder="Cari kurir atau tujuan" aria-label="Cari kurir atau tujuan" style="padding-left:30px;font-size:12px;" oninput="SJManualLink.setQuery(this.value)">
                 </div>
-                <input type="date" id="sj-manual-link-date" class="form-control form-control-sm" style="width:145px;height:31px;font-size:12px;" value="${esc(STATE.date)}" onchange="SJManualLink.setDate(this.value)">
-                <span class="text-muted" style="font-size:11.5px;">${visible.length} tujuan</span>
+                <input type="date" id="sj-manual-link-date" aria-label="Tanggal pengiriman" class="form-control form-control-sm" style="width:145px;height:31px;font-size:12px;" value="${esc(STATE.date)}" onchange="SJManualLink.setDate(this.value)">
+                <span class="text-muted" style="font-size:12px;">${visible.length} tujuan</span>
             </div>
             <div class="table-responsive border rounded-3" style="max-height:360px;background:#fff;">
-                <table class="table table-sm align-middle mb-0" style="font-size:11.5px;">
+                <table class="table table-sm align-middle mb-0" style="font-size:12px;">
                     <thead class="sticky-top" style="background:#F9FAFB;">
                         <tr><th>No. SJ terpasang</th><th>Kurir</th><th>Tujuan</th><th>Status</th></tr>
                     </thead>
                     <tbody>${rows}</tbody>
                 </table>
             </div>
-            <div class="text-muted mt-2" style="font-size:11px;">Klik baris tujuan untuk memasang SJ aktif. Satu SJ hanya bisa dipakai untuk satu tujuan. SJ yang sudah dipasangkan akan hilang dari Pool setelah diterapkan.</div>
+            <div class="text-muted mt-2" style="font-size:12px;">Satu tujuan dapat menerima beberapa SJ. Klik × untuk melepas pilihan.</div>
         `;
+        root.wtrackDropdown?.enhance?.(document.getElementById('sj-manual-link-courier'));
     }
 
     function render() {
@@ -192,53 +194,55 @@
         const target = selectedTarget();
         if (applyButton) {
             applyButton.disabled = !target || STATE.busy;
-            applyButton.innerHTML = target ? '<i class="bi bi-link-45deg me-1"></i> Tautkan & Sinkronkan' : '<i class="bi bi-link-45deg me-1"></i> Pilih Tujuan';
+            applyButton.innerHTML = STATE.busy
+                ? '<span class="spinner-border spinner-border-sm me-1" role="status" aria-label="Menyimpan"></span>Menyimpan…'
+                : target ? '<i class="bi bi-link-45deg me-1"></i> Tautkan SJ' : '<i class="bi bi-link-45deg me-1"></i> Pilih Tujuan';
         }
         if (!pool) {
-            body.innerHTML = '<div class="alert alert-warning mb-0">SJ tidak ditemukan di Pool. Muat ulang halaman.</div>';
+            body.innerHTML = '<div class="sj-link-banner">SJ tidak ditemukan di Pool. Muat ulang halaman.</div>';
             return;
         }
         const query = STATE.query.trim().toLowerCase();
         const visible = STATE.targets.filter(row => !query || row.text.includes(query));
         const rows = visible.length ? visible.map(row => {
             const checked = row.id === STATE.selected ? 'checked' : '';
-            return `<tr class="${checked ? 'table-warning' : ''}" style="cursor:pointer;" onclick="SJManualLink.selectTarget(this.dataset.row)" data-row="${esc(row.id)}">
+            return `<tr class="sj-link-row ${checked ? 'is-linked' : ''}" style="cursor:pointer;" onclick="SJManualLink.selectTarget(this.dataset.row)" data-row="${esc(row.id)}">
                 <td class="text-center"><input type="radio" class="form-check-input" name="sj-manual-target" ${checked} onchange="SJManualLink.selectTarget(this.dataset.row)" data-row="${esc(row.id)}"></td>
-                <td style="font-size:11.5px;white-space:nowrap;">${esc(row.courier)}</td>
-                <td style="font-size:11.5px;white-space:normal;"><strong>${esc(row.store || '-')}</strong><div class="text-muted" style="font-size:10.5px;">${esc((row.address || '-').slice(0, 100))}</div></td>
-                <td style="font-size:11px;white-space:nowrap;">${esc(row.status || '-')}</td>
+                <td style="font-size:12px;white-space:nowrap;">${esc(row.courier)}</td>
+                <td style="font-size:12px;white-space:normal;"><strong>${esc(row.store || '-')}</strong><div class="text-muted" style="font-size:12px;">${esc((row.address || '-').slice(0, 100))}</div>${row.existingSJ ? `<div class="text-muted sj-link-number">SJ: ${esc(row.existingSJ)}</div>` : ''}</td>
+                <td style="font-size:12px;white-space:nowrap;">${esc(row.status || '-')}</td>
             </tr>`;
         }).join('') : '<tr><td colspan="4" class="text-center text-muted py-4">Tidak ada tujuan manual yang cocok.</td></tr>';
 
         body.innerHTML = `
-            <div class="d-flex align-items-start justify-content-between gap-3 flex-wrap mb-3 p-3 bg-white border rounded-3">
+            <div class="sj-link-panel d-flex align-items-start justify-content-between gap-3 flex-wrap mb-3">
                 <div>
-                    <div class="text-muted" style="font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;">Surat Jalan dari Pool</div>
-                    <div class="fw-bold font-monospace" style="font-size:15px;">${esc(pool.noSJ || pool.sjNumber || pool.id)}</div>
-                    <div class="text-muted" style="font-size:11.5px;">${esc(pool.customer || pool.clientName || '-')} · ${esc(pool.storeDestination || pool.destinations?.[0]?.locationName || '-')}</div>
+                    <div class="sj-link-label">Surat jalan terpilih</div>
+                    <div class="fw-bold sj-link-number" style="font-size:15px;">${esc(pool.noSJ || pool.sjNumber || pool.id)}</div>
+                    <div class="text-muted" style="font-size:12px;">${esc(pool.customer || pool.clientName || '-')} · ${esc(pool.storeDestination || pool.destinations?.[0]?.locationName || '-')}</div>
                 </div>
-                <div class="text-end" style="font-size:11.5px;">
-                    <span class="badge bg-success-subtle text-success border border-success-subtle">Pool</span>
+                <div class="text-end" style="font-size:12px;">
+                    <span class="sj-link-tag is-linked">Pool</span>
                     <div class="text-muted mt-1">${(pool.items || []).length || 1} item</div>
                 </div>
             </div>
             <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
                 <div class="position-relative flex-grow-1" style="min-width:220px;max-width:420px;">
                     <i class="bi bi-search position-absolute top-50 translate-middle-y text-muted" style="left:10px;font-size:12px;"></i>
-                    <input type="text" class="form-control form-control-sm" id="sj-manual-link-search" value="${esc(STATE.query)}" placeholder="Cari kurir, toko, alamat, atau ID trip..." style="padding-left:30px;font-size:12px;" oninput="SJManualLink.setQuery(this.value)">
+                    <input type="text" class="form-control form-control-sm" id="sj-manual-link-search" value="${esc(STATE.query)}" placeholder="Cari kurir atau tujuan" aria-label="Cari kurir atau tujuan" style="padding-left:30px;font-size:12px;" oninput="SJManualLink.setQuery(this.value)">
                 </div>
-                <input type="date" id="sj-manual-link-date" class="form-control form-control-sm" style="width:145px;height:31px;font-size:12px;" value="${esc(STATE.date)}" onchange="SJManualLink.setDate(this.value)">
-                <span class="text-muted" style="font-size:11.5px;">${visible.length} tujuan</span>
+                <input type="date" id="sj-manual-link-date" aria-label="Tanggal pengiriman" class="form-control form-control-sm" style="width:145px;height:31px;font-size:12px;" value="${esc(STATE.date)}" onchange="SJManualLink.setDate(this.value)">
+                <span class="text-muted" style="font-size:12px;">${visible.length} tujuan</span>
             </div>
             <div class="table-responsive border rounded-3" style="max-height:360px;background:#fff;">
-                <table class="table table-sm align-middle mb-0" style="font-size:11.5px;">
+                <table class="table table-sm align-middle mb-0" style="font-size:12px;">
                     <thead class="sticky-top" style="background:#F9FAFB;">
                         <tr><th style="width:34px;"></th><th>Kurir</th><th>Tujuan</th><th>Status</th></tr>
                     </thead>
                     <tbody>${rows}</tbody>
                 </table>
             </div>
-            <div class="text-muted mt-2" style="font-size:11px;">Pilih satu tujuan. SJ akan dipindahkan dari Pool dan nomornya muncul di dashboard pengiriman manual.</div>
+            <div class="text-muted mt-2" style="font-size:12px;">SJ akan ditambahkan ke tujuan yang dipilih.</div>
         `;
     }
 
@@ -314,8 +318,8 @@
         STATE.selected = '';
         if (STATE.mode === 'bulk') {
             const valid = new Set(STATE.targets.map(row => row.id));
-            for (const key of [...STATE.pairs.keys()]) if (!valid.has(key)) STATE.pairs.delete(key);
-            if (!STATE.poolTrips.some(pool => poolIdOf(pool) === STATE.activePoolId)) STATE.activePoolId = STATE.poolTrips.map(poolIdOf).find(id => ![...STATE.pairs.values()].includes(id)) || '';
+            for (const [poolId, targetId] of STATE.pairs) if (!valid.has(targetId)) STATE.pairs.delete(poolId);
+            if (!STATE.poolTrips.some(pool => poolIdOf(pool) === STATE.activePoolId)) STATE.activePoolId = STATE.poolTrips.map(poolIdOf).find(id => !STATE.pairs.has(id)) || '';
         }
         render();
     }
@@ -333,16 +337,13 @@
         const destinations = JSON.parse(JSON.stringify(manual.destinations || []));
         const index = destinations.findIndex(destination => destination.deliveryId === target.deliveryId);
         const destination = destinations[index >= 0 ? index : target.destIndex];
-        if (!destination || destination.sjNumber || destination.noSJ) throw new Error('Tujuan sudah berubah.');
+        if (!destination) throw new Error('Tujuan sudah berubah.');
         const noSJ = String(poolTrip.noSJ || poolTrip.sjNumber || '').trim();
-        destination.noSJ = noSJ;
-        destination.sjNumber = noSJ;
-        destination.sjTripId = poolTrip.id || poolTrip.tripId;
-        destination.storeId = core.storeKeyOf(poolTrip);
-        destination.clientId = core.normalize(poolTrip.customer || poolTrip.clientName || '');
-        if (!destination.adminSJ && poolTrip.adminSJ) destination.adminSJ = poolTrip.adminSJ;
-        destination.sjMatchedAt = new Date().toISOString();
-        destination.sjMatchRule = 'manual-link';
+        links.append(destination, {
+            noSJ, sjTripId: poolTrip.id || poolTrip.tripId,
+            storeId: core.storeKeyOf(poolTrip), clientId: core.normalize(poolTrip.customer || poolTrip.clientName || ''),
+            adminSJ: poolTrip.adminSJ || '', sjMatchedAt: new Date().toISOString(), sjMatchRule: 'manual-link'
+        });
         manual.destinations = destinations;
         const poolId = poolTrip.id || poolTrip.tripId;
         const next = stored.filter(trip => (trip.id || trip.tripId) !== poolId).map(trip =>
@@ -375,17 +376,14 @@
             const index = destinations.findIndex(destination => destination.deliveryId === target.deliveryId);
             const destination = destinations[index >= 0 ? index : target.destIndex];
             if (!destination) throw new Error('Tujuan manual sudah tidak ada.');
-            if (destination.sjNumber || destination.noSJ) throw new Error('Tujuan sudah punya nomor SJ.');
-            const noSJ = String(pool.noSJ || poolData.noSJ || poolData.sjNumber || '').trim();
+            const noSJ = String(poolData.noSJ || poolData.sjNumber || '').trim();
+            if (noSJ !== String(pool.noSJ || pool.sjNumber || '').trim()) throw new Error('Nomor SJ berubah. Muat ulang Pool.');
             const now = new Date().toISOString();
-            destination.noSJ = noSJ;
-            destination.sjNumber = noSJ;
-            destination.sjTripId = pool.id || pool.tripId;
-            destination.storeId = core.storeKeyOf(poolData);
-            destination.clientId = core.normalize(poolData.customer || poolData.clientName || '');
-            if (!destination.adminSJ && poolData.adminSJ) destination.adminSJ = poolData.adminSJ;
-            destination.sjMatchedAt = now;
-            destination.sjMatchRule = 'manual-link';
+            links.append(destination, {
+                noSJ, sjTripId: pool.id || pool.tripId,
+                storeId: core.storeKeyOf(poolData), clientId: core.normalize(poolData.customer || poolData.clientName || ''),
+                adminSJ: poolData.adminSJ || '', sjMatchedAt: now, sjMatchRule: 'manual-link'
+            });
             manual.destinations = destinations;
             tx.update(manualRef, {destinations});
             tx.delete(poolRef);
@@ -427,8 +425,8 @@
             alert('Pilih kurir terlebih dahulu.');
             return;
         }
-        const targets = STATE.targets.filter(row => row.courier === STATE.courier && !STATE.pairs.has(row.id));
-        const availablePools = STATE.poolTrips.map(poolIdOf).filter(id => ![...STATE.pairs.values()].includes(id));
+        const targets = STATE.targets.filter(row => row.courier === STATE.courier && !row.existingSJ && ![...STATE.pairs.values()].includes(row.id));
+        const availablePools = STATE.poolTrips.map(poolIdOf).filter(id => !STATE.pairs.has(id));
         if (!targets.length) {
             alert('Tidak ada tujuan kosong untuk kurir ini.');
             return;
@@ -439,9 +437,9 @@
         }
         const count = Math.min(targets.length, availablePools.length);
         for (let index = 0; index < count; index++) {
-            STATE.pairs.set(targets[index].id, availablePools[index]);
+            STATE.pairs.set(availablePools[index], targets[index].id);
         }
-        STATE.activePoolId = STATE.poolTrips.map(poolIdOf).find(id => ![...STATE.pairs.values()].includes(id)) || '';
+        STATE.activePoolId = STATE.poolTrips.map(poolIdOf).find(id => !STATE.pairs.has(id)) || '';
         render();
         if (availablePools.length > targets.length) {
             alert(`${availablePools.length - targets.length} SJ belum punya tujuan kosong pada kurir ini.`);
@@ -452,10 +450,7 @@
 
     function setActiveSJ(poolId) {
         if (!poolId) return;
-        if ([...STATE.pairs.values()].includes(String(poolId))) {
-            const targetId = [...STATE.pairs.entries()].find(([, id]) => id === String(poolId))?.[0];
-            if (targetId) STATE.pairs.delete(targetId);
-        }
+        STATE.pairs.delete(String(poolId));
         STATE.activePoolId = String(poolId);
         render();
     }
@@ -468,26 +463,21 @@
         }
         const target = STATE.targets.find(row => row.id === targetId);
         if (!target) return;
-        // One target has one SJ. Replacing here is explicit.
-        for (const [otherTarget, poolId] of [...STATE.pairs.entries()]) {
-            if (otherTarget === targetId || poolId === STATE.activePoolId) STATE.pairs.delete(otherTarget);
-        }
-        STATE.pairs.set(String(targetId), String(STATE.activePoolId));
-        STATE.activePoolId = STATE.poolTrips.map(poolIdOf).find(id => ![...STATE.pairs.values()].includes(id)) || '';
+        STATE.pairs.set(String(STATE.activePoolId), String(targetId));
+        STATE.activePoolId = STATE.poolTrips.map(poolIdOf).find(id => !STATE.pairs.has(id)) || '';
         render();
     }
 
-    function unassignTarget(targetId) {
-        if (!targetId) return;
-        const poolId = STATE.pairs.get(String(targetId));
-        STATE.pairs.delete(String(targetId));
-        if (poolId) STATE.activePoolId = poolId;
+    function unassignPool(poolId) {
+        if (!poolId) return;
+        STATE.pairs.delete(String(poolId));
+        STATE.activePoolId = String(poolId);
         render();
     }
 
     async function applyBulk() {
         if (STATE.busy) return;
-        const pairs = [...STATE.pairs.entries()].map(([targetId, poolId]) => ({
+        const pairs = [...STATE.pairs.entries()].map(([poolId, targetId]) => ({
             target: STATE.targets.find(row => row.id === targetId),
             pool: STATE.poolTrips.find(pool => poolIdOf(pool) === poolId)
         })).filter(pair => pair.target && pair.pool);
@@ -557,5 +547,5 @@
         }
     }
 
-    root.SJManualLink = {openByTrip, openBulkFromSelection, setQuery, setDate, selectTarget, setActiveSJ, assignActive, unassignTarget, setCourier, autoPair, apply, get state() { return {...STATE}; }};
+    root.SJManualLink = {openByTrip, openBulkFromSelection, setQuery, setDate, selectTarget, setActiveSJ, assignActive, unassignPool, setCourier, autoPair, apply, get state() { return {...STATE}; }};
 })(window);

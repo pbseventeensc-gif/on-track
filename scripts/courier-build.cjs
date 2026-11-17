@@ -7,6 +7,7 @@ const crypto = require('node:crypto');
 
 const COURIER_ASSETS = [
     'kurir.html',
+    'js/sj_links.js',
     'js/delivery_identity.js',
     'js/maps_destination.js',
     'js/courier_admin.js',

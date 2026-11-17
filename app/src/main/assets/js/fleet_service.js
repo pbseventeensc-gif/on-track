@@ -6,7 +6,7 @@
     let courierUid = '', courierVersion = 0, files = [], sending = false, draftId = null;
     let latestFleet = [], syncedFleet = '', adminBusy = false, adminLoaded = false;
     const byId = id => root.document.getElementById(id);
-    const user = () => root.firebase?.auth?.().currentUser;
+    const user = () => root.firebase?.auth?.(root.courierFirebaseApp).currentUser;
     function endpoint() {
         return root.location.protocol === 'file:' ? 'https://on-track-indol.vercel.app/api/fleet-service' : '/api/fleet-service';
     }

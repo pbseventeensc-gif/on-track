@@ -782,7 +782,7 @@
         .wa-receipt-photo-item img {
             width: 100%;
             height: 90px;
-            object-fit: cover;
+            object-fit: contain;
             display: block;
         }
         .wa-receipt-photo-label {
@@ -1113,6 +1113,7 @@
             transform: scale(0.92);
         }
     </style>
+    <script src="js/sj_links.js?v=20261117.1"></script>
     <script src="js/delivery_identity.js?v=20261114.1"></script>
     <script src="js/maps_destination.js?v=20261114.1"></script>
     <script src="js/courier_admin.js?v=20261114.1"></script>
@@ -1870,7 +1871,7 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 
-<script src="js/fleet_service.js?v=20261116.1"></script>
+<script src="js/fleet_service.js?v=20261117.1"></script>
 
 <!-- App Controller Script -->
 <script>
@@ -2356,11 +2357,11 @@
     let tripsSubscriptionKey = '';
     try {
         if (typeof firebase !== 'undefined') {
-            if (!firebase.apps || firebase.apps.length === 0) {
-                firebase.initializeApp(firebaseConfig);
-            }
+            // Keep courier sign-in/sign-out separate from the admin dashboard.
+            window.courierFirebaseApp = (firebase.apps || []).find(app => app.name === 'wtrack-courier') ||
+                firebase.initializeApp(firebaseConfig, 'wtrack-courier');
             if (firebase.auth) {
-                const authInst = firebase.auth();
+                const authInst = firebase.auth(typeof firebase.app === 'function' ? firebase.app('wtrack-courier') : undefined);
                 authInst.onAuthStateChanged(user => {
                     if (user && !user.isAnonymous) {
                         const prof = resolveCourierProfile(user.email || user.displayName || user.uid, user.uid);
@@ -2372,12 +2373,12 @@
                     }
                 });
             }
-            firebase.auth?.().onAuthStateChanged(() => window.FleetService?.connectCourier());
+            firebase.auth?.(typeof firebase.app === 'function' ? firebase.app('wtrack-courier') : undefined).onAuthStateChanged(() => window.FleetService?.connectCourier());
             if (firebase.firestore) {
-                firestoreDb = firebase.firestore();
+                firestoreDb = firebase.firestore(typeof firebase.app === 'function' ? firebase.app('wtrack-courier') : undefined);
             }
             if (firebase.storage) {
-                firebaseStorage = firebase.storage();
+                firebaseStorage = firebase.storage(typeof firebase.app === 'function' ? firebase.app('wtrack-courier') : undefined);
             }
         }
     } catch(err) {
@@ -2534,6 +2535,8 @@
                             destinationIndex: idx,
                             deliveryId: dest.deliveryId || '',
                             noSJ: formattedSJ,
+                            sjDisplay: typeof SJLinks !== 'undefined' ? SJLinks.label(dest, t) || formattedSJ : formattedSJ,
+                            sjLinks: dest.sjLinks || [],
                             vehicleIcon: isKurirMotor ? '🛵' : '🚚',
                             origin: t.originBranch === 'cikokol' ? 'Wellen Cikokol' : 'Wellen Pusat',
                             destination: dest.locationName || t.clientName || t.customer || 'Tujuan Pengantaran',
@@ -2556,8 +2559,8 @@
                             adminSJ: dest.adminSJ || t.adminSJ || '',
                             locationNeedsReview: !!dest.locationNeedsReview,
                             region: dest.region || t.region || '',
-                            proofPhotoUrl: dest.proofPhotoUrl || (dest.proofPhotoItems && dest.proofPhotoItems[0]) || (dests.length === 1 ? t.proofPhotoUrl : '') || '',
-                            proofSJUrl: dest.proofPhotoSj || dest.proofSJUrl || (dests.length === 1 ? t.proofSJUrl : '') || ''
+                            proofPhotoUrl: (dest.proofPhotoItems && dest.proofPhotoItems[0]) || dest.proofPhotoUrl || (dests.length === 1 ? t.proofPhotoUrl : '') || '',
+                            proofSJUrl: dest.proofPhotoSj || dest.proofSJUrl || (dests.length === 1 ? t.proofPhotoSj || t.proofSJUrl : '') || ''
                         });
                     });
                 });
@@ -2658,6 +2661,8 @@
                             destinationIndex: idx,
                             deliveryId: dest.deliveryId || '',
                             noSJ: formattedSJ,
+                            sjDisplay: typeof SJLinks !== 'undefined' ? SJLinks.label(dest, t) || formattedSJ : formattedSJ,
+                            sjLinks: dest.sjLinks || [],
                             vehicleIcon: isKurirMotor ? '🛵' : '🚚',
                             origin: t.originBranch === 'cikokol' ? 'Wellen Cikokol' : 'Wellen Pusat',
                             destination: dest.locationName || t.clientName || t.customer || 'Tujuan',
@@ -2893,7 +2898,7 @@
 
     function loadSavedSession() {
         // A cached display profile alone is not an authenticated session.
-        const user = typeof firebase !== 'undefined' && firebase.auth ? firebase.auth().currentUser : null;
+        const user = typeof firebase !== 'undefined' && firebase.auth ? firebase.auth(typeof firebase.app === 'function' ? firebase.app('wtrack-courier') : undefined).currentUser : null;
         if (!user || user.isAnonymous) return false;
         try {
             const raw = localStorage.getItem('wtrack_saved_courier');
@@ -2969,7 +2974,7 @@
         if (button) button.disabled = true;
         showToast('Memproses login...');
         try {
-            const cred = await firebase.auth().signInWithEmailAndPassword(email, pass);
+            const cred = await firebase.auth(typeof firebase.app === 'function' ? firebase.app('wtrack-courier') : undefined).signInWithEmailAndPassword(email, pass);
             const user = cred.user;
             const profile = resolveCourierProfile(user.email || email, user.uid);
             const photo = resolveOfficialAvatar(profile);
@@ -2988,7 +2993,7 @@
         if (typeof firebase !== 'undefined' && firebase.auth) {
             const provider = new firebase.auth.GoogleAuthProvider();
             showToast("Menghubungkan ke Google...");
-            firebase.auth().signInWithPopup(provider).then(res => {
+            firebase.auth(typeof firebase.app === 'function' ? firebase.app('wtrack-courier') : undefined).signInWithPopup(provider).then(res => {
                 const u = res.user;
                 const profile = resolveCourierProfile(u.email || u.displayName || 'Kurir', u.uid);
                 const masterPhoto = resolveOfficialAvatar(profile);
@@ -3039,7 +3044,7 @@
         tripsSubscriptionKey = '';
         masterShipments = [];
         if (typeof firebase !== 'undefined' && firebase.auth) {
-            try { firebase.auth().signOut(); } catch(e) {}
+            try { firebase.auth(typeof firebase.app === 'function' ? firebase.app('wtrack-courier') : undefined).signOut(); } catch(e) {}
         }
         navigateToScreen('login');
         showToast("Anda telah berhasil keluar dari akun.");
@@ -3349,7 +3354,7 @@
                         ${typeof window !== 'undefined' && window.CourierRoute ? CourierRoute.checkbox(s) : ''}
                         <div class="shipment-vehicle-badge">${displayVehicleIcon}</div>
                         <div>
-                            <h6 class="shipment-no-title">${s.noSJ && s.noSJ !== '-' ? s.noSJ : `Titik ${s.stopIndex || 1} • Manual Dispatch`}</h6>
+                            <h6 class="shipment-no-title">${s.noSJ && s.noSJ !== '-' ? (s.sjDisplay || s.noSJ) : `Titik ${s.stopIndex || 1} • Manual Dispatch`}</h6>
                             <div class="shipment-route-text">${cardDestination}</div>
                             ${adminSJHtml}
                         </div>
@@ -3425,7 +3430,7 @@
 
     if (typeof firebase !== 'undefined' && firebase.database) {
         try {
-            firebase.database().ref('settings/wa_group_config').on('value', (snap) => {
+            firebase.database(typeof firebase.app === 'function' ? firebase.app('wtrack-courier') : undefined).ref('settings/wa_group_config').on('value', (snap) => {
                 if (snap.exists()) {
                     const data = snap.val();
                     waGroupConfig = { ...waGroupConfig, ...data };
@@ -3460,8 +3465,9 @@
 
     function shareDeliveryViaWhatsApp(tripId) {
         const id = tripId || currentUploadTripId;
-        const s = masterShipments.find(x => x.id === id) || masterShipments.find(x => x.status === 'delivered') || masterShipments[0];
-        const noSJ = s ? s.noSJ : '#SJ-1126-01287';
+        const s = masterShipments.find(x => x.id === id);
+        if (!s) { showToast('Pengiriman tidak ditemukan. Muat ulang daftar lalu coba lagi.'); return; }
+        const noSJ = s ? (s.sjDisplay || s.noSJ) : '#SJ-1126-01287';
         const dest = s ? s.destination : 'Tujuan Pengantaran';
         const addr = s ? s.address : '-';
         const completedMs = s ? parseAnyDateMs(s.completedAt) : 0;
@@ -3508,14 +3514,12 @@
         if (addrEl) addrEl.innerText = addr;
         if (timeEl) timeEl.innerHTML = `<i class="bi bi-clock me-1"></i>${timeStr} • ${dateStr}`;
 
-        // Populate Preview Foto Surat Jalan & Foto Barang
-        const defaultSvgSJ = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='200' viewBox='0 0 300 200'><rect width='300' height='200' fill='%23f1f5f9' rx='10'/><text x='50%25' y='45%25' font-family='sans-serif' font-size='15' font-weight='bold' fill='%230f172a' text-anchor='middle'>BUKTI SURAT JALAN</text><text x='50%25' y='65%25' font-family='sans-serif' font-size='11' fill='%2310b981' font-weight='bold' text-anchor='middle'>✓ TERTANDA &amp; STEMPEL RESMI</text></svg>";
-        const defaultSvgBarang = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='200' viewBox='0 0 300 200'><rect width='300' height='200' fill='%23f8fafc' rx='10'/><text x='50%25' y='45%25' font-family='sans-serif' font-size='15' font-weight='bold' fill='%230f172a' text-anchor='middle'>BUKTI FISIK BARANG</text><text x='50%25' y='65%25' font-family='sans-serif' font-size='11' fill='%23ff471d' font-weight='bold' text-anchor='middle'>Diterima Lengkap Sesuai SJ</text></svg>";
-
+        const receiptProofs = getReceiptProofSources(s);
         const photoSjEl = document.getElementById('wa-card-photo-sj');
         const photoBarangEl = document.getElementById('wa-card-photo-barang');
-        if (photoSjEl) photoSjEl.src = (s && s.proofSJUrl) ? s.proofSJUrl : (currentSJPhoto || defaultSvgSJ);
-        if (photoBarangEl) photoBarangEl.src = (s && s.proofPhotoUrl) ? s.proofPhotoUrl : (currentBarangPhoto || defaultSvgBarang);
+        const noPhoto = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="382" height="208"><rect width="100%" height="100%" fill="#f1f5f9"/><text x="50%" y="50%" text-anchor="middle" font-family="sans-serif" font-size="18" fill="#64748b">Foto belum tersedia</text></svg>');
+        if (photoSjEl) photoSjEl.src = receiptProofs.sj ? receiptPhotoSource(receiptProofs.sj) : noPhoto;
+        if (photoBarangEl) photoBarangEl.src = receiptProofs.barang ? receiptPhotoSource(receiptProofs.barang) : noPhoto;
 
         currentWaFormattedText = `*WELLEN PRINT - NOTIFIKASI BARANG TIBA*\n\n` +
                                  `Halo Kak, pesanan dengan Surat Jalan *${noSJ}* telah tiba di lokasi pengantaran:\n\n` +
@@ -3524,7 +3528,7 @@
                                  `*Pengantar:* ${cName} (${cRole})\n` +
                                  `*Grup:* ${targetGroup.name}\n` +
                                  `*Waktu Tiba:* ${timeStr}, ${dateStr}\n` +
-                                 `*Bukti Foto:* Surat Jalan & Fisik Barang telah diverifikasi.`;
+                                 `*Bukti Foto:* ${receiptProofs.sj && receiptProofs.barang ? 'Surat Jalan & Fisik Barang terlampir pada kartu.' : receiptProofs.sj ? 'Surat Jalan terlampir pada kartu.' : receiptProofs.barang ? 'Fisik Barang terlampir pada kartu.' : 'Belum tersedia.'}`;
 
         const previewBox = document.getElementById('wa-text-preview');
         if (previewBox) previewBox.innerText = currentWaFormattedText;
@@ -3557,6 +3561,26 @@
         ctx.closePath();
     }
 
+    function getReceiptProofSources(shipment) {
+        const photo = (...values) => values.flat().find(value => typeof value === 'string' && value && !value.startsWith('data:image/svg+xml')) || '';
+        const first = value => value.split(/,(?=https?:\/\/)/)[0];
+        return {
+            sj: first(photo(shipment?.proofSJUrl, shipment?.proofPhotoSj)),
+            barang: first(photo(shipment?.proofPhotoItems, shipment?.proofPhotoUrl))
+        };
+    }
+
+    function receiptPhotoSource(source) {
+        try {
+            const url = new URL(source);
+            if (url.protocol === 'https:' && url.hostname === 'firebasestorage.googleapis.com' && /^\/v0\/b\/ontrack-fccb8\.(?:firebasestorage\.app|appspot\.com)\/o\//.test(url.pathname)) {
+                const origin = window.location.protocol === 'file:' ? 'https://on-track-indol.vercel.app' : window.location.origin;
+                return origin + '/api/receipt-photo?source=' + encodeURIComponent(url.href);
+            }
+        } catch (_) {}
+        return source;
+    }
+
     function loadSafeCanvasImage(src) {
         return new Promise((resolve) => {
             if (!src || src.startsWith('data:image/svg+xml')) {
@@ -3564,6 +3588,9 @@
                 return;
             }
             const img = new Image();
+            let finished = false;
+            const finish = value => { if (finished) return; finished = true; clearTimeout(timer); resolve(value); };
+            const timer = setTimeout(() => { img.onload = null; img.onerror = null; img.src = ''; finish(null); }, 12000);
             if (src.startsWith('http')) {
                 img.crossOrigin = 'anonymous';
             }
@@ -3574,12 +3601,12 @@
                     testCanvas.height = 4;
                     testCanvas.getContext('2d').drawImage(img, 0, 0, 4, 4);
                     testCanvas.toDataURL('image/png');
-                    resolve(img);
+                    finish(img);
                 } catch (e) {
-                    resolve(null);
+                    finish(null);
                 }
             };
-            img.onerror = () => resolve(null);
+            img.onerror = () => finish(null);
             img.src = src;
         });
     }
@@ -3608,6 +3635,11 @@
             loadSafeCanvasImage(sjPhotoSrc),
             loadSafeCanvasImage(barangPhotoSrc)
         ]);
+
+        const realPhoto = source => source && !source.startsWith('data:image/svg+xml');
+        if ((realPhoto(sjPhotoSrc) && !sjImg) || (realPhoto(barangPhotoSrc) && !barangImg)) {
+            throw new Error('Foto bukti belum berhasil dimuat. Periksa koneksi lalu coba kirim lagi.');
+        }
 
         // 1. Background Luar & Kartu Putih Utama
         ctx.fillStyle = '#f1f5f9';
@@ -3726,7 +3758,7 @@
 
             const imgAreaH = boxH - 58;
             if (imgObj) {
-                const scale = Math.max(boxW / imgObj.width, imgAreaH / imgObj.height);
+                const scale = Math.min(boxW / imgObj.width, imgAreaH / imgObj.height);
                 const dw = imgObj.width * scale;
                 const dh = imgObj.height * scale;
                 const dx = bx + (boxW - dw) / 2;
@@ -3759,8 +3791,8 @@
             ctx.stroke();
         }
 
-        drawPhotoCard(leftBoxX, boxY, sjImg, 'BUKTI SURAT JALAN', '✓ TERTANDA & STEMPEL RESMI', '#059669', 'Foto Surat Jalan');
-        drawPhotoCard(rightBoxX, boxY, barangImg, 'BUKTI FISIK BARANG', 'Diterima Lengkap Sesuai PO', '#ea580c', 'Foto Barang');
+        drawPhotoCard(leftBoxX, boxY, sjImg, 'BUKTI SURAT JALAN', 'Foto belum tersedia', '#64748b', 'Foto Surat Jalan');
+        drawPhotoCard(rightBoxX, boxY, barangImg, 'BUKTI FISIK BARANG', 'Foto belum tersedia', '#64748b', 'Foto Barang');
 
         // 6. Kotak Hijau Notifikasi di Bawah
         const msgBoxY = 836;
@@ -3910,9 +3942,9 @@
                 window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
             }
         } catch (err) {
-            if (!isAutoTriggered) {
-                window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-            }
+            const message = err.message || 'Kartu belum berhasil dibuat. Coba lagi.';
+            if (statusEl) statusEl.textContent = message;
+            showToast(message);
         } finally {
             if (btn) {
                 btn.disabled = false;
@@ -4389,6 +4421,8 @@
         document.getElementById('active-upload-sj-no').value = id;
         document.getElementById('upload-modal-sj-badge').value = noSJ && noSJ !== '-' ? noSJ.replace(/^#/, '') : '';
         document.getElementById('upload-modal-store-name').innerText = storeName;
+        const uploadTarget = masterShipments.find(row => row.id === id);
+        document.getElementById('upload-modal-sj-badge').readOnly = (uploadTarget?.sjLinks?.length || 0) > 1;
 
         resetUploadBox('preview-img-sj', 'box-upload-sj');
         resetUploadBox('preview-img-barang', 'box-upload-barang');
@@ -4630,6 +4664,10 @@
         const enteredSJ = (document.getElementById('upload-modal-sj-badge')?.value || '').trim().replace(/^#/, '');
         const previousSJ = storedTarget.noSJ && storedTarget.noSJ !== '-' ? storedTarget.noSJ.replace(/^#/, '') : '';
         const sjNumber = enteredSJ || previousSJ;
+        if (storedTarget.sjLinks?.length > 1 && sjNumber !== previousSJ) {
+            showProofSaveError('Tujuan ini memiliki beberapa SJ. Perubahan nomor SJ dilakukan oleh admin.');
+            return;
+        }
         if (sjNumber && !/^[A-Za-z0-9][A-Za-z0-9. /_-]{0,79}$/.test(sjNumber)) {
             showProofSaveError('Periksa penulisan nomor SJ pengiriman ini.');
             document.getElementById('upload-modal-sj-badge')?.focus();
@@ -4955,6 +4993,6 @@
 </script>
 <script src="/js/courier_route.js?v=20261114.1"></script>
 
-<script src="/js/courier_updates.js?v=20261117.1" data-build="f3e99958f8e4516e"></script>
+<script src="/js/courier_updates.js?v=20261117.1" data-build="70c6c33ca00470ed"></script>
 </body>
 </html>

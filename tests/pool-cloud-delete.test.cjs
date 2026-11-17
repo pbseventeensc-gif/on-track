@@ -19,6 +19,7 @@ function loadPool(db) {
         }
     };
     const window = {
+        SJLinks: require('../js/sj_links.js'),
         WTRACK_LOCAL_SANDBOX: false,
         getDb: () => mockDb,
         addEventListener() {},
@@ -48,6 +49,12 @@ test('cloud delete removes both the trip document and its import key', async () 
     ]);
 });
 
+test('deleting a manual trip clears every SJ key without duplicating the primary key', async () => {
+    const {api, deleted} = loadPool();
+    await api.deleteTripsFromCloud([{id:'manual',destinations:[{noSJ:'SJ-1',sjLinks:[{noSJ:'SJ-1'},{noSJ:'SJ-2'},{noSJ:'SJ-3'}]}]}]);
+    assert.deepEqual(deleted.sort(), ['sj_import_keys/SJ-1','sj_import_keys/SJ-2','sj_import_keys/SJ-3','trips/manual']);
+});
+
 test('cloud delete chunks large selections below the Firestore batch limit', async () => {
     const {api, commits} = loadPool();
     const trips = Array.from({length: 201}, (_, index) => ({id: `SJ-${index}`, tripId: `TRIP_${index}`, noSJ: `SJ-${index}`}));
@@ -55,4 +62,14 @@ test('cloud delete chunks large selections below the Firestore batch limit', asy
     assert.equal(commits.length, 2);
     assert.equal(commits[0].length, 400);
     assert.equal(commits[1].length, 2);
+});
+
+test('cloud delete also respects the write limit when each trip has several SJ', async () => {
+    const {api, commits, deleted} = loadPool();
+    const trips = Array.from({length:200}, (_, index) => ({id:`manual-${index}`,destinations:[{
+        noSJ:`SJ-${index}-1`,sjLinks:[1,2,3].map(suffix=>({noSJ:`SJ-${index}-${suffix}`}))
+    }]}));
+    await api.deleteTripsFromCloud(trips);
+    assert.equal(deleted.length,800);
+    assert.ok(commits.every(refs=>refs.length<=450));
 });

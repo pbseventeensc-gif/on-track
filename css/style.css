@@ -2062,3 +2062,62 @@ table th,
         padding: 12px !important;
     }
 }
+
+/* Manual SJ linking follows the dashboard's existing typography. */
+#modal-sj-manual-link {
+    font-family: var(--font-sans);
+    color: var(--text-main, #101828);
+}
+#modal-sj-manual-link .modal-content {
+    border-radius: 10px !important;
+    box-shadow: 0 12px 32px #1018281a !important;
+}
+#modal-sj-manual-link .modal-body { background: #fff; padding: 20px 24px !important; }
+#modal-sj-manual-link .sj-link-panel { padding: 0 0 16px; border-bottom: 1px solid #EAECF0; }
+#modal-sj-manual-link .sj-link-label { color: #344054; font-size: 12px; font-weight: 600; }
+#modal-sj-manual-link .sj-link-muted { color: #667085; }
+#modal-sj-manual-link .sj-link-number { font-variant-numeric: tabular-nums; font-weight: 500; }
+#modal-sj-manual-link .sj-link-card {
+    appearance: none;
+    border: 1px solid #EAECF0;
+    border-radius: 6px;
+    background: #fff;
+    color: #344054;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.5;
+    padding: 8px 12px;
+    text-align: left;
+}
+#modal-sj-manual-link .sj-link-card:hover { background: #F9FAFB; border-color: #98A2B3; }
+#modal-sj-manual-link .sj-link-card.is-active { border-color: #344054; background: #F2F4F7; }
+#modal-sj-manual-link .sj-link-card.is-linked { color: #667085; background: #FAFAFA; }
+#modal-sj-manual-link .sj-link-sub { display: block; color: #667085; font-size: 12px; font-weight: 400; margin-top: 2px; }
+#modal-sj-manual-link .sj-link-banner { color: #667085; font-size: 12px; padding-top: 4px; }
+#modal-sj-manual-link .sj-link-count { color: #667085; font-size: 12px; font-weight: 400; }
+#modal-sj-manual-link .sj-link-tag { display: inline-block; border: 1px solid #EAECF0; border-radius: 4px; color: #344054; font-size: 12px; padding: 2px 6px; margin: 2px 0; }
+#modal-sj-manual-link .sj-link-row.is-linked,
+#modal-sj-manual-link .sj-link-row:hover { background: #F9FAFB; }
+#modal-sj-manual-link .sj-link-secondary { background: #fff !important; border: 1px solid #D0D5DD !important; color: #344054 !important; font-weight: 500; }
+#modal-sj-manual-link .sj-link-secondary:hover { background: #F9FAFB !important; }
+#modal-sj-manual-link .sj-link-apply { background: #344054 !important; border-color: #344054 !important; color: #fff !important; font-weight: 500; }
+#modal-sj-manual-link .sj-link-apply:hover { background: #1D2939 !important; }
+#modal-sj-manual-link .sj-link-apply:disabled { background: #EAECF0 !important; border-color: #EAECF0 !important; color: #98A2B3 !important; }
+#modal-sj-manual-link .sj-link-courier { border-color: #D0D5DD !important; font-size: 12.5px; height: 36px; }
+#modal-sj-manual-link .table thead th { text-transform: none; letter-spacing: 0; font-size: 12px; font-weight: 500; padding: 10px 12px; }
+#modal-sj-manual-link .table tbody td { padding: 12px; }
+#modal-sj-manual-link .table tbody strong { font-weight: 500; }
+#modal-sj-manual-link :is(button, input, select):focus-visible { outline: 2px solid #667085; outline-offset: 2px; }
+@media (max-width: 575px) {
+    #modal-sj-manual-link .modal-body { padding: 16px !important; }
+    #modal-sj-manual-link .sj-link-card { max-width: 100% !important; }
+}
+
+/* Wellen accents distinguish loading and table headings in manual linking. */
+#modal-sj-manual-link .spinner-border { color: var(--primary, #FF471D) !important; }
+#modal-sj-manual-link .table thead th {
+    background: #F2F4F7;
+    color: #344054;
+    font-weight: 600;
+    border-bottom: 2px solid #D0D5DD;
+}

@@ -4662,7 +4662,7 @@ function executeRenderRecentShipments(filter = null) {
 
                 const timeStr = shipmentStatusTime(d, t, status);
 
-                const searchableText = `${uniqueShipmentId} ${tripIdShort} ${t.id} ${cName} ${locName} ${fullAddress} ${status} ${d.pendingReason || ''} ${tripDateStr}`.toLowerCase();
+                const searchableText = `${uniqueShipmentId} ${tripIdShort} ${t.id} ${cName} ${locName} ${fullAddress} ${window.SJLinks?.label(d, t) || ''} ${status} ${d.pendingReason || ''} ${tripDateStr}`.toLowerCase();
                 const terms = rawSearch.split(/\s+/).filter(x => x.length > 0);
                 const matchSearch = !rawSearch || terms.every(term => {
                     const cleanTerm = term.replace('#', '');
@@ -4701,6 +4701,7 @@ function executeRenderRecentShipments(filter = null) {
                         destinationSnapshot: JSON.stringify(d),
                         displayId: itemDisplayId,
                         noSJ: realSJ || '-',
+                        sjDisplay: window.SJLinks?.label(d, t) || realSJ || '-',
                         adminSJ: d.adminSJ || t.adminSJ || window.CustomerMaster?.resolveName(d.customer || d.clientName || t.customer || t.clientName || d.locationName) || '',
                         dateStr: tripDateStr,
                         tripMs: tripMs,
@@ -4881,7 +4882,7 @@ function executeRenderRecentShipments(filter = null) {
         rowsHtml.push(`<tr ${trStyle}>
             ${selectionCell}
             <td class="fw-normal text-muted extra-small text-nowrap" style="white-space: nowrap;">${s.dateStr}</td>
-            <td class="fw-medium font-monospace text-dark text-nowrap" style="font-weight: 500 !important; font-size: 12.5px; white-space: nowrap;">${s.noSJ && s.noSJ !== '-' ? s.noSJ : '<span class="text-muted">-</span>'}</td>
+            <td class="fw-medium font-monospace text-dark text-nowrap" style="font-weight: 500 !important; font-size: 12.5px; white-space: nowrap;">${s.noSJ && s.noSJ !== '-' ? (s.sjDisplay || s.noSJ) : '<span class="text-muted">-</span>'}</td>
             <td class="text-muted extra-small text-nowrap" style="white-space: nowrap;">${s.adminSJ && s.adminSJ !== '-' ? escHtml(s.adminSJ) : '<span class="text-muted">-</span>'}</td>
             <td>
                 <div class="d-flex align-items-center gap-1"><div class="fw-medium text-dark text-truncate" style="max-width:200px" title="${escapeCourierText(s.customer || s.destinationName)}">${escHtml(s.customer || s.destinationName)}</div></div>
@@ -5372,7 +5373,7 @@ async function exportRecentShipmentsToExcel() {
                 const isDoneOrHasPhoto = selectedVolumeRow ? selectedVolumeRow.deliveredDestinations > 0 : (d.status === 'done' || d.status === 'completed' || d.status === 'delivered' || hasAnyPhoto);
                 const status = selectedVolumeRow && !isDoneOrHasPhoto ? (d.status === 'arrived' ? 'in_progress' : (d.status || 'in_progress')) : isDoneOrHasPhoto ? 'completed' : (d.status === 'arrived' ? 'in_progress' : (isPendingApproval ? 'pending_approval' : (isKlienTutupApproved ? 'klien_tutup' : (t.status || 'pending'))));
 
-                const searchableText = `${uniqueShipmentId} ${tripIdShort} ${tripIdStr} ${cName} ${locName} ${fullAddress} ${status} ${d.pendingReason || ''} ${tripDateStr}`.toLowerCase();
+                const searchableText = `${uniqueShipmentId} ${tripIdShort} ${tripIdStr} ${cName} ${locName} ${fullAddress} ${window.SJLinks?.label(d, t) || ''} ${status} ${d.pendingReason || ''} ${tripDateStr}`.toLowerCase();
                 const terms = rawSearch.split(/\s+/).filter(x => x.length > 0);
                 const matchSearch = !rawSearch || terms.every(term => {
                     const cleanTerm = term.replace('#', '');
@@ -5403,11 +5404,13 @@ async function exportRecentShipmentsToExcel() {
                     const completedStr = formatCompletionWIB(destinationCompletionMs(d, t), true);
                     const vType = d.vehicleType || t.vehicleType || getCourierVehicleType(courierIdStr, cName);
                     const vPlate = d.vehiclePlate || t.vehiclePlate || '-';
+                    const sjLabel = (window.SJLinks?.label(d, t) || (typeof getRealSJNumber === 'function' ? getRealSJNumber(d, t) : '') || d.sjNumber || d.noSJ || t.sjNumber || t.noSJ || '-').trim() || '-';
 
                     exportData.push({
                         "Tanggal": tripDateStr,
                         "Shipment ID": uniqueShipmentId,
-                        "No. SJ": d.sjNumber || d.noSJ || t.sjNumber || t.noSJ || '-',
+                        "NO Surat Jalan / NO DO": sjLabel,
+                        "No. SJ": sjLabel,
                         "Admin SJ": d.adminSJ || t.adminSJ || window.CustomerMaster?.resolveName(d.customer || d.clientName || t.customer || t.clientName || d.locationName) || '-',
                         "Trip Full ID": tripIdStr,
                         "Courier": cName,
@@ -5444,7 +5447,7 @@ async function exportRecentShipmentsToExcel() {
         });
 
         // 1. Title Row (Row 1)
-        sheet.mergeCells('A1:P1');
+        sheet.mergeCells('A1:Q1');
         const titleCell = sheet.getCell('A1');
         titleCell.value = "LAPORAN HISTORIS PENGANTARAN LOGISTIK - WTRACK LOGISTICS";
         titleCell.font = { name: 'Calibri', size: 13, bold: true, color: { argb: 'FFFFFFFF' } };
@@ -5457,7 +5460,7 @@ async function exportRecentShipmentsToExcel() {
         sheet.getRow(1).height = 26;
 
         // 2. Subtitle Row (Row 2)
-        sheet.mergeCells('A2:P2');
+        sheet.mergeCells('A2:Q2');
         const subCell = sheet.getCell('A2');
         subCell.value = `Periode: ${periodStr}  |  Kurir/Driver: ${carrierLabel}  |  Total Data: ${exportData.length} Titik Pengiriman`;
         subCell.font = { name: 'Calibri', size: 9.5, italic: true, bold: true, color: { argb: 'FF1F4E79' } };
@@ -5480,7 +5483,7 @@ async function exportRecentShipmentsToExcel() {
         const headerRow = sheet.getRow(4);
         headerRow.height = 26;
         const headers = [
-            "No", "Tanggal", "Shipment ID", "Trip Full ID", "Kurir / Driver", "Tipe Armada", 
+            "No", "Tanggal", "Shipment ID", "NO Surat Jalan / NO DO", "Trip Full ID", "Kurir / Driver", "Tipe Armada", 
             "Plat Mobil", "Stop #", "Tujuan / Toko", "Alamat Lengkap", "Status", 
             "Jam Sampai", "Jam Selesai", "Alasan Pending / Catatan", "Bukti Foto PoD", "Region"
         ];
@@ -5519,6 +5522,7 @@ async function exportRecentShipmentsToExcel() {
                 idx + 1,
                 rowItem.Tanggal,
                 rowItem["Shipment ID"],
+                rowItem["NO Surat Jalan / NO DO"] || rowItem["No. SJ"] || '-',
                 rowItem["Trip Full ID"],
                 rowItem.Courier,
                 rowItem["Tipe Armada"],
@@ -5547,23 +5551,27 @@ async function exportRecentShipmentsToExcel() {
                     cell.value = val;
                     cell.font = { name: 'Calibri', size: 9.5, color: { argb: 'FF475569' } };
                     cell.alignment = { vertical: 'middle', horizontal: 'center' };
-                } else if (cIdx === 1 || cIdx === 2 || cIdx === 3 || cIdx === 5 || cIdx === 6 || cIdx === 7 || cIdx === 11 || cIdx === 12) {
+                } else if (cIdx === 1 || cIdx === 2 || cIdx === 4 || cIdx === 6 || cIdx === 7 || cIdx === 8 || cIdx === 12 || cIdx === 13) {
                     cell.value = val;
                     cell.font = { name: 'Calibri', size: 9, color: { argb: 'FF334155' } };
                     cell.alignment = { vertical: 'middle', horizontal: 'center' };
-                } else if (cIdx === 4) {
+                } else if (cIdx === 3) {
+                    cell.value = val;
+                    cell.font = { name: 'Calibri', size: 9.5, bold: true, color: { argb: 'FF0F172A' } };
+                    cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+                } else if (cIdx === 5) {
                     cell.value = val;
                     cell.font = { name: 'Calibri', size: 9.5, bold: true, color: { argb: 'FF1E293B' } };
                     cell.alignment = { vertical: 'middle', horizontal: 'left' };
-                } else if (cIdx === 8) {
+                } else if (cIdx === 9) {
                     cell.value = val;
                     cell.font = { name: 'Calibri', size: 9.5, bold: true, color: { argb: 'FF0F172A' } };
                     cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
-                } else if (cIdx === 9) {
+                } else if (cIdx === 10) {
                     cell.value = val;
                     cell.font = { name: 'Calibri', size: 8.5, color: { argb: 'FF475569' } };
                     cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
-                } else if (cIdx === 10) {
+                } else if (cIdx === 11) {
                     cell.value = val;
                     cell.font = { name: 'Calibri', size: 9, bold: true };
                     cell.alignment = { vertical: 'middle', horizontal: 'center' };
@@ -5577,11 +5585,11 @@ async function exportRecentShipmentsToExcel() {
                         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
                         cell.font.color = { argb: 'FF92400E' };
                     }
-                } else if (cIdx === 13) {
+                } else if (cIdx === 14) {
                     cell.value = val;
                     cell.font = { name: 'Calibri', size: 8.5, color: { argb: 'FF475569' } };
                     cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
-                } else if (cIdx === 14) {
+                } else if (cIdx === 15) {
                     if (val && typeof val === 'string' && val.startsWith('http')) {
                         const photoArr = val.split(',').map(s => s.trim()).filter(Boolean);
                         cell.value = {
@@ -5594,7 +5602,7 @@ async function exportRecentShipmentsToExcel() {
                         cell.font = { name: 'Calibri', size: 8.5, italic: true, color: { argb: 'FF94A3B8' } };
                     }
                     cell.alignment = { vertical: 'middle', horizontal: 'center' };
-                } else if (cIdx === 15) {
+                } else if (cIdx === 16) {
                     cell.value = val;
                     cell.font = { name: 'Calibri', size: 9, color: { argb: 'FF334155' } };
                     cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
@@ -5607,6 +5615,7 @@ async function exportRecentShipmentsToExcel() {
             { width: 6 },   // No
             { width: 14 },  // Tanggal
             { width: 16 },  // Shipment ID
+            { width: 22 },  // NO Surat Jalan / NO DO
             { width: 22 },  // Trip Full ID
             { width: 22 },  // Kurir
             { width: 14 },  // Tipe Armada
@@ -5655,10 +5664,12 @@ function reportTripSJNumbers(trip) {
     if (trip) {
         add(trip.noSJ);
         add(trip.sjNumber);
+        window.SJLinks?.numbers(trip).forEach(add);
         (trip.destinations || []).forEach(destination => {
             if (!destination) return;
             add(destination.noSJ);
             add(destination.sjNumber);
+            window.SJLinks?.numbers(destination).forEach(add);
         });
     }
     return [...values].join(', ') || '-';
@@ -5782,7 +5793,7 @@ async function exportFullReportsToExcel() {
                 if (!d) return;
                 exportData.push({
                     "Trip ID": t.id || t.tripId || '-',
-                    "No. SJ": d.sjNumber || d.noSJ || t.sjNumber || t.noSJ || '-',
+                    "No. SJ": window.SJLinks?.label(d, t) || d.sjNumber || d.noSJ || t.sjNumber || t.noSJ || '-',
                     "Courier": cName,
                     "Tipe Armada": vType === 'mobil' ? 'Mobil' : 'Motor',
                     "Plat Mobil": d.vehiclePlate || vPlate,

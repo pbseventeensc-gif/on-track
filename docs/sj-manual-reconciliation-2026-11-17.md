@@ -216,3 +216,82 @@ Jika semua SJ dicentang dan tujuannya milik satu kurir:
 - klik **Tautkan N SJ** untuk menyimpan.
 
 Tidak perlu menekan tombol **Pasang** satu per satu.
+
+## Beberapa SJ untuk satu tujuan dan koreksi Romi → Firdaus
+
+Perubahan 17 November 2026 atas instruksi admin: **tautan manual** sekarang
+mendukung beberapa SJ pada satu tujuan fisik. Aturan lama satu tujuan = satu SJ
+pada alur manual digantikan oleh aturan berikut:
+
+- Satu SJ tetap hanya tertaut ke satu tujuan.
+- Satu tujuan dapat menerima beberapa SJ; jumlah stop, status, dan bukti tidak berubah.
+- Tautan tambahan disimpan dalam `destinations[].sjLinks[]`, masing-masing dengan
+  `noSJ`, `sjTripId`, waktu, aturan tautan, serta metadata customer/store asal import.
+- `noSJ`/`sjNumber` tetap berisi nomor utama untuk kompatibilitas alur pengiriman.
+- Dashboard, pencarian, laporan, Excel, dan kartu kurir menampilkan semua nomor.
+- Tautan manual dapat memilih tujuan yang sudah memiliki SJ. Klik tujuan yang sama
+  untuk menambahkan SJ terpilih berikutnya. Melepas pilihan hanya melepas SJ itu.
+- Tautkan Otomatis tetap memasangkan berurutan ke tujuan kosong; penambahan beberapa
+  SJ pada satu tujuan dipilih secara eksplisit oleh admin.
+- Menghapus trip membersihkan seluruh import key, termasuk nomor tambahan.
+- Kurir mengunggah bukti untuk stop yang sama; nomor utama pada tujuan dengan
+  beberapa SJ tidak dapat diganti dari form unggah kurir.
+
+Koreksi produksi selesai, dari `TRIP_1794881909233` (Romi) ke
+`TRIP_1794878154293` (Firdaus):
+
+| Tujuan Firdaus | Nomor SJ |
+| --- | --- |
+| Gyu-Kaku TSM Cibubur | SJ-1126-03192 |
+| AEON Mall Sentul City | SJ-1126-03165 |
+| Gyu-Kaku Botani Square | SJ-1126-03167 |
+| Molly Tea Kota Wisata | SJ-1126-03227 |
+| INFORMA Living World Kota Wisata | SJ-1126-03219, SJ-1126-03229 |
+| PT Merapi Maju Makmur | SJ-1126-03213, SJ-1126-03239, SJ-1126-03130 |
+
+Ketiga SJ Merapi digabung pada tujuan Merapi di trip utama Firdaus. Trip Merapi
+Firdaus lainnya (`TRIP_1794878298724`) tidak berubah. Jumlah stop tetap: Romi 21,
+trip utama Firdaus 11, trip Merapi lainnya 1. Romi masih memiliki 12 nomor SJ lain;
+nomor tersebut tidak termasuk koreksi ini.
+
+Penulisan menggunakan commit atomik dengan prasyarat `updateTime` untuk mencegah
+penimpaan perubahan kurir. Setiap nomor telah diverifikasi tepat sekali pada tujuan
+Firdaus, tidak lagi pada Romi, dan import key menunjuk trip Firdaus. Audit awal
+menyimpan referensi tujuan lama dan koreksi; audit perpindahan terpisah juga dibuat.
+Backup dan hasil verifikasi berada di direktori lokal yang diabaikan Git:
+`.artifacts/admin-reconcile-2026-11-17/transfer-*-backup.json` dan
+`verify-nine-result.json`.
+
+Validasi: seluruh 253 pengujian awal lolos, ditambah pengujian batas batch untuk
+banyak SJ; uji browser bulk ke satu stop, laporan, dan kartu kurir lolos tanpa
+error JavaScript. Salinan web dan fallback Android tersinkron; APK baru belum dibangun.
+
+Deployment Vercel dari working tree lokal: `dpl_ANeE2dpjiyc1ro1VgHkXt46yTZUH`,
+status **READY**, alias https://on-track-indol.vercel.app. Smoke test produksi HTTP
+200; `SJManualLink` tersedia dan script versi `20261117.7` termuat tanpa error.
+
+### Penyederhanaan popup
+
+Popup Tautkan Manual memakai font Inter dari `--font-sans` dashboard, kontrol
+netral, teks ringkas, serta penanda pilihan tanpa warna tambahan. Tombol pasangan
+berurutan tetap tersedia. Label versi UI di footer dihapus. Uji browser bulk dan
+single lolos; font modal/tombol sama dengan body pada desktop 1440 px dan ponsel
+390 px, tanpa overflow modal. Empat pengujian tautan beberapa SJ juga lolos.
+
+Deployment UI: `dpl_FuSHjJuW8WhzPx51N3pLiWHYocsS`, **READY**, production alias
+https://on-track-indol.vercel.app. Script tautan manual versi `20261117.8`, CSS
+versi `20261117.2`. Perubahan ini tidak menulis data pengiriman.
+
+### Loading Wellen, header tabel, dan dropdown kurir
+
+Spinner loading di popup dan tombol simpan memakai oranye Wellen `#FF471D`.
+Header tabel memakai latar `#F2F4F7`, teks lebih tebal dan garis bawah untuk
+membedakannya dari baris data. Dropdown kurir memakai komponen bersama dengan
+Manual Dispatch, termasuk pencarian dan avatar, dengan ukuran kontrol 36 px.
+Menu dropdown dalam modal ditempatkan di dalam modal agar pencarian tetap bisa
+menerima fokus dari Bootstrap; menu ditutup ketika modal ditutup.
+
+257 pengujian lolos; uji browser memverifikasi pencarian dropdown, pemilihan
+kurir, warna header dan spinner. Deployment production:
+`dpl_C68VCBFt7Hph9eZjboHzJ3gH1HZp` (**READY**), script manual link `20261117.9`,
+custom dropdown `20261117.1`, CSS `20261117.3`.

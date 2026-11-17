@@ -109,13 +109,15 @@
         // Status filter with few options should not have search input
         const isSearchable = !selectId.includes('status') && (totalOptions > 6 || hasOptgroups || selectId.includes('carrier') || selectId.includes('personil') || selectId.includes('courier'));
 
+        // Keep popup search inside the Bootstrap modal focus trap.
+        const portal = selectEl.closest('.modal') || document.body;
         // 1. Backdrop
         const backdrop = document.createElement('div');
         backdrop.className = 'wtrack-dropdown-backdrop';
         if (isMobile) {
             backdrop.classList.add('wtrack-mobile-backdrop');
         }
-        document.body.appendChild(backdrop);
+        portal.appendChild(backdrop);
         requestAnimationFrame(() => backdrop.classList.add('show'));
 
         const dismissHandler = (e) => {
@@ -429,7 +431,7 @@
             });
         }
 
-        document.body.appendChild(menu);
+        portal.appendChild(menu);
         triggerEl.classList.add('active');
         activeMenu = menu;
         activeTrigger = triggerEl;
@@ -661,6 +663,8 @@
             closeActiveDropdown();
         }
     });
+
+    document.addEventListener('hide.bs.modal', closeActiveDropdown);
 
     window.wtrackDropdown = {
         enhance: enhanceSelect,
