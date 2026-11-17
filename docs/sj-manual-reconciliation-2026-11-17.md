@@ -123,3 +123,17 @@ di Pool.
 - Smoke test production: `SJReconcile`, `SJReconcileCore`, modal, dan handler tombol tersedia; tidak ada error JavaScript.
 - Preview data produksi saat deploy: 416 SJ di Pool, 158 tujuan manual, **15 cocok**, **5 ambigu**, **138 tidak cocok**.
 - Tidak ada dokumen produksi yang diubah saat pengembangan/fitur ini dipasang. Penerapan hanya terjadi jika admin menekan **Terapkan**.
+
+
+## Status penggunaan saat ini
+
+Tombol **Sinkronkan SJ** disembunyikan dari toolbar SJ Pool untuk sementara.
+Keputusan operasional 17 November 2026: pengiriman manual hari ini ditangani
+lewat **foto Bulk SJ** atau koordinasi dengan admin, bukan auto-sync.
+
+Kode dan modal tetap tersimpan. Untuk menampilkan kembali tombol di kemudian hari,
+set `window.WTRACK_ENABLE_SJ_RECONCILE = true` sebelum dashboard dirender
+(misalnya lewat pengaturan fitur), lalu muat ulang halaman.
+
+Bulk SJ photo tetap tersedia lewat kartu Live Tracking / Manual Dispatch:
+pilih satu atau beberapa foto, upload, lalu buka Audit Bulk SJ untuk melihatnya.

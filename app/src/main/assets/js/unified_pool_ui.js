@@ -30,6 +30,12 @@ window.UnifiedPoolUI = (function () {
   function escapePoolHtml(value) {
     return String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
   }
+  // Reconciliation is intentionally hidden for the current manual photo / ask-admin
+  // workflow. Set window.WTRACK_ENABLE_SJ_RECONCILE = true to expose the tool later.
+  function sjReconcileEnabled() {
+    return window.WTRACK_ENABLE_SJ_RECONCILE === true;
+  }
+
   function assignmentBlockReason(trip) {
     if (!trip) return 'Tidak ditemukan';
     if (trip.pickupStatus === 'waiting' || trip.deliveryMethod === 'customer_pickup') return 'Pickup by Customer';
@@ -547,10 +553,11 @@ window.UnifiedPoolUI = (function () {
             </div>
           </div>
           <div class="d-flex align-items-center ms-auto" style="gap: 8px;">
+            ${sjReconcileEnabled() ? `
             <button class="btn btn-sm bg-white border text-dark fw-semibold d-inline-flex align-items-center text-nowrap" style="height: 32px; border-radius: 8px; font-size: 12.5px; padding: 0 12px; gap: 6px; border-color:#D0D5DD !important;" onclick="window.SJReconcile && window.SJReconcile.open()" title="Cocokkan pengiriman manual dengan nomor SJ import">
               <i class="bi bi-link-45deg" style="font-size: 13px;"></i>
               <span>Sinkronkan SJ</span>
-            </button>
+            </button>` : ''}
             <button class="btn btn-sm btn-wellen-action text-white fw-semibold d-inline-flex align-items-center text-nowrap" style="height: 32px; border-radius: 8px; font-size: 12.5px; padding: 0 12px; gap: 6px;" onclick="document.getElementById('sj-excel-file-input').click()">
               <i class="bi bi-upload" style="font-size: 12px;"></i>
               <span>Import DO</span>
