@@ -95,3 +95,17 @@ Perbaikan native berikut memerlukan **satu kali pemasangan APK baru** dan setela
   - `window.kurirHandleBack` dan `window.CourierUpdates` tersedia
   - tidak ada error JavaScript pada smoke test 390 px
 - Deployment ini memuat perbaikan web; APK lama otomatis memakainya saat membuka halaman online. Perbaikan native memerlukan APK berikutnya.
+
+## Sinkronisasi Git dan deploy otomatis
+
+- Commit: `f195dcd` (`feat: fleet service, admin SJ performance, and courier stability`)
+- Branch: `main`, sudah di-push ke `origin` (`pbseventeensc-gif/on-track`).
+- Push memicu deployment otomatis Vercel:
+  - referensi deployment: `6vCfb2npNAQ6QZfGMdn9cjwktEWo`
+  - status GitHub/Vercel: **success**
+  - production alias: https://on-track-indol.vercel.app
+- Verifikasi ulang setelah auto-deploy:
+  - build kurir `f3e99958f8e4516e`
+  - `kurirHandleBack` dan `target="_self"` ada di halaman produksi
+  - fitur admin `modal-pool-assign` dan `sj-import-pagination` ada di halaman produksi
+- Dengan integrasi Git aktif, push berikutnya ke `main` akan otomatis deploy ke production.
