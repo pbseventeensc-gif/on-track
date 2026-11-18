@@ -10,7 +10,7 @@ fs.writeFileSync(path.join(root,'kurir.html'),courier);
 fs.writeFileSync(path.join(root,'assets/app-version.json'),JSON.stringify({courier:build})+'\n');
 for(const target of ['public','app/src/main/assets']) {
     const output=path.join(root,target);
-    for(const file of ['index.html','kurir.html','download.html'])fs.copyFileSync(path.join(root,file),path.join(output,file));
+    for(const file of ['index.html','kurir.html','download.html','manifest.json','manifest-eri.json'])fs.copyFileSync(path.join(root,file),path.join(output,file));
     for(const directory of ['js','css'])fs.cpSync(path.join(root,directory),path.join(output,directory),{recursive:true});
     fs.mkdirSync(path.join(output,'assets'),{recursive:true});
     fs.copyFileSync(path.join(root,'assets/app-version.json'),path.join(output,'assets/app-version.json'));

@@ -27,6 +27,9 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+    <script src="/js/browser_session.js?v=20261118.1"></script>
+    <script src="/js/courier_web.js?v=20261118.1"></script>
 
     <style>
         :root {
@@ -46,6 +49,8 @@
             font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif !important;
             -webkit-tap-highlight-color: transparent;
         }
+
+        .courier-lite *, .courier-lite *::before, .courier-lite *::after { animation: none !important; transition: none !important; backdrop-filter: none !important; }
 
         body {
             background-color: var(--bg-body);
@@ -2362,7 +2367,17 @@
                 firebase.initializeApp(firebaseConfig, 'wtrack-courier');
             if (firebase.auth) {
                 const authInst = firebase.auth(typeof firebase.app === 'function' ? firebase.app('wtrack-courier') : undefined);
+                window.BrowserSession?.prepare(authInst);
                 authInst.onAuthStateChanged(user => {
+                    if ((typeof window !== 'undefined' && window.CourierWeb?.scoped) && !window.CourierWeb.allows(user)) {
+                        window.CourierWeb.stop();
+                        currentCourier = null;
+                        try { tripsUnsubscribe?.(); } catch (_) {}
+                        tripsUnsubscribe = null; tripsSubscriptionKey = ''; masterShipments = [];
+                        navigateToScreen('login');
+                        if (user && !user.isAnonymous) showToast('Tautan ini khusus erimotor04@gmail.com. Masuk dengan akun Eri.');
+                        return;
+                    }
                     if (user && !user.isAnonymous) {
                         const prof = resolveCourierProfile(user.email || user.displayName || user.uid, user.uid);
                         if (prof && prof.canonicalId) {
@@ -2580,7 +2595,8 @@
             if (serverSnapshot) applySnapshot(serverSnapshot);
             else {
                 tripsSubscriptionKey = subscriptionKey;
-                tripsUnsubscribe = firestoreDb.collection('trips').onSnapshot(applySnapshot, err => {
+                const query = typeof window !== 'undefined' && window.CourierWeb ? window.CourierWeb.tripQuery(firestoreDb, currentCourier) : firestoreDb.collection('trips');
+                tripsUnsubscribe = query.onSnapshot(applySnapshot, err => {
                     console.warn("Firestore sync offline fallback:", err);
                     tripsSubscriptionKey = '';
                     tripsUnsubscribe = null;
@@ -2608,7 +2624,8 @@
         document.querySelectorAll('.recover-courier-tasks').forEach(b => { b.disabled = true; });
         showToast('Memuat ulang tugas hari ini dari server…');
         try {
-            const snapshot = await firestoreDb.collection('trips').get({source: 'server'});
+            const query = typeof window !== 'undefined' && window.CourierWeb ? window.CourierWeb.tripQuery(firestoreDb, currentCourier) : firestoreDb.collection('trips');
+            const snapshot = await query.get({source: 'server'});
             syncFirestoreTrips(snapshot);
             currentFilter = 'unfinished';
             document.querySelectorAll('.filter-chip').forEach(chip => chip.classList.remove('active'));
@@ -2899,7 +2916,7 @@
     function loadSavedSession() {
         // A cached display profile alone is not an authenticated session.
         const user = typeof firebase !== 'undefined' && firebase.auth ? firebase.auth(typeof firebase.app === 'function' ? firebase.app('wtrack-courier') : undefined).currentUser : null;
-        if (!user || user.isAnonymous) return false;
+        if (!user || user.isAnonymous || ((typeof window !== 'undefined' && window.CourierWeb?.scoped) && !window.CourierWeb.allows(user))) return false;
         try {
             const raw = localStorage.getItem('wtrack_saved_courier');
             if (raw) {
@@ -2931,6 +2948,7 @@
     }
 
     function completeCourierLogin(profile, keepSignedIn) {
+        if ((typeof window !== 'undefined' && window.CourierWeb?.scoped) && !window.CourierWeb.allows(profile)) { showToast('Tautan ini khusus akun Eri.'); return; }
         const officialAvatar = resolveOfficialAvatar(profile);
         if (officialAvatar) {
             profile.avatar = officialAvatar;
@@ -2940,6 +2958,7 @@
             localStorage.setItem('wtrack_saved_courier', JSON.stringify(currentCourier));
             localStorage.setItem('wtrack_keep_signed_in', 'true');
         }
+        window.CourierWeb?.connect(profile, firebase.auth(typeof firebase.app === 'function' ? firebase.app('wtrack-courier') : undefined));
         applyCourierProfile();
         syncFirestoreTrips();
         syncLocalImportedTrips();
@@ -2955,6 +2974,7 @@
         const account = findLoginCourierMatch(input);
         const email = input.includes('@') ? input : (account?.loginEmail || '');
         const pass = passInput?.value || '';
+        if ((typeof window !== 'undefined' && window.CourierWeb?.scoped) && email.toLowerCase() !== 'erimotor04@gmail.com') { showToast('Tautan ini khusus akun Eri.'); return; }
         if (!email) {
             showToast('Masukkan email lengkap atau pilih kartu akun Anda.');
             return;
@@ -2974,7 +2994,10 @@
         if (button) button.disabled = true;
         showToast('Memproses login...');
         try {
-            const cred = await firebase.auth(typeof firebase.app === 'function' ? firebase.app('wtrack-courier') : undefined).signInWithEmailAndPassword(email, pass);
+            const courierAuth = firebase.auth(typeof firebase.app === 'function' ? firebase.app('wtrack-courier') : undefined);
+            if (typeof window !== 'undefined') await window.BrowserSession?.prepare(courierAuth);
+            const cred = await courierAuth.signInWithEmailAndPassword(email, pass);
+            if ((typeof window !== 'undefined' && window.CourierWeb?.scoped) && !window.CourierWeb.allows(cred.user)) { showToast('Akun tidak sesuai dengan tautan Eri.'); return; }
             const user = cred.user;
             const profile = resolveCourierProfile(user.email || email, user.uid);
             const photo = resolveOfficialAvatar(profile);
@@ -3037,6 +3060,8 @@
             const modal = bootstrap.Modal.getInstance(modalEl);
             if (modal) modal.hide();
         }
+        window.CourierWeb?.stop();
+        currentCourier = null;
         localStorage.removeItem('wtrack_saved_courier');
         localStorage.removeItem('wtrack_keep_signed_in');
         try { tripsUnsubscribe?.(); } catch(e) {}
@@ -4020,8 +4045,8 @@
             qrVideoStream = await navigator.mediaDevices.getUserMedia({
                 video: {
                     facingMode: { ideal: qrFacingMode },
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 }
+                    width: { ideal: window.CourierWeb?.scoped ? 640 : 1280 },
+                    height: { ideal: window.CourierWeb?.scoped ? 480 : 720 }
                 },
                 audio: false
             });
@@ -4033,7 +4058,7 @@
 
             qrScanInterval = setInterval(() => {
                 scanCurrentVideoFrame(false);
-            }, 350);
+            }, window.CourierWeb?.scoped ? 500 : 350);
         } catch (err) {
             console.warn("Camera access note:", err);
             if (statusBadge) {
@@ -4068,8 +4093,10 @@
             return;
         }
 
-        const w = video.videoWidth || 640;
-        const h = video.videoHeight || 480;
+        const frameWidth = video.videoWidth || 640;
+        const scale = window.CourierWeb?.scoped ? Math.min(1, 640 / frameWidth) : 1;
+        const w = Math.round(frameWidth * scale);
+        const h = Math.round((video.videoHeight || 480) * scale);
         canvas.width = w;
         canvas.height = h;
         const ctx = canvas.getContext('2d');
@@ -4993,6 +5020,6 @@
 </script>
 <script src="/js/courier_route.js?v=20261114.1"></script>
 
-<script src="/js/courier_updates.js?v=20261117.1" data-build="70c6c33ca00470ed"></script>
+<script src="/js/courier_updates.js?v=20261117.1" data-build="3fae5c398b534576"></script>
 </body>
 </html>

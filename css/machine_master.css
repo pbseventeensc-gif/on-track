@@ -1,0 +1,73 @@
+/**
+ * Machine Master CSS - Inherits and extends Material Master Aerotrack Design
+ */
+.machine-master .mm-table td,
+.operator-master .mm-table td,
+.branch-master .mm-table td {
+    height: 48px;
+    vertical-align: middle;
+}
+
+.machine-master .mm-table .badge,
+.operator-master .mm-table .badge,
+.branch-master .mm-table .badge {
+    font-weight: 500;
+    letter-spacing: 0.02em;
+}
+
+.machine-master .mm-editor .form-select-sm,
+.machine-master .mm-editor .form-control-sm,
+.operator-master .mm-editor .form-select-sm,
+.operator-master .mm-editor .form-control-sm,
+.branch-master .mm-editor .form-select-sm,
+.branch-master .mm-editor .form-control-sm {
+    font-size: 12.5px;
+    border-radius: 6px;
+    border-color: #D0D5DD;
+}
+
+.machine-master .mm-editor .form-select-sm:focus,
+.machine-master .mm-editor .form-control-sm:focus,
+.operator-master .mm-editor .form-select-sm:focus,
+.operator-master .mm-editor .form-control-sm:focus,
+.branch-master .mm-editor .form-select-sm:focus,
+.branch-master .mm-editor .form-control-sm:focus {
+    border-color: #84CAFF;
+    box-shadow: 0 0 0 3px rgba(132, 202, 255, 0.25);
+}
+
+/* Badge Angka Counter - Warna Brand Wellen */
+.machine-master .mm-tab span,
+.operator-master .mm-tab span,
+.branch-master .mm-tab span,
+.material-master .mm-tab span,
+.mm-tab span,
+.mm-tabs button span,
+.aerotrack-pill-btn span {
+    background: rgba(255, 71, 29, 0.12) !important;
+    color: #FF471D !important;
+    border: 1px solid rgba(255, 71, 29, 0.28) !important;
+    border-radius: 9999px !important;
+    padding: 1px 7px !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    font-variant-numeric: tabular-nums;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1.3;
+    transition: all 0.15s ease;
+}
+
+.machine-master .mm-tab.is-active span,
+.operator-master .mm-tab.is-active span,
+.branch-master .mm-tab.is-active span,
+.material-master .mm-tab.is-active span,
+.mm-tab.is-active span,
+.mm-tabs button.is-active span,
+.aerotrack-pill-btn.active span {
+    background: #FF471D !important;
+    color: #FFFFFF !important;
+    border-color: #FF471D !important;
+    box-shadow: 0 1px 4px rgba(255, 71, 29, 0.35);
+}

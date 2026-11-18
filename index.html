@@ -33,6 +33,9 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 
+    <script src="/js/browser_session.js?v=20261118.1"></script>
+    <script src="/js/admin_runtime.js?v=20261118.1"></script>
+
     <!-- Google Maps JS API with Places -->
     <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCAR9bhj6u72OpTqYLEuBvBGvCaaFSPUGQ&libraries=places&loading=async"></script>
 
@@ -84,6 +87,7 @@
             firebase.initializeApp(window.firebaseConfig);
         }
         window.auth = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth() : null;
+        window.BrowserSession?.prepare(window.auth);
         window.db = (typeof firebase !== 'undefined' && firebase.firestore) ? firebase.firestore() : null;
         window.rtdb = (typeof firebase !== 'undefined' && firebase.database) ? firebase.database() : null;
         window.storage = (typeof firebase !== 'undefined' && firebase.storage) ? firebase.storage() : null;
@@ -293,36 +297,9 @@
         }
         window.loginAsLocalDemoAdmin = loginAsLocalDemoAdmin;
 
-        // Listener Auth State: Otomatis masuk jika sudah login / refresh
-        if (window.auth) {
-            window.auth.onAuthStateChanged(function(user) {
-                if (window.isDemoMode) return;
-                const loginScreen = document.getElementById('login-screen');
-                const mainWrapper = document.getElementById('main-wrapper');
-                const profileName = document.getElementById('profile-name');
-                const profileAvatar = document.getElementById('profile-avatar');
+        // Auth restoration is owned by initAuthListener in app.js. Keeping one
+        // UI listener prevents competing login/dashboard transitions.
 
-                if (user) {
-                    if (loginScreen) loginScreen.style.setProperty('display', 'none', 'important');
-                    if (mainWrapper) mainWrapper.style.setProperty('display', 'flex', 'important');
-
-                    // Restore from cache if available to prevent UI flicker
-                    try {
-                        const cached = localStorage.getItem('wtrack_cached_user_profile');
-                        if (cached) {
-                            const p = JSON.parse(cached);
-                            if (profileName && p.name) profileName.innerText = p.name;
-                            if (profileAvatar && p.avatar && profileAvatar.getAttribute('src') !== p.avatar) {
-                                profileAvatar.src = p.avatar;
-                            }
-                        }
-                    } catch(e) {}
-                } else {
-                    if (loginScreen) loginScreen.style.setProperty('display', 'flex', 'important');
-                    if (mainWrapper) mainWrapper.style.setProperty('display', 'none', 'important');
-                }
-            });
-        }
 
         document.addEventListener('DOMContentLoaded', function() {
             const now = new Date();
@@ -349,7 +326,9 @@
 
     <!-- Custom CSS Styles -->
     <link rel="stylesheet" href="/css/style.css?v=20261117.3">
-    <link rel="stylesheet" href="/css/material_master.css?v=20261114.1">
+    <link rel="stylesheet" href="/css/material_master.css?v=20261117.2">
+    <link rel="stylesheet" href="/css/machine_master.css?v=20261117.2">
+    <link rel="stylesheet" href="/css/production/production.css?v=20261117.2">
     <link rel="stylesheet" href="/css/dispatch_workflow.css?v=20261114.1">
     <style>
         :root {
@@ -1281,7 +1260,16 @@
                 </div>
                 <div class="sidebar-sub-items">
                     <a href="javascript:void(0)" class="sub-nav-item" id="nav-material-master" onclick="MaterialMaster.open()">
-                        <i class="bi bi-layers sub-icon"></i> <span>Bahan</span>
+                        <i class="bi bi-layers sub-icon"></i> <span>Bahan & SKU</span>
+                    </a>
+                    <a href="javascript:void(0)" class="sub-nav-item" id="nav-machine-master" onclick="if(window.MachineMaster&&typeof window.MachineMaster.open==='function'){window.MachineMaster.open();}else{switchTab('machine-master', this);}">
+                        <i class="bi bi-cpu sub-icon"></i> <span>Mesin Produksi</span>
+                    </a>
+                    <a href="javascript:void(0)" class="sub-nav-item" id="nav-operator-master" onclick="if(window.OperatorMaster&&typeof window.OperatorMaster.open==='function'){window.OperatorMaster.open();}else{switchTab('operator-master', this);}">
+                        <i class="bi bi-person-gear sub-icon"></i> <span>Operator Mesin</span>
+                    </a>
+                    <a href="javascript:void(0)" class="sub-nav-item" id="nav-branch-master" onclick="if(window.BranchMaster&&typeof window.BranchMaster.open==='function'){window.BranchMaster.open();}else{switchTab('branch-master', this);}">
+                        <i class="bi bi-buildings sub-icon"></i> <span>Cabang / Branch</span>
                     </a>
                     <a href="javascript:void(0)" class="sub-nav-item" id="nav-customers" onclick="switchTab('customers', this)">
                         <i class="bi bi-person-vcard sub-icon"></i> <span>Database Customer</span>
@@ -2797,6 +2785,21 @@
                 <!-- Di-render oleh SPKManager.renderSPKView() -->
             </div>
 
+            <!-- MASTER MESIN PRODUKSI VIEW -->
+            <div id="view-machine-master" class="view-section" style="display: none;">
+                <!-- Di-render oleh MachineMaster.render() -->
+            </div>
+
+            <!-- MASTER OPERATOR PRODUKSI VIEW -->
+            <div id="view-operator-master" class="view-section" style="display: none;">
+                <!-- Di-render oleh OperatorMaster.render() -->
+            </div>
+
+            <!-- MASTER BRANCH CABANG VIEW -->
+            <div id="view-branch-master" class="view-section" style="display: none;">
+                <!-- Di-render oleh BranchMaster.render() -->
+            </div>
+
             <!-- SETTINGS VIEW -->
             <div id="view-settings" class="view-section">
                 <div class="row g-4">
@@ -3492,8 +3495,11 @@
                     <button type="button" class="btn btn-sm aerotrack-input d-flex align-items-center gap-1.5 fw-semibold" style="background: transparent !important; color: #0f172a !important; border: 1.5px solid #cbd5e1 !important;" onclick="document.getElementById('spk-excel-native-input').click()">
                         <i class="bi bi-file-earmark-check text-primary" data-ua="fileText"></i> <span>File</span>
                     </button>
-                    <button type="button" class="btn btn-sm btn-light border aerotrack-input d-flex align-items-center gap-1.5 fw-semibold" onclick="document.getElementById('spk-folder-native-input').click()" title="Pilih folder berisi file-file SPK">
+                    <button type="button" class="btn btn-sm btn-folder-browse aerotrack-input d-flex align-items-center gap-1.5 fw-semibold" onclick="document.getElementById('spk-folder-native-input').click()" title="Pilih folder berisi file-file SPK">
                         <i class="bi bi-folder2-open text-primary" data-ua="folder"></i> <span>Folder</span>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-primary aerotrack-input d-flex align-items-center gap-1.5 fw-semibold" onclick="window.SPKScheduler && window.SPKScheduler.openBulkScheduleModal('preview')" title="Jadwalkan SPK terpilih ke mesin & operator sekaligus">
+                        <i class="bi bi-calendar2-check"></i> <span>Jadwalkan Masal</span>
                     </button>
                     <button type="button" class="btn btn-sm btn-outline-danger aerotrack-input px-2.5" id="btn-spk-bulk-delete" style="display: none;" onclick="window.spkManager && window.spkManager.deleteSelectedSPKRows()" title="Hapus SPK terpilih">
                         <i class="bi bi-trash me-1"></i> Hapus Terpilih
@@ -3501,8 +3507,10 @@
                 </div>
                 <div class="d-flex align-items-center gap-1.5 flex-wrap">
                     <span class="text-muted extra-small me-1">Alokasi Cabang:</span>
-                    <button type="button" class="btn btn-sm btn-light border py-1 px-3 aerotrack-input fw-semibold" onclick="window.spkManager && window.spkManager.setBulkBranch('pusat')">Pusat</button>
-                    <button type="button" class="btn btn-sm btn-light border py-1 px-3 aerotrack-input fw-semibold" onclick="window.spkManager && window.spkManager.setBulkBranch('cikokol')">Cikokol</button>
+                    <button type="button" class="btn btn-sm btn-light border py-1 px-2.5 aerotrack-input fw-semibold" onclick="window.spkManager && window.spkManager.setBulkBranch('DM 1')">DM 1</button>
+                    <button type="button" class="btn btn-sm btn-light border py-1 px-2.5 aerotrack-input fw-semibold" onclick="window.spkManager && window.spkManager.setBulkBranch('DM 2')">DM 2</button>
+                    <button type="button" class="btn btn-sm btn-light border py-1 px-2.5 aerotrack-input fw-semibold" onclick="window.spkManager && window.spkManager.setBulkBranch('DM 3')">DM 3</button>
+                    <button type="button" class="btn btn-sm btn-light border py-1 px-2.5 aerotrack-input fw-semibold" onclick="window.spkManager && window.spkManager.setBulkBranch('Cikokol')">Cikokol</button>
                 </div>
             </div>
 
@@ -3516,18 +3524,19 @@
                                     <th style="width: 38px;" class="text-center">
                                         <input type="checkbox" class="form-check-input" id="check-all-preview-spk" checked onchange="window.spkManager && window.spkManager.toggleAllSPKPreview(this.checked)">
                                     </th>
-                                    <th style="width: 44px;" class="text-center">No</th>
-                                    <th style="width: 140px;">Mesin</th>
-                                    <th style="min-width: 220px;">Nama Barang & Job</th>
-                                    <th style="width: 120px;">Size</th>
+                                    <th style="width: 38px;" class="text-center">No</th>
+                                    <th style="width: 105px;">Cabang</th>
+                                    <th style="width: 165px;">Mesin</th>
+                                    <th style="min-width: 200px;">Nama Barang & Job</th>
+                                    <th style="width: 100px;">Size</th>
                                     <th style="width: 80px;" class="text-end">Qty</th>
-                                    <th style="width: 140px;">Finishing</th>
-                                    <th style="width: 130px;">Cabang</th>
-                                    <th style="width: 44px;" class="text-center"><i class="bi bi-trash text-muted"></i></th>
+                                    <th style="width: 120px;">Finishing</th>
+                                    <th style="width: 95px;" class="text-center">Split</th>
+                                    <th style="width: 38px;" class="text-center"><i class="bi bi-trash text-muted"></i></th>
                                 </tr>
                             </thead>
                             <tbody id="spk-import-preview-tbody">
-                                <tr><td colspan="9" class="text-center py-5 text-muted" style="font-size: 0.85rem;">Belum ada file dipilih. Silakan pilih file Excel SPK di atas.</td></tr>
+                                <tr><td colspan="10" class="text-center py-5 text-muted" style="font-size: 0.85rem;">Belum ada file dipilih. Silakan pilih file Excel SPK di atas.</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -3539,6 +3548,142 @@
                 <button type="button" class="btn btn-sm btn-light border px-3 aerotrack-input fw-semibold" data-bs-dismiss="modal">Batal</button>
                 <button type="button" class="btn btn-sm btn-wellen-action px-3.5 fw-semibold aerotrack-input" onclick="window.commitSPKImportPreview && window.commitSPKImportPreview()">
                     <i class="bi bi-check-lg me-1"></i> Simpan
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: SPLIT PEKERJAAN SPK KE BEBERAPA MESIN -->
+<div class="modal fade" id="modal-spk-split" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <div class="modal-header border-bottom py-2.5 px-4 bg-white d-flex align-items-center justify-content-between">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="aerotrack-badge badge-warning px-2 py-0.5"><i class="bi bi-scissors me-1"></i>Split SPK</span>
+                    <h6 class="modal-title fw-bold text-dark m-0" style="font-size:14px;">Bagi Pekerjaan ke Beberapa Mesin</h6>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 bg-light">
+                <div class="p-3 bg-white rounded-3 border mb-3" style="border-color:#EAECF0 !important;">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <div>
+                            <div class="fw-bold text-dark" id="split-item-name" style="font-size:13px;">-</div>
+                            <div class="text-muted extra-small" id="split-item-specs">-</div>
+                        </div>
+                        <div class="text-end">
+                            <span class="text-muted extra-small d-block text-uppercase">Total Target Qty</span>
+                            <span class="fw-bold text-primary font-monospace" style="font-size:16px;" id="split-item-total-qty">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-2 d-flex justify-content-between align-items-center">
+                    <span class="fw-semibold text-dark extra-small text-uppercase">Alokasi Mesin & Kuantitas Pecahan</span>
+                    <button type="button" class="btn btn-sm btn-light border px-2.5 py-1 text-primary fw-semibold" style="height:30px; font-size:11.5px; border-radius:6px;" onclick="window.spkManager && window.spkManager.addSplitPartRow()">
+                        <i class="bi bi-plus-circle me-1"></i> Tambah Mesin
+                    </button>
+                </div>
+
+                <div id="split-parts-container" class="d-flex flex-column gap-2 mb-3">
+                    <!-- Di-render oleh renderSplitModalParts() -->
+                </div>
+
+                <div id="split-validation-alert" class="p-2.5 rounded-3 border d-flex align-items-center justify-content-between" style="font-size:12px;">
+                    <!-- Live summary status -->
+                </div>
+            </div>
+            <div class="modal-footer border-top py-2.5 px-4 bg-white d-flex justify-content-between">
+                <button type="button" class="btn btn-sm btn-light border px-3 aerotrack-input fw-semibold" data-bs-dismiss="modal">Batal</button>
+                <button type="button" id="btn-apply-split" class="btn btn-sm btn-wellen-action px-3.5 fw-semibold aerotrack-input" onclick="window.spkManager && window.spkManager.applySplit()">
+                    <i class="bi bi-check2-circle me-1"></i> Terapkan Split
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: JADWAL PRODUKSI MASAL (BATCH SCHEDULING) -->
+<div class="modal fade" id="modal-spk-bulk-schedule" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-md">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <div class="modal-header border-bottom py-2.5 px-4 bg-white d-flex align-items-center justify-content-between">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="aerotrack-badge badge-primary px-2 py-0.5"><i class="bi bi-calendar2-check me-1"></i>Batch Scheduling</span>
+                    <h6 class="modal-title fw-bold text-dark m-0" style="font-size:14px;">Jadwalkan Produksi Masal</h6>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 bg-light">
+                <!-- Info Terpilih -->
+                <div class="p-3 bg-white rounded-3 border mb-3 d-flex align-items-center justify-content-between" style="border-color:#EAECF0 !important;">
+                    <div>
+                        <span class="text-muted extra-small d-block text-uppercase fw-semibold">Target Alokasi</span>
+                        <div class="fw-bold text-dark" style="font-size:13px;">Penjadwalan Ratusan SPK Serentak</div>
+                    </div>
+                    <span id="bulk-schedule-count" class="badge bg-primary px-2.5 py-1.5 font-monospace fw-semibold" style="font-size:12px;">0 SPK Terpilih</span>
+                </div>
+
+                <div class="row g-2 mb-2">
+                    <div class="col-md-6">
+                        <label class="form-label extra-small fw-semibold mb-1">Target Cabang *</label>
+                        <select id="sched-branch" class="form-select form-select-sm aerotrack-select" onchange="window.SPKScheduler && window.SPKScheduler.onScheduleBranchChange(this.value)">
+                            <option value="DM 1">DM 1</option>
+                            <option value="DM 2" selected>DM 2</option>
+                            <option value="DM 3">DM 3</option>
+                            <option value="Cikokol">Cikokol</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label extra-small fw-semibold mb-1">Target Mesin *</label>
+                        <select id="sched-machine" class="form-select form-select-sm aerotrack-select" onchange="window.SPKScheduler && window.SPKScheduler.onScheduleMachineChange(this.value)">
+                            <!-- Populated dynamically -->
+                        </select>
+                    </div>
+                </div>
+
+                <div class="row g-2 mb-2">
+                    <div class="col-md-6">
+                        <label class="form-label extra-small fw-semibold mb-1">Tugaskan Operator</label>
+                        <select id="sched-operator" class="form-select form-select-sm aerotrack-select">
+                            <!-- Populated dynamically -->
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label extra-small fw-semibold mb-1">Shift Kerja</label>
+                        <select id="sched-shift" class="form-select form-select-sm aerotrack-select">
+                            <option value="Shift 1 (Pagi)">Shift 1 (Pagi)</option>
+                            <option value="Shift 2 (Siang)">Shift 2 (Siang)</option>
+                            <option value="Shift 3 (Malam)">Shift 3 (Malam)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="row g-2 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label extra-small fw-semibold mb-1">Prioritas Cetak</label>
+                        <select id="sched-priority" class="form-select form-select-sm aerotrack-select">
+                            <option value="normal">Normal</option>
+                            <option value="urgent">Urgent (Prioritas Tinggi)</option>
+                            <option value="rush">Rush Order (Kilat)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label extra-small fw-semibold mb-1">Target Tanggal</label>
+                        <input id="sched-target-date" type="date" class="form-control form-control-sm aerotrack-input">
+                    </div>
+                </div>
+
+                <div class="mb-1">
+                    <label class="form-label extra-small fw-semibold mb-1">Catatan Jadwal (Opsional)</label>
+                    <input id="sched-notes" type="text" class="form-control form-control-sm aerotrack-input" placeholder="Contoh: Kejar kirim sebelum jam 13:00 WIB">
+                </div>
+            </div>
+            <div class="modal-footer border-top py-2.5 px-4 bg-white d-flex justify-content-between">
+                <button type="button" class="btn btn-sm btn-light border px-3 aerotrack-input fw-semibold" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-sm btn-wellen-action px-3.5 fw-semibold aerotrack-input" onclick="window.SPKScheduler && window.SPKScheduler.applyBulkSchedule()">
+                    <i class="bi bi-calendar2-check me-1"></i> Terapkan Jadwal Masal
                 </button>
             </div>
         </div>
@@ -3770,18 +3915,22 @@
 <script src="js/fleet_service.js?v=20261117.1"></script>
 <script src="/js/fleet_vehicles.js?v=20261116.1"></script>
 <script src="js/delivery_identity.js?v=20261114.1"></script>
-<script src="/js/sj_links.js?v=20261117.1"></script>
-<script src="/js/app.js?v=20261117.5"></script>
+<script src="/js/sj_links.js?v=20261118.2"></script>
+<script src="/js/app.js?v=20261118.3"></script>
 <script src="/js/customer_master.js?v=20261114.1"></script>
 <script src="/js/bulk_assignment.js?v=20261114.1"></script>
 <script src="/js/kpi.js?v=20261114.1"></script>
 <script src="/js/courier_audit.js?v=20261114.1"></script>
-<script src="/js/custom_dropdown.js?v=20261117.1"></script>
+<script src="/js/custom_dropdown.js?v=20261118.2"></script>
 <script src="/js/vendor/qrcode.js?v=20261114.1"></script>
 <script src="/js/qr_print_dispatch.js?v=20261114.1"></script>
 <script src="/js/sj_import_engine.js?v=20261117.3"></script>
 <script src="/js/branch_workstation.js?v=20261114.1"></script>
 <script src="/js/spk_manager.js?v=20261114.1"></script>
+<script src="/js/machine_master.js?v=20261117.2"></script>
+<script src="/js/production/branch_master.js?v=20261117.1"></script>
+<script src="/js/production/operator_master.js?v=20261117.2"></script>
+<script src="/js/production/spk_scheduler.js?v=20261117.2"></script>
 <script src="/js/web_qr_scanner_sim.js?v=20261114.1"></script>
 <script src="/js/material_seed.js?v=20261114.1"></script>
 <script src="/js/material_master.js?v=20261114.1"></script>
@@ -3793,7 +3942,7 @@
 <script src="/js/unified_pool_ui.js?v=20261117.8"></script>
 <script src="/js/sj_reconcile_core.js?v=20261117.1"></script>
 <script src="/js/sj_reconcile.js?v=20261117.1"></script>
-<script src="/js/sj_manual_link.js?v=20261117.9"></script>
+<script src="/js/sj_manual_link.js?v=20261118.2"></script>
 <script src="/js/erp_sidebar.js?v=20261114.1"></script>
 <script src="/js/vendor/lottie.min.js?v=20261115.1"></script>
 <script src="/js/useanimations_icons.js?v=20261115.1"></script>

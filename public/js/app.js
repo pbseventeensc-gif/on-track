@@ -1678,6 +1678,10 @@ function isTabAllowedForRole(role, viewId) {
     if (viewId && (
         viewId === 'import-sj' ||
         viewId === 'import-spk' ||
+        viewId === 'branch-master' ||
+        viewId === 'machine-master' ||
+        viewId === 'operator-master' ||
+        viewId === 'material-master' ||
         viewId.startsWith('job-') ||
         viewId.startsWith('deskprint-') ||
         viewId.startsWith('prod-') ||
@@ -1906,6 +1910,18 @@ function switchTab(viewId, el) {
     } else if (viewId === 'fleet-inventory') {
         if (window.fleetModule && typeof window.fleetModule.renderFleetInventoryView === 'function') {
             window.fleetModule.renderFleetInventoryView();
+        }
+    } else if (viewId === 'machine-master') {
+        if (window.MachineMaster && typeof window.MachineMaster.render === 'function') {
+            window.MachineMaster.render();
+        }
+    } else if (viewId === 'operator-master') {
+        if (window.OperatorMaster && typeof window.OperatorMaster.render === 'function') {
+            window.OperatorMaster.render();
+        }
+    } else if (viewId === 'branch-master') {
+        if (window.BranchMaster && typeof window.BranchMaster.render === 'function') {
+            window.BranchMaster.render();
         }
     }
 
@@ -2806,7 +2822,8 @@ function initRtdbListener() {
     }
     activeRtdb.ref('courier_live_location').on('value', snap => {
         currentOnlineCouriers = snap.val() || {};
-        updateGlobalStats();
+        if (window.AdminRuntime) window.AdminRuntime.schedule('gps');
+        else updateGlobalStats({telemetryOnly: true});
     });
 }
 initRtdbListener();
@@ -2877,15 +2894,16 @@ function initTripsSnapshot() {
         window.allPoolTrips = pool;
         allCurrentTrips = trips;
         window.allCurrentTrips = trips;
-        // Coalesce bursts of Firestore snapshots into one render. Full pool
-        // re-renders after every courier update caused jank on large datasets.
-        if (window.UnifiedPoolUI?.scheduleRender) window.UnifiedPoolUI.scheduleRender();
-        else window.UnifiedPoolUI?.renderUnifiedPoolView?.();
         if (typeof initDefaultDateFilters === 'function') initDefaultDateFilters();
-        updateGlobalStats();
-        renderRecentShipments();
-        if (typeof renderMonitorUI === 'function') renderMonitorUI();
-        if (typeof refreshMapSizes === 'function') refreshMapSizes();
+        if (window.AdminRuntime) window.AdminRuntime.schedule('trips');
+        else {
+            if (window.UnifiedPoolUI?.scheduleRender) window.UnifiedPoolUI.scheduleRender();
+            else window.UnifiedPoolUI?.renderUnifiedPoolView?.();
+            updateGlobalStats(); renderRecentShipments();
+            if (typeof renderMonitorUI === 'function') renderMonitorUI();
+            if (typeof refreshMapSizes === 'function') refreshMapSizes();
+        }
+
     }, err => {
         console.error("Firestore trips snapshot error:", err);
     });
@@ -2895,7 +2913,7 @@ initTripsSnapshot();
 
 let isUpdatingStats = false;
 
-function updateGlobalStats() {
+function updateGlobalStats(options = {}) {
     if (isUpdatingStats) return;
     isUpdatingStats = true;
 
@@ -3118,7 +3136,7 @@ function updateGlobalStats() {
         if(document.getElementById('stat-ontime')) document.getElementById('stat-ontime').innerText = deliveryRate + "%";
 
         window.VolumeComparison?.applyStatCards?.();
-        refreshAllMonitorData();
+        if (!options.telemetryOnly) refreshAllMonitorData();
         updateDynamicAlerts();
         updateHeaderDate();
     } finally {
@@ -3131,13 +3149,15 @@ function refreshAllMonitorData() {
     if (refreshMonitorTimeout) return;
     refreshMonitorTimeout = setTimeout(() => {
         refreshMonitorTimeout = null;
-        renderMonitorUI(activeFilter);
-        if (typeof updateMapMarkers === 'function') updateMapMarkers(activeFilter);
-        updateMonitorSuggestions();
-        if (typeof renderKPIView === 'function') renderKPIView();
-        if (typeof VolumeComparison !== 'undefined' && typeof VolumeComparison.render === 'function') {
-            VolumeComparison.render();
+        if (document.hidden) return;
+        const view = document.querySelector('.view-section.active')?.id || 'view-dashboard';
+        if (view === 'view-monitor') {
+            renderMonitorUI(activeFilter);
+            if (typeof updateMapMarkers === 'function') updateMapMarkers(activeFilter);
+            updateMonitorSuggestions();
         }
+        if (view === 'view-fleet' && typeof renderKPIView === 'function') renderKPIView();
+        if (view === 'view-dashboard' && typeof VolumeComparison !== 'undefined' && typeof VolumeComparison.render === 'function') VolumeComparison.render();
     }, 100);
 }
 
@@ -4702,6 +4722,7 @@ function executeRenderRecentShipments(filter = null) {
                         displayId: itemDisplayId,
                         noSJ: realSJ || '-',
                         sjDisplay: window.SJLinks?.label(d, t) || realSJ || '-',
+                        sjIdentityNeedsReview: d.sjIdentityStatus === 'needs-review',
                         adminSJ: d.adminSJ || t.adminSJ || window.CustomerMaster?.resolveName(d.customer || d.clientName || t.customer || t.clientName || d.locationName) || '',
                         dateStr: tripDateStr,
                         tripMs: tripMs,
@@ -4882,7 +4903,7 @@ function executeRenderRecentShipments(filter = null) {
         rowsHtml.push(`<tr ${trStyle}>
             ${selectionCell}
             <td class="fw-normal text-muted extra-small text-nowrap" style="white-space: nowrap;">${s.dateStr}</td>
-            <td class="fw-medium font-monospace text-dark text-nowrap" style="font-weight: 500 !important; font-size: 12.5px; white-space: nowrap;">${s.noSJ && s.noSJ !== '-' ? (s.sjDisplay || s.noSJ) : '<span class="text-muted">-</span>'}</td>
+            <td class="fw-medium font-monospace text-dark text-nowrap" style="font-weight: 500 !important; font-size: 12.5px; white-space: nowrap;">${s.noSJ && s.noSJ !== '-' ? (s.sjDisplay || s.noSJ) : '<span class="text-muted">-</span>'}${s.sjIdentityNeedsReview ? '<div class="text-warning" style="font-family:var(--font-sans);font-size:11px;white-space:normal" title="Tautan SJ lama belum terverifikasi dengan tujuan ini. Periksa toko dan alamat pada SJ asli.">Periksa tujuan SJ</div>' : ''}</td>
             <td class="text-muted extra-small text-nowrap" style="white-space: nowrap;">${s.adminSJ && s.adminSJ !== '-' ? escHtml(s.adminSJ) : '<span class="text-muted">-</span>'}</td>
             <td>
                 <div class="d-flex align-items-center gap-1"><div class="fw-medium text-dark text-truncate" style="max-width:200px" title="${escapeCourierText(s.customer || s.destinationName)}">${escHtml(s.customer || s.destinationName)}</div></div>
@@ -6622,6 +6643,7 @@ async function handleLogin(e) {
             throw new Error("Sistem Autentikasi Firebase belum siap. Silakan refresh halaman.");
         }
         console.log("Mencoba login dengan email:", email);
+        await window.BrowserSession?.prepare(firebaseAuth);
         await firebaseAuth.signInWithEmailAndPassword(email, pass);
         console.log("Login Firebase berhasil!");
     } catch (e) {
@@ -6682,16 +6704,21 @@ function loginAsLocalDemoAdmin() {
 }
 window.loginAsLocalDemoAdmin = loginAsLocalDemoAdmin;
 
+let adminAuthUnsubscribe = null;
+let adminAuthUid = null;
 function initAuthListener() {
+    if (adminAuthUnsubscribe) return;
     ensureFirebaseApp();
     const firebaseAuth = getAuth();
     if (firebaseAuth) {
-        firebaseAuth.onAuthStateChanged(user => {
+        adminAuthUnsubscribe = firebaseAuth.onAuthStateChanged(user => {
+            adminAuthUid = user?.uid || null;
             if (window.isDemoMode) return;
             const loginScreen = document.getElementById('login-screen');
             const mainWrapper = document.getElementById('main-wrapper');
 
-            if (user) {
+            if (user && !user.isAnonymous) {
+                window.AdminRuntime?.schedule('trips');
                 checkAccountDeletionPermission();
                 if (loginScreen) loginScreen.style.setProperty('display', 'none', 'important');
                 if (mainWrapper) mainWrapper.style.setProperty('display', 'flex', 'important');
@@ -6699,6 +6726,7 @@ function initAuthListener() {
                 const currentDb = getDb();
                 if (currentDb) {
                     currentDb.collection('users').doc(user.uid).get().then(doc => {
+                        if (firebaseAuth.currentUser?.uid !== user.uid) return;
                         let uData = doc.exists ? doc.data() : {};
                         let uRole = (uData.role || '').toLowerCase();
                         let uEmail = (user.email || '').toLowerCase();
@@ -6772,6 +6800,7 @@ function initAuthListener() {
 
                         try {
                             localStorage.setItem('wtrack_cached_user_profile', JSON.stringify({
+                                uid: user.uid,
                                 role: currentUserRole,
                                 branchId: currentUserBranchId,
                                 name: nameText,
@@ -7617,6 +7646,9 @@ const VIEW_TITLE_MAP = {
     'branch-workstation': { id: 'Workstation Cikokol', en: 'Cikokol Workstation' },
     'material-usage': { id: 'Usage', en: 'Usage' },
     'material-master': { id: 'Master Bahan', en: 'Material Master' },
+    'machine-master': { id: 'Mesin Produksi', en: 'Machine Master' },
+    'operator-master': { id: 'Operator Mesin', en: 'Operator Master' },
+    'branch-master': { id: 'Master Data Cabang', en: 'Branch Master' },
     reports: { id: 'Shipping Report', en: 'Shipping Report' },
     fleet: { id: 'Courier Performance (KPI)', en: 'Courier Performance (KPI)' },
     'pod-archive': { id: 'PoD Photo Archive', en: 'PoD Photo Archive' },
@@ -7655,6 +7687,9 @@ const VIEW_ICON_MAP = {
     workstation: 'bi-building',
     'material-usage': 'bi-layers',
     'material-master': 'bi-boxes',
+    'machine-master': 'bi-cpu',
+    'operator-master': 'bi-person-gear',
+    'branch-master': 'bi-buildings',
     reports: 'bi-bar-chart-line',
     fleet: 'bi-speedometer2',
     'pod-archive': 'bi-camera-fill',

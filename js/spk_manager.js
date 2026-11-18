@@ -89,35 +89,57 @@
                     </div>
                 </div>
 
-                <!-- STATISTIK BADGES & CABANG FILTER -->
-                <div class="row g-3 mb-3">
-                    <div class="col-md-4">
+                <!-- STATISTIK BADGES 4 BRANCH -->
+                <div class="row row-cols-2 row-cols-md-5 g-2.5 mb-3">
+                    <div class="col">
                         <div class="card border p-3 bg-white h-100" style="border-radius: 10px; border-color: #eaecf0 !important; box-shadow: 0 1px 2px rgba(16,24,40,0.04);">
                             <div class="d-flex align-items-center justify-content-between">
                                 <div>
-                                    <div class="text-muted extra-small fw-medium text-uppercase">Total Antrian SPK</div>
+                                    <div class="text-muted extra-small fw-medium text-uppercase">Total SPK</div>
                                     <div class="fw-semibold text-dark mt-1 mb-0" style="font-size: 18px;" id="spk-stat-total">${spkOrdersList.length}</div>
                                 </div>
                                 <span class="p-2 rounded-2 bg-light text-primary" style="font-size: 15px;"><i class="bi bi-printer"></i></span>
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col">
                         <div class="card border p-3 bg-white h-100" style="border-radius: 10px; border-color: #eaecf0 !important; box-shadow: 0 1px 2px rgba(16,24,40,0.04);">
                             <div class="d-flex align-items-center justify-content-between">
                                 <div>
-                                    <div class="text-muted extra-small fw-medium text-uppercase">Pusat</div>
-                                    <div class="fw-semibold text-primary mt-1 mb-0" style="font-size: 18px;" id="spk-stat-pusat">0</div>
+                                    <div class="text-muted extra-small fw-medium text-uppercase">DM 1</div>
+                                    <div class="fw-semibold text-primary mt-1 mb-0" style="font-size: 18px;" id="spk-stat-dm1">0</div>
                                 </div>
                                 <span class="p-2 rounded-2 bg-light text-primary" style="font-size: 15px;"><i class="bi bi-building"></i></span>
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col">
                         <div class="card border p-3 bg-white h-100" style="border-radius: 10px; border-color: #eaecf0 !important; box-shadow: 0 1px 2px rgba(16,24,40,0.04);">
                             <div class="d-flex align-items-center justify-content-between">
                                 <div>
-                                    <div class="text-muted extra-small fw-medium text-uppercase">cikokol</div>
+                                    <div class="text-muted extra-small fw-medium text-uppercase">DM 2</div>
+                                    <div class="fw-semibold text-primary mt-1 mb-0" style="font-size: 18px;" id="spk-stat-dm2">0</div>
+                                </div>
+                                <span class="p-2 rounded-2 bg-light text-primary" style="font-size: 15px;"><i class="bi bi-grid-3x3-gap"></i></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="card border p-3 bg-white h-100" style="border-radius: 10px; border-color: #eaecf0 !important; box-shadow: 0 1px 2px rgba(16,24,40,0.04);">
+                            <div class="d-flex align-items-center justify-content-between">
+                                <div>
+                                    <div class="text-muted extra-small fw-medium text-uppercase">DM 3</div>
+                                    <div class="fw-semibold text-purple mt-1 mb-0" style="font-size: 18px; color: #7c3aed;" id="spk-stat-dm3">0</div>
+                                </div>
+                                <span class="p-2 rounded-2 bg-light" style="font-size: 15px; color: #7c3aed;"><i class="bi bi-layers"></i></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <div class="card border p-3 bg-white h-100" style="border-radius: 10px; border-color: #eaecf0 !important; box-shadow: 0 1px 2px rgba(16,24,40,0.04);">
+                            <div class="d-flex align-items-center justify-content-between">
+                                <div>
+                                    <div class="text-muted extra-small fw-medium text-uppercase">Cikokol</div>
                                     <div class="fw-semibold text-warning-emphasis mt-1 mb-0" style="font-size: 18px;" id="spk-stat-cikokol">0</div>
                                 </div>
                                 <span class="p-2 rounded-2 bg-light text-warning" style="font-size: 15px;"><i class="bi bi-cpu"></i></span>
@@ -133,14 +155,19 @@
                             <span class="fw-semibold text-dark extra-small"><i class="bi bi-funnel me-1"></i>Filter Cabang:</span>
                             <div class="aerotrack-pill-nav mb-0">
                                 <button class="aerotrack-pill-btn active py-1 px-2.5" id="btn-spk-filter-all" onclick="window.spkManager.filterSpkBranch('all')">Semua Cabang</button>
-                                <button class="aerotrack-pill-btn py-1 px-2.5" id="btn-spk-filter-pusat" onclick="window.spkManager.filterSpkBranch('pusat')">Pusat</button>
-                                <button class="aerotrack-pill-btn py-1 px-2.5" id="btn-spk-filter-cikokol" onclick="window.spkManager.filterSpkBranch('cikokol')">Cikokol</button>
+                                <button class="aerotrack-pill-btn py-1 px-2.5" id="btn-spk-filter-dm1" onclick="window.spkManager.filterSpkBranch('DM 1')">DM 1</button>
+                                <button class="aerotrack-pill-btn py-1 px-2.5" id="btn-spk-filter-dm2" onclick="window.spkManager.filterSpkBranch('DM 2')">DM 2</button>
+                                <button class="aerotrack-pill-btn py-1 px-2.5" id="btn-spk-filter-dm3" onclick="window.spkManager.filterSpkBranch('DM 3')">DM 3</button>
+                                <button class="aerotrack-pill-btn py-1 px-2.5" id="btn-spk-filter-cikokol" onclick="window.spkManager.filterSpkBranch('Cikokol')">Cikokol</button>
                             </div>
                             <button class="btn btn-sm btn-outline-danger aerotrack-input py-1 px-2.5" id="btn-spk-main-bulk-delete" style="display: none;" onclick="window.spkManager.deleteSelectedMainSPK()" title="Hapus SPK terpilih">
                                 <i class="bi bi-trash me-1"></i> Hapus Terpilih
                             </button>
                         </div>
                         <div class="d-flex align-items-center gap-2">
+                            <button class="btn btn-sm btn-outline-primary aerotrack-input fw-semibold px-2.5" id="btn-spk-main-bulk-schedule" style="display: none;" onclick="window.SPKScheduler && window.SPKScheduler.openBulkScheduleModal('main')" title="Jadwalkan SPK terpilih ke mesin & operator">
+                                <i class="bi bi-calendar2-check me-1"></i> Jadwalkan Terpilih
+                            </button>
                             <button class="btn btn-sm btn-outline-primary aerotrack-input fw-semibold px-3" onclick="openSPKImportModal()">
                                 <i class="bi bi-upload me-1"></i> Import SPK
                             </button>
@@ -159,12 +186,13 @@
                                     <th style="min-width: 220px;">Nama Barang & Size</th>
                                     <th style="width: 130px;">Qty & Mesin</th>
                                     <th style="width: 150px;">Status</th>
-                                    <th style="width: 120px;" class="text-end">Aksi</th>
+                                    <th style="width: 110px;" class="text-center">Aksi</th>
+                                    <th style="width: 44px;" class="text-center"><i class="bi bi-printer text-muted" title="Cetak Lembar Kerja"></i></th>
                                     <th style="width: 44px;" class="text-center"><i class="bi bi-trash text-muted"></i></th>
                                 </tr>
                             </thead>
                             <tbody id="spk-table-body">
-                                <tr><td colspan="9" class="text-center py-5 text-muted">Memuat data SPK...</td></tr>
+                                <tr><td colspan="10" class="text-center py-5 text-muted">Memuat data SPK...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -177,29 +205,36 @@
 
         const filtered = spkOrdersList.filter(item => {
             if (currentSpkBranchFilter === 'all') return true;
-            return item.productionBranch === currentSpkBranchFilter;
+            return normalizeBranch(item.productionBranch || item.branch) === normalizeBranch(currentSpkBranchFilter);
         });
 
         // Update Counter
         const countTotal = spkOrdersList.length;
-        const countPusat = spkOrdersList.filter(s => s.productionBranch === 'pusat').length;
-        const countCikokol = spkOrdersList.filter(s => s.productionBranch === 'cikokol').length;
+        const countDm1 = spkOrdersList.filter(s => normalizeBranch(s.productionBranch || s.branch) === 'DM 1').length;
+        const countDm2 = spkOrdersList.filter(s => normalizeBranch(s.productionBranch || s.branch) === 'DM 2').length;
+        const countDm3 = spkOrdersList.filter(s => normalizeBranch(s.productionBranch || s.branch) === 'DM 3').length;
+        const countCikokol = spkOrdersList.filter(s => normalizeBranch(s.productionBranch || s.branch) === 'Cikokol').length;
 
         const countTotalEl = document.getElementById('spk-stat-total');
-        const countPusatEl = document.getElementById('spk-stat-pusat');
+        const countDm1El = document.getElementById('spk-stat-dm1');
+        const countDm2El = document.getElementById('spk-stat-dm2');
+        const countDm3El = document.getElementById('spk-stat-dm3');
         const countCikokolEl = document.getElementById('spk-stat-cikokol');
         const headerBadge = document.getElementById('spk-header-badge');
 
         if (countTotalEl) countTotalEl.innerText = countTotal;
-        if (countPusatEl) countPusatEl.innerText = countPusat;
+        if (countDm1El) countDm1El.innerText = countDm1;
+        if (countDm2El) countDm2El.innerText = countDm2;
+        if (countDm3El) countDm3El.innerText = countDm3;
         if (countCikokolEl) countCikokolEl.innerText = countCikokol;
         if (headerBadge) headerBadge.innerText = `${countTotal} SPK Aktif`;
 
         // Update active class on filter buttons
-        ['all', 'pusat', 'cikokol'].forEach(b => {
+        const filterKey = currentSpkBranchFilter.toLowerCase().replace(/\s+/g, '');
+        ['all', 'dm1', 'dm2', 'dm3', 'cikokol'].forEach(b => {
             const btn = document.getElementById(`btn-spk-filter-${b}`);
             if (btn) {
-                if (b === currentSpkBranchFilter) {
+                if (b === filterKey || (b === 'all' && currentSpkBranchFilter === 'all')) {
                     btn.classList.add('active');
                 } else {
                     btn.classList.remove('active');
@@ -208,7 +243,7 @@
         });
 
         if (filtered.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="9" class="text-center py-5 text-muted">
+            tbody.innerHTML = `<tr><td colspan="10" class="text-center py-5 text-muted">
                 <i class="bi bi-printer fs-2 d-block mb-2 text-muted"></i>
                 Tidak ada data SPK untuk filter cabang ini.<br>
                 <button class="btn btn-primary btn-sm mt-3 fw-bold" onclick="openSPKImportModal()">
@@ -225,10 +260,14 @@
             else if (item.productionStatus === 'packing') statusBadge = '<span class="aerotrack-badge badge-warning"><i class="bi bi-box-seam me-1"></i>Packing Selesai</span>';
             else if (item.productionStatus === 'completed') statusBadge = '<span class="aerotrack-badge badge-success"><i class="bi bi-check2-circle me-1"></i>Siap Kirim</span>';
 
-            const isCikokol = (item.productionBranch === 'cikokol');
-            const branchBadge = isCikokol
-                ? '<span class="aerotrack-badge badge-warning">CIKOKOL</span>'
-                : '<span class="aerotrack-badge badge-primary">PUSAT</span>';
+            const bNorm = normalizeBranch(item.productionBranch || item.branch);
+            let branchBadge = `<span class="aerotrack-badge badge-primary">${bNorm}</span>`;
+            if (bNorm === 'DM 3') branchBadge = `<span class="aerotrack-badge badge-purple">DM 3</span>`;
+            else if (bNorm === 'Cikokol') branchBadge = `<span class="aerotrack-badge badge-warning">CIKOKOL</span>`;
+
+            const partBadge = item.isSplit
+                ? `<span class="badge bg-secondary-subtle border text-secondary me-1" style="font-size:10px;">Part ${item.splitPart}/${item.splitTotalParts}</span>`
+                : '';
 
             const convertBtn = item.linkedSjId
                 ? `<span class="aerotrack-badge badge-success"><i class="bi bi-check-all me-1"></i>SJ Dibuat</span>`
@@ -245,7 +284,7 @@
                     <td class="text-center aerotrack-num" style="width: 44px;">${idx + 1}</td>
                     <td style="width: 140px;">
                         <a class="aerotrack-id-link font-monospace">${item.spkNumber}</a>
-                        <div class="mt-1">${branchBadge}</div>
+                        <div class="mt-1 d-flex align-items-center gap-1">${branchBadge} ${partBadge}</div>
                     </td>
                     <td style="min-width: 180px;">
                         <span class="fw-semibold text-dark text-truncate d-inline-block" style="max-width: 200px;" title="${item.clientName || item.customer}">${item.clientName || item.customer}</span>
@@ -253,7 +292,10 @@
                     </td>
                     <td style="min-width: 220px;">
                         <span class="text-dark font-monospace" style="font-size: 0.78rem;">${item.specs || item.ukuran || '-'}</span>
-                        <span class="aerotrack-badge d-inline-block mt-0.5"><i class="bi bi-cpu me-1 text-primary"></i>${item.machineName || 'Digital Print'}</span>
+                        <div class="d-flex align-items-center flex-wrap gap-1 mt-0.5">
+                            <span class="aerotrack-badge"><i class="bi bi-cpu me-1 text-primary"></i>${item.machineName || 'Digital Print'}</span>
+                            ${item.assignedOperator ? `<span class="badge-operator"><i class="bi bi-person me-1"></i>${item.assignedOperator}</span>` : ''}
+                        </div>
                     </td>
                     <td style="width: 130px;">
                         <span class="aerotrack-num">${item.qty}</span>
@@ -268,8 +310,13 @@
                             <option value="completed" ${item.productionStatus === 'completed' ? 'selected' : ''}>Selesai (Siap SJ)</option>
                         </select>
                     </td>
-                    <td class="text-end" style="width: 120px;">
+                    <td class="text-center" style="width: 110px;">
                         ${convertBtn}
+                    </td>
+                    <td class="text-center" style="width: 44px;">
+                        <button class="btn btn-sm btn-light border py-1 px-2 text-primary" onclick="window.spkManager.printWorkOrderSlip('${safeId}')" title="Cetak Lembar Kerja & QR Code">
+                            <i class="bi bi-printer"></i>
+                        </button>
                     </td>
                     <td class="text-center" style="width: 44px;">
                         <button class="btn btn-sm btn-light border py-1 px-2 text-danger" onclick="window.spkManager.deleteSPKOrder('${safeId}')" title="Hapus SPK">
@@ -309,13 +356,19 @@
         updateMainSPKSelection();
     }
 
-    // Update Status Tombol Bulk Delete di View Utama SPK
+    // Update Status Tombol Bulk Delete & Schedule di View Utama SPK
     function updateMainSPKSelection() {
         const checkedBoxes = document.querySelectorAll('.main-spk-row-checkbox:checked');
         const bulkDelBtn = document.getElementById('btn-spk-main-bulk-delete');
+        const bulkSchedBtn = document.getElementById('btn-spk-main-bulk-schedule');
+        const count = checkedBoxes ? checkedBoxes.length : 0;
         if (bulkDelBtn) {
-            bulkDelBtn.style.display = checkedBoxes.length > 0 ? 'inline-block' : 'none';
-            bulkDelBtn.title = `Hapus ${checkedBoxes.length} SPK terpilih`;
+            bulkDelBtn.style.display = count > 0 ? 'inline-block' : 'none';
+            bulkDelBtn.title = `Hapus ${count} SPK terpilih`;
+        }
+        if (bulkSchedBtn) {
+            bulkSchedBtn.style.display = count > 0 ? 'inline-block' : 'none';
+            bulkSchedBtn.title = `Jadwalkan ${count} SPK terpilih`;
         }
     }
 
@@ -365,6 +418,16 @@
             spk = spkInput;
         }
         if (!spk) return null;
+
+        if (spk.isSplit && spk.parentSpkId) {
+            const agg = getSPKAggregateStatus(spk.parentSpkId, spkOrdersList);
+            if (agg && agg.status !== 'completed') {
+                const confirmed = (typeof window !== 'undefined' && typeof window.confirm === 'function')
+                    ? window.confirm(`Perhatian: SPK ${spk.parentSpkNumber || spk.spkNumber} di-split ke ${agg.totalParts} mesin dan baru ${agg.completedParts} bagian selesai. Ingin membuat Surat Jalan parsial?`)
+                    : true;
+                if (!confirmed) return null;
+            }
+        }
 
         const todayDate = new Date();
         const dateFolder = todayDate.toISOString().slice(0, 10);
@@ -444,8 +507,65 @@
         return newTrip;
     }
 
+    // Helper normalisasi nama branch ke 4 Branch resmi Wellen
+    function normalizeBranch(b) {
+        if (!b) return 'DM 2';
+        const s = String(b).trim().toLowerCase();
+        if (s === 'dm 1' || s === 'dm1') return 'DM 1';
+        if (s === 'dm 2' || s === 'dm2' || s === 'pusat') return 'DM 2';
+        if (s === 'dm 3' || s === 'dm3') return 'DM 3';
+        if (s === 'cikokol') return 'Cikokol';
+        return 'DM 2';
+    }
+
+    // Helper mengambil daftar mesin per branch
+    function getMachinesForBranch(branch) {
+        const normBranch = normalizeBranch(branch);
+        if (typeof window !== 'undefined' && window.MachineMaster && typeof window.MachineMaster.read === 'function') {
+            const all = window.MachineMaster.read();
+            if (Array.isArray(all) && all.length > 0) {
+                const filtered = all.filter(m => normalizeBranch(m.branch) === normBranch && m.status !== 'maintenance');
+                if (filtered.length > 0) return filtered;
+            }
+        }
+
+        if (normBranch === 'DM 1') {
+            return [
+                { id: 'MSN-DM1-01', name: 'SQ IMPALA 5' },
+                { id: 'MSN-DM1-02', name: 'SUMMA' },
+                { id: 'MSN-DM1-03', name: 'YH 13' },
+                { id: 'MSN-DM1-04', name: 'LASER' },
+                { id: 'MSN-DM1-05', name: 'DOCAN' }
+            ];
+        } else if (normBranch === 'DM 3') {
+            return [
+                { id: 'MSN-DM3-01', name: 'EFI MATAN 5M - Unit 1' },
+                { id: 'MSN-DM3-02', name: 'EFI MATAN 5M - Unit 2' },
+                { id: 'MSN-DM3-03', name: 'Seaming' },
+                { id: 'MSN-DM3-04', name: 'Roland ECO (Proof)' }
+            ];
+        } else if (normBranch === 'Cikokol') {
+            return [
+                { id: 'MSN-CIK-01', name: 'HP Indigo A3' }
+            ];
+        } else {
+            return [
+                { id: 'MSN-DM2-IN-01', name: 'EPSON S60X2 - Unit 1' },
+                { id: 'MSN-DM2-IN-04', name: 'EPSON S80 - Unit 1' },
+                { id: 'MSN-DM2-IN-08', name: 'LATEX' },
+                { id: 'MSN-DM2-IN-09', name: 'UV PULMEN' },
+                { id: 'MSN-DM2-IN-10', name: 'JWEI 3.2' },
+                { id: 'MSN-DM2-IN-11', name: 'JWEI 1.6 - Unit 1' },
+                { id: 'MSN-DM2-OUT-01', name: 'Mesin 1024 i lebar 3.2 - Unit 1' },
+                { id: 'MSN-DM2-OUT-04', name: 'Mesin 512i lebar 3.2 - Unit 1' }
+            ];
+        }
+    }
+
     // State Preview SPK Import
     let currentSPKPreviewList = [];
+    let currentSplittingItemIndex = -1;
+    let currentSplitParts = [];
 
     // Render Tabel Preview SPK di Modal
     function renderSPKPreviewTable() {
@@ -459,48 +579,273 @@
         if (!tbody) return;
 
         if (currentSPKPreviewList.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="9" class="text-center py-5 text-muted" style="font-size: 0.8rem;">Belum ada file dipilih. Silakan pilih file Excel SPK di atas.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="10" class="text-center py-5 text-muted" style="font-size: 0.8rem;">Belum ada file dipilih. Silakan pilih file Excel SPK di atas.</td></tr>`;
             if (bulkDelBtn) bulkDelBtn.style.display = 'none';
             if (checkAll) checkAll.checked = false;
             return;
         }
 
-        tbody.innerHTML = currentSPKPreviewList.map((s, idx) => `
-            <tr>
-                <td class="text-center" style="width: 38px;">
-                    <input type="checkbox" class="form-check-input spk-preview-row-checkbox" data-index="${idx}" checked onchange="window.spkManager && window.spkManager.updateSPKSelection()">
-                </td>
-                <td class="text-center aerotrack-num" style="width: 44px;">${idx + 1}</td>
-                <td style="width: 140px;">
-                    <span class="aerotrack-badge badge-primary">${s.machine || s.machineName || 'Digital Print'}</span>
-                </td>
-                <td style="min-width: 220px;">
-                    <span class="fw-semibold text-dark text-truncate d-inline-block" style="max-width: 240px;" title="${s.namaBarang || s.jobTitle}">${s.namaBarang || s.jobTitle || '-'}</span>
-                </td>
-                <td style="width: 120px;">
-                    <span class="text-muted font-monospace" style="font-size: 0.78rem;">${s.ukuran || '-'}</span>
-                </td>
-                <td class="text-end" style="width: 80px;">
-                    <span class="aerotrack-num">${s.qty || '1 Pcs'}</span>
-                </td>
-                <td style="width: 140px;">
-                    <span class="text-muted extra-small text-truncate d-inline-block" style="max-width: 130px;" title="${s.finishing || ''}">${s.finishing || '-'}</span>
-                </td>
-                <td style="width: 130px;">
-                    <select class="aerotrack-select py-0 px-2 spk-preview-branch-select" data-index="${idx}" style="width: 110px; font-size: 0.78rem; height: 32px;">
-                        <option value="pusat" ${(s.originBranch || s.branch || s.productionBranch) === 'pusat' ? 'selected' : ''}>Pusat</option>
-                        <option value="cikokol" ${(s.originBranch || s.branch || s.productionBranch) === 'cikokol' ? 'selected' : ''}>Cikokol</option>
-                    </select>
-                </td>
-                <td class="text-center" style="width: 44px;">
-                    <button type="button" class="btn btn-sm btn-light border py-1 px-2 text-danger" onclick="window.spkManager && window.spkManager.deleteSPKRow(${idx})" title="Hapus baris ini">
-                        <i class="bi bi-trash"></i>
+        tbody.innerHTML = currentSPKPreviewList.map((s, idx) => {
+            const branch = normalizeBranch(s.originBranch || s.branch || s.productionBranch);
+            const machines = getMachinesForBranch(branch);
+            const currentMachineName = s.machineName || s.machine || (machines[0]?.name || 'Digital Print');
+
+            let splitCol = '';
+            if (s.isSplit) {
+                splitCol = `
+                    <div class="d-flex align-items-center justify-content-center gap-1">
+                        <span class="aerotrack-badge badge-warning" style="font-size: 0.72rem; padding: 2px 6px;">Part ${s.splitPart}/${s.splitTotalParts}</span>
+                        <button type="button" class="btn btn-sm btn-light border py-0 px-1 text-danger aerotrack-input" style="height:26px; font-size:11px;" onclick="window.spkManager.revertSplit('${s.parentSpkId}')" title="Batalkan split dan satukan kembali">
+                            <i class="bi bi-arrow-counterclockwise"></i>
+                        </button>
+                    </div>
+                `;
+            } else {
+                splitCol = `
+                    <button type="button" class="btn btn-sm btn-light border py-0 px-2 text-primary fw-semibold aerotrack-input d-flex align-items-center justify-content-center gap-1 w-100" style="height: 28px; font-size: 0.75rem;" onclick="window.spkManager.openSplitModal(${idx})" title="Bagi item ini ke beberapa mesin">
+                        <i class="bi bi-scissors"></i> Split
                     </button>
-                </td>
-            </tr>
-        `).join('');
+                `;
+            }
+
+            return `
+                <tr>
+                    <td class="text-center" style="width: 38px;">
+                        <input type="checkbox" class="form-check-input spk-preview-row-checkbox" data-index="${idx}" checked onchange="window.spkManager && window.spkManager.updateSPKSelection()">
+                    </td>
+                    <td class="text-center aerotrack-num" style="width: 38px;">${idx + 1}</td>
+                    <td style="width: 105px;">
+                        <select class="aerotrack-select py-0 px-2 spk-preview-branch-select" data-index="${idx}" onchange="window.spkManager.onPreviewBranchChange(${idx}, this.value)" style="width: 95px; font-size: 0.78rem; height: 32px;">
+                            <option value="DM 1" ${branch === 'DM 1' ? 'selected' : ''}>DM 1</option>
+                            <option value="DM 2" ${branch === 'DM 2' ? 'selected' : ''}>DM 2</option>
+                            <option value="DM 3" ${branch === 'DM 3' ? 'selected' : ''}>DM 3</option>
+                            <option value="Cikokol" ${branch === 'Cikokol' ? 'selected' : ''}>Cikokol</option>
+                        </select>
+                    </td>
+                    <td style="width: 165px;">
+                        <select class="aerotrack-select py-0 px-2 spk-preview-machine-select" data-index="${idx}" onchange="window.spkManager.onPreviewMachineChange(${idx}, this.value)" style="width: 155px; font-size: 0.78rem; height: 32px;">
+                            ${machines.map(m => `<option value="${m.name}" ${currentMachineName === m.name ? 'selected' : ''}>${m.name}</option>`).join('')}
+                        </select>
+                    </td>
+                    <td style="min-width: 200px;">
+                        <span class="fw-semibold text-dark text-truncate d-inline-block" style="max-width: 240px;" title="${s.namaBarang || s.jobTitle}">${s.namaBarang || s.jobTitle || '-'}</span>
+                    </td>
+                    <td style="width: 100px;">
+                        <span class="text-muted font-monospace" style="font-size: 0.78rem;">${s.ukuran || '-'}</span>
+                    </td>
+                    <td class="text-end" style="width: 80px;">
+                        <span class="aerotrack-num">${s.qty || '1 Pcs'}</span>
+                    </td>
+                    <td style="width: 120px;">
+                        <span class="text-muted extra-small text-truncate d-inline-block" style="max-width: 110px;" title="${s.finishing || ''}">${s.finishing || '-'}</span>
+                    </td>
+                    <td class="text-center" style="width: 95px;">
+                        ${splitCol}
+                    </td>
+                    <td class="text-center" style="width: 38px;">
+                        <button type="button" class="btn btn-sm btn-light border py-1 px-2 text-danger" onclick="window.spkManager && window.spkManager.deleteSPKRow(${idx})" title="Hapus baris ini">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
 
         updateSPKSelection();
+    }
+
+    function onPreviewBranchChange(idx, branch) {
+        if (!currentSPKPreviewList[idx]) return;
+        const norm = normalizeBranch(branch);
+        currentSPKPreviewList[idx].originBranch = norm;
+        currentSPKPreviewList[idx].branch = norm;
+        currentSPKPreviewList[idx].productionBranch = norm;
+
+        const machines = getMachinesForBranch(norm);
+        currentSPKPreviewList[idx].machineName = machines[0]?.name || 'Digital Print';
+        currentSPKPreviewList[idx].machine = currentSPKPreviewList[idx].machineName;
+        currentSPKPreviewList[idx].machineId = machines[0]?.id || '';
+        renderSPKPreviewTable();
+    }
+
+    function onPreviewMachineChange(idx, machineName) {
+        if (!currentSPKPreviewList[idx]) return;
+        currentSPKPreviewList[idx].machineName = machineName;
+        currentSPKPreviewList[idx].machine = machineName;
+    }
+
+    function openSplitModal(index) {
+        if (index < 0 || index >= currentSPKPreviewList.length) return;
+        currentSplittingItemIndex = index;
+        const item = currentSPKPreviewList[index];
+
+        const rawQty = parseFloat(String(item.qty || '1').replace(/[^\d.]/g, '')) || 1;
+        const half1 = Math.ceil(rawQty / 2);
+        const half2 = rawQty - half1;
+        const currBranch = normalizeBranch(item.productionBranch || item.branch);
+        const machines = getMachinesForBranch(currBranch);
+        const defaultMachine = machines[0]?.name || item.machineName || 'Digital Print';
+
+        currentSplitParts = [
+            { qty: half1, branch: currBranch, machineName: defaultMachine },
+            { qty: half2, branch: currBranch, machineName: machines[1]?.name || defaultMachine }
+        ];
+
+        const nameEl = document.getElementById('split-item-name');
+        const specsEl = document.getElementById('split-item-specs');
+        const qtyEl = document.getElementById('split-item-total-qty');
+
+        if (nameEl) nameEl.textContent = item.namaBarang || item.jobTitle || 'Item SPK';
+        if (specsEl) specsEl.textContent = `Ukuran: ${item.ukuran || '-'} | Finishing: ${item.finishing || '-'}`;
+        if (qtyEl) qtyEl.textContent = `${rawQty} Pcs`;
+
+        renderSplitModalParts();
+        updateSplitValidation();
+
+        const modalEl = document.getElementById('modal-spk-split');
+        if (modalEl && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+            bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        }
+    }
+
+    function renderSplitModalParts() {
+        const container = document.getElementById('split-parts-container');
+        if (!container) return;
+
+        container.innerHTML = currentSplitParts.map((part, pIdx) => {
+            const letter = String.fromCharCode(65 + pIdx);
+            const branch = normalizeBranch(part.branch);
+            const machines = getMachinesForBranch(branch);
+
+            return `
+                <div class="p-2.5 bg-white rounded-3 border d-flex align-items-center gap-2 flex-wrap" style="border-color:#EAECF0 !important;">
+                    <span class="badge bg-secondary px-2 py-1" style="font-size:11px;">Part ${letter}</span>
+                    <div style="width: 100px;">
+                        <input type="number" class="form-control form-control-sm aerotrack-input text-end font-monospace split-part-qty" data-index="${pIdx}" value="${part.qty}" min="1" oninput="window.spkManager.onSplitPartQtyChange(${pIdx}, this.value)" placeholder="Qty">
+                    </div>
+                    <div style="width: 110px;">
+                        <select class="form-select form-select-sm aerotrack-select" onchange="window.spkManager.onSplitPartBranchChange(${pIdx}, this.value)">
+                            <option value="DM 1" ${branch === 'DM 1' ? 'selected' : ''}>DM 1</option>
+                            <option value="DM 2" ${branch === 'DM 2' ? 'selected' : ''}>DM 2</option>
+                            <option value="DM 3" ${branch === 'DM 3' ? 'selected' : ''}>DM 3</option>
+                            <option value="Cikokol" ${branch === 'Cikokol' ? 'selected' : ''}>Cikokol</option>
+                        </select>
+                    </div>
+                    <div style="flex: 1; min-width: 160px;">
+                        <select class="form-select form-select-sm aerotrack-select" onchange="window.spkManager.onSplitPartMachineChange(${pIdx}, this.value)">
+                            ${machines.map(m => `<option value="${m.name}" ${part.machineName === m.name ? 'selected' : ''}>${m.name}</option>`).join('')}
+                        </select>
+                    </div>
+                    ${currentSplitParts.length > 2 ? `
+                        <button type="button" class="btn btn-sm btn-light border py-1 px-2 text-danger" onclick="window.spkManager.removeSplitPartRow(${pIdx})" title="Hapus bagian ini">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    ` : ''}
+                </div>
+            `;
+        }).join('');
+    }
+
+    function addSplitPartRow() {
+        const pIdx = currentSplitParts.length;
+        const lastPart = currentSplitParts[pIdx - 1] || { branch: 'DM 2' };
+        const branch = normalizeBranch(lastPart.branch);
+        const machines = getMachinesForBranch(branch);
+        currentSplitParts.push({
+            qty: 1,
+            branch: branch,
+            machineName: machines[0]?.name || 'Digital Print'
+        });
+        renderSplitModalParts();
+        updateSplitValidation();
+    }
+
+    function removeSplitPartRow(pIdx) {
+        if (currentSplitParts.length <= 2) return;
+        currentSplitParts.splice(pIdx, 1);
+        renderSplitModalParts();
+        updateSplitValidation();
+    }
+
+    function onSplitPartQtyChange(pIdx, val) {
+        if (currentSplitParts[pIdx]) {
+            currentSplitParts[pIdx].qty = parseFloat(val) || 0;
+            updateSplitValidation();
+        }
+    }
+
+    function onSplitPartBranchChange(pIdx, branch) {
+        if (currentSplitParts[pIdx]) {
+            currentSplitParts[pIdx].branch = branch;
+            const machines = getMachinesForBranch(branch);
+            currentSplitParts[pIdx].machineName = machines[0]?.name || 'Digital Print';
+            renderSplitModalParts();
+            updateSplitValidation();
+        }
+    }
+
+    function onSplitPartMachineChange(pIdx, machineName) {
+        if (currentSplitParts[pIdx]) {
+            currentSplitParts[pIdx].machineName = machineName;
+        }
+    }
+
+    function updateSplitValidation() {
+        const item = currentSPKPreviewList[currentSplittingItemIndex];
+        if (!item) return;
+
+        const originalQty = parseFloat(String(item.qty || '1').replace(/[^\d.]/g, '')) || 1;
+        const totalSplit = currentSplitParts.reduce((sum, p) => sum + (parseFloat(p.qty) || 0), 0);
+        const diff = originalQty - totalSplit;
+
+        const alertEl = document.getElementById('split-validation-alert');
+        const applyBtn = document.getElementById('btn-apply-split');
+
+        if (alertEl) {
+            if (Math.abs(diff) < 0.001) {
+                alertEl.className = 'p-2.5 rounded-3 border bg-success-subtle border-success text-success d-flex align-items-center justify-content-between';
+                alertEl.innerHTML = `<span><i class="bi bi-check-circle me-1.5"></i>Kuantitas pas: <b>${totalSplit}</b> dari <b>${originalQty}</b> pcs</span>`;
+                if (applyBtn) applyBtn.disabled = false;
+            } else if (diff > 0) {
+                alertEl.className = 'p-2.5 rounded-3 border bg-warning-subtle border-warning text-warning-emphasis d-flex align-items-center justify-content-between';
+                alertEl.innerHTML = `<span><i class="bi bi-exclamation-triangle me-1.5"></i>Kurang <b>${diff}</b> pcs (Terbagi ${totalSplit} dari ${originalQty})</span>`;
+                if (applyBtn) applyBtn.disabled = true;
+            } else {
+                alertEl.className = 'p-2.5 rounded-3 border bg-danger-subtle border-danger text-danger d-flex align-items-center justify-content-between';
+                alertEl.innerHTML = `<span><i class="bi bi-x-circle me-1.5"></i>Berlebih <b>${Math.abs(diff)}</b> pcs (Terbagi ${totalSplit} dari ${originalQty})</span>`;
+                if (applyBtn) applyBtn.disabled = true;
+            }
+        }
+    }
+
+    function applySplit() {
+        if (currentSplittingItemIndex < 0 || !currentSPKPreviewList[currentSplittingItemIndex]) return;
+
+        try {
+            splitSPKItem(currentSPKPreviewList, currentSplittingItemIndex, currentSplitParts);
+            renderSPKPreviewTable();
+
+            const modalEl = document.getElementById('modal-spk-split');
+            if (modalEl && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+                const inst = bootstrap.Modal.getInstance(modalEl);
+                if (inst) inst.hide();
+            }
+
+            if (typeof window.showToast === 'function') {
+                window.showToast(`✂️ SPK berhasil di-split ke ${currentSplitParts.length} bagian mesin.`);
+            }
+        } catch (err) {
+            alert(err.message || 'Gagal menerapkan split SPK');
+        }
+    }
+
+    function revertSplit(parentSpkId) {
+        if (!confirm("Satukan kembali pecahan SPK ini menjadi 1 item utuh?")) return;
+        revertSplitSPKItem(currentSPKPreviewList, parentSpkId);
+        renderSPKPreviewTable();
+        if (typeof window.showToast === 'function') {
+            window.showToast("↩️ SPK berhasil disatukan kembali.");
+        }
     }
 
     // Hapus satu baris SPK di preview
@@ -777,19 +1122,265 @@
             alert("Pilih minimal satu SPK terlebih dahulu!");
             return;
         }
+        const normTarget = normalizeBranch(targetBranch);
         checkboxes.forEach(cb => {
             const idx = parseInt(cb.getAttribute('data-index'), 10);
-            const branchSel = document.querySelector(`.spk-preview-branch-select[data-index="${idx}"]`);
-            if (branchSel) branchSel.value = targetBranch;
             if (currentSPKPreviewList[idx]) {
-                currentSPKPreviewList[idx].originBranch = targetBranch;
-                currentSPKPreviewList[idx].branch = targetBranch;
-                currentSPKPreviewList[idx].productionBranch = targetBranch;
+                currentSPKPreviewList[idx].originBranch = normTarget;
+                currentSPKPreviewList[idx].branch = normTarget;
+                currentSPKPreviewList[idx].productionBranch = normTarget;
+                const machines = getMachinesForBranch(normTarget);
+                currentSPKPreviewList[idx].machineName = machines[0]?.name || 'Digital Print';
+                currentSPKPreviewList[idx].machine = currentSPKPreviewList[idx].machineName;
+                currentSPKPreviewList[idx].machineId = machines[0]?.id || '';
             }
         });
+        renderSPKPreviewTable();
         if (typeof window.showToast === 'function') {
-            window.showToast(`${checkboxes.length} SPK diatur untuk Cabang ${targetBranch === 'cikokol' ? 'Cikokol' : 'Pusat'}.`);
+            window.showToast(`${checkboxes.length} SPK diatur untuk Cabang ${normTarget}.`);
         }
+    }
+
+    /**
+     * Membagi (split) sebuah SPK menjadi beberapa sub-tugas mesin
+     */
+    function splitSPKItem(list, targetIndex, splits) {
+        if (!Array.isArray(list) || targetIndex < 0 || targetIndex >= list.length) {
+            throw new Error("Item SPK yang dituju tidak valid");
+        }
+        if (!Array.isArray(splits) || splits.length < 2) {
+            throw new Error("Pembagian SPK membutuhkan minimal 2 bagian");
+        }
+
+        const parent = list[targetIndex];
+        const rawQtyStr = String(parent.qty || '1').replace(/[^\d.]/g, '');
+        const parentQty = parseFloat(rawQtyStr) || 1;
+
+        let totalSplitQty = 0;
+        for (const s of splits) {
+            const partQty = parseFloat(s.qty);
+            if (isNaN(partQty) || partQty <= 0) {
+                throw new Error("Kuantitas setiap pecahan SPK harus bernilai positif");
+            }
+            totalSplitQty += partQty;
+        }
+
+        if (Math.abs(totalSplitQty - parentQty) > 0.001) {
+            throw new Error(`Jumlah kuantitas pecahan (${totalSplitQty}) tidak sesuai dengan kuantitas awal (${parentQty})`);
+        }
+
+        const parentId = parent.spkId || parent.id || `SPK_${Date.now()}_${targetIndex}`;
+        const baseSpkNumber = parent.parentSpkNumber || parent.spkNumber || `SPK-${Date.now()}`;
+        const totalParts = splits.length;
+
+        const subItems = splits.map((s, idx) => {
+            const partLetter = String.fromCharCode(65 + idx);
+            return {
+                ...parent,
+                spkId: `${parentId}_PART_${partLetter}`,
+                id: `${parentId}_PART_${partLetter}`,
+                spkNumber: `${baseSpkNumber}/${partLetter}`,
+                parentSpkId: parentId,
+                parentSpkNumber: baseSpkNumber,
+                isSplit: true,
+                splitPart: partLetter,
+                splitTotalParts: totalParts,
+                originalQty: parentQty,
+                qty: s.qty,
+                productionBranch: s.branch || parent.productionBranch || 'DM 2',
+                branch: s.branch || parent.branch || 'DM 2',
+                originBranch: s.branch || parent.originBranch || 'DM 2',
+                machineName: s.machineName || parent.machineName || 'Digital Print',
+                machine: s.machineName || parent.machine || 'Digital Print',
+                machineId: s.machineId || ''
+            };
+        });
+
+        list.splice(targetIndex, 1, ...subItems);
+        return list;
+    }
+
+    /**
+     * Mengembalikan sub-tugas hasil split kembali menjadi 1 item utuh
+     */
+    function revertSplitSPKItem(list, parentSpkId) {
+        if (!Array.isArray(list) || !parentSpkId) return list;
+
+        const firstIndex = list.findIndex(item => item.parentSpkId === parentSpkId);
+        if (firstIndex === -1) return list;
+
+        const matchingParts = list.filter(item => item.parentSpkId === parentSpkId);
+        if (matchingParts.length === 0) return list;
+
+        const firstPart = matchingParts[0];
+        const restoredQty = firstPart.originalQty || matchingParts.reduce((acc, p) => acc + (parseFloat(p.qty) || 0), 0);
+        const restoredSpkNumber = firstPart.parentSpkNumber || String(firstPart.spkNumber).replace(/\/[A-Z]$/, '');
+
+        const restoredItem = {
+            ...firstPart,
+            spkId: parentSpkId,
+            id: parentSpkId,
+            spkNumber: restoredSpkNumber,
+            qty: restoredQty,
+            isSplit: false
+        };
+        delete restoredItem.parentSpkId;
+        delete restoredItem.parentSpkNumber;
+        delete restoredItem.splitPart;
+        delete restoredItem.splitTotalParts;
+        delete restoredItem.originalQty;
+
+        const indices = [];
+        for (let i = 0; i < list.length; i++) {
+            if (list[i].parentSpkId === parentSpkId) {
+                indices.push(i);
+            }
+        }
+
+        for (let i = indices.length - 1; i >= 0; i--) {
+            list.splice(indices[i], 1);
+        }
+
+        list.splice(firstIndex, 0, restoredItem);
+        return list;
+    }
+
+    /**
+     * Menghitung status agregat dari sebuah SPK yang di-split
+     */
+    function getSPKAggregateStatus(parentSpkId, list) {
+        if (!Array.isArray(list) || !parentSpkId) {
+            return { status: 'unknown', completedParts: 0, totalParts: 0 };
+        }
+        const parts = list.filter(item => item.parentSpkId === parentSpkId);
+        if (parts.length === 0) {
+            const single = list.find(item => (item.spkId === parentSpkId || item.id === parentSpkId));
+            const isCompleted = single && (single.productionStatus === 'completed' || single.productionStatus === 'packing');
+            return {
+                status: isCompleted ? 'completed' : (single?.productionStatus || 'received'),
+                completedParts: isCompleted ? 1 : 0,
+                totalParts: 1
+            };
+        }
+
+        const totalParts = parts.length;
+        const completedParts = parts.filter(p => p.productionStatus === 'completed' || p.productionStatus === 'packing').length;
+
+        let status = 'received';
+        if (completedParts === totalParts) {
+            status = 'completed';
+        } else if (completedParts > 0 || parts.some(p => p.productionStatus === 'printing' || p.productionStatus === 'finishing')) {
+            status = 'partial';
+        }
+
+        return {
+            status,
+            completedParts,
+            totalParts,
+            parts: parts.map(p => ({
+                spkNumber: p.spkNumber,
+                splitPart: p.splitPart,
+                status: p.productionStatus,
+                machineName: p.machineName,
+                qty: p.qty
+            }))
+        };
+    }
+
+    /**
+     * Format payload unik QR Code untuk lembar kerja SPK
+     */
+    function generateSPKQRCodePayload(spkItem) {
+        if (!spkItem) return '';
+        const spkNum = spkItem.spkNumber || spkItem.noSPK || 'SPK';
+        const partCode = spkItem.splitPart || (spkItem.isSplit ? 'PART' : 'ALL');
+        const machineId = spkItem.machineId || spkItem.machineName || '-';
+        return `WTRACK:SPK:${spkNum}:${partCode}:${machineId}`;
+    }
+
+    function printWorkOrderSlip(spkId) {
+        const spk = spkOrdersList.find(s => (s.spkId === spkId || s.id === spkId || s.spkNumber === spkId));
+        if (!spk) return null;
+        const payload = generateSPKQRCodePayload(spk);
+
+        if (typeof window === 'undefined' || typeof window.open !== 'function') {
+            return payload;
+        }
+
+        const printWin = window.open('', '_blank', 'width=650,height=750');
+        if (!printWin || !printWin.document) {
+            if (typeof window.alert === 'function') {
+                window.alert(`Lembar Kerja SPK: ${spk.spkNumber}\nQR Code: ${payload}`);
+            }
+            return payload;
+        }
+
+        printWin.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <title>Lembar Kerja SPK - ${spk.spkNumber}</title>
+                <style>
+                    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 24px; color: #1e293b; line-height: 1.4; }
+                    .header { border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+                    .title { font-size: 18px; font-weight: 800; color: #0f172a; }
+                    .badge { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; background: #e2e8f0; color: #0f172a; }
+                    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+                    .info-box { border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px 14px; }
+                    .info-label { font-size: 11px; text-transform: uppercase; color: #64748b; font-weight: 600; margin-bottom: 2px; }
+                    .info-value { font-size: 13.5px; font-weight: 700; color: #0f172a; }
+                    .qr-box { border: 2px dashed #94a3b8; border-radius: 12px; padding: 20px; text-align: center; margin-top: 20px; background: #f8fafc; }
+                    .qr-text { font-family: monospace; font-size: 13px; font-weight: 600; color: #334155; word-break: break-all; margin-top: 8px; }
+                    @media print { .no-print { display: none; } }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <div>
+                        <div class="title">LEMBAR KERJA PRODUKSI WELLEN</div>
+                        <div style="font-size: 12px; color: #64748b;">Tiket Kerja Mesin, QC & Packing</div>
+                    </div>
+                    <div class="badge">${spk.productionBranch || 'DM 2'}</div>
+                </div>
+                <div class="info-grid">
+                    <div class="info-box">
+                        <div class="info-label">Nomor SPK</div>
+                        <div class="info-value">${spk.spkNumber} ${spk.isSplit ? `<span style="color:#f59e0b;">(Part ${spk.splitPart}/${spk.splitTotalParts})</span>` : ''}</div>
+                    </div>
+                    <div class="info-box">
+                        <div class="info-label">Mesin Produksi</div>
+                        <div class="info-value">${spk.machineName || 'Mesin Digital'}</div>
+                    </div>
+                    <div class="info-box">
+                        <div class="info-label">Pelanggan / Klien</div>
+                        <div class="info-value">${spk.clientName || spk.customer || '-'}</div>
+                    </div>
+                    <div class="info-box">
+                        <div class="info-label">Target Kuantitas</div>
+                        <div class="info-value">${spk.qty} Pcs</div>
+                    </div>
+                    <div class="info-box" style="grid-column: span 2;">
+                        <div class="info-label">Nama Barang / Produk & Ukuran</div>
+                        <div class="info-value">${spk.jobTitle || spk.namaProduk || spk.namaBarang || '-'} (${spk.specs || spk.ukuran || '-'})</div>
+                    </div>
+                    <div class="info-box" style="grid-column: span 2;">
+                        <div class="info-label">Instruksi Finishing</div>
+                        <div class="info-value">${spk.finishing || 'Sesuai Standar Cetak'}</div>
+                    </div>
+                </div>
+                <div class="qr-box">
+                    <div style="font-size: 11px; font-weight: 700; color: #475467; text-transform: uppercase;">QR Code Pelacakan Tablet (QC, Packing & Gudang)</div>
+                    <div class="qr-text">${payload}</div>
+                </div>
+                <div class="no-print" style="margin-top: 24px; text-align: center;">
+                    <button onclick="window.print()" style="padding: 8px 24px; font-size: 13px; font-weight: 600; cursor: pointer; border-radius: 6px; background: #0f172a; color: white; border: none;">Cetak Lembar Kerja</button>
+                </div>
+            </body>
+            </html>
+        `);
+        printWin.document.close();
+        return payload;
     }
 
     // Export API
@@ -812,7 +1403,26 @@
         deleteSPKOrder,
         toggleAllMainSPK,
         updateMainSPKSelection,
-        deleteSelectedMainSPK
+        deleteSelectedMainSPK,
+        splitSPKItem,
+        revertSplitSPKItem,
+        getSPKAggregateStatus,
+        generateSPKQRCodePayload,
+        printWorkOrderSlip,
+        openSplitModal,
+        renderSplitModalParts,
+        addSplitPartRow,
+        removeSplitPartRow,
+        onSplitPartQtyChange,
+        onSplitPartBranchChange,
+        onSplitPartMachineChange,
+        updateSplitValidation,
+        applySplit,
+        revertSplit,
+        onPreviewBranchChange,
+        onPreviewMachineChange,
+        normalizeBranch,
+        getMachinesForBranch
     };
 
     window.spkManager = spkAPI;

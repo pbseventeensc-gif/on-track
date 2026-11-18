@@ -164,7 +164,7 @@
         const view=root.document.getElementById('view-material-master');
         if(!view) return;
         const database=read(), activeCount=database.filter(row=>row.active!==false).length;
-        const filtered=database.filter(row=>normalize(row.name+' '+(row.aliases||[]).join(' ')).includes(normalize(query)) &&
+        const filtered=database.filter(row=>normalize(row.name+' '+(row.sku||'')+' '+(row.aliases||[]).join(' ')).includes(normalize(query)) &&
             (statusFilter==='all' || (statusFilter==='active' ? row.active!==false : row.active===false)));
         const pages=Math.max(1,Math.ceil(filtered.length/pageSize));page=Math.min(page,pages);
         const visible=filtered.slice((page-1)*pageSize,page*pageSize);
@@ -175,10 +175,11 @@
             <button type="button" class="mm-button mm-button-primary" onclick="MaterialMaster.add()">${icon('plus')}Bahan</button></div></header>
             <div class="mm-card"><div class="mm-toolbar"><div class="mm-tabs" aria-label="Filter status bahan">${tab('all','Semua',database.length)}${tab('active','Aktif',activeCount)}${tab('inactive','Nonaktif',database.length-activeCount)}</div>
             <label class="mm-search">${icon('search')}<input id="material-search" aria-label="Cari bahan atau alias" placeholder="Cari bahan atau alias..." value="${esc(query)}" oninput="MaterialMaster.search(this.value)"></label></div>
-            <div class="mm-table-scroll"><table class="mm-table"><colgroup><col><col style="width:120px"><col style="width:120px"><col style="width:140px"><col style="width:120px"><col style="width:100px"></colgroup><thead><tr><th>Nama Bahan</th><th class="mm-number">Sampel (g)</th><th class="mm-number">KG/M2</th><th>Jenis</th><th>Status</th><th class="mm-actions-heading">Aksi</th></tr></thead><tbody>${visible.map(row=>`<tr><td><div class="mm-name" title="${esc(row.name)}">${esc(displayName(row.name))}</div>${row.aliases?.length?`<div class="mm-alias" title="${esc(row.aliases.join(', '))}">${esc(row.aliases.join(', '))}</div>`:''}</td><td class="mm-number mm-muted">${row.sampleGram?fmt(row.sampleGram):'—'}</td><td class="mm-number mm-rate">${fmt(row.kgPerM2)}</td><td><span class="mm-kind">${row.type==='finishing'?'Laminasi':'Bahan Utama'}</span></td><td><span class="mm-status ${row.active===false?'is-inactive':''}"><span></span>${row.active===false?'Nonaktif':'Aktif'}</span></td><td><div class="mm-row-actions"><button type="button" class="mm-icon-button" title="Edit bahan" aria-label="Edit ${esc(row.name)}" onclick="MaterialMaster.edit(${arg(row.id)})">${icon('edit')}</button><button type="button" class="mm-icon-button ${row.active===false?'mm-enable':'mm-disable'}" title="${row.active===false?'Aktifkan':'Nonaktifkan'} bahan" aria-label="${row.active===false?'Aktifkan':'Nonaktifkan'} ${esc(row.name)}" onclick="MaterialMaster.toggleActive(${arg(row.id)})">${icon('power')}</button></div></td></tr>`).join('')||'<tr><td colspan="6" class="mm-empty">Tidak ada bahan yang sesuai.<small>Coba kata pencarian atau filter status lain.</small></td></tr>'}</tbody></table></div>
+            <div class="mm-table-scroll"><table class="mm-table"><colgroup><col style="width:130px"><col><col style="width:110px"><col style="width:110px"><col style="width:130px"><col style="width:110px"><col style="width:90px"></colgroup><thead><tr><th>No. SKU</th><th>Nama Bahan</th><th class="mm-number">Sampel (g)</th><th class="mm-number">KG/M2</th><th>Jenis</th><th>Status</th><th class="mm-actions-heading">Aksi</th></tr></thead><tbody>${visible.map(row=>`<tr><td><span class="mm-sku font-monospace" style="font-size:12px;color:#475467;">${esc(row.sku || '—')}</span></td><td><div class="mm-name" title="${esc(row.name)}">${esc(displayName(row.name))}</div>${row.aliases?.length?`<div class="mm-alias" title="${esc(row.aliases.join(', '))}">${esc(row.aliases.join(', '))}</div>`:''}</td><td class="mm-number mm-muted">${row.sampleGram?fmt(row.sampleGram):'—'}</td><td class="mm-number mm-rate">${fmt(row.kgPerM2)}</td><td><span class="mm-kind">${row.type==='finishing'?'Laminasi':'Bahan Utama'}</span></td><td><span class="mm-status ${row.active===false?'is-inactive':''}"><span></span>${row.active===false?'Nonaktif':'Aktif'}</span></td><td><div class="mm-row-actions"><button type="button" class="mm-icon-button" title="Edit bahan" aria-label="Edit ${esc(row.name)}" onclick="MaterialMaster.edit(${arg(row.id)})">${icon('edit')}</button><button type="button" class="mm-icon-button ${row.active===false?'mm-enable':'mm-disable'}" title="${row.active===false?'Aktifkan':'Nonaktifkan'} bahan" aria-label="${row.active===false?'Aktifkan':'Nonaktifkan'} ${esc(row.name)}" onclick="MaterialMaster.toggleActive(${arg(row.id)})">${icon('power')}</button></div></td></tr>`).join('')||'<tr><td colspan="7" class="mm-empty">Tidak ada bahan yang sesuai.<small>Coba kata pencarian atau filter status lain.</small></td></tr>'}</tbody></table></div>
             <footer class="mm-footer"><span>Menampilkan ${filtered.length?(page-1)*pageSize+1:0}–${Math.min(page*pageSize,filtered.length)} dari ${filtered.length} bahan</span><div class="mm-pagination"><button type="button" class="mm-icon-button" aria-label="Halaman sebelumnya" ${page===1?'disabled':''} onclick="MaterialMaster.setPage(${page-1})">${icon('left')}</button><span>${page} / ${pages}</span><button type="button" class="mm-icon-button" aria-label="Halaman berikutnya" ${page===pages?'disabled':''} onclick="MaterialMaster.setPage(${page+1})">${icon('right')}</button></div></footer></div>
             <p class="mm-note">Satuan berat: KG/M2 · Sampel: 10 × 10 cm · ${root.WTRACK_LOCAL_SANDBOX?'Data tersimpan di browser lokal':'Data tersimpan di Firebase'}</p>
             <dialog id="material-editor" class="mm-editor" aria-labelledby="material-form-title" onclick="if(event.target===this)this.close()"><div class="mm-editor-heading"><h5 id="material-form-title">Bahan</h5><button type="button" class="mm-icon-button" aria-label="Tutup form bahan" onclick="document.getElementById('material-editor').close()">${icon('close')}</button></div><form onsubmit="event.preventDefault();MaterialMaster.save()"><input type="hidden" id="material-edit-id">
+            <label class="form-label small w-100">No. SKU (Opsional)<input id="material-sku" class="form-control font-monospace" placeholder="Contoh: SKU-FFC-280" autocomplete="off"></label>
             <label class="form-label small w-100">Nama bahan<input id="material-name" class="form-control" autocomplete="off"></label>
             <label class="form-label small w-100">Berat KG/M2<input id="material-rate" class="form-control" inputmode="decimal" placeholder="Contoh 0,152"></label>
             <label class="form-label small w-100">Jenis<select id="material-type" class="form-select"><option value="material">Bahan utama</option><option value="finishing">Laminasi / tambahan</option></select></label>
@@ -196,14 +197,15 @@
     function add() {
         const form=root.document.querySelector('#material-editor form');form.reset();
         root.document.getElementById('material-edit-id').value='';
+        if(root.document.getElementById('material-sku')) root.document.getElementById('material-sku').value='';
         root.document.getElementById('material-form-title').textContent='Bahan';
         root.document.getElementById('material-editor').showModal();
         root.document.getElementById('material-name').focus();
     }
     function edit(id) {
         const row=read().find(entry=>entry.id===id);if(!row) return;
-        const set=(key,value)=>{root.document.getElementById(key).value=value;};
-        set('material-edit-id',row.id);set('material-name',row.name);set('material-rate',row.kgPerM2);
+        const set=(key,value)=>{const el=root.document.getElementById(key);if(el)el.value=value;};
+        set('material-edit-id',row.id);set('material-sku',row.sku||'');set('material-name',row.name);set('material-rate',row.kgPerM2);
         set('material-type',row.type||'material');set('material-aliases',(row.aliases||[]).join('\n'));
         root.document.getElementById('material-form-title').textContent='Edit Bahan';
         root.document.getElementById('material-editor').showModal();
@@ -211,13 +213,13 @@
     }
     async function save() {
         try {
-            const value=id=>root.document.getElementById(id).value.trim();
-            const id=value('material-edit-id'),name=correctKnownName(value('material-name')),kgPerM2=positive(value('material-rate'));
+            const value=id=>root.document.getElementById(id)?.value?.trim() || '';
+            const id=value('material-edit-id'),sku=value('material-sku'),name=correctKnownName(value('material-name')),kgPerM2=positive(value('material-rate'));
             if(!name||!kgPerM2) throw Error('Isi nama bahan dan KG/M2 yang positif.');
             const database=read(),old=database.find(row=>row.id===id);
             if(id&&!old) throw Error('Bahan tidak ditemukan. Muat ulang master.');
             if(database.some(row=>row.id!==id&&normalize(row.name)===normalize(name))) throw Error('Nama bahan sudah ada. Gunakan Edit.');
-            const updated={...old,id:old?.id||root.crypto.randomUUID(),name,kgPerM2,type:value('material-type'),active:old?.active!==false,
+            const updated={...old,id:old?.id||root.crypto.randomUUID(),sku:sku||'',name,kgPerM2,type:value('material-type'),active:old?.active!==false,
                 aliases:value('material-aliases').split('\n').map(v=>v.trim()).filter(Boolean),updatedAt:new Date().toISOString()};
             if(old) {database[database.indexOf(old)]=updated;if(kgPerM2!==old.kgPerM2) {delete updated.sampleGram;updated.source='Edit manual';}}
             else database.push(updated);

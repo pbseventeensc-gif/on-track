@@ -16,6 +16,7 @@
         selected: '',
         activePoolId: '',
         pairs: new Map(),
+        autoPaired: new Set(),
         busy: false
     };
 
@@ -123,7 +124,7 @@
             const target = targetId ? STATE.targets.find(row => row.id === targetId) : null;
             return `<button type="button" class="sj-link-card ${active ? 'is-active' : target ? 'is-linked' : ''}" data-pool="${esc(id)}" onclick="SJManualLink.setActiveSJ(this.dataset.pool)" style="max-width:270px;">
                 <span class="sj-link-number">${esc(pool.noSJ || pool.sjNumber || id)}</span>
-                <span class="sj-link-sub">${target ? `Tujuan: ${esc(target.courier)} · ${esc((target.store || target.address || '').slice(0, 30))}` : `${esc(pool.customer || pool.clientName || '')} · ${esc((pool.storeDestination || pool.destinations?.[0]?.locationName || '').slice(0, 30))}`}</span>
+                <span class="sj-link-sub">${esc(pool.customer || pool.clientName || '')} · ${esc(pool.storeDestination || pool.destinations?.[0]?.locationName || '')}<br>${target ? `Tujuan: ${esc(target.courier)} · ${esc((target.store || target.address || '').slice(0, 30))}` : `${esc(pool.customer || pool.clientName || '')} · ${esc((pool.storeDestination || pool.destinations?.[0]?.locationName || '').slice(0, 30))}`}</span>
             </button>`;
         }).join('');
 
@@ -162,8 +163,8 @@
                     <option value="">Semua Kurir</option>
                     ${couriers.map(name => `<option value="${esc(name)}" ${STATE.courier === name ? 'selected' : ''}>${esc(name)}</option>`).join('')}
                 </select>
-                <button type="button" class="btn btn-sm sj-link-secondary" style="height:31px;font-size:12px;border-radius:7px;" onclick="SJManualLink.autoPair()" ${STATE.courier ? '' : 'disabled'} title="Pasangkan semua SJ terpilih ke tujuan kurir ini secara berurutan">
-                    Pasangkan berurutan
+                <button type="button" class="btn btn-sm sj-link-secondary" style="height:31px;font-size:12px;border-radius:7px;" onclick="SJManualLink.autoPair()" ${STATE.courier ? '' : 'disabled'} title="Cocokkan toko dan PT; tujuan ambigu harus dipilih manual">
+                    Cocokkan tujuan SJ
                 </button>
                 <div class="position-relative flex-grow-1" style="min-width:220px;max-width:420px;">
                     <i class="bi bi-search position-absolute top-50 translate-middle-y text-muted" style="left:10px;font-size:12px;"></i>
@@ -257,6 +258,7 @@
         STATE.poolTrips = [pool];
         STATE.selected = '';
         STATE.pairs.clear();
+        STATE.autoPaired.clear();
         STATE.query = '';
         STATE.courier = '';
         STATE.date = todayWib();
@@ -296,6 +298,7 @@
         STATE.selected = '';
         STATE.activePoolId = poolIdOf(poolTrips[0]);
         STATE.pairs.clear();
+        STATE.autoPaired.clear();
         STATE.query = '';
         STATE.date = todayWib();
         STATE.targets = collectTargets(STATE.date);
@@ -329,20 +332,22 @@
         render();
     }
 
-    function applyLocal(target, pool) {
+    function applyLocal(target, pool, automatic = false) {
         const stored = JSON.parse(localStorage.getItem('wtrack_local_trips') || '[]');
         const manual = stored.find(trip => (trip.id || trip.tripId) === target.tripId);
         const poolTrip = stored.find(trip => (trip.id || trip.tripId) === pool.id || (trip.id || trip.tripId) === pool.tripId);
         if (!manual || !poolTrip) throw new Error('Data lokal berubah. Muat ulang.');
         const destinations = JSON.parse(JSON.stringify(manual.destinations || []));
         const index = destinations.findIndex(destination => destination.deliveryId === target.deliveryId);
-        const destination = destinations[index >= 0 ? index : target.destIndex];
+        const fallback = destinations[target.destIndex];
+        const destination = index >= 0 ? destinations[index] : (!fallback?.deliveryId && target.deliveryId === `${target.tripId}_STOP_${target.destIndex}` ? fallback : null);
         if (!destination) throw new Error('Tujuan sudah berubah.');
+        if (automatic && !links.matches(poolTrip, {store: destination.locationName, customer: destination.customer, address: destination.address})) throw new Error('Tujuan SJ tidak lagi cocok. Muat ulang.');
         const noSJ = String(poolTrip.noSJ || poolTrip.sjNumber || '').trim();
         links.append(destination, {
             noSJ, sjTripId: poolTrip.id || poolTrip.tripId,
             storeId: core.storeKeyOf(poolTrip), clientId: core.normalize(poolTrip.customer || poolTrip.clientName || ''),
-            adminSJ: poolTrip.adminSJ || '', sjMatchedAt: new Date().toISOString(), sjMatchRule: 'manual-link'
+            source: links.sourceOf(poolTrip), adminSJ: poolTrip.adminSJ || '', sjMatchedAt: new Date().toISOString(), sjMatchRule: automatic ? 'automatic-store-match' : 'manual-link'
         });
         manual.destinations = destinations;
         const poolId = poolTrip.id || poolTrip.tripId;
@@ -354,7 +359,7 @@
         return Promise.resolve({manual, poolId});
     }
 
-    async function applyOnline(target, pool) {
+    async function applyOnline(target, pool, automatic = false) {
         const activeDb = db();
         if (!activeDb) throw new Error('Database belum terhubung.');
         const manualRef = activeDb.collection('trips').doc(target.tripId);
@@ -365,6 +370,7 @@
         await activeDb.runTransaction(async tx => {
             const manualSnap = await tx.get(manualRef);
             const poolSnap = await tx.get(poolRef);
+            const keySnap = await tx.get(keyRef);
             if (!manualSnap.exists) throw new Error('Trip manual sudah tidak ada.');
             if (!poolSnap.exists) throw new Error('SJ sudah tidak ada di Pool.');
             const poolData = poolSnap.data() || {};
@@ -374,15 +380,21 @@
             const manual = {...manualSnap.data(), id: target.tripId};
             const destinations = JSON.parse(JSON.stringify(manual.destinations || []));
             const index = destinations.findIndex(destination => destination.deliveryId === target.deliveryId);
-            const destination = destinations[index >= 0 ? index : target.destIndex];
+            const fallback = destinations[target.destIndex];
+            const destination = index >= 0 ? destinations[index] : (!fallback?.deliveryId && target.deliveryId === `${target.tripId}_STOP_${target.destIndex}` ? fallback : null);
             if (!destination) throw new Error('Tujuan manual sudah tidak ada.');
             const noSJ = String(poolData.noSJ || poolData.sjNumber || '').trim();
             if (noSJ !== String(pool.noSJ || pool.sjNumber || '').trim()) throw new Error('Nomor SJ berubah. Muat ulang Pool.');
+            if ((destination.locationName || destination.storeName || destination.customer || '') !== target.store || (destination.address || '') !== target.address) throw new Error('Identitas tujuan berubah. Buka ulang dialog tautan SJ.');
+            if (JSON.stringify(links.sourceOf(poolData)) !== JSON.stringify(links.sourceOf(pool))) throw new Error('Identitas SJ berubah. Muat ulang Pool.');
+            const previousTripId = keySnap.exists ? keySnap.data()?.tripId : '';
+            if (previousTripId && previousTripId !== (pool.id || pool.tripId)) throw new Error('SJ sudah tertaut ke trip lain. Muat ulang Pool.');
+            if (automatic && !links.matches(poolData, {store: destination.locationName, customer: destination.customer, address: destination.address})) throw new Error('Tujuan SJ tidak lagi cocok. Muat ulang.');
             const now = new Date().toISOString();
             links.append(destination, {
                 noSJ, sjTripId: pool.id || pool.tripId,
                 storeId: core.storeKeyOf(poolData), clientId: core.normalize(poolData.customer || poolData.clientName || ''),
-                adminSJ: poolData.adminSJ || '', sjMatchedAt: now, sjMatchRule: 'manual-link'
+                source: links.sourceOf(poolData), adminSJ: poolData.adminSJ || '', sjMatchedAt: now, sjMatchRule: automatic ? 'automatic-store-match' : 'manual-link'
             });
             manual.destinations = destinations;
             tx.update(manualRef, {destinations});
@@ -398,7 +410,10 @@
                 manualTripId: target.tripId,
                 deliveryId: target.deliveryId,
                 poolTripId: pool.id || pool.tripId,
-                source: 'admin-manual-link',
+                source: automatic ? 'admin-auto-link' : 'admin-manual-link',
+                sourceIdentity: links.sourceOf(poolData),
+                targetIdentity: {store: destination.locationName || '', customer: destination.customer || '', address: destination.address || ''},
+                identityMatched: links.matches(poolData, {store: destination.locationName, customer: destination.customer}),
                 matchedAt: now
             });
             updatedManual = manual;
@@ -425,32 +440,23 @@
             alert('Pilih kurir terlebih dahulu.');
             return;
         }
-        const targets = STATE.targets.filter(row => row.courier === STATE.courier && !row.existingSJ && ![...STATE.pairs.values()].includes(row.id));
-        const availablePools = STATE.poolTrips.map(poolIdOf).filter(id => !STATE.pairs.has(id));
-        if (!targets.length) {
-            alert('Tidak ada tujuan kosong untuk kurir ini.');
-            return;
-        }
-        if (!availablePools.length) {
-            alert('Semua SJ terpilih sudah dipasangkan.');
-            return;
-        }
-        const count = Math.min(targets.length, availablePools.length);
-        for (let index = 0; index < count; index++) {
-            STATE.pairs.set(availablePools[index], targets[index].id);
+        const targets = STATE.targets.filter(row => row.courier === STATE.courier);
+        const pools = STATE.poolTrips.filter(pool => !STATE.pairs.has(poolIdOf(pool)));
+        const matched = links.autoPairs(pools, targets);
+        for (const {pool, target} of matched) {
+            STATE.pairs.set(poolIdOf(pool), target.id);
+            STATE.autoPaired.add(poolIdOf(pool));
         }
         STATE.activePoolId = STATE.poolTrips.map(poolIdOf).find(id => !STATE.pairs.has(id)) || '';
         render();
-        if (availablePools.length > targets.length) {
-            alert(`${availablePools.length - targets.length} SJ belum punya tujuan kosong pada kurir ini.`);
-        } else if (targets.length > availablePools.length) {
-            alert(`${targets.length - availablePools.length} tujuan belum mendapat SJ karena jumlah SJ terpilih lebih sedikit.`);
-        }
+        const unresolved = pools.length - matched.length;
+        if (unresolved) alert(`${matched.length} SJ cocok. ${unresolved} SJ belum cocok atau memiliki beberapa tujuan. Pilih tujuan manual setelah memeriksa toko, PT, dan alamat.`);
     }
 
     function setActiveSJ(poolId) {
         if (!poolId) return;
         STATE.pairs.delete(String(poolId));
+        STATE.autoPaired.delete(String(poolId));
         STATE.activePoolId = String(poolId);
         render();
     }
@@ -464,6 +470,7 @@
         const target = STATE.targets.find(row => row.id === targetId);
         if (!target) return;
         STATE.pairs.set(String(STATE.activePoolId), String(targetId));
+        STATE.autoPaired.delete(String(STATE.activePoolId));
         STATE.activePoolId = STATE.poolTrips.map(poolIdOf).find(id => !STATE.pairs.has(id)) || '';
         render();
     }
@@ -471,6 +478,7 @@
     function unassignPool(poolId) {
         if (!poolId) return;
         STATE.pairs.delete(String(poolId));
+        STATE.autoPaired.delete(String(poolId));
         STATE.activePoolId = String(poolId);
         render();
     }
@@ -479,14 +487,17 @@
         if (STATE.busy) return;
         const pairs = [...STATE.pairs.entries()].map(([poolId, targetId]) => ({
             target: STATE.targets.find(row => row.id === targetId),
-            pool: STATE.poolTrips.find(pool => poolIdOf(pool) === poolId)
+            pool: STATE.poolTrips.find(pool => poolIdOf(pool) === poolId),
+            automatic: STATE.autoPaired.has(poolId)
         })).filter(pair => pair.target && pair.pool);
         if (!pairs.length) return;
         if (new Set(pairs.map(pair => poolIdOf(pair.pool))).size !== pairs.length) {
             alert('Ada SJ yang dipakai lebih dari satu tujuan. Perbaiki pilihan.');
             return;
         }
-        if (!confirm(`Tautkan ${pairs.length} SJ ke pengiriman manual? SJ terkait akan dihapus dari Pool.`)) return;
+        const mismatches = pairs.filter(({pool, target}) => !links.matches(pool, target));
+        const details = mismatches.map(({pool, target}) => `${pool.noSJ || pool.sjNumber}: ${links.sourceOf(pool).customer} / ${links.sourceOf(pool).store} → ${target.store} (${target.address})`).join('\n');
+        if (!confirm(`Tautkan ${pairs.length} SJ ke pengiriman manual?${mismatches.length ? `\n\n${mismatches.length} pasangan berbeda identitas atau belum dapat diverifikasi:\n${details}\n\nPastikan tujuan tersebut benar sebelum melanjutkan.` : ''}\nSJ terkait akan dihapus dari Pool.`)) return;
         STATE.busy = true;
         const applyButton = document.getElementById('sj-manual-link-apply');
         if (applyButton) { applyButton.disabled = true; applyButton.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Menyimpan…'; }
@@ -495,8 +506,8 @@
         for (const [index, pair] of pairs.entries()) {
             try {
                 const result = window.WTRACK_LOCAL_SANDBOX
-                    ? await applyLocal(pair.target, pair.pool)
-                    : await applyOnline(pair.target, pair.pool);
+                    ? await applyLocal(pair.target, pair.pool, pair.automatic)
+                    : await applyOnline(pair.target, pair.pool, pair.automatic);
                 updateLocalArrays(result.manual, result.poolId);
                 applied++;
                 if (applyButton) applyButton.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span>${index + 1}/${pairs.length}…`;
@@ -516,6 +527,7 @@
         try { root.renderRecentShipments?.(); } catch (_) {}
         try { root.updateGlobalStats?.(); } catch (_) {}
         STATE.pairs.clear();
+        STATE.autoPaired.clear();
     }
 
     async function apply() {
@@ -526,7 +538,8 @@
             alert('Pilih tujuan manual terlebih dahulu.');
             return;
         }
-        if (!confirm(`Tautkan ${STATE.pool.noSJ || STATE.pool.sjNumber} ke ${target.courier} — ${target.store || target.address}? SJ akan dihapus dari Pool.`)) return;
+        const source = links.sourceOf(STATE.pool);
+        if (!confirm(`Tautkan ${STATE.pool.noSJ || STATE.pool.sjNumber}?\nAsal SJ: ${source.customer} / ${source.store}\nAlamat SJ: ${source.address}\nTujuan: ${target.courier} — ${target.store}\nAlamat tujuan: ${target.address}\n${links.matches(STATE.pool, target) ? '' : 'Identitas berbeda atau belum dapat diverifikasi. Pastikan tujuan benar.\n'}SJ akan dihapus dari Pool.`)) return;
         STATE.busy = true;
         render();
         try {

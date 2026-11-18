@@ -109,8 +109,8 @@
         // Status filter with few options should not have search input
         const isSearchable = !selectId.includes('status') && (totalOptions > 6 || hasOptgroups || selectId.includes('carrier') || selectId.includes('personil') || selectId.includes('courier'));
 
-        // Keep popup search inside the Bootstrap modal focus trap.
-        const portal = selectEl.closest('.modal') || document.body;
+        // Keep popup search inside the dialog or Bootstrap modal focus trap.
+        const portal = selectEl.closest('dialog') || selectEl.closest('.modal') || document.body;
         // 1. Backdrop
         const backdrop = document.createElement('div');
         backdrop.className = 'wtrack-dropdown-backdrop';
@@ -522,8 +522,23 @@
     }
 
     function enhanceSelect(selectEl) {
-        if (!selectEl || selectEl._wtrackEnhanced) {
-            if (selectEl && selectEl._wtrackTrigger) {
+        if (!selectEl) return;
+
+        // Do not enhance selects inside modal dialogs (like <dialog>) or mm-editor forms
+        if (selectEl.closest('dialog') || selectEl.closest('.mm-editor') || selectEl.dataset.noCustomDropdown === 'true' || selectEl.classList.contains('no-custom-dropdown')) {
+            if (selectEl._wtrackEnhanced) {
+                selectEl.classList.remove('wtrack-select-hidden');
+                if (selectEl._wtrackTrigger && selectEl._wtrackTrigger.parentNode) {
+                    selectEl._wtrackTrigger.parentNode.removeChild(selectEl._wtrackTrigger);
+                }
+                delete selectEl._wtrackEnhanced;
+                delete selectEl._wtrackTrigger;
+            }
+            return;
+        }
+
+        if (selectEl._wtrackEnhanced) {
+            if (selectEl._wtrackTrigger) {
                 updateTriggerTextWithAvatar(selectEl, selectEl._wtrackTrigger);
             }
             return;
@@ -621,6 +636,9 @@
         });
 
         document.querySelectorAll('select.form-select').forEach(el => {
+            if (el.closest('dialog') || el.closest('.mm-editor') || el.dataset.noCustomDropdown === 'true' || el.classList.contains('no-custom-dropdown')) {
+                return;
+            }
             if (el.offsetParent !== null || el.id) {
                 enhanceSelect(el);
             }
@@ -678,6 +696,22 @@
         setTimeout(initAllCustomSelects, 100);
     }
 
-    setInterval(initAllCustomSelects, 1500);
+    // New controls are enhanced when inserted, rather than rescanning every
+    // select and rebuilding labels every 1.5 seconds while the page is idle.
+    let enhanceTimer = null;
+    const scheduleEnhancement = () => {
+        if (enhanceTimer !== null || document.hidden) return;
+        enhanceTimer = setTimeout(() => { enhanceTimer = null; initAllCustomSelects(); }, 60);
+    };
+    const observeNewSelects = () => {
+        if (!document.body || typeof MutationObserver !== 'function') return;
+        new MutationObserver(records => {
+            if (records.some(record => Array.from(record.addedNodes).some(node =>
+                node.nodeType === 1 && (node.matches?.('select') || node.querySelector?.('select'))))) scheduleEnhancement();
+        }).observe(document.body, {childList: true, subtree: true});
+    };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', observeNewSelects);
+    else observeNewSelects();
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) scheduleEnhancement(); });
 
 })();

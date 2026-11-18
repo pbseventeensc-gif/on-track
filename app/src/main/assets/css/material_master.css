@@ -21,9 +21,42 @@
 .material-master .mm-toolbar { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; padding:12px 16px; border-bottom:1px solid #eaecf0; }
 .material-master .mm-tabs { display:flex; align-items:center; gap:4px; }
 .material-master .mm-tab { display:flex; align-items:center; gap:6px; border:1px solid transparent; background:transparent; color:#667085; padding:6px 10px; border-radius:6px; font-size:12px; font-weight:500; cursor:pointer; transition:all .15s ease; }
-.material-master .mm-tab span { background:#f2f4f7; color:#344054; border-radius:10px; padding:1px 6px; font-size:10px; font-weight:500; font-variant-numeric:tabular-nums; }
-.material-master .mm-tab.is-active { background:#f2f4f7; color:#1d2939; font-weight:600; }
-.material-master .mm-tab.is-active span { background:#e4e7ec; color:#101828; }
+.material-master .mm-tab span,
+.machine-master .mm-tab span,
+.operator-master .mm-tab span,
+.mm-tabs button span,
+.mm-tabs .mm-tab span {
+    background: rgba(255, 71, 29, 0.12) !important;
+    color: #FF471D !important;
+    border: 1px solid rgba(255, 71, 29, 0.28) !important;
+    border-radius: 9999px !important;
+    padding: 1px 7px !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    font-variant-numeric: tabular-nums;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1.3;
+    transition: all .15s ease;
+}
+.material-master .mm-tab.is-active,
+.machine-master .mm-tab.is-active,
+.operator-master .mm-tab.is-active,
+.mm-tabs button.is-active {
+    background:#f2f4f7;
+    color:#1d2939;
+    font-weight:600;
+}
+.material-master .mm-tab.is-active span,
+.machine-master .mm-tab.is-active span,
+.operator-master .mm-tab.is-active span,
+.mm-tabs button.is-active span {
+    background: #FF471D !important;
+    color: #FFFFFF !important;
+    border-color: #FF471D !important;
+    box-shadow: 0 1px 4px rgba(255, 71, 29, 0.35);
+}
 .material-master .mm-tab:hover:not(.is-active) { background:#f9fafb; color:#344054; }
 .material-master .mm-search { display:flex; align-items:center; gap:8px; width:280px; max-width:100%; border:1px solid #d0d5dd; border-radius:8px; padding:6px 10px; margin:0; color:#667085; background:#ffffff; box-shadow:0 1px 2px rgba(16,24,40,0.05); }
 .material-master .mm-search svg, .material-master .mm-search i { width:15px; height:15px; font-size:13px; color:#667085; flex-shrink:0; }
@@ -40,6 +73,7 @@
 .material-master .mm-table .mm-number { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
 .material-master .mm-table .mm-muted { color:#667085; }
 .material-master .mm-name { font-weight:500; color:#101828; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:13px; }
+.material-master .mm-sku { font-size:11.5px; font-weight:500; color:#475467; letter-spacing:0.02em; font-family:var(--font-mono, monospace); }
 .material-master .mm-alias { font-size:11px; color:#667085; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:2px; }
 .material-master .mm-rate { font-weight:500; color:#101828; }
 .material-master .mm-kind { font-size:11px; font-weight:500; color:#344054; background:#f2f4f7; border:1px solid #eaecf0; border-radius:6px; padding:2px 8px; white-space:nowrap; }
@@ -69,7 +103,7 @@
 .material-master .mm-editor .form-control,.material-master .mm-editor .form-select { margin-top:4px; font-size:12px; border:1px solid #d0d5dd; border-radius:8px; }
 .material-master .mm-editor-footer { display:flex; justify-content:flex-end; gap:8px; border-top:1px solid #eaecf0; padding-top:14px; margin-top:14px; }
 .dark-theme .material-master { --mm-bg:#111827; --mm-surface:#172233; --mm-border:#253348; --mm-text:#e2e8f0; --mm-muted:#9aa9bd; }
-.dark-theme .material-master .mm-kind,.dark-theme .material-master .mm-tab.is-active,.dark-theme .material-master .mm-tab.is-active span { background:#233449; border-color:#35465d; color:#bfcee2; }
+.dark-theme .material-master .mm-kind,.dark-theme .material-master .mm-tab.is-active { background:#233449; border-color:#35465d; color:#bfcee2; }
 .pool-local-table { width:100%; table-layout:fixed; }
 .pool-local-table>thead>tr>th,.pool-local-table>tbody>tr>td { padding:10px 10px; }
 .pool-local-table>thead>tr>th { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:11px; font-weight:500 !important; letter-spacing:0.04em; text-transform:uppercase; color:#667085; background:#f9fafb; border-bottom:1px solid #eaecf0; }

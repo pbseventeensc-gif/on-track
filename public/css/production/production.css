@@ -1,0 +1,91 @@
+/**
+ * WTRACK - PRODUCTION SYSTEM STYLES
+ * Folder: /css/production/production.css
+ * Styling untuk Master Mesin, Master Operator, dan Batch Scheduling.
+ */
+
+.production-batch-toolbar {
+    background: #ffffff;
+    border-bottom: 1px solid #eaecf0;
+    padding: 10px 16px;
+}
+
+.production-schedule-card {
+    border: 1px solid #eaecf0;
+    border-radius: 10px;
+    background: #ffffff;
+    padding: 14px;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+}
+
+.badge-operator {
+    background: #f0fdf4;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    font-weight: 500;
+}
+
+.badge-shift {
+    background: #f8fafc;
+    color: #475467;
+    border: 1px solid #e2e8f0;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-weight: 500;
+}
+
+.priority-badge-normal {
+    background: #f0fdf4;
+    color: #15803d;
+    border: 1px solid #bbf7d0;
+}
+
+.priority-badge-urgent {
+    background: #fffbeb;
+    color: #b45309;
+    border: 1px solid #fde68a;
+}
+
+.priority-badge-rush {
+    background: #fef2f2;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+}
+
+/* Badge Angka Counter - Warna Brand Wellen */
+.mm-tab span,
+.operator-master .mm-tab span,
+.machine-master .mm-tab span,
+.material-master .mm-tab span,
+.aerotrack-pill-btn span,
+.aerotrack-pill-btn .badge-num {
+    background: rgba(255, 71, 29, 0.12) !important;
+    color: #FF471D !important;
+    border: 1px solid rgba(255, 71, 29, 0.28) !important;
+    border-radius: 9999px !important;
+    padding: 1px 7px !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    font-variant-numeric: tabular-nums;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1.3;
+    transition: all 0.15s ease;
+}
+
+.mm-tab.is-active span,
+.operator-master .mm-tab.is-active span,
+.machine-master .mm-tab.is-active span,
+.material-master .mm-tab.is-active span,
+.aerotrack-pill-btn.active span,
+.aerotrack-pill-btn.active .badge-num {
+    background: #FF471D !important;
+    color: #FFFFFF !important;
+    border-color: #FF471D !important;
+    box-shadow: 0 1px 4px rgba(255, 71, 29, 0.35);
+}

@@ -76,3 +76,76 @@ for(const online of [false,true])test(`bulk linking appends two SJ to an already
  assert.equal(manual.destinations[0].proofPhotoSj,'proof.jpg');
  if(online){assert.equal(fixture.rows.p1,undefined);assert.equal(fixture.rows.p2,undefined);assert.equal(fixture.audits.length,2);assert.equal(fixture.keys['SJ-2'].tripId,'manual');}
 });
+
+test('automatic linking follows store identity instead of list order',()=>{
+ const pools=[{noSJ:'SJ-Q',customer:'PT A',storeDestination:'STORE AZKO QBig, Jl. BSD'},{noSJ:'SJ-N',customer:'PT A',storeDestination:'Neka Pinang'}];
+ const targets=[{id:'n',store:'Neka Pinang',customer:''},{id:'q',store:'AZKO QBig',customer:''}];
+ assert.deepEqual(links.autoPairs(pools,targets).map(({pool,target})=>[pool.noSJ,target.id]),[['SJ-Q','q'],['SJ-N','n']]);
+ assert.deepEqual(links.autoPairs(pools,[{id:'wrong',store:'Neka Ciledug'}]),[]);
+});
+
+test('automatic linking leaves duplicate destinations and conflicting companies unresolved',()=>{
+ const pool={noSJ:'SJ-1',storeDestination:'INFORMA',customer:'PT A'};
+ assert.equal(links.autoPairs([pool],[{store:'INFORMA',id:'a'},{store:'INFORMA',id:'b'}]).length,0);
+ assert.equal(links.autoPairs([pool],[{store:'INFORMA',customer:'PT B'}]).length,0);
+ assert.equal(links.autoPairs([{noSJ:'SJ-2'}],[{store:''}]).length,0);
+});
+
+test('source snapshot preserves original company, store and address',()=>{
+ assert.deepEqual(links.sourceOf({customer:'PT A',storeDestination:'Store A',address:'Street A',destinations:[{address:'Different'}]}),{customer:'PT A',store:'Store A',address:'Street A'});
+});
+
+for(const change of ['deliveryId','source'])test(`transaction refuses stale ${change} instead of consuming the Pool SJ`,async()=>{
+ const fixture=manualFixture(true),api=fixture.window.SJManualLink;
+ fixture.window.UnifiedPoolUI={getSelectedTrips:()=>[fixture.window.allPoolTrips[0]]};
+ await api.openBulkFromSelection();api.setDate('2026-11-17');api.assignActive('manual::d1');
+ if(change==='deliveryId')fixture.rows.manual={...fixture.rows.manual,destinations:[{...fixture.rows.manual.destinations[0],deliveryId:'replaced'}]};
+ else fixture.rows.p1={...fixture.rows.p1,customer:'Changed company'};
+ await assert.rejects(api.apply(),/Sebagian SJ gagal/);
+ assert.ok(fixture.rows.p1);
+ assert.deepEqual(links.numbers(fixture.rows.manual.destinations[0]),['SJ-OLD']);
+ assert.equal(fixture.audits.length,0);
+});
+
+test('same store label never matches a different street or house number automatically',()=>{
+ const pool={storeDestination:'STORE AZKO QBig',customer:'PT A',address:'STORE AZKO QBig, Jl. Mawar No.10, Tangerang'};
+ assert.equal(links.matches(pool,{store:'AZKO QBig',address:'Jalan Melati No.10, Tangerang'}),false);
+ assert.equal(links.matches(pool,{store:'AZKO QBig',address:'Jalan Mawar No.20, Tangerang'}),false);
+ assert.equal(links.matches(pool,{store:'AZKO QBig',address:'Jalan Mawar No.10, RT.01, Tangerang'}),true);
+});
+
+test('known LW/LP abbreviations match without treating different branches as aliases',()=>{
+ assert.equal(links.matches({storeDestination:'STORE INFORMA LW KOTA WISATA'},{store:'INFORMA Living World Kota Wisata'}),true);
+ assert.equal(links.matches({storeDestination:'STORE INFORMA LP JABABEKA'},{store:'INFORMA Living Plaza Cinere'}),false);
+});
+
+test('a billing company without a delivery address is not an automatic destination match',()=>{
+ assert.equal(links.matches({customer:'PT A',destinations:[{locationName:'PT A'}]},{store:'PT A'}),false);
+ assert.equal(links.matches({customer:'PT A',destinations:[{locationName:'PT A',address:'Jl. Mawar No.10'}]},{store:'PT A',address:'Jl. Mawar No.10'}),true);
+});
+
+test('unlinking today preserves older SJ, physical delivery and POD',()=>{
+ const d={deliveryId:'stop',locationName:'Store A',address:'Jl. Mawar',customer:'PT A',latitude:-6,longitude:106,status:'done',proofPhotoSj:'proof.jpg',noSJ:'SJ-TODAY',sjNumber:'SJ-TODAY',sjTripId:'today-pool',sjMatchedAt:'2026-11-18',sjMatchRule:'manual-link',sjIdentityStatus:'needs-review',sjLinks:[{noSJ:'SJ-OLDER',sjTripId:'older-pool',sjMatchedAt:'2026-11-17'},{noSJ:'SJ-TODAY',sjTripId:'today-pool',sjMatchedAt:'2026-11-18'}]};
+ const before=structuredClone(d);
+ assert.deepEqual(links.remove(d,['sj-today']),['SJ-TODAY']);
+ assert.deepEqual(links.numbers(d),['SJ-OLDER']);assert.equal(d.sjTripId,'older-pool');
+ for(const k of ['deliveryId','locationName','address','customer','latitude','longitude','status','proofPhotoSj'])assert.deepEqual(d[k],before[k]);
+ assert.deepEqual(links.remove(d,['SJ-OLDER']),['SJ-OLDER']);assert.deepEqual(links.numbers(d),[]);
+ for(const k of ['noSJ','sjNumber','sjLinks','sjTripId','sjMatchedAt','sjMatchRule','sjIdentityStatus'])assert.equal(d[k],undefined);
+});
+
+test('unlink ignores numbers outside the selection and supports legacy single-number stops',()=>{
+ const d={noSJ:'SJ-OLD',sjTripId:'pool',status:'pending'};const before=structuredClone(d);
+ assert.deepEqual(links.remove(d,['SJ-TODAY']),[]);assert.deepEqual(d,before);
+ assert.deepEqual(links.remove(d,['SJ-OLD']),['SJ-OLD']);assert.deepEqual(d,{status:'pending'});
+});
+
+test('automatic matches are audited separately from manual selections',async()=>{
+ const fixture=manualFixture(true),api=fixture.window.SJManualLink;
+ fixture.rows.p1.storeDestination='INFORMA';
+ fixture.window.UnifiedPoolUI={getSelectedTrips:()=>[fixture.window.allPoolTrips[0]]};
+ await api.openBulkFromSelection();api.setDate('2026-11-17');api.setCourier('Firdaus');api.autoPair();
+ assert.equal(api.state.pairs.size,1);await api.apply();
+ assert.equal(fixture.audits[0].source,'admin-auto-link');
+ assert.equal(fixture.rows.manual.destinations[0].sjLinks.find(l=>l.noSJ==='SJ-1').sjMatchRule,'automatic-store-match');
+});

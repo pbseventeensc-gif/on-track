@@ -2,11 +2,24 @@
   "cleanUrls": true,
   "rewrites": [
     {
+      "source": "/kurir-eri",
+      "destination": "/kurir.html"
+    },
+    {
       "source": "/dashboard",
       "destination": "/index.html"
     }
   ],
   "headers": [
+    {
+      "source": "/kurir-eri",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, max-age=0"
+        }
+      ]
+    },
     {
       "source": "/kurir",
       "headers": [
