@@ -6,14 +6,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
 
     <!-- Favicon & PWA App Manifest -->
     <link rel="icon" type="image/svg+xml" href="assets/wellen_logo.svg">
     <link rel="apple-touch-icon" href="assets/wellen_logo.svg">
-    <link rel="manifest" href="/manifest.json">
+    <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#FF471D">
     <meta name="mobile-web-app-capable" content="yes">
 
@@ -28,8 +28,8 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-    <script src="/js/browser_session.js?v=20261118.1"></script>
-    <script src="/js/courier_web.js?v=20261118.1"></script>
+    <script src="js/browser_session.js?v=20261118.1"></script>
+    <script src="js/courier_web.js?v=20261118.1"></script>
 
     <style>
         :root {
@@ -1118,7 +1118,7 @@
             transform: scale(0.92);
         }
     </style>
-    <script src="js/sj_links.js?v=20261117.1"></script>
+    <script src="js/sj_links.js?v=20261118.3"></script>
     <script src="js/delivery_identity.js?v=20261114.1"></script>
     <script src="js/maps_destination.js?v=20261114.1"></script>
     <script src="js/courier_admin.js?v=20261114.1"></script>
@@ -1933,6 +1933,7 @@
                 return {
                     id: m.defaultUid,
                     uid: m.defaultUid,
+                    authUid: cleanUid || m.defaultUid,
                     canonicalId: m.canonicalId,
                     name: m.displayName,
                     email: cleanInput.includes('@') ? cleanInput : `${m.canonicalId}@gmail.com`,
@@ -1950,6 +1951,7 @@
                 return {
                     id: m.defaultUid,
                     uid: m.defaultUid,
+                    authUid: cleanUid || m.defaultUid,
                     canonicalId: m.canonicalId,
                     name: m.displayName,
                     email: cleanInput.includes('@') ? cleanInput : `${m.canonicalId}@gmail.com`,
@@ -1970,6 +1972,7 @@
                 return {
                     id: m.defaultUid,
                     uid: m.defaultUid,
+                    authUid: cleanUid || m.defaultUid,
                     canonicalId: m.canonicalId,
                     name: m.displayName,
                     email: cleanInput.includes('@') ? cleanInput : `${m.canonicalId}@gmail.com`,
@@ -1984,6 +1987,7 @@
         return {
             id: cleanUid || emailPrefix || 'kurir',
             uid: cleanUid || emailPrefix || 'kurir',
+            authUid: cleanUid || emailPrefix || 'kurir',
             canonicalId: emailPrefix || 'kurir',
             name: fallbackName,
             email: cleanInput,
@@ -2360,6 +2364,25 @@
     let proofStorageFailed = false;
     let tripsUnsubscribe = null;
     let tripsSubscriptionKey = '';
+    let courierAuthResolved = false;
+    let courierAuthRestoreTimer = null;
+    function setAuthRestoringState(active) {
+        if (typeof window !== 'undefined') window.__wtrackAuthRestoring = !!active;
+        try {
+            const existing = document.getElementById('courier-auth-restore-overlay');
+            if (!active) {
+                if (existing) existing.remove();
+                return;
+            }
+            if (existing || !document.body) return;
+            const overlay = document.createElement('div');
+            overlay.id = 'courier-auth-restore-overlay';
+            overlay.setAttribute('role', 'status');
+            overlay.style.cssText = 'position:fixed;inset:0;z-index:2147483645;background:#f8fafc;color:#0f172a;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:32px;text-align:center;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;';
+            overlay.innerHTML = '<div style="width:38px;height:38px;border:3.5px solid rgba(255,71,29,.2);border-top-color:#FF471D;border-radius:50%;animation:wtrack-auth-spin 0.8s linear infinite;"></div><div style="font-size:15px;font-weight:700;">Memulihkan sesi kurir…</div><div style="font-size:12.5px;color:#64748b;">Mohon tunggu sebentar, tidak perlu login ulang.</div><style>@keyframes wtrack-auth-spin{to{transform:rotate(360deg)}}</style>';
+            document.body.appendChild(overlay);
+        } catch (_) {}
+    }
     try {
         if (typeof firebase !== 'undefined') {
             // Keep courier sign-in/sign-out separate from the admin dashboard.
@@ -2369,6 +2392,9 @@
                 const authInst = firebase.auth(typeof firebase.app === 'function' ? firebase.app('wtrack-courier') : undefined);
                 window.BrowserSession?.prepare(authInst);
                 authInst.onAuthStateChanged(user => {
+                    courierAuthResolved = true;
+                    if (courierAuthRestoreTimer) { clearTimeout(courierAuthRestoreTimer); courierAuthRestoreTimer = null; }
+                    setAuthRestoringState(false);
                     if ((typeof window !== 'undefined' && window.CourierWeb?.scoped) && !window.CourierWeb.allows(user)) {
                         window.CourierWeb.stop();
                         currentCourier = null;
@@ -2381,10 +2407,15 @@
                     if (user && !user.isAnonymous) {
                         const prof = resolveCourierProfile(user.email || user.displayName || user.uid, user.uid);
                         if (prof && prof.canonicalId) {
-                            completeCourierLogin(prof, true);
+                            const activeScreenId = document.querySelector?.('.app-screen.active')?.id || '';
+                            const alreadySignedIn = currentCourier && (currentCourier.authUid === user.uid || currentCourier.uid === user.uid) && activeScreenId && activeScreenId !== 'screen-login';
+                            completeCourierLogin(prof, true, { silent: alreadySignedIn, keepScreen: alreadySignedIn });
                         }
                     } else if (!user) {
+                        if (!currentCourier) navigateToScreen('login');
                         authInst.signInAnonymously().catch(() => {});
+                    } else if (user.isAnonymous) {
+                        if (!currentCourier) navigateToScreen('login');
                     }
                 });
             }
@@ -2913,6 +2944,18 @@
         setShipmentFilter('delivered', chipDelivered);
     }
 
+    function hasSavedCourierHint() {
+        try {
+            if (localStorage.getItem('wtrack_keep_signed_in') === 'false') return false;
+            const raw = localStorage.getItem('wtrack_saved_courier');
+            if (!raw) return false;
+            const parsed = JSON.parse(raw);
+            return !!(parsed && (parsed.authUid || parsed.uid || parsed.id || parsed.canonicalId));
+        } catch (_) {
+            return false;
+        }
+    }
+
     function loadSavedSession() {
         // A cached display profile alone is not an authenticated session.
         const user = typeof firebase !== 'undefined' && firebase.auth ? firebase.auth(typeof firebase.app === 'function' ? firebase.app('wtrack-courier') : undefined).currentUser : null;
@@ -2921,14 +2964,16 @@
             const raw = localStorage.getItem('wtrack_saved_courier');
             if (raw) {
                 const parsed = JSON.parse(raw);
-                if (parsed && (parsed.uid || parsed.id) === user.uid) {
-                    const resolved = resolveCourierProfile(parsed.email || parsed.canonicalId || parsed.name || parsed.id, parsed.uid || parsed.id);
+                const matchesUid = parsed && ((parsed.authUid || parsed.uid || parsed.id) === user.uid || (parsed.uid || parsed.id) === user.uid);
+                if (matchesUid) {
+                    const resolved = resolveCourierProfile(parsed.email || parsed.canonicalId || parsed.name || parsed.id, user.uid || parsed.uid || parsed.id);
                     const officialAvatar = resolveOfficialAvatar(resolved || parsed);
 
                     currentCourier = {
                         ...parsed,
                         ...resolved,
                         uid: (resolved && resolved.uid) || parsed.uid || parsed.id,
+                        authUid: user.uid || (resolved && resolved.authUid) || parsed.authUid || parsed.uid || parsed.id,
                         canonicalId: (resolved && resolved.canonicalId) || parsed.canonicalId,
                         name: (resolved && resolved.name) || parsed.name,
                         role: (resolved && resolved.role) || parsed.role,
@@ -2947,7 +2992,7 @@
         return false;
     }
 
-    function completeCourierLogin(profile, keepSignedIn) {
+    function completeCourierLogin(profile, keepSignedIn, options = {}) {
         if ((typeof window !== 'undefined' && window.CourierWeb?.scoped) && !window.CourierWeb.allows(profile)) { showToast('Tautan ini khusus akun Eri.'); return; }
         const officialAvatar = resolveOfficialAvatar(profile);
         if (officialAvatar) {
@@ -2962,8 +3007,8 @@
         applyCourierProfile();
         syncFirestoreTrips();
         syncLocalImportedTrips();
-        navigateToScreen('home');
-        showToast(`Selamat datang, ${currentCourier.name}!`);
+        if (!options.keepScreen) navigateToScreen('home');
+        if (!options.silent) showToast(`Selamat datang, ${currentCourier.name}!`);
     }
 
     // Login Handlers: User memasukkan akunnya sendiri langsung (Sekali login langsung tersimpan)
@@ -3016,19 +3061,22 @@
         if (typeof firebase !== 'undefined' && firebase.auth) {
             const provider = new firebase.auth.GoogleAuthProvider();
             showToast("Menghubungkan ke Google...");
-            firebase.auth(typeof firebase.app === 'function' ? firebase.app('wtrack-courier') : undefined).signInWithPopup(provider).then(res => {
-                const u = res.user;
-                const profile = resolveCourierProfile(u.email || u.displayName || 'Kurir', u.uid);
-                const masterPhoto = resolveOfficialAvatar(profile);
-                if (masterPhoto) {
-                    profile.avatar = masterPhoto;
-                } else if (u.photoURL) {
-                    profile.avatar = u.photoURL;
-                }
-                completeCourierLogin(profile, true);
-            }).catch(() => {
-                showToast('Login Google belum berhasil. Silakan coba lagi atau gunakan email dan password.');
-            });
+            const courierAuth = firebase.auth(typeof firebase.app === 'function' ? firebase.app('wtrack-courier') : undefined);
+            Promise.resolve(typeof window !== 'undefined' ? window.BrowserSession?.prepare(courierAuth) : undefined)
+                .then(() => courierAuth.signInWithPopup(provider))
+                .then(res => {
+                    const u = res.user;
+                    const profile = resolveCourierProfile(u.email || u.displayName || 'Kurir', u.uid);
+                    const masterPhoto = resolveOfficialAvatar(profile);
+                    if (masterPhoto) {
+                        profile.avatar = masterPhoto;
+                    } else if (u.photoURL) {
+                        profile.avatar = u.photoURL;
+                    }
+                    completeCourierLogin(profile, true);
+                }).catch(() => {
+                    showToast('Login Google belum berhasil. Silakan coba lagi atau gunakan email dan password.');
+                });
         } else {
             showToast('Login Google belum berhasil. Silakan coba lagi atau gunakan email dan password.');
         }
@@ -5005,21 +5053,40 @@
         });
 
         const hasSession = loadSavedSession();
-        if (!hasSession) {
-            navigateToScreen('login');
-            if (emailInput && emailInput.value) {
-                updateLoginCourierPreview();
-            }
-        } else {
+        const activeUser = typeof firebase !== 'undefined' && firebase.auth ? firebase.auth(typeof firebase.app === 'function' ? firebase.app('wtrack-courier') : undefined).currentUser : null;
+        if (hasSession) {
+            setAuthRestoringState(false);
             applyCourierProfile();
             syncLocalImportedTrips();
             syncFirestoreTrips();
             navigateToScreen('home');
+        } else if (activeUser && !activeUser.isAnonymous && currentCourier && currentCourier.canonicalId) {
+            setAuthRestoringState(false);
+        } else if (!courierAuthResolved && hasSavedCourierHint() && typeof firebase !== 'undefined' && firebase.auth) {
+            // Tunggu Firebase Auth memulihkan sesi dari IndexedDB agar kurir tidak langsung terlempar ke layar login
+            setAuthRestoringState(true);
+            if (courierAuthRestoreTimer) clearTimeout(courierAuthRestoreTimer);
+            courierAuthRestoreTimer = setTimeout(() => {
+                courierAuthRestoreTimer = null;
+                if (!courierAuthResolved) {
+                    setAuthRestoringState(false);
+                    navigateToScreen('login');
+                    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+                        showToast('Koneksi offline. Sesi akan pulih otomatis saat internet kembali.');
+                    }
+                }
+            }, 5000);
+        } else {
+            setAuthRestoringState(false);
+            navigateToScreen('login');
+            if (emailInput && emailInput.value) {
+                updateLoginCourierPreview();
+            }
         }
     });
 </script>
-<script src="/js/courier_route.js?v=20261114.1"></script>
+<script src="js/courier_route.js?v=20261114.1"></script>
 
-<script src="/js/courier_updates.js?v=20261117.1" data-build="3fae5c398b534576"></script>
+<script src="js/courier_updates.js?v=20261117.1" data-build="793bde4acbba1741"></script>
 </body>
 </html>

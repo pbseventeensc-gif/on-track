@@ -23,6 +23,7 @@
 
     function canReload() {
         if(document.hidden)return false;
+        if(root.__wtrackAuthRestoring)return false;
         if(root.FleetService?.hasUnsavedDraft())return false;
         if(document.querySelector('.modal.show, dialog[open]'))return false;
         if(!onSafeScreen())return false;
