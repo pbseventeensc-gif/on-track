@@ -163,8 +163,28 @@
         return null;
     }
 
+    const activeInstances = new Set();
+
+    function pruneDetachedAnimations() {
+        activeInstances.forEach((rec) => {
+            if (rec.span && rec.span.isConnected) return;
+            try { rec.anim && typeof rec.anim.destroy === 'function' && rec.anim.destroy(); } catch (_) {}
+            if (rec.triggerTarget && Array.isArray(rec.triggerTarget._uaAnims)) {
+                rec.triggerTarget._uaAnims = rec.triggerTarget._uaAnims.filter(a => a !== rec.anim);
+            }
+            activeInstances.delete(rec);
+        });
+    }
+
     function mountIcon(el) {
-        if (!el || el.dataset.uaDone === '1' || el.classList.contains('no-ua') || el.closest('th, thead, .table-header, [id^="sort-icon-"]')) return;
+        if (
+            !el ||
+            el.dataset.uaDone === '1' ||
+            el.classList.contains('no-ua') ||
+            el.closest('th, thead, tbody, .table-header, [id^="sort-icon-"], #monitor-list, #notif-list-container, .leaflet-pane, .leaflet-popup-pane')
+        ) {
+            return;
+        }
         if (!root.lottie || !root.USEANIMATIONS_DATA) return;
 
         const iconName = resolveIconName(el);
@@ -205,13 +225,15 @@
 
             const triggerTarget = span.closest('a, button, .sidebar-group-header, .stat-card, .action-btn, .nav-link-custom, .sub-nav-item, .sidebar-search-wrapper') || span;
             if (!triggerTarget.dataset.uaBound) {
-                // Keep weak/array list of anims on triggerTarget so one button hover animates its icon(s)
+                // Play Lottie icon animation on hover (and click)
                 triggerTarget._uaAnims = triggerTarget._uaAnims || [];
-                triggerTarget.addEventListener('mouseenter', () => {
+                const playAll = () => {
                     (triggerTarget._uaAnims || []).forEach(a => {
                         try { a.goToAndPlay(0, true); } catch (_) {}
                     });
-                });
+                };
+                triggerTarget.addEventListener('mouseenter', playAll);
+                triggerTarget.addEventListener('click', playAll);
                 triggerTarget.addEventListener('mouseleave', () => {
                     (triggerTarget._uaAnims || []).forEach(a => {
                         try { a.goToAndStop(0, true); } catch (_) {}
@@ -221,12 +243,14 @@
             }
             triggerTarget._uaAnims = triggerTarget._uaAnims || [];
             triggerTarget._uaAnims.push(anim);
+            activeInstances.add({ span, anim, triggerTarget });
         } catch (_) {
             // Fallback silently if lottie fails on a detached node
         }
     }
 
     function upgradeIcons(scope) {
+        pruneDetachedAnimations();
         const container = scope && scope.querySelectorAll ? scope : root.document;
         if (!container) return;
         const nodes = container.querySelectorAll('i.bi:not([data-ua-done="1"]):not(.no-ua), i[data-lucide]:not([data-ua-done="1"]):not(.no-ua)');
@@ -248,18 +272,26 @@
         upgradeIcons(root.document);
         if (typeof root.MutationObserver === 'function' && root.document.body) {
             const observer = new root.MutationObserver((mutations) => {
+                let hasRemoved = false;
+                let hasAdded = false;
                 for (const m of mutations) {
-                    if (m.addedNodes && m.addedNodes.length) {
-                        scheduleUpgrade();
-                        break;
-                    }
+                    if (m.removedNodes && m.removedNodes.length) hasRemoved = true;
+                    if (m.addedNodes && m.addedNodes.length) hasAdded = true;
+                    if (hasRemoved && hasAdded) break;
                 }
+                if (hasRemoved || hasAdded) scheduleUpgrade();
             });
             observer.observe(root.document.body, { childList: true, subtree: true });
         }
     }
 
-    root.UseAnimationsAdapter = { upgradeIcons, init, BI_TO_UA };
+    root.UseAnimationsAdapter = {
+        upgradeIcons,
+        pruneDetachedAnimations,
+        getActiveCount: () => activeInstances.size,
+        init,
+        BI_TO_UA
+    };
     if (root.document) {
         if (root.document.readyState === 'loading') {
             root.document.addEventListener('DOMContentLoaded', init);

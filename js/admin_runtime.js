@@ -8,7 +8,8 @@
     function schedule(kind = 'trips') {
         dirty.add(kind);
         if (timer !== null || !visible()) return;
-        timer = root.setTimeout(flush, 180);
+        const delay = dirty.has('trips') || dirty.has('resume') ? 180 : 1000;
+        timer = root.setTimeout(flush, delay);
     }
     function flush() {
         timer = null;
@@ -18,7 +19,7 @@
         if (view === 'view-dashboard') {
             root.updateGlobalStats?.({telemetryOnly: !changes.has('trips')});
             if (changes.has('trips')) root.renderRecentShipments?.();
-        } else if (view === 'view-monitor') root.refreshAllMonitorData?.();
+        } else if (view === 'view-monitor') root.refreshAllMonitorData?.({telemetryOnly: !changes.has('trips')});
         else if (changes.has('trips')) {
             if (view === 'view-fleet') root.renderKPIView?.();
             if (view === 'view-pool') root.UnifiedPoolUI?.scheduleRender?.();

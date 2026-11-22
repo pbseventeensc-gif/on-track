@@ -2867,13 +2867,32 @@ function initTripsSnapshot() {
         return;
     }
 
+    const tripsDocCache = new Map();
+    let tripsInitialized = false;
     activeDb.collection('trips').onSnapshot(snap => {
+        if (!tripsInitialized || typeof snap.docChanges !== 'function') {
+            tripsDocCache.clear();
+            snap.forEach(doc => {
+                const t = doc.data();
+                t.id = doc.id;
+                tripsDocCache.set(doc.id, t);
+            });
+            tripsInitialized = true;
+        } else {
+            snap.docChanges().forEach(change => {
+                if (change.type === 'removed') {
+                    tripsDocCache.delete(change.doc.id);
+                } else {
+                    const t = change.doc.data();
+                    t.id = change.doc.id;
+                    tripsDocCache.set(change.doc.id, t);
+                }
+            });
+        }
+
         const trips = [];
         const pool = [];
-
-        snap.forEach(doc => {
-            const t = doc.data();
-            t.id = doc.id;
+        tripsDocCache.forEach(t => {
             if (t.status === 'pool' || (!t.courierId && !['completed','done','delivered'].includes(t.status))) { pool.push(t); return; }
             if (t.status === 'assigned') {
                 t.status = 'in_progress';
@@ -3136,8 +3155,12 @@ function updateGlobalStats(options = {}) {
         if(document.getElementById('stat-ontime')) document.getElementById('stat-ontime').innerText = deliveryRate + "%";
 
         window.VolumeComparison?.applyStatCards?.();
-        if (!options.telemetryOnly) refreshAllMonitorData();
-        updateDynamicAlerts();
+        if (!options.telemetryOnly) {
+            refreshAllMonitorData();
+            updateDynamicAlerts();
+        } else if (typeof updateMapMarkers === 'function') {
+            updateMapMarkers(activeFilter);
+        }
         updateHeaderDate();
     } finally {
         isUpdatingStats = false;
@@ -3145,19 +3168,25 @@ function updateGlobalStats(options = {}) {
 }
 
 let refreshMonitorTimeout = null;
-function refreshAllMonitorData() {
+let refreshMonitorPendingFull = false;
+function refreshAllMonitorData(options = {}) {
+    if (!options || !options.telemetryOnly) refreshMonitorPendingFull = true;
     if (refreshMonitorTimeout) return;
     refreshMonitorTimeout = setTimeout(() => {
         refreshMonitorTimeout = null;
+        const doFull = refreshMonitorPendingFull;
+        refreshMonitorPendingFull = false;
         if (document.hidden) return;
         const view = document.querySelector('.view-section.active')?.id || 'view-dashboard';
         if (view === 'view-monitor') {
-            renderMonitorUI(activeFilter);
+            if (doFull) {
+                renderMonitorUI(activeFilter);
+                updateMonitorSuggestions();
+            }
             if (typeof updateMapMarkers === 'function') updateMapMarkers(activeFilter);
-            updateMonitorSuggestions();
         }
-        if (view === 'view-fleet' && typeof renderKPIView === 'function') renderKPIView();
-        if (view === 'view-dashboard' && typeof VolumeComparison !== 'undefined' && typeof VolumeComparison.render === 'function') VolumeComparison.render();
+        if (doFull && view === 'view-fleet' && typeof renderKPIView === 'function') renderKPIView();
+        if (doFull && view === 'view-dashboard' && typeof VolumeComparison !== 'undefined' && typeof VolumeComparison.render === 'function') VolumeComparison.render();
     }, 100);
 }
 
