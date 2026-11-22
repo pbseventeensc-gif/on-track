@@ -19,10 +19,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
     <!-- Libraries -->
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+    <script defer src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
 
@@ -89,6 +89,7 @@
         window.auth = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth() : null;
         window.BrowserSession?.prepare(window.auth);
         window.db = (typeof firebase !== 'undefined' && firebase.firestore) ? firebase.firestore() : null;
+        try { window.db?.enablePersistence?.({ synchronizeTabs: true })?.catch?.(() => {}); } catch (e) {}
         window.rtdb = (typeof firebase !== 'undefined' && firebase.database) ? firebase.database() : null;
         window.storage = (typeof firebase !== 'undefined' && firebase.storage) ? firebase.storage() : null;
 
@@ -310,8 +311,8 @@
 
             const sStart = document.getElementById('recent-start-date');
             const sEnd = document.getElementById('recent-end-date');
-            if (sStart && !sStart.value) sStart.value = todayStr;
-            if (sEnd && !sEnd.value) sEnd.value = todayStr;
+            if (sStart && !sStart.value) { sStart.value = todayStr; sStart.dataset.autoDate = '1'; }
+            if (sEnd && !sEnd.value) { sEnd.value = todayStr; sEnd.dataset.autoDate = '1'; }
 
             const aStart = document.getElementById('archive-start-date');
             const aEnd = document.getElementById('archive-end-date');
@@ -1496,9 +1497,9 @@
                                             <div class="mb-2">
                                                 <label class="form-label mb-1" style="font-size: 11px; font-weight: 600; color: #667085; text-transform: uppercase;">Tanggal</label>
                                                 <div class="d-flex align-items-center gap-1">
-                                                    <input type="date" id="recent-start-date" class="form-control form-control-sm" onchange="renderRecentShipments()" oninput="renderRecentShipments()">
+                                                    <input type="date" id="recent-start-date" class="form-control form-control-sm" onchange="delete this.dataset.autoDate; renderRecentShipments()" oninput="delete this.dataset.autoDate; renderRecentShipments()">
                                                     <span class="text-muted" style="font-size: 12px;">–</span>
-                                                    <input type="date" id="recent-end-date" class="form-control form-control-sm" onchange="renderRecentShipments()" oninput="renderRecentShipments()">
+                                                    <input type="date" id="recent-end-date" class="form-control form-control-sm" onchange="delete this.dataset.autoDate; renderRecentShipments()" oninput="delete this.dataset.autoDate; renderRecentShipments()">
                                                 </div>
                                             </div>
                                             <div class="mb-2">
@@ -3916,7 +3917,7 @@
 <script src="/js/fleet_vehicles.js?v=20261116.1"></script>
 <script src="js/delivery_identity.js?v=20261114.1"></script>
 <script src="/js/sj_links.js?v=20261118.2"></script>
-<script src="/js/app.js?v=20261122.1"></script>
+<script src="/js/app.js?v=20261122.2"></script>
 <script src="/js/customer_master.js?v=20261114.1"></script>
 <script src="/js/bulk_assignment.js?v=20261114.1"></script>
 <script src="/js/kpi.js?v=20261114.1"></script>

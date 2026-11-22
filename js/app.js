@@ -616,12 +616,49 @@ function parseDateBoundary(dateVal, isEnd = false) {
 }
 window.parseDateBoundary = parseDateBoundary;
 
+function getLatestOperationalDateString(todayStr) {
+    if (!Array.isArray(allCurrentTrips) || allCurrentTrips.length === 0) return todayStr;
+    const todayStart = typeof parseDateBoundary === 'function' ? parseDateBoundary(todayStr, false) : 0;
+    const todayEnd = typeof parseDateBoundary === 'function' ? parseDateBoundary(todayStr, true) : 0;
+    const hasTodayTrip = todayStart > 0 && allCurrentTrips.some(t => t && t.status !== 'pool' && typeof isTripInDateRange === 'function' && isTripInDateRange(t, todayStart, todayEnd));
+    if (hasTodayTrip) return todayStr;
+
+    let latestMs = 0;
+    for (let i = 0; i < allCurrentTrips.length; i++) {
+        const t = allCurrentTrips[i];
+        if (!t || t.status === 'pool') continue;
+        const ms = typeof getTripTimestamp === 'function' ? getTripTimestamp(t) : 0;
+        let candidateMs = ms;
+        if (!candidateMs && t.dateFolder && typeof parseDateBoundary === 'function') {
+            candidateMs = parseDateBoundary(String(t.dateFolder), false) || 0;
+        }
+        if (candidateMs > latestMs && candidateMs <= (todayEnd || Infinity)) {
+            latestMs = candidateMs;
+        }
+    }
+    if (latestMs > 0) {
+        const d = new Date(latestMs);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+    }
+    return todayStr;
+}
+
 function initDefaultDateFilters() {
     const todayStr = getLocalTodayDateString();
+    const targetDateStr = getLatestOperationalDateString(todayStr);
     const sStart = document.getElementById('recent-start-date');
     const sEnd = document.getElementById('recent-end-date');
-    if (sStart && !sStart.value) sStart.value = todayStr;
-    if (sEnd && !sEnd.value) sEnd.value = todayStr;
+    if (sStart && (!sStart.value || sStart.dataset?.autoDate === '1')) {
+        sStart.value = targetDateStr;
+        if (sStart.dataset) sStart.dataset.autoDate = '1';
+    }
+    if (sEnd && (!sEnd.value || sEnd.dataset?.autoDate === '1')) {
+        sEnd.value = targetDateStr;
+        if (sEnd.dataset) sEnd.dataset.autoDate = '1';
+    }
 
     const aStart = document.getElementById('archive-start-date');
     const aEnd = document.getElementById('archive-end-date');
@@ -2861,35 +2898,92 @@ window.syncAllCurrentTrips = function(list) {
 };
 
 function initTripsSnapshot() {
-    const activeDb = getDb();
-    if (!activeDb) {
-        setTimeout(initTripsSnapshot, 300);
-        return;
+    const TRIPS_DISPLAY_CACHE_KEY = 'wtrack_cached_dashboard_trips_v1';
+
+    function compactTripForDisplayCache(t) {
+        if (!t || typeof t !== 'object') return null;
+        const shortPhoto = u => (typeof u === 'string' && u.length > 0 && !u.startsWith('data:image/')) ? u : (typeof u === 'string' && u.startsWith('data:image/') ? 'https://cached.local/pod.jpg' : '');
+        const dests = Array.isArray(t.destinations) ? t.destinations.map(d => {
+            if (!d || typeof d !== 'object') return d;
+            return {
+                deliveryId: d.deliveryId || '',
+                stopIndex: d.stopIndex,
+                locationName: d.locationName || '',
+                customer: d.customer || '',
+                clientName: d.clientName || '',
+                address: d.address || '',
+                region: d.region || '',
+                adminSJ: d.adminSJ || '',
+                status: d.status || 'pending',
+                noSJ: d.noSJ || '',
+                sjNumber: d.sjNumber || '',
+                sjLinks: Array.isArray(d.sjLinks) ? d.sjLinks : undefined,
+                completedTime: d.completedTime || null,
+                completedAt: d.completedAt || null,
+                arrivalTime: d.arrivalTime || null,
+                pendingReason: d.pendingReason || '',
+                latitude: d.latitude ?? d.lat ?? null,
+                longitude: d.longitude ?? d.lng ?? null,
+                proofPhotoUrl: shortPhoto(d.proofPhotoUrl),
+                proofPhotoSj: shortPhoto(d.proofPhotoSj)
+            };
+        }) : [];
+        return {
+            id: t.id,
+            tripId: t.tripId || t.id,
+            noSJ: t.noSJ || '',
+            sjNumber: t.sjNumber || '',
+            status: t.status || '',
+            courierId: t.courierId || '',
+            courierName: t.courierName || '',
+            courier: t.courier || '',
+            driver: t.driver || '',
+            customer: t.customer || '',
+            clientName: t.clientName || '',
+            address: t.address || '',
+            region: t.region || '',
+            originBranch: t.originBranch || '',
+            branchId: t.branchId || '',
+            vehiclePlate: t.vehiclePlate || '',
+            vehicleName: t.vehicleName || '',
+            pickupStatus: t.pickupStatus || '',
+            date: t.date || null,
+            dateFolder: t.dateFolder || '',
+            assignedAt: t.assignedAt || null,
+            completedAt: t.completedAt || null,
+            completedTime: t.completedTime || null,
+            destinations: dests
+        };
+    }
+
+    function saveTripsDisplayCache(trips, pool) {
+        if (typeof window !== 'undefined' && window.WTRACK_LOCAL_SANDBOX) return;
+        if (typeof localStorage === 'undefined') return;
+        try {
+            const getTs = typeof getTripTimestamp === 'function' ? getTripTimestamp : (() => 0);
+            const cutoffMs = Date.now() - (14 * 24 * 60 * 60 * 1000);
+            const recentTrips = (trips || [])
+                .filter(t => t && (t.status !== 'completed' || getTs(t) >= cutoffMs))
+                .sort((a, b) => getTs(b) - getTs(a))
+                .slice(0, 250)
+                .map(compactTripForDisplayCache)
+                .filter(Boolean);
+            const recentPool = (pool || [])
+                .slice(0, 120)
+                .map(compactTripForDisplayCache)
+                .filter(Boolean);
+            localStorage.setItem(TRIPS_DISPLAY_CACHE_KEY, JSON.stringify({
+                savedAt: Date.now(),
+                trips: recentTrips,
+                pool: recentPool
+            }));
+        } catch (e) {}
     }
 
     const tripsDocCache = new Map();
     let tripsInitialized = false;
-    activeDb.collection('trips').onSnapshot(snap => {
-        if (!tripsInitialized || typeof snap.docChanges !== 'function') {
-            tripsDocCache.clear();
-            snap.forEach(doc => {
-                const t = doc.data();
-                t.id = doc.id;
-                tripsDocCache.set(doc.id, t);
-            });
-            tripsInitialized = true;
-        } else {
-            snap.docChanges().forEach(change => {
-                if (change.type === 'removed') {
-                    tripsDocCache.delete(change.doc.id);
-                } else {
-                    const t = change.doc.data();
-                    t.id = change.doc.id;
-                    tripsDocCache.set(change.doc.id, t);
-                }
-            });
-        }
 
+    const rebuildTripsFromCache = (shouldSaveCache = false) => {
         const trips = [];
         const pool = [];
         tripsDocCache.forEach(t => {
@@ -2913,6 +3007,7 @@ function initTripsSnapshot() {
         window.allPoolTrips = pool;
         allCurrentTrips = trips;
         window.allCurrentTrips = trips;
+        if (shouldSaveCache) saveTripsDisplayCache(trips, pool);
         if (typeof initDefaultDateFilters === 'function') initDefaultDateFilters();
         if (window.AdminRuntime) window.AdminRuntime.schedule('trips');
         else {
@@ -2922,6 +3017,71 @@ function initTripsSnapshot() {
             if (typeof renderMonitorUI === 'function') renderMonitorUI();
             if (typeof refreshMapSizes === 'function') refreshMapSizes();
         }
+    };
+
+    // Hydrate instantly from localStorage display cache so Dashboard tasks appear in <50ms on open
+    if (typeof window !== 'undefined' && !window.WTRACK_LOCAL_SANDBOX && typeof localStorage !== 'undefined' && allCurrentTrips.length === 0) {
+        try {
+            const rawCached = localStorage.getItem(TRIPS_DISPLAY_CACHE_KEY);
+            if (rawCached) {
+                const parsed = JSON.parse(rawCached);
+                if (parsed && Array.isArray(parsed.trips) && parsed.trips.length > 0) {
+                    parsed.trips.forEach(t => { if (t && t.id) tripsDocCache.set(t.id, t); });
+                    if (Array.isArray(parsed.pool)) {
+                        parsed.pool.forEach(t => { if (t && t.id) tripsDocCache.set(t.id, t); });
+                    }
+                    rebuildTripsFromCache(false);
+                }
+            }
+        } catch (e) {}
+    }
+
+    const activeDb = getDb();
+    if (!activeDb) {
+        setTimeout(initTripsSnapshot, 150);
+        return;
+    }
+
+    // Fast priority query for active tasks on cold start while full historical snapshot downloads
+    if (!tripsInitialized && typeof activeDb.collection('trips').where === 'function') {
+        try {
+            activeDb.collection('trips').where('status', 'in', ['in_progress', 'assigned', 'pending', 'pool']).get().then(fastSnap => {
+                if (tripsInitialized || !fastSnap) return;
+                let added = false;
+                fastSnap.forEach(doc => {
+                    const t = doc.data();
+                    t.id = doc.id;
+                    tripsDocCache.set(doc.id, t);
+                    added = true;
+                });
+                if (added) rebuildTripsFromCache(false);
+            }).catch(() => {});
+        } catch (e) {}
+    }
+
+    activeDb.collection('trips').onSnapshot(snap => {
+        if (snap?.metadata?.fromCache && snap.empty && tripsDocCache.size > 0) return;
+        if (!tripsInitialized || typeof snap.docChanges !== 'function') {
+            tripsDocCache.clear();
+            snap.forEach(doc => {
+                const t = doc.data();
+                t.id = doc.id;
+                tripsDocCache.set(doc.id, t);
+            });
+            tripsInitialized = true;
+        } else {
+            snap.docChanges().forEach(change => {
+                if (change.type === 'removed') {
+                    tripsDocCache.delete(change.doc.id);
+                } else {
+                    const t = change.doc.data();
+                    t.id = change.doc.id;
+                    tripsDocCache.set(change.doc.id, t);
+                }
+            });
+        }
+
+        rebuildTripsFromCache(true);
 
     }, err => {
         console.error("Firestore trips snapshot error:", err);
@@ -6735,8 +6895,38 @@ window.loginAsLocalDemoAdmin = loginAsLocalDemoAdmin;
 
 let adminAuthUnsubscribe = null;
 let adminAuthUid = null;
+function applyCachedAdminProfile(cached) {
+    if (!cached || !cached.uid || window.isDemoMode) return false;
+    const loginScreen = document.getElementById('login-screen');
+    const mainWrapper = document.getElementById('main-wrapper');
+    if (loginScreen) loginScreen.style.setProperty('display', 'none', 'important');
+    if (mainWrapper) mainWrapper.style.setProperty('display', 'flex', 'important');
+    if (cached.role) currentUserRole = cached.role;
+    if (cached.branchId) currentUserBranchId = cached.branchId;
+    const profileName = document.getElementById('profile-name');
+    const profileRole = document.getElementById('profile-role');
+    const profileAvatar = document.getElementById('profile-avatar');
+    if (profileName && cached.name) profileName.innerText = cached.name;
+    if (profileRole && cached.roleDisplayName) {
+        profileRole.innerHTML = `<span class="d-inline-flex align-items-center gap-1" style="color: #10B981; font-weight: 500;"><span style="width: 5px; height: 5px; border-radius: 50%; background: #10B981; display: inline-block;"></span>Online</span>`;
+    }
+    if (profileAvatar && cached.avatar) {
+        profileAvatar.src = cached.avatar;
+    }
+    applyRoleAccessControl();
+    if (typeof initDefaultDateFilters === 'function') initDefaultDateFilters();
+    window.AdminRuntime?.schedule('trips');
+    return true;
+}
+
 function initAuthListener() {
     if (adminAuthUnsubscribe) return;
+    try {
+        const rawCachedProfile = localStorage.getItem('wtrack_cached_user_profile');
+        if (rawCachedProfile) {
+            applyCachedAdminProfile(JSON.parse(rawCachedProfile));
+        }
+    } catch (e) {}
     ensureFirebaseApp();
     const firebaseAuth = getAuth();
     if (firebaseAuth) {
@@ -6747,6 +6937,7 @@ function initAuthListener() {
             const mainWrapper = document.getElementById('main-wrapper');
 
             if (user && !user.isAnonymous) {
+                if (typeof initDefaultDateFilters === 'function') initDefaultDateFilters();
                 window.AdminRuntime?.schedule('trips');
                 checkAccountDeletionPermission();
                 if (loginScreen) loginScreen.style.setProperty('display', 'none', 'important');

@@ -2422,6 +2422,7 @@
             firebase.auth?.(typeof firebase.app === 'function' ? firebase.app('wtrack-courier') : undefined).onAuthStateChanged(() => window.FleetService?.connectCourier());
             if (firebase.firestore) {
                 firestoreDb = firebase.firestore(typeof firebase.app === 'function' ? firebase.app('wtrack-courier') : undefined);
+                try { firestoreDb?.enablePersistence?.({ synchronizeTabs: true })?.catch?.(() => {}); } catch (e) {}
             }
             if (firebase.storage) {
                 firebaseStorage = firebase.storage(typeof firebase.app === 'function' ? firebase.app('wtrack-courier') : undefined);
