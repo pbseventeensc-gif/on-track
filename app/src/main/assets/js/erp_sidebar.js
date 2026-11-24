@@ -126,8 +126,19 @@
     window.filterSidebarMenus = filterSidebarMenus;
     window.openModulePlaceholder = openModulePlaceholder;
 
+    // Sembunyikan grup Production lama di online (akan diganti versi baru dari lokal)
+    function hideLegacyProductionOnline() {
+        if (window.WTRACK_LOCAL_SANDBOX) return;
+        const prodGroup = document.querySelector('.sidebar-accordion-group[data-group="production"]');
+        if (prodGroup) prodGroup.remove();
+        openGroups.delete('production');
+    }
+
+    hideLegacyProductionOnline();
+
     // Inisialisasi saat DOM siap
     document.addEventListener('DOMContentLoaded', () => {
+        hideLegacyProductionOnline();
         openGroups.forEach(gId => {
             const el = document.querySelector(`.sidebar-accordion-group[data-group="${gId}"]`);
             if (el) el.classList.add('open');
