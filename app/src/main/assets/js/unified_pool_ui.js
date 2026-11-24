@@ -10,6 +10,34 @@
  */
 
 window.UnifiedPoolUI = (function () {
+  if (typeof document !== 'undefined' && !document.getElementById('pool-icon-btn-style')) {
+    const st = document.createElement('style');
+    st.id = 'pool-icon-btn-style';
+    st.textContent = `
+      .pool-icon-btn {
+        width: 30px; height: 30px; padding: 0; margin: 0;
+        display: inline-flex; align-items: center; justify-content: center;
+        background: transparent !important; border: 1px solid transparent !important;
+        border-radius: 8px; color: #4b5563 !important; font-size: 15px; line-height: 1;
+        cursor: pointer; box-shadow: none !important;
+        transition: background-color 0.16s ease, color 0.16s ease, transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+      }
+      .pool-icon-btn i { display: inline-block; transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1); }
+      .pool-icon-btn:hover { background: rgba(17, 24, 39, 0.06) !important; color: #111827 !important; transform: translateY(-1px); }
+      .pool-icon-btn:active { transform: scale(0.92); }
+      .pool-icon-btn.pool-icon-clock:hover i { transform: rotate(-22deg) scale(1.1); }
+      .pool-icon-btn.pool-icon-check:hover i { transform: scale(1.16); }
+      .pool-icon-btn.pool-icon-link:hover i { transform: rotate(-18deg) scale(1.12); }
+      .pool-icon-btn.pool-icon-view:hover i { transform: scale(1.14); }
+      .pool-icon-btn.pool-icon-trash:hover i { animation: poolTrashWiggle 0.32s ease; }
+      @keyframes poolTrashWiggle {
+        0%, 100% { transform: rotate(0deg); }
+        25% { transform: rotate(-10deg) scale(1.08); }
+        65% { transform: rotate(10deg) scale(1.08); }
+      }
+    `;
+    (document.head || document.documentElement).appendChild(st);
+  }
   let activeDateFolder = 'ALL';
   let activeRegionFilter = 'ALL';
   let activePrintLocationFilter = 'ALL';
@@ -851,28 +879,32 @@ window.UnifiedPoolUI = (function () {
           ${locBadge}
           ${branchState ? `<div class="mt-1" style="font-weight: 400 !important;">${branchState}</div>` : ''}
         </td>` : ''}
-        <td class="text-end text-nowrap" style="width: 210px;">
+        <td class="text-end text-nowrap" style="width: 148px;">
           <div class="d-inline-flex align-items-center justify-content-end gap-1 flex-nowrap">
-            ${workflow ? `<button type="button" class="workflow-icon ${t.priority==='urgent'?'text-danger':''}" title="${t.priority==='urgent'?'Kembalikan prioritas normal':'Tandai Urgent'}" aria-label="${t.priority==='urgent'?'Kembalikan prioritas normal':'Tandai Urgent'}" onclick="DispatchWorkflow.toggleUrgent(this,${workflowRef},${t.priority!=='urgent'})">${workflow.icon('urgent')}</button>${t.pickupStatus==='waiting'?`<button type="button" class="btn btn-sm btn-outline-success extra-small text-nowrap" style="font-weight: 400 !important;" onclick="DispatchWorkflow.confirmPickup(${workflowRef})">Diambil</button><button type="button" class="workflow-icon" title="Batalkan pickup" aria-label="Batalkan pickup" onclick="DispatchWorkflow.cancelPickup(this,${workflowRef})">${workflow.icon('close')}</button>`:`<button type="button" class="workflow-icon" title="Pickup by Customer" aria-label="Pickup by Customer" onclick="DispatchWorkflow.requestPickup(this,${workflowRef})">${workflow.icon('pickup')}</button>`}` : ''}
+            ${workflow ? `<button type="button" class="workflow-icon ${t.priority==='urgent'?'text-danger':''}" title="${t.priority==='urgent'?'Kembalikan prioritas normal':'Tandai Urgent'}" aria-label="${t.priority==='urgent'?'Kembalikan prioritas normal':'Tandai Urgent'}" onclick="DispatchWorkflow.toggleUrgent(this,${workflowRef},${t.priority!=='urgent'})">${workflow.icon('urgent')}</button>${t.pickupStatus==='waiting'?`<button type="button" class="pool-icon-btn pool-icon-check" title="Konfirmasi Diambil" aria-label="Konfirmasi Diambil" onclick="DispatchWorkflow.confirmPickup(${workflowRef})"><i class="bi bi-check2-circle"></i></button><button type="button" class="workflow-icon" title="Batalkan pickup" aria-label="Batalkan pickup" onclick="DispatchWorkflow.cancelPickup(this,${workflowRef})">${workflow.icon('close')}</button>`:`<button type="button" class="workflow-icon" title="Pickup by Customer" aria-label="Pickup by Customer" onclick="DispatchWorkflow.requestPickup(this,${workflowRef})">${workflow.icon('pickup')}</button>`}` : ''}
             ${t.readyStatus === 'not_ready' ? `
-              <button class="btn btn-sm btn-success py-1 px-2 aerotrack-input extra-small text-nowrap" style="font-weight: 400 !important;" onclick="UnifiedPoolUI.toggleReadyStatus('${t.id}', true)" title="Tandai Ready">Ready</button>
+              <button type="button" class="pool-icon-btn pool-icon-check" onclick="UnifiedPoolUI.toggleReadyStatus('${t.id}', true)" title="Tandai Ready" aria-label="Tandai Ready">
+                <i class="bi bi-check-circle"></i>
+              </button>
             ` : `
-              <button class="btn btn-sm btn-outline-warning text-dark py-1 px-2 aerotrack-input extra-small text-nowrap" style="font-weight: 400 !important;" onclick="UnifiedPoolUI.toggleReadyStatus('${t.id}', false)" title="Tandai Belum Ready">Belum Ready</button>
+              <button type="button" class="pool-icon-btn pool-icon-clock" onclick="UnifiedPoolUI.toggleReadyStatus('${t.id}', false)" title="Tandai Belum Ready" aria-label="Tandai Belum Ready">
+                <i class="bi bi-clock-history"></i>
+              </button>
             `}
             ${rawSJ && !rawSJ.startsWith('TRIP_') ? `
-            <button class="btn btn-sm btn-light border py-1 px-2 text-primary aerotrack-input" data-trip="${escapePoolHtml(t.tripId || t.id)}" onclick="window.SJManualLink && window.SJManualLink.openByTrip(this.dataset.trip)" title="Tautkan SJ ini ke pengiriman manual" aria-label="Tautkan SJ ke pengiriman manual">
+            <button type="button" class="pool-icon-btn pool-icon-link" data-trip="${escapePoolHtml(t.tripId || t.id)}" onclick="window.SJManualLink && window.SJManualLink.openByTrip(this.dataset.trip)" title="Tautkan SJ ini ke pengiriman manual" aria-label="Tautkan SJ ke pengiriman manual">
               <i class="bi bi-link-45deg"></i>
             </button>` : ''}
             ${(t.printLocation === 'cikokol' || t.originBranch === 'cikokol') ? `
-            <button class="btn btn-sm btn-light border py-1 px-2 text-dark aerotrack-input" onclick="UnifiedPoolUI.printSingleSJ('${t.id}')" title="Cetak Surat Jalan (Cikokol)">
-              <i class="bi bi-printer text-primary"></i>
+            <button type="button" class="pool-icon-btn pool-icon-view" onclick="UnifiedPoolUI.printSingleSJ('${t.id}')" title="Cetak Surat Jalan (Cikokol)" aria-label="Cetak Surat Jalan">
+              <i class="bi bi-printer"></i>
             </button>
             ` : `
-            <button class="btn btn-sm btn-light border py-1 px-2 text-dark aerotrack-input" onclick="UnifiedPoolUI.printSingleSJ('${t.id}')" title="Pratinjau Surat Jalan (Pusat - Hanya Preview)">
-              <i class="bi bi-eye text-primary"></i>
+            <button type="button" class="pool-icon-btn pool-icon-view" onclick="UnifiedPoolUI.printSingleSJ('${t.id}')" title="Pratinjau Surat Jalan (Pusat - Hanya Preview)" aria-label="Pratinjau Surat Jalan">
+              <i class="bi bi-eye"></i>
             </button>
             `}
-            <button class="btn btn-sm btn-light border py-1 px-2 text-danger aerotrack-input" onclick="UnifiedPoolUI.deleteSingleSJ('${t.id}')" title="Hapus Surat Jalan ini">
+            <button type="button" class="pool-icon-btn pool-icon-trash" onclick="UnifiedPoolUI.deleteSingleSJ('${t.id}')" title="Hapus Surat Jalan ini" aria-label="Hapus Surat Jalan">
               <i class="bi bi-trash"></i>
             </button>
           </div>
