@@ -309,12 +309,21 @@
         (document.head || document.documentElement).appendChild(style);
     }
 
-    // Sembunyikan grup Production lama di online (akan diganti versi baru dari lokal)
+    // Sembunyikan grup Production lama & item Analytics placeholder di online
     function hideLegacyProductionOnline() {
         if (window.WTRACK_LOCAL_SANDBOX) return;
         const prodGroup = document.querySelector('.sidebar-accordion-group[data-group="production"]');
         if (prodGroup) prodGroup.remove();
         openGroups.delete('production');
+        [
+            'nav-volume-comparison',
+            'nav-analytics-efficiency',
+            'nav-analytics-waste',
+            'nav-analytics-cost'
+        ].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.remove();
+        });
     }
 
     injectSoftThemeOnline();
