@@ -1003,11 +1003,15 @@
 
                     <!-- 6. AKSI -->
                     <td class="text-nowrap py-2 text-end" style="padding: 6px 12px;">
-                        <div class="mm-row-actions">
-                            <button type="button" class="mm-icon-button" onclick="window.fleetModule.openEditFleetModal('${v.id}')" title="Edit Data Kendaraan" aria-label="Edit Data Kendaraan">
-                                <i class="bi bi-pencil"></i>
+                        <div class="d-flex align-items-center justify-content-end gap-1">
+                            <button class="btn btn-sm btn-outline-secondary py-0.5 px-2 fw-medium" 
+                                    style="border-radius: 6px; font-size: 0.72rem; border-color: #cbd5e1; color: #334155; background: #ffffff;" 
+                                    onclick="window.fleetModule.openEditFleetModal('${v.id}')" title="Edit Data Kendaraan">
+                                <i class="bi bi-pencil text-muted"></i>
                             </button>
-                            <button type="button" class="mm-icon-button mm-disable" onclick="window.fleetModule.deleteFleetVehicle('${v.id}')" title="Hapus Kendaraan" aria-label="Hapus Kendaraan">
+                            <button class="btn btn-sm py-0.5 px-2 fw-medium" 
+                                    style="border-radius: 6px; font-size: 0.72rem; border: 1px solid rgba(239, 68, 68, 0.2); color: #ef4444; background: rgba(239, 68, 68, 0.08); transition: all 0.2s;" 
+                                    onclick="window.fleetModule.deleteFleetVehicle('${v.id}')" title="Hapus Kendaraan">
                                 <i class="bi bi-trash"></i>
                             </button>
                         </div>
