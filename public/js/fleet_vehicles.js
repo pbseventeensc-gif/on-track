@@ -234,7 +234,9 @@
         { id: 'gudang', name: 'Gudang', role: 'driver', vehicleType: 'mobil' },
         { id: 'iwan', name: 'Iwan', role: 'driver', vehicleType: 'mobil' },
         { id: 'husen', name: 'Husen', role: 'driver', vehicleType: 'mobil' },
-        { id: 'firdaus', name: 'Firdaus', role: 'driver', vehicleType: 'mobil' }
+        { id: 'firdaus', name: 'Firdaus', role: 'driver', vehicleType: 'mobil' },
+        { id: 'yusuf', name: 'Yusuf', role: 'driver', vehicleType: 'mobil' },
+        { id: 'ridwan', name: 'Ridwan', role: 'driver', vehicleType: 'mobil' }
     ];
 
     function isRemovedFleetDriver(id, name = '') {
@@ -251,7 +253,8 @@
             drivers.set(canonicalId, {id: canonicalId, name, role: 'driver'});
         };
         MASTER_PERSONIL.forEach(p => add(p.id, p.name));
-        (window.MASTER_COURIERS || []).filter(p => p.role === 'driver').forEach(p =>
+        const globalMasters = typeof MASTER_COURIERS !== 'undefined' ? MASTER_COURIERS : (window.MASTER_COURIERS || []);
+        globalMasters.filter(p => p.role === 'driver').forEach(p =>
             add(p.defaultUid || p.canonicalId, p.displayName, p.canonicalId));
         const profiles = typeof registeredUsersObjects !== 'undefined' ? registeredUsersObjects : {};
         const seen = new Set();
@@ -1000,15 +1003,11 @@
 
                     <!-- 6. AKSI -->
                     <td class="text-nowrap py-2 text-end" style="padding: 6px 12px;">
-                        <div class="d-flex align-items-center justify-content-end gap-1">
-                            <button class="btn btn-sm btn-outline-secondary py-0.5 px-2 fw-medium" 
-                                    style="border-radius: 6px; font-size: 0.72rem; border-color: #cbd5e1; color: #334155; background: #ffffff;" 
-                                    onclick="window.fleetModule.openEditFleetModal('${v.id}')" title="Edit Data Kendaraan">
-                                <i class="bi bi-pencil text-muted"></i>
+                        <div class="mm-row-actions">
+                            <button type="button" class="mm-icon-button" onclick="window.fleetModule.openEditFleetModal('${v.id}')" title="Edit Data Kendaraan" aria-label="Edit Data Kendaraan">
+                                <i class="bi bi-pencil"></i>
                             </button>
-                            <button class="btn btn-sm py-0.5 px-2 fw-medium" 
-                                    style="border-radius: 6px; font-size: 0.72rem; border: 1px solid rgba(239, 68, 68, 0.2); color: #ef4444; background: rgba(239, 68, 68, 0.08); transition: all 0.2s;" 
-                                    onclick="window.fleetModule.deleteFleetVehicle('${v.id}')" title="Hapus Kendaraan">
+                            <button type="button" class="mm-icon-button mm-disable" onclick="window.fleetModule.deleteFleetVehicle('${v.id}')" title="Hapus Kendaraan" aria-label="Hapus Kendaraan">
                                 <i class="bi bi-trash"></i>
                             </button>
                         </div>
