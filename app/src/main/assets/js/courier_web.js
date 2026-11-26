@@ -1,24 +1,49 @@
 /* A lightweight browser entry using the same courier screens and credentials. */
 (function (root) {
     'use strict';
-    const EMAIL = 'erimotor04@gmail.com', UID = 'CkRWbGxehCfVOi4iMWvnm66W9NM2';
-    const scoped = /^\/kurir-eri(?:\.html)?\/?$/.test(root.location?.pathname || '') ||
-        new URLSearchParams(root.location?.search || '').get('courier') === 'eri';
+    const SCOPED_ACCOUNTS = {
+        eri: {
+            id: 'eri',
+            name: 'Eri',
+            email: 'erimotor04@gmail.com',
+            uid: 'CkRWbGxehCfVOi4iMWvnm66W9NM2',
+            manifest: '/manifest-eri.json',
+            pref: 'wtrack_web_gps_eri',
+            aliases: ['eri', 'erimotor04']
+        },
+        baihaqi: {
+            id: 'baihaqi',
+            name: 'Baihaqi',
+            email: 'muhamadbayhaqi0@gmail.com',
+            uid: 'xONhqVSNSYcEcGCZyW2cLGJWQt92',
+            manifest: '/manifest-baihaqi.json',
+            pref: 'wtrack_web_gps_baihaqi',
+            aliases: ['baihaqi', 'baikaqi', 'bayhaqi', 'baykaqi', 'muhamadbayhaqi0']
+        }
+    };
+    const pathMatch = String(root.location?.pathname || '').match(/^\/kurir-([a-z0-9_-]+?)(?:\.html)?\/?$/i);
+    const queryCourier = new URLSearchParams(root.location?.search || '').get('courier')?.toLowerCase() || '';
+    const scopedKey = (pathMatch && SCOPED_ACCOUNTS[pathMatch[1].toLowerCase()])
+        ? pathMatch[1].toLowerCase()
+        : (SCOPED_ACCOUNTS[queryCourier] ? queryCourier : '');
+    const target = scopedKey ? SCOPED_ACCOUNTS[scopedKey] : null;
+    const EMAIL = target?.email || '', UID = target?.uid || '';
+    const scoped = Boolean(target);
     let account = null, auth = null, watch = null, wake = null, generation = 0;
     let enabled = false, last = null, lastSent = 0, km = 0, writing = false, battery = null, kmLoaded = false;
-    const pref = 'wtrack_web_gps_eri';
+    const pref = target?.pref || 'wtrack_web_gps';
     function allows(user) {
         return !scoped || !!(user && !user.isAnonymous && user.uid === UID && String(user.email || '').toLowerCase() === EMAIL);
     }
     function status(text) { const el = root.document?.getElementById('web-gps-status'); if (el) el.textContent = text; }
     function configure() {
-        if (!scoped) return;
+        if (!scoped || !target) return;
         root.document.documentElement.classList.add('courier-lite');
-        root.document.querySelector('link[rel="manifest"]')?.setAttribute('href', '/manifest-eri.json');
+        root.document.querySelector('link[rel="manifest"]')?.setAttribute('href', target.manifest);
         const input = root.document.getElementById('login-input-email');
         if (input) { input.value = EMAIL; input.readOnly = true; }
         root.document.querySelectorAll('[onclick="handleGoogleLogin()"]').forEach(el => el.style.setProperty('display', 'none', 'important'));
-        const title = root.document.querySelector('.login-form-title'); if (title) title.textContent = 'Masuk sebagai Eri';
+        const title = root.document.querySelector('.login-form-title'); if (title) title.textContent = `Masuk sebagai ${target.name}`;
         root.updateLoginCourierPreview?.();
         const home = root.document.getElementById('screen-home');
         if (home && !root.document.getElementById('web-gps-panel')) {
@@ -31,9 +56,9 @@
     }
     function tripQuery(db, profile) {
         const collection = db.collection('trips');
-        if (!scoped) return collection;
-        if (!allows(profile)) throw Error('Halaman ini khusus akun Eri.');
-        return collection.where('courierId', 'in', [UID, UID.toLowerCase(), 'eri', EMAIL, 'erimotor04']);
+        if (!scoped || !target) return collection;
+        if (!allows(profile)) throw Error(`Halaman ini khusus akun ${target.name}.`);
+        return collection.where('courierId', 'in', [...new Set([UID, UID.toLowerCase(), EMAIL, ...target.aliases])]);
     }
     function distance(a, b) {
         const rad = value => value * Math.PI / 180;
@@ -96,7 +121,7 @@
             if (error.code === 1) pause();
         }, {enableHighAccuracy:true, maximumAge:15000, timeout:20000});
     }
-    root.CourierWeb = {scoped, allows, configure, tripQuery, connect, stop, startTracking};
+    root.CourierWeb = {scoped, account: target, allows, configure, tripQuery, connect, stop, startTracking};
     root.document?.addEventListener('DOMContentLoaded', configure);
     root.document?.addEventListener('visibilitychange', () => { if (root.document.hidden) pause(); else if (enabled) startTracking(); });
     root.addEventListener?.('pagehide', pause);

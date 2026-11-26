@@ -6,6 +6,10 @@
       "destination": "/kurir.html"
     },
     {
+      "source": "/kurir-baihaqi",
+      "destination": "/kurir.html"
+    },
+    {
       "source": "/dashboard",
       "destination": "/index.html"
     }
@@ -13,6 +17,15 @@
   "headers": [
     {
       "source": "/kurir-eri",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/kurir-baihaqi",
       "headers": [
         {
           "key": "Cache-Control",
