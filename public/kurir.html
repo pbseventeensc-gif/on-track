@@ -2542,6 +2542,44 @@
         return false;
     }
 
+    function buildCourierTripsQuery(db, profile) {
+        if (typeof window !== 'undefined' && window.CourierWeb && window.CourierWeb.scoped) {
+            return window.CourierWeb.tripQuery(db, profile);
+        }
+        const p = profile || currentCourier;
+        const keys = [];
+        const addKey = (v) => {
+            const s = String(v || '').trim();
+            if (s && !keys.includes(s)) keys.push(s);
+        };
+        if (p) {
+            addKey(p.uid);
+            addKey(p.authUid);
+            addKey(p.id);
+            addKey(p.canonicalId);
+            addKey(p.name);
+            addKey(p.email);
+            if (p.email && String(p.email).includes('@')) addKey(String(p.email).split('@')[0]);
+            const m = MASTER_COURIERS_LIST.find(x =>
+                (p.uid && x.defaultUid === p.uid) ||
+                (p.authUid && x.defaultUid === p.authUid) ||
+                (p.canonicalId && x.canonicalId === String(p.canonicalId).toLowerCase())
+            );
+            if (m) {
+                addKey(m.defaultUid);
+                addKey(m.canonicalId);
+                addKey(m.displayName);
+                addKey(m.loginEmail);
+            }
+        }
+        // Firestore 'in' query safely supports up to 10 values across all SDK versions
+        const queryKeys = keys.slice(0, 10);
+        if (queryKeys.length > 0) {
+            return db.collection('trips').where('courierId', 'in', queryKeys);
+        }
+        return db.collection('trips');
+    }
+
     function syncFirestoreTrips(serverSnapshot) {
         if (!firestoreDb) return;
         if(typeof window !== 'undefined') window.CourierAdminSJ?.connect(firestoreDb);
@@ -2639,7 +2677,7 @@
             if (serverSnapshot) applySnapshot(serverSnapshot);
             else {
                 tripsSubscriptionKey = subscriptionKey;
-                const query = typeof window !== 'undefined' && window.CourierWeb ? window.CourierWeb.tripQuery(firestoreDb, currentCourier) : firestoreDb.collection('trips');
+                const query = buildCourierTripsQuery(firestoreDb, currentCourier);
                 tripsUnsubscribe = query.onSnapshot(applySnapshot, err => {
                     console.warn("Firestore sync offline fallback:", err);
                     tripsSubscriptionKey = '';
@@ -2668,7 +2706,7 @@
         document.querySelectorAll('.recover-courier-tasks').forEach(b => { b.disabled = true; });
         showToast('Memuat ulang tugas hari ini dari server…');
         try {
-            const query = typeof window !== 'undefined' && window.CourierWeb ? window.CourierWeb.tripQuery(firestoreDb, currentCourier) : firestoreDb.collection('trips');
+            const query = buildCourierTripsQuery(firestoreDb, currentCourier);
             const snapshot = await query.get({source: 'server'});
             syncFirestoreTrips(snapshot);
             currentFilter = 'unfinished';
