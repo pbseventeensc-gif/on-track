@@ -226,6 +226,91 @@ function escapeCourierText(value) {
     return String(value).replace(/[&<>"']/g, char => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[char]));
 }
 
+function syncDynamicFirebaseCouriers(snap) {
+    if (!snap || typeof snap.forEach !== 'function') return;
+    const seenFirebaseUids = new Set();
+    const adminRoles = new Set(['admin', 'superadmin', 'super_admin', 'staff', 'ppic', 'qc', 'checker', 'operator', 'manager', 'owner']);
+
+    snap.forEach(doc => {
+        const uid = doc.id;
+        if (!uid || deletedCourierUids.has(uid)) return;
+        const u = doc.data() || {};
+        const roleRaw = String(u.role || '').toLowerCase().trim();
+        const vTypeRaw = String(u.vehicleType || u.vehicle || '').toLowerCase().trim();
+        if (u.isAdmin === true || adminRoles.has(roleRaw)) return;
+
+        const isDriver =
+            roleRaw === 'driver' ||
+            roleRaw === 'sopir' ||
+            roleRaw === 'supir' ||
+            vTypeRaw.includes('mobil') ||
+            vTypeRaw.includes('truk') ||
+            vTypeRaw.includes('car') ||
+            uid === 'oVRUVr4gYrXAKCeUmaclOAS1b5f2';
+        const isKurir =
+            roleRaw === 'kurir' ||
+            roleRaw === 'courier' ||
+            vTypeRaw.includes('motor');
+
+        // Include any non-admin Firebase user with courier/driver role (or explicit driver UID)
+        if (!isDriver && !isKurir) return;
+
+        seenFirebaseUids.add(uid);
+        const emailStr = String(u.email || '').trim();
+        const emailPrefix = emailStr.includes('@') ? emailStr.split('@')[0].toLowerCase() : '';
+        const nameStr = String(u.name || u.displayName || '').trim() || emailPrefix || uid.substring(0, 8);
+        const canonicalCandidate = String(u.courierId || emailPrefix || nameStr || uid)
+            .toLowerCase()
+            .replace(/[^a-z0-9]/g, '') || uid.toLowerCase();
+
+        const existing = MASTER_COURIERS.find(c =>
+            c.defaultUid === uid ||
+            (u.courierId && c.canonicalId === String(u.courierId).toLowerCase()) ||
+            (emailPrefix && Array.isArray(c.matchTokens) && c.matchTokens.includes(emailPrefix))
+        );
+
+        const nextRole = isDriver ? 'driver' : 'kurir';
+        const nextVehicle = isDriver ? 'mobil' : 'motor';
+
+        if (existing) {
+            if (existing.fromFirebase) {
+                existing.displayName = nameStr;
+                existing.role = nextRole;
+                existing.vehicleType = nextVehicle;
+            }
+            return;
+        }
+
+        const tokens = Array.from(new Set([
+            uid.toLowerCase(),
+            uid.substring(0, 5).toLowerCase(),
+            canonicalCandidate,
+            nameStr.toLowerCase(),
+            emailPrefix,
+            emailStr.toLowerCase()
+        ].filter(Boolean)));
+
+        MASTER_COURIERS.push({
+            canonicalId: canonicalCandidate,
+            displayName: nameStr,
+            role: nextRole,
+            vehicleType: nextVehicle,
+            defaultUid: uid,
+            matchTokens: tokens,
+            accountName: emailStr || nameStr,
+            fromFirebase: true
+        });
+    });
+
+    // Remove dynamic entries whose Firebase users doc was deleted
+    for (let i = MASTER_COURIERS.length - 1; i >= 0; i--) {
+        const c = MASTER_COURIERS[i];
+        if (c.fromFirebase && (!seenFirebaseUids.has(c.defaultUid) || deletedCourierUids.has(c.defaultUid))) {
+            MASTER_COURIERS.splice(i, 1);
+        }
+    }
+}
+
 function syncCourierNames() {
     for (const courier of MASTER_COURIERS) {
         const profile = registeredUsersObjects[courier.defaultUid] || registeredUsersObjects[courier.canonicalId];
@@ -1719,6 +1804,7 @@ function isTabAllowedForRole(role, viewId) {
         viewId === 'machine-master' ||
         viewId === 'operator-master' ||
         viewId === 'material-master' ||
+        viewId === 'warehouse-master' ||
         viewId.startsWith('job-') ||
         viewId.startsWith('deskprint-') ||
         viewId.startsWith('prod-') ||
@@ -1910,6 +1996,7 @@ function switchTab(viewId, el) {
         if (typeof renderRecentShipments === 'function') renderRecentShipments();
     } else if (viewId === 'monitor') {
         if (typeof renderMonitorUI === 'function') renderMonitorUI();
+        if (typeof updateMapMarkers === 'function') updateMapMarkers(activeFilter);
     } else if (viewId === 'dispatch') {
         if (typeof renderCourierOptions === 'function') renderCourierOptions();
         if (typeof loadClientsByRegion === 'function') loadClientsByRegion("");
@@ -1959,6 +2046,10 @@ function switchTab(viewId, el) {
     } else if (viewId === 'branch-master') {
         if (window.BranchMaster && typeof window.BranchMaster.render === 'function') {
             window.BranchMaster.render();
+        }
+    } else if (viewId === 'warehouse-master') {
+        if (window.WarehouseMaster && typeof window.WarehouseMaster.render === 'function') {
+            window.WarehouseMaster.render();
         }
     }
 
@@ -2711,6 +2802,7 @@ function initUsersSnapshot() {
             }
         });
 
+        syncDynamicFirebaseCouriers(snap);
         syncCourierNames();
 
         if (!deletedCourierUids.has('beto')) {
@@ -2851,16 +2943,45 @@ function renderCourierOptions() {
     }
 }
 
-function initRtdbListener() {
+let rtdbLiveLocationRef = null;
+let rtdbLiveLocationHandler = null;
+let rtdbListenerUid = null;
+
+function detachRtdbListener() {
+    if (rtdbLiveLocationRef && rtdbLiveLocationHandler) {
+        try { rtdbLiveLocationRef.off('value', rtdbLiveLocationHandler); } catch (e) {}
+    }
+    rtdbLiveLocationRef = null;
+    rtdbLiveLocationHandler = null;
+    rtdbListenerUid = null;
+}
+
+function initRtdbListener(targetUid) {
     const activeRtdb = getRtdb();
-    if (!activeRtdb) {
-        setTimeout(initRtdbListener, 300);
+    const firebaseAuth = getAuth();
+    if (!activeRtdb || !firebaseAuth) {
+        setTimeout(() => initRtdbListener(targetUid), 300);
         return;
     }
-    activeRtdb.ref('courier_live_location').on('value', snap => {
+    const authUser = firebaseAuth.currentUser;
+    const uid = targetUid || (authUser && !authUser.isAnonymous ? authUser.uid : null);
+    if (!uid) return;
+    if (rtdbListenerUid === uid && rtdbLiveLocationRef) return;
+
+    detachRtdbListener();
+    rtdbListenerUid = uid;
+    rtdbLiveLocationRef = activeRtdb.ref('courier_live_location');
+    rtdbLiveLocationHandler = snap => {
         currentOnlineCouriers = snap.val() || {};
         if (window.AdminRuntime) window.AdminRuntime.schedule('gps');
-        else updateGlobalStats({telemetryOnly: true});
+        else {
+            updateGlobalStats({telemetryOnly: true});
+            if (typeof updateMapMarkers === 'function') updateMapMarkers(activeFilter);
+        }
+    };
+    rtdbLiveLocationRef.on('value', rtdbLiveLocationHandler, err => {
+        console.warn('[RTDB] courier_live_location listener error:', err?.code || err?.message || err);
+        detachRtdbListener();
     });
 }
 initRtdbListener();
@@ -3983,16 +4104,16 @@ function renderMonitorUI(filter) {
                 <div class="mt-2 p-2 bg-light border rounded-3 text-start">
                     <div class="d-flex justify-content-between align-items-center mb-1.5">
                         <small class="text-muted extra-small fw-bold text-uppercase" style="font-size:0.65rem;"><i class="bi bi-file-earmark-text-fill me-1 text-primary"></i> Foto Bulk SJ (${sjUrls.length})</small>
-                        <button class="btn btn-xs btn-outline-danger py-0 px-1.5 fw-bold" style="font-size: 0.65rem; border-radius: 4px;" onclick="deleteBulkSjFromCard('${bulkSjTrip.id}')" title="Hapus Semua Foto Bulk SJ Kurir Ini"><i class="bi bi-trash-fill me-1"></i>Hapus</button>
+                        <button class="btn btn-xs btn-bulk-sj-delete" onclick="deleteBulkSjFromCard('${bulkSjTrip.id}')" title="Hapus Semua Foto Bulk SJ Kurir Ini" aria-label="Hapus Semua Foto Bulk SJ Kurir Ini"><i class="bi bi-trash-fill"></i></button>
                     </div>
                     <div class="d-flex gap-1 mb-1.5">
-                        <button class="btn btn-xs btn-outline-primary w-100 py-1.5 fw-bold" style="border-radius: 6px; font-size:0.725rem;" onclick="openAuditSjModal('${bulkSjTrip.id}')">
+                        <button class="btn btn-xs btn-bulk-sj-blue w-100 py-1.5 fw-bold" style="border-radius: 6px; font-size:0.725rem;" onclick="openAuditSjModal('${bulkSjTrip.id}')">
                             <i class="bi bi-eye-fill me-1"></i> Lihat ${sjUrls.length} Foto Bulk SJ
                         </button>
                     </div>
                     <div class="d-flex gap-1 align-items-center">
                         <input type="file" id="card-bulk-file-${bulkSjTrip.id}" accept="image/*" class="form-control form-control-sm py-1 px-2 extra-small bg-white" style="border-radius: 6px; font-size: 0.68rem;" multiple>
-                        <button class="btn btn-xs btn-primary fw-bold text-nowrap px-2 py-1" style="font-size: 0.68rem; border-radius: 6px;" onclick="uploadBulkSjFromCard('${bulkSjTrip.id}')">+ Upload</button>
+                        <button class="btn btn-xs btn-bulk-sj-blue fw-bold text-nowrap px-2 py-1" style="font-size: 0.68rem; border-radius: 6px;" onclick="uploadBulkSjFromCard('${bulkSjTrip.id}')">+ Upload</button>
                     </div>
                 </div>`;
         } else if (activeTrip) {
@@ -4001,7 +4122,7 @@ function renderMonitorUI(filter) {
                     <small class="text-muted extra-small fw-bold text-uppercase d-block mb-1"><i class="bi bi-camera-fill me-1 text-primary"></i> Upload Foto Bulk SJ (Bisa >1)</small>
                     <div class="d-flex gap-1 align-items-center">
                         <input type="file" id="card-bulk-file-${activeTrip.id}" accept="image/*" class="form-control form-control-sm py-1 px-2 extra-small bg-white" style="border-radius: 6px; font-size: 0.68rem;" multiple>
-                        <button class="btn btn-xs btn-primary fw-bold text-nowrap px-2 py-1" style="font-size: 0.68rem; border-radius: 6px;" onclick="uploadBulkSjFromCard('${activeTrip.id}')">Upload</button>
+                        <button class="btn btn-xs btn-bulk-sj-blue fw-bold text-nowrap px-2 py-1" style="font-size: 0.68rem; border-radius: 6px;" onclick="uploadBulkSjFromCard('${activeTrip.id}')">Upload</button>
                     </div>
                 </div>`;
         }
@@ -5554,23 +5675,14 @@ async function exportRecentShipmentsToExcel() {
             return;
         }
 
-        const tableDestinations = t.destinations?.length ? t.destinations : (volumeSelection ? [t] : []);
+        const tableDestinations = t.destinations?.length ? t.destinations : [t];
         if (tableDestinations.length) {
             tableDestinations.forEach((d, idx) => {
                 if (!d) return;
                 const selectedVolumeRow = volumeSelection?.get(`${t.id || t.tripId}:${idx}`);
                 if (volumeSelection && !selectedVolumeRow) return;
 
-                if (!volumeSelection && filterStartMs > 0) {
-                    const hasPodPhoto = !!(d.proofPhotoUrl || d.proofPhotoSj || (d.proofPhotoItems && d.proofPhotoItems.length > 0));
-                    const completed = (d.status === 'done' || d.status === 'completed' || d.status === 'delivered' || hasPodPhoto || t.status === 'completed');
-                    const compMs = typeof destinationCompletionMs === 'function' ? destinationCompletionMs(d, t) : (typeof parseCompletionTimestamp === 'function' ? (parseCompletionTimestamp(d.completedTime) || parseCompletionTimestamp(d.completedAt)) : 0);
-                    if (completed && compMs > 0 && (compMs < filterStartMs || compMs > filterEndMs)) {
-                        return;
-                    }
-                }
-
-                const locName = d.locationName || 'Destination';
+                const locName = d.locationName || d.clientName || d.customer || 'Destination';
                 const fullAddress = d.address || '-';
                 const stopIdx = d.stopIndex || (idx + 1);
                 const uniqueShipmentId = `${tripIdShort}-${stopIdx}`;
@@ -5590,24 +5702,8 @@ async function exportRecentShipmentsToExcel() {
                     return searchableText.includes(term) || searchableText.includes(cleanTerm);
                 });
 
-                let matchStatus = false;
-                if (selectedStatus === 'all') {
-                    matchStatus = true;
-                } else if (selectedStatus === 'active_all') {
-                    matchStatus = (status !== 'completed');
-                } else if (selectedStatus === 'pending') {
-                    matchStatus = (status === 'pending' || isKlienTutupApproved || isPendingApproval);
-                } else if (selectedStatus === 'delayed') {
-                    const lastUpdate = t.destinations ? t.destinations.filter(d => d.status === 'done' || d.status === 'arrived').reduce((max, d) => {
-                        const time = (d.completedTime || d.arrivalTime)?.seconds * 1000 || 0;
-                        return time > max ? time : max;
-                    }, (t.date?.seconds || 0) * 1000) : 0;
-                    matchStatus = (status !== 'completed') && (Date.now() - lastUpdate > 30 * 60 * 1000);
-                } else if (selectedStatus === 'returned') {
-                    matchStatus = (status === 'returned' || status === 'failed' || status === 'klien_tutup' || isKlienTutupApproved || d.status === 'returned' || d.status === 'failed');
-                } else {
-                    matchStatus = (status === selectedStatus);
-                }
+                // Export report always includes all statuses (completed, in_progress, pending, returned/failed, etc.)
+                const matchStatus = true;
 
                 if (matchSearch && matchStatus) {
                     const completedStr = formatCompletionWIB(destinationCompletionMs(d, t), true);
@@ -5661,9 +5757,12 @@ async function exportRecentShipmentsToExcel() {
         sheet.getRow(1).height = 26;
 
         // 2. Subtitle Row (Row 2)
+        const completedCount = exportData.filter(r => r.Status === 'completed' || r.Status === 'done').length;
+        const failedCount = exportData.filter(r => ['returned', 'failed', 'klien_tutup'].includes(r.Status)).length;
+        const otherCount = exportData.length - completedCount - failedCount;
         sheet.mergeCells('A2:L2');
         const subCell = sheet.getCell('A2');
-        subCell.value = `Periode: ${periodStr}  |  Kurir/Driver: ${carrierLabel}  |  Total Data: ${exportData.length} Titik Pengiriman`;
+        subCell.value = `Periode: ${periodStr}  |  Kurir/Driver: ${carrierLabel}  |  Total: ${exportData.length} Titik (Selesai: ${completedCount} | Proses/Pending: ${otherCount} | Gagal/Retur: ${failedCount})`;
         subCell.font = { name: 'Calibri', size: 9.5, italic: true, bold: true, color: { argb: 'FF1F4E79' } };
         subCell.fill = {
             type: 'pattern',
@@ -6937,6 +7036,7 @@ function initAuthListener() {
             const mainWrapper = document.getElementById('main-wrapper');
 
             if (user && !user.isAnonymous) {
+                initRtdbListener(user.uid);
                 if (typeof initDefaultDateFilters === 'function') initDefaultDateFilters();
                 window.AdminRuntime?.schedule('trips');
                 checkAccountDeletionPermission();
@@ -7048,6 +7148,8 @@ function initAuthListener() {
                     if (typeof mapDispatch !== 'undefined' && mapDispatch && typeof mapDispatch.invalidateSize === 'function') mapDispatch.invalidateSize();
                 }, 300);
             } else {
+                detachRtdbListener();
+                currentOnlineCouriers = {};
                 accountDeletionAllowed = false;
                 accountDeletionCheckedFor = null;
                 if (loginScreen) loginScreen.style.setProperty('display', 'flex', 'important');
@@ -7258,33 +7360,102 @@ async function confirmSwitchCourier() {
         } else if (mode === 'all_courier_trips') {
             const sourceCourierId = tripId;
             const sourceNorm = normalizeCourierIdentity(sourceCourierId, '');
+            const todayWibKey = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+            const toWibDateKey = (val) => {
+                if (!val) return '';
+                if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(val.trim())) return val.trim();
+                const ms = typeof val?.toMillis === 'function' ? val.toMillis() :
+                    typeof val?.toDate === 'function' ? val.toDate().getTime() :
+                    val?.seconds !== undefined ? Number(val.seconds) * 1000 :
+                    val?._seconds !== undefined ? Number(val._seconds) * 1000 :
+                    typeof val === 'number' ? val :
+                    (typeof val === 'string' && val.startsWith('TRIP_') ? parseInt(val.replace('TRIP_', ''), 10) : Date.parse(val));
+                if (!Number.isFinite(ms) || ms <= 0) return '';
+                return new Date(ms + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
+            };
+            const isStopDone = (d) => !!(d && (['done', 'completed', 'delivered'].includes(String(d.status || '').toLowerCase()) || d.proofPhotoUrl || d.proofPhotoSj));
+
             const tripsToSwitch = (allCurrentTrips || []).filter(t => {
                 const tNorm = normalizeCourierIdentity(t.courierId, '');
                 const isMatch = (t.courierId === sourceCourierId || tNorm.canonicalId === sourceNorm.canonicalId || tNorm.uid === sourceNorm.uid);
-                return isMatch && t.status !== 'completed';
+                if (!isMatch || t.status === 'completed' || t.status === 'pool') return false;
+                const tripDateKey = toWibDateKey(t.dateFolder || t.date || t.assignedAt || t.assignedTime || t.acceptedTime || t.id);
+                if (tripDateKey !== todayWibKey) return false;
+                if (Array.isArray(t.destinations) && t.destinations.length > 0) {
+                    return t.destinations.some(d => !isStopDone(d));
+                }
+                return true;
             });
 
             if (tripsToSwitch.length === 0) {
-                alert("Tidak ada tugas aktif yang ditemukan untuk dialihkan.");
+                alert("Tidak ada tugas aktif hari ini yang belum selesai untuk dialihkan.");
                 return;
             }
 
             const batch = activeDb.batch();
+            const nowTs = firebase.firestore.Timestamp.now();
+            let switchedTripCount = 0;
+            let switchedStopCount = 0;
+
             tripsToSwitch.forEach(t => {
                 const ref = activeDb.collection('trips').doc(t.id);
-                batch.update(ref, {
-                    courierId: finalTargetUid,
-                    vehicleType: newVehicleType,
-                    status: 'in_progress',
-                    previousCourierId: t.courierId || '',
-                    switchedAt: firebase.firestore.Timestamp.now(),
-                    switchedReason: reason || 'Switch admin live tracking',
-                    acceptedTime: firebase.firestore.Timestamp.now()
-                });
+                const dests = Array.isArray(t.destinations) ? t.destinations : [];
+                const doneStops = dests.filter(isStopDone);
+                const remainingStops = dests.filter(d => !isStopDone(d));
+
+                if (dests.length > 0 && doneStops.length > 0 && remainingStops.length > 0) {
+                    // Preserve already-delivered stops under the original courier so KPI & reports stay accurate.
+                    const keptDests = doneStops.map((d, i) => ({ ...d, stopIndex: i + 1 }));
+                    const movedDests = remainingStops.map((d, i) => ({ ...d, stopIndex: i + 1 }));
+                    batch.update(ref, {
+                        destinations: keptDests,
+                        status: 'completed',
+                        deliveryStatus: 'completed',
+                        completedAt: nowTs
+                    });
+                    const newRef = activeDb.collection('trips').doc();
+                    const newTrip = {
+                        ...t,
+                        tripId: newRef.id,
+                        courierId: finalTargetUid,
+                        courierName: newCourierName,
+                        driver: newCourierName,
+                        carrier: newCourierName,
+                        vehicleType: newVehicleType,
+                        status: 'in_progress',
+                        deliveryStatus: 'in_progress',
+                        previousCourierId: t.courierId || '',
+                        switchedFromTripId: t.id,
+                        switchedAt: nowTs,
+                        switchedReason: reason || 'Switch admin live tracking',
+                        acceptedTime: nowTs,
+                        completedAt: null,
+                        destinations: movedDests
+                    };
+                    if ('id' in newTrip) delete newTrip.id;
+                    batch.set(newRef, newTrip);
+                    switchedTripCount++;
+                    switchedStopCount += movedDests.length;
+                } else {
+                    batch.update(ref, {
+                        courierId: finalTargetUid,
+                        courierName: newCourierName,
+                        driver: newCourierName,
+                        carrier: newCourierName,
+                        vehicleType: newVehicleType,
+                        status: 'in_progress',
+                        previousCourierId: t.courierId || '',
+                        switchedAt: nowTs,
+                        switchedReason: reason || 'Switch admin live tracking',
+                        acceptedTime: nowTs
+                    });
+                    switchedTripCount++;
+                    switchedStopCount += Math.max(1, remainingStops.length || dests.length);
+                }
             });
             await batch.commit();
 
-            showToast(`Sukses! ${tripsToSwitch.length} tugas berhasil dialihkan ke ${newCourierName} (${targetInfo.role === 'driver' ? 'Driver Mobil' : 'Kurir Motor'}).`);
+            showToast(`Sukses! ${switchedTripCount} tugas hari ini (${switchedStopCount} titik belum selesai) berhasil dialihkan ke ${newCourierName} (${targetInfo.role === 'driver' ? 'Driver Mobil' : 'Kurir Motor'}).`);
         } else {
             const tripRef = activeDb.collection('trips').doc(tripId);
             const snap = await tripRef.get();
@@ -7299,6 +7470,9 @@ async function confirmSwitchCourier() {
             if (scope === 'entire_trip' || currentDests.length <= 1) {
                 await tripRef.update({
                     courierId: finalTargetUid,
+                    courierName: newCourierName,
+                    driver: newCourierName,
+                    carrier: newCourierName,
                     vehicleType: newVehicleType,
                     status: (tData.status === 'pool' || !tData.status) ? 'in_progress' : tData.status,
                     previousCourierId: tData.courierId || '',
@@ -7328,6 +7502,9 @@ async function confirmSwitchCourier() {
                 await activeDb.collection('trips').doc(newTripId).set({
                     tripId: newTripId,
                     courierId: finalTargetUid,
+                    courierName: newCourierName,
+                    driver: newCourierName,
+                    carrier: newCourierName,
                     vehicleType: newVehicleType,
                     status: "in_progress",
                     region: tData.region || "Jakarta Pusat",
@@ -7862,10 +8039,11 @@ const VIEW_TITLE_MAP = {
     pool: { id: 'Delivery Order', en: 'Delivery Order' },
     monitor: { id: 'Live Tracking', en: 'Live Tracking' },
     dispatch: { id: 'Manual Dispatch', en: 'Manual Dispatch' },
-    spk: { id: 'SPK Management', en: 'SPK Management' },
+    spk: { id: 'Production Plan', en: 'Production Plan' },
     'branch-workstation': { id: 'Workstation Cikokol', en: 'Cikokol Workstation' },
     'material-usage': { id: 'Usage', en: 'Usage' },
     'material-master': { id: 'Master Bahan', en: 'Material Master' },
+    'warehouse-master': { id: 'Master Data Warehouse', en: 'Warehouse Master' },
     'machine-master': { id: 'Mesin Produksi', en: 'Machine Master' },
     'operator-master': { id: 'Operator Mesin', en: 'Operator Master' },
     'branch-master': { id: 'Master Data Cabang', en: 'Branch Master' },
@@ -7907,6 +8085,7 @@ const VIEW_ICON_MAP = {
     workstation: 'bi-building',
     'material-usage': 'bi-layers',
     'material-master': 'bi-boxes',
+    'warehouse-master': 'bi-box-seam',
     'machine-master': 'bi-cpu',
     'operator-master': 'bi-person-gear',
     'branch-master': 'bi-buildings',
