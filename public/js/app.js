@@ -218,7 +218,8 @@ const MASTER_COURIERS = [
     { canonicalId: 'iwan', displayName: 'Iwan', role: 'driver', vehicleType: 'mobil', defaultUid: 'J3wejohLG5dXbX0im5ozeGzpjzt2', matchTokens: ['iwan', 'iwandriver04', 'j3wej'] },
     { canonicalId: 'agung', displayName: 'Agung', role: 'driver', vehicleType: 'mobil', defaultUid: 'RLLeIifIbmVj1HHKALY40n1lKRr1', matchTokens: ['agung', 'agungdriver10', 'rllei'] },
     { canonicalId: 'husen', displayName: 'Husen', role: 'driver', vehicleType: 'mobil', defaultUid: 'juHUuOWS4FOVpHxE59t4xf0ld1z1', matchTokens: ['husen', 'husensuka3', 'husensuka', 'juhu'] },
-    { canonicalId: 'yusuf', displayName: 'Yusuf', role: 'driver', vehicleType: 'mobil', defaultUid: 'Dqvjz8QL0nf6rnUMaJlgP88xrVT2', matchTokens: ['yusuf', 'dqvjz', 'dqvjz8ql0nf6rnumajlgp88xrvt2'] }
+    { canonicalId: 'yusuf', displayName: 'Yusuf', role: 'driver', vehicleType: 'mobil', defaultUid: 'Dqvjz8QL0nf6rnUMaJlgP88xrVT2', matchTokens: ['yusuf', 'dqvjz', 'dqvjz8ql0nf6rnumajlgp88xrvt2'] },
+    { canonicalId: 'ridwan', displayName: 'Ridwan', role: 'driver', vehicleType: 'mobil', defaultUid: 'oVRUVr4gYrXAKCeUmaclOAS1b5f2', matchTokens: ['ridwan', 'ovruv', 'ovruvr4gyrxakceumacloas1b5f2'] }
 ];
 window.MASTER_COURIERS = MASTER_COURIERS;
 MASTER_COURIERS.forEach(courier => { courier.accountName = courier.displayName; });

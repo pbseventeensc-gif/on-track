@@ -940,7 +940,8 @@ window.UnifiedPoolUI = (function () {
     { canonicalId: 'iwan', displayName: 'Iwan', role: 'driver', vehicleType: 'mobil', defaultUid: 'J3wejohLG5dXbX0im5ozeGzpjzt2' },
     { canonicalId: 'agung', displayName: 'Agung', role: 'driver', vehicleType: 'mobil', defaultUid: 'RLLeIifIbmVj1HHKALY40n1lKRr1' },
     { canonicalId: 'husen', displayName: 'Husen', role: 'driver', vehicleType: 'mobil', defaultUid: 'juHUuOWS4FOVpHxE59t4xf0ld1z1' },
-    { canonicalId: 'yusuf', displayName: 'Yusuf', role: 'driver', vehicleType: 'mobil', defaultUid: 'Dqvjz8QL0nf6rnUMaJlgP88xrVT2' }
+    { canonicalId: 'yusuf', displayName: 'Yusuf', role: 'driver', vehicleType: 'mobil', defaultUid: 'Dqvjz8QL0nf6rnUMaJlgP88xrVT2' },
+    { canonicalId: 'ridwan', displayName: 'Ridwan', role: 'driver', vehicleType: 'mobil', defaultUid: 'oVRUVr4gYrXAKCeUmaclOAS1b5f2' }
   ];
 
   function buildCourierOptionsHtml() {

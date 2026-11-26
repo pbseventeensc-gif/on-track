@@ -1904,7 +1904,9 @@
         { canonicalId: 'yakub', loginEmail: "yakubdriver08@gmail.com", displayName: 'Yakub', role: 'Driver Mobil', vehicleType: 'mobil', defaultUid: '17zXKPw8SFXDhW6Z6lc547R4TEE2', avatar: 'assets/couriers/Yakub.jpeg', tokens: ['yakub', 'yakubdriver08', '17zxk'] },
         { canonicalId: 'iwan', loginEmail: "iwandriver04@gmail.com", displayName: 'Iwan', role: 'Driver Mobil', vehicleType: 'mobil', defaultUid: 'J3wejohLG5dXbX0im5ozeGzpjzt2', avatar: 'https://ui-avatars.com/api/?name=Iwan&background=65A30D&color=fff', tokens: ['iwan', 'iwandriver04', 'j3wej'] },
         { canonicalId: 'agung', loginEmail: "agungdriver10@gmail.com", displayName: 'Agung', role: 'Driver Mobil', vehicleType: 'mobil', defaultUid: 'RLLeIifIbmVj1HHKALY40n1lKRr1', avatar: 'assets/couriers/Agung.jpeg', tokens: ['agung', 'agungdriver10', 'rllei'] },
-        { canonicalId: 'husen', loginEmail: "husensuka3@gmail.com", displayName: 'Husen', role: 'Driver Mobil', vehicleType: 'mobil', defaultUid: 'juHUuOWS4FOVpHxE59t4xf0ld1z1', avatar: 'assets/couriers/Husen.jpeg', tokens: ['husen', 'husensuka3', 'husensuka', 'juhu'] }
+        { canonicalId: 'husen', loginEmail: "husensuka3@gmail.com", displayName: 'Husen', role: 'Driver Mobil', vehicleType: 'mobil', defaultUid: 'juHUuOWS4FOVpHxE59t4xf0ld1z1', avatar: 'assets/couriers/Husen.jpeg', tokens: ['husen', 'husensuka3', 'husensuka', 'juhu'] },
+        { canonicalId: 'ridwan', loginEmail: "ridwan@gmail.com", displayName: 'Ridwan', role: 'Driver Mobil', vehicleType: 'mobil', defaultUid: 'oVRUVr4gYrXAKCeUmaclOAS1b5f2', avatar: 'https://ui-avatars.com/api/?name=Ridwan&background=2563EB&color=fff', tokens: ['ridwan', 'ovruv', 'ovruvr4gyrxakceumacloas1b5f2'] },
+        { canonicalId: 'yusuf', loginEmail: "yusuf@gmail.com", displayName: 'Yusuf', role: 'Driver Mobil', vehicleType: 'mobil', defaultUid: 'Dqvjz8QL0nf6rnUMaJlgP88xrVT2', avatar: 'https://ui-avatars.com/api/?name=Yusuf&background=2563EB&color=fff', tokens: ['yusuf', 'dqvjz', 'dqvjz8ql0nf6rnumajlgp88xrvt2'] }
     ];
 
     const COMPANY_FLEET_VEHICLES = [
@@ -2271,15 +2273,20 @@
 
         const myCanon = (cProfile.canonicalId || '').toLowerCase();
         const myUid = (cProfile.uid || cProfile.id || '').toLowerCase();
+        const myAuthUid = (cProfile.authUid || '').toLowerCase();
         const myName = (cProfile.name || '').toLowerCase();
         const myEmail = (cProfile.email || '').toLowerCase();
         const myEmailPrefix = myEmail.split('@')[0];
 
-        // 1. Direct UID match
+        // 1. Direct UID match (both resolved uid and raw Firebase authUid)
         if (rawCid && myUid && rawCid.toLowerCase() === myUid) return true;
+        if (rawCid && myAuthUid && rawCid.toLowerCase() === myAuthUid) return true;
 
-        // 2. Direct Canonical string match on courierId
+        // 2. Direct Canonical / Email / Name string match on courierId
         if (rawCid && myCanon && rawCid.toLowerCase() === myCanon) return true;
+        if (rawCid && myEmail && rawCid.toLowerCase() === myEmail) return true;
+        if (rawCid && myEmailPrefix && myEmailPrefix.length >= 3 && rawCid.toLowerCase() === myEmailPrefix) return true;
+        if (rawCid && myName && myName.length >= 3 && rawCid.toLowerCase() === myName) return true;
 
         // 3. Match trip's courierId with defaultUid in MASTER_COURIERS_LIST
         const tripMaster = MASTER_COURIERS_LIST.find(m => m.defaultUid === rawCid || (rawCid && m.canonicalId === rawCid.toLowerCase()));
@@ -2289,8 +2296,13 @@
         // metadata must never give the previous courier access after a switch.
         if (rawCid) {
             const assignedProfile = resolveCourierProfile(rawCid, rawCid);
-            return !!(assignedProfile.canonicalId && myCanon &&
-                assignedProfile.canonicalId.toLowerCase() === myCanon);
+            if (assignedProfile.canonicalId && myCanon &&
+                assignedProfile.canonicalId.toLowerCase() === myCanon) return true;
+            if (assignedProfile.uid && myUid &&
+                assignedProfile.uid.toLowerCase() === myUid) return true;
+            if (assignedProfile.uid && myAuthUid &&
+                assignedProfile.uid.toLowerCase() === myAuthUid) return true;
+            return false;
         }
 
         // Legacy records without an explicit courier ID may still use names.
@@ -2401,7 +2413,7 @@
                         try { tripsUnsubscribe?.(); } catch (_) {}
                         tripsUnsubscribe = null; tripsSubscriptionKey = ''; masterShipments = [];
                         navigateToScreen('login');
-                        if (user && !user.isAnonymous) showToast('Tautan ini khusus erimotor04@gmail.com. Masuk dengan akun Eri.');
+                        if (user && !user.isAnonymous) showToast(`Tautan ini khusus ${window.CourierWeb.account?.email || 'erimotor04@gmail.com'}. Masuk dengan akun ${window.CourierWeb.account?.name || 'Eri'}.`);
                         return;
                     }
                     if (user && !user.isAnonymous) {
@@ -2994,7 +3006,7 @@
     }
 
     function completeCourierLogin(profile, keepSignedIn, options = {}) {
-        if ((typeof window !== 'undefined' && window.CourierWeb?.scoped) && !window.CourierWeb.allows(profile)) { showToast('Tautan ini khusus akun Eri.'); return; }
+        if ((typeof window !== 'undefined' && window.CourierWeb?.scoped) && !window.CourierWeb.allows(profile)) { showToast(`Tautan ini khusus akun ${window.CourierWeb.account?.name || 'Eri'}.`); return; }
         const officialAvatar = resolveOfficialAvatar(profile);
         if (officialAvatar) {
             profile.avatar = officialAvatar;
@@ -3020,7 +3032,7 @@
         const account = findLoginCourierMatch(input);
         const email = input.includes('@') ? input : (account?.loginEmail || '');
         const pass = passInput?.value || '';
-        if ((typeof window !== 'undefined' && window.CourierWeb?.scoped) && email.toLowerCase() !== 'erimotor04@gmail.com') { showToast('Tautan ini khusus akun Eri.'); return; }
+        if ((typeof window !== 'undefined' && window.CourierWeb?.scoped) && email.toLowerCase() !== (window.CourierWeb.account?.email || 'erimotor04@gmail.com')) { showToast(`Tautan ini khusus akun ${window.CourierWeb.account?.name || 'Eri'}.`); return; }
         if (!email) {
             showToast('Masukkan email lengkap atau pilih kartu akun Anda.');
             return;
@@ -3043,7 +3055,7 @@
             const courierAuth = firebase.auth(typeof firebase.app === 'function' ? firebase.app('wtrack-courier') : undefined);
             if (typeof window !== 'undefined') await window.BrowserSession?.prepare(courierAuth);
             const cred = await courierAuth.signInWithEmailAndPassword(email, pass);
-            if ((typeof window !== 'undefined' && window.CourierWeb?.scoped) && !window.CourierWeb.allows(cred.user)) { showToast('Akun tidak sesuai dengan tautan Eri.'); return; }
+            if ((typeof window !== 'undefined' && window.CourierWeb?.scoped) && !window.CourierWeb.allows(cred.user)) { showToast(`Akun tidak sesuai dengan tautan ${window.CourierWeb.account?.name || 'Eri'}.`); return; }
             const user = cred.user;
             const profile = resolveCourierProfile(user.email || email, user.uid);
             const photo = resolveOfficialAvatar(profile);
@@ -3420,8 +3432,9 @@
         const adminSJHtml = `<div class="shipment-admin-sj"><i class="bi bi-person-vcard me-1"></i>Admin SJ: <strong>${escapeCardText(adminName || 'Belum diatur')}</strong></div>`;
 
         // Req 4: Hapus icon delete di kurir (baik di titik pengantaran aktif maupun riwayat)
+        const isCardExpanded = expandedShipmentCardId && String(expandedShipmentCardId) === String(s.id);
         return `
-            <div class="shipment-card${compact ? ' local-compact' : ''}" data-shipment-id="${s.id}" onclick="toggleExpandCard('${s.id}', this)">
+            <div class="shipment-card${compact ? ' local-compact' : ''}${isCardExpanded ? ' expanded' : ''}" data-shipment-id="${s.id}" onclick="toggleExpandCard('${s.id}', this)">
                 ${historyTagHtml}
                 <div class="shipment-card-top">
                     <div class="shipment-card-left">
@@ -4040,10 +4053,18 @@
         }
     }
 
+    var expandedShipmentCardId = null;
+
     function toggleExpandCard(cardId, clickedCard) {
+        const key = String(cardId || '');
+        const willOpen = expandedShipmentCardId !== key;
+        expandedShipmentCardId = willOpen ? key : null;
+        document.querySelectorAll('.shipment-card.expanded').forEach(el => {
+            if (el !== clickedCard) el.classList.remove('expanded');
+        });
         const card = clickedCard || Array.from(document.querySelectorAll('.shipment-card')).find(element => element.dataset.shipmentId === cardId && element.closest('.app-screen.active'));
         if (card) {
-            card.classList.toggle('expanded');
+            card.classList.toggle('expanded', willOpen);
         }
     }
 
@@ -5088,6 +5109,6 @@
 </script>
 <script src="js/courier_route.js?v=20261114.1"></script>
 
-<script src="js/courier_updates.js?v=20261117.1" data-build="793bde4acbba1741"></script>
+<script src="js/courier_updates.js?v=20261117.1" data-build="488dd9938a032c9f"></script>
 </body>
 </html>
