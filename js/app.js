@@ -145,9 +145,10 @@ let db = getDb();
 let storage = getStorage();
 let auth = getAuth();
 
-if (db) {
+if (db && !window.__firestoreSettingsApplied) {
     try {
         db.settings({ experimentalAutoDetectLongPolling: true, merge: true });
+        window.__firestoreSettingsApplied = true;
     } catch (e) {
         console.log("Firestore long polling settings info:", e);
     }

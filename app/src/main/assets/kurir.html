@@ -23,11 +23,11 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
     <!-- Firebase SDKs -->
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
     <script src="js/browser_session.js?v=20261118.1"></script>
     <script src="js/courier_web.js?v=20261126.1"></script>
 
@@ -2434,7 +2434,7 @@
             firebase.auth?.(typeof firebase.app === 'function' ? firebase.app('wtrack-courier') : undefined).onAuthStateChanged(() => window.FleetService?.connectCourier());
             if (firebase.firestore) {
                 firestoreDb = firebase.firestore(typeof firebase.app === 'function' ? firebase.app('wtrack-courier') : undefined);
-                try { firestoreDb?.enablePersistence?.({ synchronizeTabs: true })?.catch?.(() => {}); } catch (e) {}
+                try { firestoreDb?.settings?.({ experimentalAutoDetectLongPolling: true, merge: true }); } catch (e) {}
             }
             if (firebase.storage) {
                 firebaseStorage = firebase.storage(typeof firebase.app === 'function' ? firebase.app('wtrack-courier') : undefined);
@@ -5147,6 +5147,6 @@
 </script>
 <script src="js/courier_route.js?v=20261114.1"></script>
 
-<script src="js/courier_updates.js?v=20261117.1" data-build="ec8a2c67b69762e0"></script>
+<script src="js/courier_updates.js?v=20261117.1" data-build="35be0d67640857b4"></script>
 </body>
 </html>

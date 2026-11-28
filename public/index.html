@@ -27,11 +27,11 @@
     <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
 
     <!-- Firebase SDKs -->
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
 
     <script src="/js/browser_session.js?v=20261118.1"></script>
     <script src="/js/admin_runtime.js?v=20261122.1"></script>
@@ -89,7 +89,12 @@
         window.auth = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth() : null;
         window.BrowserSession?.prepare(window.auth);
         window.db = (typeof firebase !== 'undefined' && firebase.firestore) ? firebase.firestore() : null;
-        try { window.db?.enablePersistence?.({ synchronizeTabs: true })?.catch?.(() => {}); } catch (e) {}
+        if (window.db && !window.__firestoreSettingsApplied) {
+            try {
+                window.db.settings({ experimentalAutoDetectLongPolling: true, merge: true });
+                window.__firestoreSettingsApplied = true;
+            } catch (e) {}
+        }
         window.rtdb = (typeof firebase !== 'undefined' && firebase.database) ? firebase.database() : null;
         window.storage = (typeof firebase !== 'undefined' && firebase.storage) ? firebase.storage() : null;
 
@@ -3875,7 +3880,7 @@
 <script src="/js/fleet_vehicles.js?v=20261116.1"></script>
 <script src="js/delivery_identity.js?v=20261114.1"></script>
 <script src="/js/sj_links.js?v=20261118.2"></script>
-<script src="/js/app.js?v=20261122.2"></script>
+<script src="/js/app.js?v=20261128.1"></script>
 <script src="/js/customer_master.js?v=20261114.1"></script>
 <script src="/js/bulk_assignment.js?v=20261114.1"></script>
 <script src="/js/kpi.js?v=20261114.1"></script>
